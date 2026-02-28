@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────
+
+enum IntegrationType {
+  INSTANTLY
+  HUBSPOT
+  SALESFORCE
+  GOOGLE_SHEETS
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  ERROR
+  EXPIRED
+  DISCONNECTED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum LeadStatus {
+  SOURCED
+  SCORED
+  ENRICHED
+  DRAFTED
+  PUSHED
+  SKIPPED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SOURCING
+  SCORING
+  ENRICHING
+  DRAFTING
+  READY
+  PUSHED
+  ACTIVE
+}
+
+enum MemoryCategory {
+  GENERAL
+  COMPANY_CONTEXT
+  ICP_HISTORY
+  STYLE
+}
+
+enum FeedbackType {
+  THUMBS_UP
+  THUMBS_DOWN
+  USER_EDIT
+}
+
+// ─── Better Auth Core Models ──────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean   @default(false)
+  image         String?
+  workspaceId   String?
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id])
+  sessions      Session[]
+  accounts      Account[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?   @db.Text
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// ─── LeadSens Models ──────────────────────────────────────
+
+model Workspace {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  companyUrl String?
+  companyDna String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users          User[]
+  integrations   Integration[]
+  conversations  Conversation[]
+  leads          Lead[]
+  campaigns      Campaign[]
+  agentMemories  AgentMemory[]
+  agentFeedbacks AgentFeedback[]
+  aiEvents       AIEvent[]
+
+  @@map("workspace")
+}
+
+model Integration {
+  id           String            @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type         IntegrationType
+  apiKey       String?           @db.Text
+  accessToken  String?           @db.Text
+  refreshToken String?           @db.Text
+  expiresAt    DateTime?
+  accountEmail String?
+  accountName  String?
+  status       IntegrationStatus @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([workspaceId, type])
+  @@map("integration")
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String?
+  campaignId  String?  @unique
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  messages    Message[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("conversation")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String      @db.Text
+  toolName       String?
+  toolInput      Json?
+  toolOutput     Json?
+  componentName  String?
+  componentProps Json?
+  createdAt      DateTime    @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("message")
+}
+
+model Lead {
+  id              String     @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email           String
+  firstName       String?
+  lastName        String?
+  company         String?
+  jobTitle        String?
+  linkedinUrl     String?
+  phone           String?
+  website         String?
+  country         String?
+  companySize     String?
+  industry        String?
+  instantlyLeadId String?
+  instantlyListId String?
+  enrichmentData  Json?
+  enrichedAt      DateTime?
+  icpScore        Int?
+  icpBreakdown    Json?
+  campaignId      String?
+  campaign        Campaign?  @relation(fields: [campaignId], references: [id])
+  crmContactId    String?
+  status          LeadStatus @default(SOURCED)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  emails DraftedEmail[]
+
+  @@unique([workspaceId, email])
+  @@index([campaignId, status])
+  @@map("lead")
+}
+
+model Campaign {
+  id                  String         @id @default(cuid())
+  workspaceId         String
+  workspace           Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name                String
+  status              CampaignStatus @default(DRAFT)
+  icpDescription      String         @db.Text
+  icpFilters          Json
+  tone                String?        @db.Text
+  stepsCount          Int            @default(3)
+  instantlyCampaignId String?
+  instantlyListId     String?
+
+  // Stats
+  leadsTotal    Int @default(0)
+  leadsScored   Int @default(0)
+  leadsEnriched Int @default(0)
+  leadsDrafted  Int @default(0)
+  leadsPushed   Int @default(0)
+  leadsSkipped  Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads        Lead[]
+  draftedEmails DraftedEmail[]
+  conversation Conversation?
+
+  @@map("campaign")
+}
+
+model DraftedEmail {
+  id         String   @id @default(cuid())
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  step       Int
+  subject    String
+  body       String   @db.Text
+  model      String
+  tokensUsed Int?
+  approved   Boolean  @default(false)
+  userEdit   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@unique([leadId, step])
+  @@map("drafted_email")
+}
+
+model AgentMemory {
+  id          String         @id @default(cuid())
+  workspaceId String
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  key         String
+  value       String         @db.Text
+  category    MemoryCategory
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([workspaceId, key])
+  @@map("agent_memory")
+}
+
+model AgentFeedback {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type           FeedbackType
+  originalOutput String       @db.Text
+  userEdit       String?      @db.Text
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("agent_feedback")
+}
+
+model AIEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider    String   @default("mistral")
+  model       String
+  action      String
+  tokensIn    Int
+  tokensOut   Int
+  cost        Float
+  latencyMs   Int
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("ai_event")
+}
