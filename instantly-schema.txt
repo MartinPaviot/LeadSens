@@ -1,0 +1,5996 @@
+Search
+/
+Introduction
+Getting Started
+Help, Feedback, and FAQ
+Workspace Group
+Webhook Events
+OAuth Account API Integration Guide
+API V1 to API V2 Migration
+API Explorer
+Analytics
+OAuth
+Account
+Campaign
+Email
+Email Verification
+Lead List
+Inbox Placement Test
+Inbox Placement Analytics
+Inbox Placement Blacklist & SpamAssassin Report
+API Key
+Account Campaign Mapping
+Lead
+Background Job
+Custom Tag
+Custom Tag Mapping
+Block List Entry
+Lead Label
+Workspace
+SuperSearch Enrichment
+Workspace Group Member
+Workspace Member
+Campaign Subsequence
+Audit Log
+Webhook
+Webhook Event
+DFY Email Account Order
+Custom Prompt Template
+Sales Flow
+Email Template
+Workspace Billing
+CRM Actions
+Schemas
+Account
+SCHEMA
+Campaign
+SCHEMA
+Email
+SCHEMA
+Email Verification
+SCHEMA
+Lead List
+SCHEMA
+Inbox Placement Test
+SCHEMA
+Inbox Placement Analytics
+SCHEMA
+Inbox Placement Blacklist & SpamAssassin Report
+SCHEMA
+API Key
+SCHEMA
+Account Campaign Mapping
+SCHEMA
+Lead
+SCHEMA
+Background Job
+SCHEMA
+Custom Tag
+SCHEMA
+Custom Tag Mapping
+SCHEMA
+Block List Entry
+SCHEMA
+Lead Label
+SCHEMA
+Workspace
+SCHEMA
+SuperSearch Enrichment
+SCHEMA
+Workspace Group Member
+SCHEMA
+Workspace Member
+SCHEMA
+Campaign Subsequence
+SCHEMA
+Audit Log
+SCHEMA
+Webhook
+SCHEMA
+Webhook Event
+SCHEMA
+DFY Email Account Order
+SCHEMA
+Custom Prompt Template
+SCHEMA
+Sales Flow
+SCHEMA
+Email Template
+SCHEMA
+Workspace Billing
+SCHEMA
+CRM Actions
+SCHEMA
+Schemas
+API Explorer (2.0.0)
+
+The entire API V2 documentation is interactive and can be tested here. To the right side of every endpoint you will see a box with an example request. You can click on the "Try it" button to send a request to the server right from the docs. You will need to provide an API key by clicking the ApiKeyAuth_token blue text.
+
+Languages
+curl
+JavaScript
+Node.js
+Python
+Servers
+Instantly API Server
+
+https://api.instantly.ai/
+
+Mock server
+
+https://developer.instantly.ai/_mock/api/v2/
+
+Analytics
+
+Endpoints related to analytics
+
+Operations
+POST
+/api/v2/accounts/warmup-analytics
+GET
+/api/v2/accounts/analytics/daily
+POST
+/api/v2/accounts/test/vitals
+GET
+/api/v2/campaigns/analytics
+GET
+/api/v2/campaigns/analytics/overview
+GET
+/api/v2/campaigns/analytics/daily
+GET
+/api/v2/campaigns/analytics/steps
++ Show
+OAuth
+
+OAuth authentication endpoints for connecting Google and Microsoft email accounts
+
+Operations
+POST
+/api/v2/oauth/google/init
+POST
+/api/v2/oauth/microsoft/init
+GET
+/api/v2/oauth/session/status/{sessionId}
++ Show
+Account
+
+An email account that can be used to send campaigns
+
+Operations
+POST
+/api/v2/accounts
+GET
+/api/v2/accounts
+GET
+/api/v2/accounts/{email}
+PATCH
+/api/v2/accounts/{email}
+DELETE
+/api/v2/accounts/{email}
+POST
+/api/v2/accounts/warmup/enable
+POST
+/api/v2/accounts/warmup/disable
+POST
+/api/v2/accounts/warmup-analytics
+GET
+/api/v2/accounts/analytics/daily
+POST
+/api/v2/accounts/{email}/pause
+POST
+/api/v2/accounts/{email}/resume
+POST
+/api/v2/accounts/{email}/mark-fixed
+GET
+/api/v2/accounts/ctd/status
+POST
+/api/v2/accounts/test/vitals
+POST
+/api/v2/accounts/move
++ Show
+Campaign
+
+A campaign that can be sent to a list of recipients
+
+Operations
+POST
+/api/v2/campaigns
+GET
+/api/v2/campaigns
+POST
+/api/v2/campaigns/{id}/activate
+POST
+/api/v2/campaigns/{id}/pause
+GET
+/api/v2/campaigns/{id}
+PATCH
+/api/v2/campaigns/{id}
+DELETE
+/api/v2/campaigns/{id}
+GET
+/api/v2/campaigns/search-by-contact
+GET
+/api/v2/campaigns/analytics
+GET
+/api/v2/campaigns/analytics/overview
+GET
+/api/v2/campaigns/analytics/daily
+GET
+/api/v2/campaigns/analytics/steps
+POST
+/api/v2/campaigns/{id}/share
+POST
+/api/v2/campaigns/{id}/from-export
+POST
+/api/v2/campaigns/{id}/export
+POST
+/api/v2/campaigns/{id}/duplicate
+GET
+/api/v2/campaigns/count-launched
+POST
+/api/v2/campaigns/{id}/variables
+GET
+/api/v2/campaigns/{id}/sending-status
++ Show
+Email
+
+A campaign email, a reply, a manually sent email, or any other email that's visible in the Unibox
+
+Operations
+POST
+/api/v2/emails/reply
+POST
+/api/v2/emails/forward
+GET
+/api/v2/emails
+GET
+/api/v2/emails/{id}
+PATCH
+/api/v2/emails/{id}
+DELETE
+/api/v2/emails/{id}
+GET
+/api/v2/emails/unread/count
+POST
+/api/v2/emails/threads/{thread_id}/mark-as-read
++ Show
+Email Verification
+
+A single email verification
+
+Operations
+POST
+/api/v2/email-verification
+GET
+/api/v2/email-verification/{email}
++ Show
+Lead List
+
+A list used to store leads
+
+Operations
+POST
+/api/v2/lead-lists
+GET
+/api/v2/lead-lists
+GET
+/api/v2/lead-lists/{id}
+PATCH
+/api/v2/lead-lists/{id}
+DELETE
+/api/v2/lead-lists/{id}
+GET
+/api/v2/lead-lists/{id}/verification-stats
++ Show
+Inbox Placement Test
+
+An inbox placement test
+
+Operations
+POST
+/api/v2/inbox-placement-tests
+GET
+/api/v2/inbox-placement-tests
+GET
+/api/v2/inbox-placement-tests/{id}
+DELETE
+/api/v2/inbox-placement-tests/{id}
+PATCH
+/api/v2/inbox-placement-tests/{id}
+GET
+/api/v2/inbox-placement-tests/email-service-provider-options
++ Show
+Inbox Placement Analytics
+
+Analytics data for individual emails in inbox placement tests
+
+Operations
+GET
+/api/v2/inbox-placement-analytics
+GET
+/api/v2/inbox-placement-analytics/{id}
+POST
+/api/v2/inbox-placement-analytics/stats-by-test-id
+POST
+/api/v2/inbox-placement-analytics/deliverability-insights
+POST
+/api/v2/inbox-placement-analytics/stats-by-date
++ Show
+Inbox Placement Blacklist & SpamAssassin Report
+
+Report data for an inbox placement test
+
+Operations
+GET
+/api/v2/inbox-placement-reports
+GET
+/api/v2/inbox-placement-reports/{id}
++ Show
+API Key
+
+API Key
+
+Operations
+POST
+/api/v2/api-keys
+GET
+/api/v2/api-keys
+DELETE
+/api/v2/api-keys/{id}
++ Show
+Account Campaign Mapping
+
+Account Campaign Mapping
+
+Operations
+GET
+/api/v2/account-campaign-mappings/{email}
++ Show
+Lead
+
+A lead entity representing an individual lead
+
+Operations
+POST
+/api/v2/leads
+DELETE
+/api/v2/leads
+POST
+/api/v2/leads/list
+GET
+/api/v2/leads/{id}
+PATCH
+/api/v2/leads/{id}
+DELETE
+/api/v2/leads/{id}
+POST
+/api/v2/leads/merge
+POST
+/api/v2/leads/update-interest-status
+POST
+/api/v2/leads/subsequence/remove
+POST
+/api/v2/leads/bulk-assign
+POST
+/api/v2/leads/move
+POST
+/api/v2/leads/subsequence/move
+POST
+/api/v2/leads/add
++ Show
+Background Job
+
+A background job that can be used to perform long-running tasks
+
+Operations
+GET
+/api/v2/background-jobs
+GET
+/api/v2/background-jobs/{id}
++ Show
+Custom Tag
+
+A custom tag for organizing and categorizing accounts and campaigns. You can use them as filters in apis that list accounts and campaigns.
+
+Operations
+POST
+/api/v2/custom-tags
+GET
+/api/v2/custom-tags
+GET
+/api/v2/custom-tags/{id}
+PATCH
+/api/v2/custom-tags/{id}
+DELETE
+/api/v2/custom-tags/{id}
+POST
+/api/v2/custom-tags/toggle-resource
++ Show
+Custom Tag Mapping
+
+This entity represents a tag being assigned to a specific campaign or email account. When an email account is assigned a tag, a new custom tag mapping entry is created, which connects the tag (tag_id field) with the email account (resource_id field). You can use it to see which tag si connected to which resource.
+
+Operations
+GET
+/api/v2/custom-tag-mappings
++ Show
+Block List Entry
+
+A blocked email or domain
+
+Operations
+POST
+/api/v2/block-lists-entries
+GET
+/api/v2/block-lists-entries
+GET
+/api/v2/block-lists-entries/{id}
+PATCH
+/api/v2/block-lists-entries/{id}
+DELETE
+/api/v2/block-lists-entries/{id}
++ Show
+Lead Label
+
+A custom label for categorizing and managing leads
+
+Operations
+POST
+/api/v2/lead-labels
+GET
+/api/v2/lead-labels
+GET
+/api/v2/lead-labels/{id}
+PATCH
+/api/v2/lead-labels/{id}
+DELETE
+/api/v2/lead-labels/{id}
+POST
+/api/v2/lead-labels/ai-reply-label
++ Show
+Workspace
+
+A workspace entity representing a workspace
+
+Operations
+GET
+/api/v2/workspaces/current
+PATCH
+/api/v2/workspaces/current
+POST
+/api/v2/workspaces/current/whitelabel-domain
+GET
+/api/v2/workspaces/current/whitelabel-domain
+DELETE
+/api/v2/workspaces/current/whitelabel-domain
+POST
+/api/v2/workspaces/current/change-owner
++ Show
+SuperSearch Enrichment
+
+An enrichment can take different forms, such as email enrichment or LinkedIn enrichment. Leads may be imported from SuperSearch using the dedicated endpoint, or enriched directly within a list or campaign by attaching an enrichment to it.
+
+Operations
+POST
+/api/v2/supersearch-enrichment/enrich-leads-from-supersearch
+GET
+/api/v2/supersearch-enrichment/{resource_id}
+POST
+/api/v2/supersearch-enrichment
+PATCH
+/api/v2/supersearch-enrichment/{resource_id}/settings
+POST
+/api/v2/supersearch-enrichment/ai
+GET
+/api/v2/supersearch-enrichment/ai/{resource_id}/in-progress
+GET
+/api/v2/supersearch-enrichment/history/{resource_id}
+POST
+/api/v2/supersearch-enrichment/run
+POST
+/api/v2/supersearch-enrichment/count-leads-from-supersearch
+POST
+/api/v2/supersearch-enrichment/preview-leads-from-supersearch
++ Show
+Workspace Group Member
+
+A member of a workspace group. You can use the endpoints within this entity to manage the members of a workspace group.
+
+Operations
+POST
+/api/v2/workspace-group-members
+GET
+/api/v2/workspace-group-members
+GET
+/api/v2/workspace-group-members/{id}
+DELETE
+/api/v2/workspace-group-members/{id}
+GET
+/api/v2/workspace-group-members/admin
++ Show
+Workspace Member
+
+A member of a workspace with associated user details
+
+Operations
+POST
+/api/v2/workspace-members
+GET
+/api/v2/workspace-members
+GET
+/api/v2/workspace-members/{id}
+PATCH
+/api/v2/workspace-members/{id}
+DELETE
+/api/v2/workspace-members/{id}
++ Show
+Campaign Subsequence
+
+A subsequence entity representing a follow-up sequence
+
+Operations
+POST
+/api/v2/subsequences
+GET
+/api/v2/subsequences
+POST
+/api/v2/subsequences/{id}/duplicate
+POST
+/api/v2/subsequences/{id}/pause
+POST
+/api/v2/subsequences/{id}/resume
+GET
+/api/v2/subsequences/{id}
+PATCH
+/api/v2/subsequences/{id}
+DELETE
+/api/v2/subsequences/{id}
+GET
+/api/v2/subsequences/{id}/sending-status
++ Show
+Audit Log
+
+Audit log records for tracking system activities
+
+Operations
+GET
+/api/v2/audit-logs
++ Show
+Webhook
+
+A webhook subscription for receiving event notifications
+
+Operations
+GET
+/api/v2/webhooks
+POST
+/api/v2/webhooks
+GET
+/api/v2/webhooks/{id}
+PATCH
+/api/v2/webhooks/{id}
+DELETE
+/api/v2/webhooks/{id}
+GET
+/api/v2/webhooks/event-types
+POST
+/api/v2/webhooks/{id}/test
+POST
+/api/v2/webhooks/{id}/resume
++ Show
+Webhook Event
+
+A webhook event that was sent or attempted to be sent
+
+Operations
+GET
+/api/v2/webhook-events
+GET
+/api/v2/webhook-events/{id}
+GET
+/api/v2/webhook-events/summary
+GET
+/api/v2/webhook-events/summary-by-date
++ Show
+DFY Email Account Order
+
+A Done-For-You email account order
+
+Operations
+POST
+/api/v2/dfy-email-account-orders
+GET
+/api/v2/dfy-email-account-orders
+POST
+/api/v2/dfy-email-account-orders/domains/similar
+POST
+/api/v2/dfy-email-account-orders/domains/check
+POST
+/api/v2/dfy-email-account-orders/domains/pre-warmed-up-list
+GET
+/api/v2/dfy-email-account-orders/accounts
+POST
+/api/v2/dfy-email-account-orders/accounts/cancel
++ Show
+Custom Prompt Template
+
+Custom prompt templates for creating custom prompts
+
++ Show
+Sales Flow
+
+Manages how sales users view and interact with campaign and lead lists within the sales flow.
+
++ Show
+Email Template
+
+A campaign email template
+
++ Show
+Workspace Billing
+
+Workspace Billing
+
+Operations
+GET
+/api/v2/workspace-billing/plan-details
+GET
+/api/v2/workspace-billing/subscription-details
++ Show
+CRM Actions
+
+CRM related actions
+
+Operations
+GET
+/api/v2/crm-actions/phone-numbers
+DELETE
+/api/v2/crm-actions/phone-numbers/{id}
++ Show
+Schemas
+Account
+
+An email account that can be used to send campaigns
+
+email
+string
+(email)
+required
+
+Email address of the account
+
+Example:
+"user@example.com"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the account was created
+
+Example:
+"2026-02-28T22:39:27.104Z"
+timestamp_updated
+string
+(date-time)
+read-only
+required
+
+Timestamp when the account was last updated
+
+Example:
+"2026-02-28T22:39:27.104Z"
+first_name
+string
+required
+
+First name associated with the account
+
+Example:
+"John"
+last_name
+string
+required
+
+Last name associated with the account
+
+Example:
+"Doe"
+organization
+string
+(uuid)
+read-only
+required
+
+Organization ID that owns this account
+
+Example:
+"019ca668-1d80-7db5-a0b8-38b75473d9e3"
+warmup_status
+number
+read-only
+required
+
+Current warmup status of the account
+
+Enum Value	Description
+0	
+
+Paused
+
+
+1	
+
+Active
+
+
+-1	
+
+Banned
+
+
+-2	
+
+Spam Folder Unknown
+
+
+-3	
+
+Permanent Suspension
+
+Example:
+1
+provider_code
+number
+required
+
+Provider code for the account. Please make sure to specify the right provider code, otherwise your account will not work.
+
+Enum Value	Description
+1	
+
+Custom IMAP/SMTP
+
+
+2	
+
+Google
+
+
+3	
+
+Microsoft
+
+
+4	
+
+AWS
+
+
+8	
+
+AirMail
+
+Example:
+2
+setup_pending
+boolean
+read-only
+required
+
+Whether account setup is pending
+
+Example:
+false
+is_managed_account
+boolean
+read-only
+required
+
+Whether this is a managed account
+
+Example:
+false
+warmup
+object
+
+Warmup configuration for the account
+
++
+Show 5 properties
+added_by
+null or string
+(uuid)
+read-only
+
+User ID who added the account
+
+Example:
+"019ca668-1d80-7db5-a0b8-38b540f0d3e9"
+daily_limit
+null or number
+
+Daily email sending limit
+
+Example:
+100
+modified_by
+null or string
+(uuid)
+read-only
+
+User ID who last modified the account
+
+Example:
+"019ca668-1d80-7db5-a0b8-38b675ab7fe9"
+tracking_domain_name
+null or string
+
+Tracking domain
+
+Example:
+"example.com"
+tracking_domain_status
+null or string
+
+Tracking domain status
+
+Example:
+"active"
+status
+number
+read-only
+
+Current status of the account
+
+Enum Value	Description
+1	
+
+Active
+
+
+2	
+
+Paused
+
+
+3	
+
+Temporarily paused for maintenance; will be automatically resumed shortly
+
+
+-1	
+
+Connection Error
+
+
+-2	
+
+Soft Bounce Error
+
+
+-3	
+
+Sending Error
+
+Example:
+1
+enable_slow_ramp
+null or boolean
+
+Whether to enable slow ramp up for sending limits
+
+Example:
+false
+inbox_placement_test_limit
+null or number
+
+The limit for inbox placement tests
+
+Example:
+10
+timestamp_last_used
+null or string
+(date-time)
+read-only
+
+Timestamp when the account was last used
+
+Example:
+"2026-02-28T22:39:27.104Z"
+status_message
+object
+read-only
+
+Status message for the account
+
++
+Show 6 properties
+timestamp_warmup_start
+null or string
+(date-time)
+read-only
+
+Timestamp when warmup was started
+
+Example:
+"2026-02-28T22:39:27.104Z"
+warmup_pool_id
+null or string
+(uuid)
+read-only
+
+ID of the warmup pool this account belongs to
+
+Example:
+"019ca668-1d80-7db5-a0b8-38b80814ede6"
+dfy_password_changed
+null or boolean
+read-only
+
+Whether DFY password has been changed
+
+Example:
+false
+stat_warmup_score
+null or number
+read-only
+
+Warmup score for the account
+
+Example:
+85
+sending_gap
+number
+[ 0 .. 1440 ]
+
+The gap between emails sent from this account in minutes (minimum wait time when used with multiple campaigns)
+
+Example:
+10
+signature
+null or string
+
+Email signature for the account
+
+Example:
+"Best regards, John Doe"
+{
+  "email": "user@example.com",
+  "timestamp_created": "2026-02-28T22:39:27.104Z",
+  "timestamp_updated": "2026-02-28T22:39:27.104Z",
+  "first_name": "John",
+  "last_name": "Doe",
+  
+"warmup": {
+    "limit": 100,
+    
+"advanced": { … },
+    "warmup_custom_ftag": "warmup",
+    "increment": "disabled",
+    "reply_rate": 0.1
+  },
+  "added_by": "019ca668-1d80-7db5-a0b8-38b540f0d3e9",
+  "daily_limit": 100,
+  "modified_by": "019ca668-1d80-7db5-a0b8-38b675ab7fe9",
+  "tracking_domain_name": "example.com",
+  "tracking_domain_status": "active",
+  "status": 1,
+  "enable_slow_ramp": false,
+  "inbox_placement_test_limit": 10,
+  "organization": "019ca668-1d80-7db5-a0b8-38b75473d9e3",
+  "timestamp_last_used": "2026-02-28T22:39:27.104Z",
+  "warmup_status": 1,
+  
+"status_message": {
+    "code": "EENVELOPE",
+    "command": "DATA",
+    "response": "550-5.4.5 Daily user sending limit exceeded. For more information on Gmai",
+    "e_message": "error: data command failed: 550-5.4.5 daily user sending limit exceeded",
+    "responseCode": 550
+  },
+  "timestamp_warmup_start": "2026-02-28T22:39:27.104Z",
+  "provider_code": 2,
+  "setup_pending": false,
+  "warmup_pool_id": "019ca668-1d80-7db5-a0b8-38b80814ede6",
+  "is_managed_account": false,
+  "dfy_password_changed": false,
+  "stat_warmup_score": 85,
+  "sending_gap": 10,
+  "signature": "Best regards, John Doe"
+}
+Campaign
+
+A campaign that can be sent to a list of recipients
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the campaign
+
+Example:
+"019ca668-1d65-7c4f-984b-bd5d040203dd"
+name
+string
+required
+
+Name of the campaign
+
+Example:
+"My First Campaign"
+status
+number
+read-only
+required
+
+Campaign Status
+
+Enum Value	Description
+0	
+
+Draft
+
+
+1	
+
+Active
+
+
+2	
+
+Paused
+
+
+3	
+
+Completed
+
+
+4	
+
+Running Subsequences
+
+
+-99	
+
+Account Suspended
+
+
+-1	
+
+Accounts Unhealthy
+
+
+-2	
+
+Bounce Protect
+
+Example:
+1
+campaign_schedule
+object
+required
+
+Campaign schedule
+
+-
+campaign_schedule.​schedules
+Array of objects
+non-empty
+required
+-
+campaign_schedule.​schedules[].​name
+string
+required
+Example:
+"My Schedule"
+campaign_schedule.​schedules[].​timing
+object
+required
+-
+campaign_schedule.​schedules[].​timing.​from
+string
+^([01][0-9]|2[0-3]):([0-5][0-9])$
+required
+Example:
+"09:00"
+campaign_schedule.​schedules[].​timing.​to
+string
+^([01][0-9]|2[0-3]):([0-5][0-9])$
+required
+Example:
+"17:00"
+campaign_schedule.​schedules[].​days
+object
+non-empty
+required
+-
+campaign_schedule.​schedules[].​days.​0
+boolean
+Example:
+true
+campaign_schedule.​schedules[].​days.​1
+boolean
+Example:
+true
+campaign_schedule.​schedules[].​days.​2
+boolean
+Example:
+true
+campaign_schedule.​schedules[].​days.​3
+boolean
+Example:
+true
+campaign_schedule.​schedules[].​days.​4
+boolean
+Example:
+true
+campaign_schedule.​schedules[].​days.​5
+boolean
+Example:
+false
+campaign_schedule.​schedules[].​days.​6
+boolean
+Example:
+false
+campaign_schedule.​schedules[].​timezone
+string
+required
+Enum
+"Etc/GMT+12"
+"Etc/GMT+11"
+"Etc/GMT+10"
+"America/Anchorage"
+"America/Dawson"
+"America/Creston"
+"America/Chihuahua"
+"America/Boise"
+"America/Belize"
+"America/Chicago"
++92 more
+Example:
+"Etc/GMT+12"
+campaign_schedule.​start_date
+null or string
+(date)
+
+Start date in YYYY-MM-DD format. Uses the campaign's timezone.
+
+Example:
+"2025-09-25"
+campaign_schedule.​end_date
+null or string
+(date)
+
+End date in YYYY-MM-DD format. Uses the campaign's timezone.
+
+Example:
+"2025-09-25"
+timestamp_created
+string
+read-only
+required
+
+Timestamp when the campaign was created
+
+Example:
+"2026-02-28T22:39:27.077Z"
+timestamp_updated
+string
+read-only
+required
+
+Timestamp when the campaign was last updated
+
+Example:
+"2026-02-28T22:39:27.077Z"
+pl_value
+null or number
+
+Value of every positive lead
+
+Example:
+100
+is_evergreen
+null or boolean
+
+Whether the campaign is evergreen
+
+Example:
+false
+sequences
+Array of objects
+
+List of sequences (the actual email copy). Even though this field is an array, only the first element is used, so please provide only one array item, and add the steps to that array
+
++
+Show array property
+email_gap
+null or number
+
+The gap between emails in minutes
+
+Example:
+10
+random_wait_max
+null or number
+
+The maximum random wait time in minutes
+
+Example:
+10
+text_only
+null or boolean
+
+Whether the campaign is text only
+
+Example:
+false
+first_email_text_only
+null or boolean
+
+Whether the campaign is send the first email as a text only
+
+Example:
+false
+email_list
+Array of strings
+
+List of accounts to use for sending emails
+
+Example:
+["john@doe.com"]
+daily_limit
+null or number
+
+The daily limit for sending emails
+
+Example:
+100
+stop_on_reply
+null or boolean
+
+Whether to stop the campaign on reply
+
+Example:
+false
+email_tag_list
+Array of strings
+(uuid)
+
+List of tags to use for sending emails
+
+Example:
+["019ca668-1d65-7c4f-984b-bd5ed0adb115"]
+link_tracking
+null or boolean
+
+Whether to track links in emails
+
+Example:
+true
+open_tracking
+null or boolean
+
+Whether to track opens in emails
+
+Example:
+true
+stop_on_auto_reply
+null or boolean
+
+Whether to stop the campaign on auto reply
+
+Example:
+false
+daily_max_leads
+null or number
+
+The daily maximum new leads to contact
+
+Example:
+100
+prioritize_new_leads
+null or boolean
+
+Whether to prioritize new leads
+
+Example:
+false
+auto_variant_select
+null or object
+
+Auto variant select settings
+
++
+Show property
+match_lead_esp
+null or boolean
+
+Whether to match leads by ESP
+
+Example:
+false
+not_sending_status
+null or number
+read-only
+
+Campaign not sending status
+
+Enum Value	Description
+1	
+
+Campaign is currently not within its sending schedule.
+
+
+2	
+
+Campaign is currently waiting for a lead to process.
+
+
+3	
+
+Campaign has reached its daily sending limit.
+
+
+4	
+
+All sending accounts for this campaign have reached their daily sending limit.
+
+
+99	
+
+Campaign is currently not sending due to an error. Please contact support for assistance.
+
+Example:
+2
+stop_for_company
+null or boolean
+
+Whether to stop the campaign for the entire company(domain) when a lead replies
+
+Example:
+false
+core_variables
+null or object
+read-only
+
+Campaign core variables
+
++
+Show property
+custom_variables
+null or object
+read-only
+
+Campaign custom variables
+
++
+Show property
+insert_unsubscribe_header
+null or boolean
+
+Whether to insert an unsubscribe header in emails
+
+Example:
+false
+allow_risky_contacts
+null or boolean
+
+Whether to allow risky contacts
+
+Example:
+false
+disable_bounce_protect
+null or boolean
+
+Whether to disable bounce protection
+
+Example:
+false
+limit_emails_per_company_override
+null or object
+
+Overrides the workspace-wide limit emails per company setting for this campaign.
+
++
+Show 3 properties
+cc_list
+Array of strings
+(email)
+
+List of accounts to CC on emails
+
+Example:
+["john@doe.com"]
+bcc_list
+Array of strings
+(email)
+
+List of accounts to BCC on emails
+
+Example:
+["john@doe.com"]
+organization
+null or string
+(uuid)
+read-only
+
+Organization ID
+
+Example:
+"019ca668-1d65-7c4f-984b-bd5f03028edb"
+owned_by
+null or string
+(uuid)
+
+Owner ID
+
+Example:
+"019ca668-1d65-7c4f-984b-bd6007aa5b05"
+ai_sdr_id
+null or string
+(uuid)
+
+AI SDR ID that created this campaign
+
+Example:
+"019ca668-1d65-7c4f-984b-bd61783f3737"
+provider_routing_rules
+Array of objects
+
+Auto variant select settings
+
++
+Show 3 array properties
+{
+  "id": "019ca668-1d65-7c4f-984b-bd5d040203dd",
+  "name": "My First Campaign",
+  "pl_value": 100,
+  "status": 1,
+  "is_evergreen": false,
+  
+"campaign_schedule": {
+    "start_date": "2025-09-25",
+    "end_date": "2025-09-25",
+    
+"schedules": [ … ]
+  },
+  
+"sequences": [
+    
+{ … }
+  ],
+  "timestamp_created": "2026-02-28T22:39:27.077Z",
+  "timestamp_updated": "2026-02-28T22:39:27.077Z",
+  "email_gap": 10,
+  "random_wait_max": 10,
+  "text_only": false,
+  "first_email_text_only": false,
+  
+"email_list": [
+    "john@doe.com"
+  ],
+  "daily_limit": 100,
+  "stop_on_reply": false,
+  
+"email_tag_list": [
+    "019ca668-1d65-7c4f-984b-bd5ed0adb115"
+  ],
+  "link_tracking": true,
+  "open_tracking": true,
+  "stop_on_auto_reply": false,
+  "daily_max_leads": 100,
+  "prioritize_new_leads": false,
+  "auto_variant_select": null,
+  "match_lead_esp": false,
+  "not_sending_status": 2,
+  "stop_for_company": false,
+  "core_variables": null,
+  "custom_variables": null,
+  "insert_unsubscribe_header": false,
+  "allow_risky_contacts": false,
+  "disable_bounce_protect": false,
+  "limit_emails_per_company_override": null,
+  
+"cc_list": [
+    "john@doe.com"
+  ],
+  
+"bcc_list": [
+    "john@doe.com"
+  ],
+  "organization": "019ca668-1d65-7c4f-984b-bd5f03028edb",
+  "owned_by": "019ca668-1d65-7c4f-984b-bd6007aa5b05",
+  "ai_sdr_id": "019ca668-1d65-7c4f-984b-bd61783f3737",
+  
+"provider_routing_rules": [
+    
+{ … }
+  ]
+}
+Email
+
+A campaign email, a reply, a manually sent email, or any other email that's visible in the Unibox
+
+id
+string
+(uuid)
+read-only
+required
+
+A Unique identifier
+
+Example:
+"019ca668-1d85-7330-bc40-12d8e5b9f6da"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the email was added to our database. This is not the timestamp of the email itself, since the email could have been sent at a different time. Please check the timestamp_email field for the timestamp of the email.
+
+Example:
+"2026-02-28T22:39:27.109Z"
+timestamp_email
+string
+(date-time)
+read-only
+required
+
+The timestamp of the email, as provided by the email server. Please note that the timestamp is not always accurate, as it can be manipulated by the sender or the email server.
+
+Example:
+"2026-02-28T22:39:27.109Z"
+message_id
+string
+read-only
+required
+
+Unique email ID from the email server
+
+Example:
+"<example123@mail.gmail.com>"
+subject
+string
+required
+
+Subject line of the email message
+
+Example:
+"Re: Your inquiry"
+to_address_email_list
+string
+required
+
+Comma-separated list of recipient email addresses
+
+Example:
+"recipient@example.com"
+body
+object
+read-only
+required
+
+An object containing the email body in HTML and text format
+
+-
+body.​text
+string
+
+Text content of the email
+
+Example:
+"This is a test email"
+body.​html
+string
+
+HTML content of the email
+
+Example:
+"<p>This is a test email</p>"
+organization_id
+string
+(uuid)
+read-only
+required
+
+The workspace ID
+
+Example:
+"019ca668-1d85-7330-bc40-12d9cddad042"
+eaccount
+string
+required
+
+The email account that was used to send the email. This needs to be validated to make sure it exists in the user workspace
+
+Example:
+"eaccount-123"
+from_address_email
+null or string
+(email)
+read-only
+
+The sender email address, populated based on the eaccount
+
+Example:
+"sender@example.com"
+cc_address_email_list
+null or string
+
+Comma-separated list of CC email addresses
+
+Example:
+"cc@example.com"
+bcc_address_email_list
+null or string
+
+Comma-separated list of BCC email addresses
+
+Example:
+"bcc@example.com"
+reply_to
+null or string
+
+Reply-to email address
+
+Example:
+"replyto@example.com"
+campaign_id
+null or string
+(uuid)
+
+The id of the campaign that the email is associated with (it can be null for manually sent emails)
+
+Example:
+"019ca668-1d85-7330-bc40-12da95922d23"
+subsequence_id
+null or string
+(uuid)
+
+The id of the campaign subsequence that the email is associated with (it can be null for manually sent emails)
+
+Example:
+"019ca668-1d85-7330-bc40-12dba64c98d1"
+list_id
+null or string
+(uuid)
+
+The id of the list (if the lead is part of a list)
+
+Example:
+"019ca668-1d85-7330-bc40-12dc0a990aa2"
+lead
+null or string
+
+The email address of the lead that the email is associated with
+
+Example:
+"jondoe@example.com"
+lead_id
+null or string
+(uuid)
+
+The lead id (if any)
+
+Example:
+"019ca668-1d85-7330-bc40-12dd70f5868f"
+ue_type
+null or number
+
+Email type based on the life cycle of the email
+
+Enum Value	Description
+1	
+
+Sent from campaign
+
+
+2	
+
+Received
+
+
+3	
+
+Sent
+
+
+4	
+
+Scheduled
+
+Example:
+3
+step
+null or string
+
+The campaign step that the email is associated with
+
+Example:
+"step-123"
+is_unread
+null or number
+
+Indicates if the email is unread
+
+Example:
+1
+is_auto_reply
+null or number
+read-only
+
+Indicates if the email is an auto-reply. 0 (zero) - is false, and 1 is true
+
+Example:
+0
+reminder_ts
+null or string
+(date-time)
+
+Timestamp for the reminder.
+
+Example:
+"2026-02-28T22:39:27.109Z"
+ai_interest_value
+null or number
+
+AI interest value
+
+Example:
+0.75
+ai_assisted
+null or number
+
+Indicates if AI assistance was used
+
+Example:
+1
+is_focused
+null or number
+
+Indicates if the email is focused (is in the primary tab in the Unibox)
+
+Example:
+1
+i_status
+null or number
+
+Indicates the interest status of the email
+
+Example:
+0
+thread_id
+null or string
+(uuid)
+
+Identifier for the email thread. All the emails in the same thread have the same thread ID
+
+Example:
+"019ca668-1d85-7330-bc40-12ded554c5e4"
+content_preview
+null or string
+
+A short preview of the email content (usually the first few lines of the email)
+
+Example:
+"This is a preview of the email content."
+attachment_json
+null or object
+read-only
+
+Attachment metadata for the email. This field is null when there are no attachments.
+
+Example:
+{"files":[{"filename":"attachment","size":1927,"type":"text/css","url":"https://cdn.instantly.ai/example-attachment/","error":null}]}
++
+Show property
+from_address_json
+Array of null or arrays or null
+
+List of from address details
+
+to_address_json
+Array of null or arrays or null
+
+List of to address details
+
+cc_address_json
+Array of null or arrays or null
+
+List of CC address details
+
+ai_agent_id
+null or string
+(uuid)
+
+ID of the AI agent that sent this email (if applicable)
+
+Example:
+"019ca668-1d85-7330-bc40-12dfdb9201e8"
+{
+  "id": "019ca668-1d85-7330-bc40-12d8e5b9f6da",
+  "timestamp_created": "2026-02-28T22:39:27.109Z",
+  "timestamp_email": "2026-02-28T22:39:27.109Z",
+  "message_id": "<example123@mail.gmail.com>",
+  "subject": "Re: Your inquiry",
+  "from_address_email": "sender@example.com",
+  "to_address_email_list": "recipient@example.com",
+  "cc_address_email_list": "cc@example.com",
+  "bcc_address_email_list": "bcc@example.com",
+  "reply_to": "replyto@example.com",
+  
+"body": {
+    "text": "This is a test email",
+    "html": "<p>This is a test email</p>"
+  },
+  "organization_id": "019ca668-1d85-7330-bc40-12d9cddad042",
+  "campaign_id": "019ca668-1d85-7330-bc40-12da95922d23",
+  "subsequence_id": "019ca668-1d85-7330-bc40-12dba64c98d1",
+  "list_id": "019ca668-1d85-7330-bc40-12dc0a990aa2",
+  "lead": "jondoe@example.com",
+  "lead_id": "019ca668-1d85-7330-bc40-12dd70f5868f",
+  "eaccount": "eaccount-123",
+  "ue_type": 3,
+  "step": "step-123",
+  "is_unread": 1,
+  "is_auto_reply": 0,
+  "reminder_ts": "2026-02-28T22:39:27.109Z",
+  "ai_interest_value": 0.75,
+  "ai_assisted": 1,
+  "is_focused": 1,
+  "i_status": 0,
+  "thread_id": "019ca668-1d85-7330-bc40-12ded554c5e4",
+  "content_preview": "This is a preview of the email content.",
+  
+"attachment_json": {
+    
+"files": [ … ]
+  },
+  "from_address_json": null,
+  "to_address_json": null,
+  "cc_address_json": null,
+  "ai_agent_id": "019ca668-1d85-7330-bc40-12dfdb9201e8"
+}
+Email Verification
+
+A single email verification
+
+email
+string
+required
+
+The email address to verify
+
+Example:
+"example@example.com"
+verification_status
+string
+read-only
+required
+
+The verification status.
+
+Enum Value	Description
+pending	
+
+The verification is pending
+
+
+verified	
+
+The verification is verified
+
+
+invalid	
+
+The verification is invalid
+
+Example:
+"pending"
+status
+null or string
+read-only
+
+The request status. Do not use this field to determine the verification status. Please use verification_status instead to check the verification status
+
+Enum Value	Description
+success	
+
+The verification was successful
+
+
+error	
+
+The verification was unsuccessful
+
+Example:
+"success"
+catch_all
+boolean or string
+read-only
+
+Whether this is a catch-all email address
+
+Enum Value	Description
+false	
+
+The email is not a catch-all
+
+
+true	
+
+The email is a catch-all
+
+
+pending	
+
+The catch-all status is pending
+
+Example:
+true
+credits
+null or number
+read-only
+
+The number of verification credits available after the verification
+
+Example:
+100
+credits_used
+null or number
+read-only
+
+The number of verification credits used
+
+Example:
+1
+{
+  "status": "success",
+  "email": "example@example.com",
+  "verification_status": "pending",
+  "catch_all": true,
+  "credits": 100,
+  "credits_used": 1
+}
+Lead List
+
+A list used to store leads
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the lead list
+
+Example:
+"019ca668-1d77-7dc2-b8e0-865f8b8d29b7"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID that owns this lead list
+
+Example:
+"019ca668-1d77-7dc2-b8e0-866017248b8a"
+name
+string
+required
+
+Name of the lead list
+
+Example:
+"My Lead List"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the lead list was created
+
+Example:
+"2026-02-28T22:39:27.095Z"
+has_enrichment_task
+null or boolean
+
+Whether this list runs the enrichment process on every added lead or not
+
+Example:
+false
+owned_by
+null or string
+(uuid)
+
+User ID of the owner of this lead list. Defaults to the user that created the list
+
+Example:
+"019ca668-1d77-7dc2-b8e0-86618197690a"
+{
+  "id": "019ca668-1d77-7dc2-b8e0-865f8b8d29b7",
+  "organization_id": "019ca668-1d77-7dc2-b8e0-866017248b8a",
+  "has_enrichment_task": false,
+  "owned_by": "019ca668-1d77-7dc2-b8e0-86618197690a",
+  "name": "My Lead List",
+  "timestamp_created": "2026-02-28T22:39:27.095Z"
+}
+Inbox Placement Test
+
+An inbox placement test
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the inbox placement test
+
+Example:
+"019ca668-1d72-76db-b267-0edea03325b8"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID
+
+Example:
+"019ca668-1d72-76db-b267-0edf6c9ed6a0"
+name
+string
+required
+
+Name of the inbox placement test
+
+Example:
+"My Inbox Placement Test"
+type
+number
+required
+
+Whether the inbox placement test is a one-time test or an automated test
+
+Enum
+1
+2
+Example:
+1
+sending_method
+number
+required
+
+Whether the inbox placement test will be sent from Instantly or from outside Instantly
+
+Enum Value	Description
+1	
+
+From Instantly
+
+
+2	
+
+From Outside Instantly
+
+Example:
+1
+email_subject
+string
+required
+
+Email subject of the inbox placement test
+
+Example:
+"My Email Subject"
+email_body
+string
+required
+
+Email body of the inbox placement test
+
+Example:
+"Hi, this is my email body"
+emails
+Array of strings
+required
+
+Emails to send the inbox placement test to
+
+Example:
+["john@doe.com"]
+recipients
+Array of strings
+read-only
+required
+Example:
+["johndoe@instantly.ai"]
+timestamp_created
+string
+read-only
+required
+
+Timestamp when the inbox placement test was created
+
+Example:
+"2026-02-28T22:39:27.090Z"
+delivery_mode
+null or number
+
+Whether to send emails one by one or all together
+
+Enum Value	Description
+1	
+
+One by one
+
+
+2	
+
+All together
+
+Example:
+1
+description
+null or string
+
+Description of the inbox placement test
+
+Example:
+"This is a test description"
+schedule
+object
+
+Specifies the date and time when the automated inbox placement tests will be sent.
+
+Example:
+{"days":{"2":true,"3":true},"timing":{"from":"02:30"},"timezone":"America/Chihuahua"}
++
+Show 3 properties
+campaign_id
+null or string
+(uuid)
+
+Campaign ID
+
+Example:
+"019ca668-1d72-76db-b267-0ee0e6bff4ff"
+test_code
+null or string
+
+Code for identifying the inbox placement tests in the email body from outside Instantly
+
+Example:
+"ptid_9dn1ZJ8_m7KgErz26WeLG"
+tags
+Array of strings or null
+(uuid)
+
+List of tag IDs to use for sending emails
+
+text_only
+null or boolean
+
+Disables open tracking
+
+Example:
+true
+recipients_labels
+Array of objects
+
+A list of email providers and their corresponding types to which emails will be sent. To retrieve the available options, use the GET: /inbox-placement-tests/email-service-provider-options endpoint
+
++
+Show 4 array properties
+timestamp_next_run
+null or string
+
+Timestamp when the inbox placement test will run next
+
+Example:
+"2026-02-28T22:39:27.091Z"
+automations
+Array of objects or null
+>= 0 items
+
+Optional automations to trigger based on conditions
+
++
+Show 2 array properties
+status
+null or number
+
+Status of the inbox placement test
+
+Enum Value	Description
+1	
+
+Active
+
+
+2	
+
+Paused
+
+
+3	
+
+Completed
+
+Example:
+1
+not_sending_status
+null or string
+
+Why the inbox placement test is currently not sending. It will be an empty string if there are no issues.
+
+Enum Value	Description
+daily_limits_hit	
+
+Daily limits hit
+
+
+other	
+
+Other reason
+
+Example:
+"daily_limits_hit"
+{
+  "id": "019ca668-1d72-76db-b267-0edea03325b8",
+  "organization_id": "019ca668-1d72-76db-b267-0edf6c9ed6a0",
+  "name": "My Inbox Placement Test",
+  "delivery_mode": 1,
+  "description": "This is a test description",
+  
+"schedule": {
+    
+"days": { … },
+    
+"timing": { … },
+    "timezone": "America/Chihuahua"
+  },
+  "type": 1,
+  "sending_method": 1,
+  "campaign_id": "019ca668-1d72-76db-b267-0ee0e6bff4ff",
+  "email_subject": "My Email Subject",
+  "email_body": "Hi, this is my email body",
+  
+"emails": [
+    "john@doe.com"
+  ],
+  "test_code": "ptid_9dn1ZJ8_m7KgErz26WeLG",
+  "tags": null,
+  "text_only": true,
+  
+"recipients": [
+    "johndoe@instantly.ai"
+  ],
+  
+"recipients_labels": [
+    
+{ … }
+  ],
+  "timestamp_created": "2026-02-28T22:39:27.090Z",
+  "timestamp_next_run": "2026-02-28T22:39:27.091Z",
+  "automations": null,
+  "status": 1,
+  "not_sending_status": "daily_limits_hit"
+}
+Inbox Placement Analytics
+
+Analytics data for individual emails in inbox placement tests
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the inbox placement analytics entry
+
+Example:
+"019ca668-1d68-7a10-bdd2-dbfe21a142fd"
+timestamp_created
+string
+read-only
+required
+
+Timestamp when the inbox placement analytics was created
+
+Example:
+"2026-02-28T22:39:27.080Z"
+timestamp_created_date
+string
+read-only
+required
+
+Date when the inbox placement analytics was created
+
+Example:
+"2026-02-28"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID
+
+Example:
+"019ca668-1d68-7a10-bdd2-dbffee27c29f"
+test_id
+string
+(uuid)
+required
+
+Inbox Placement Test ID
+
+Example:
+"019ca668-1d68-7a10-bdd2-dc00ecd2ca72"
+is_spam
+null or boolean
+
+Indicates if the email landed in spam (null if not determined). Only present when record_type is 2 (received).
+
+Example:
+true
+has_category
+null or boolean
+
+Indicates if the email was categorized like promotions, social, etc. (null if not determined). Only present when record_type is 2 (received).
+
+Example:
+true
+sender_email
+null or string
+
+Email address of the sender
+
+Example:
+"sender@example.com"
+sender_esp
+null or number
+
+The sender ESP (Email Service Provider). Only present when record_type is 2 (received).
+
+Enum Value	Description
+1	
+
+Google
+
+
+2	
+
+Microsoft
+
+
+12	
+
+Web.de
+
+
+13	
+
+Libero.it
+
+Example:
+1
+recipient_email
+null or string
+
+Email address of the recipient
+
+Example:
+"recipient@example.com"
+recipient_esp
+null or number
+
+The recipient ESP (Email Service Provider)
+
+Enum Value	Description
+1	
+
+Google
+
+
+2	
+
+Microsoft
+
+
+12	
+
+Web.de
+
+
+13	
+
+Libero.it
+
+Example:
+1
+recipient_geo
+null or number
+
+The geographic location of the recipient
+
+Enum Value	Description
+1	
+
+United States
+
+
+2	
+
+Italy
+
+
+3	
+
+Germany
+
+
+4	
+
+France
+
+Example:
+1
+recipient_type
+null or number
+
+The type of recipient
+
+Enum Value	Description
+1	
+
+Professional
+
+
+2	
+
+Personal
+
+Example:
+1
+spf_pass
+null or boolean
+
+Indicates if the email passed SPF validation. Only present when record_type is 2 (received).
+
+Example:
+true
+dkim_pass
+null or boolean
+
+Indicates if the email passed DKIM validation. Only present when record_type is 2 (received).
+
+Example:
+true
+dmarc_pass
+null or boolean
+
+Indicates if the email passed DMARC validation. Only present when record_type is 2 (received).
+
+Example:
+true
+smtp_ip_blacklist_report
+null or object
+
+Blacklist report for the SMTP IP address. Only present when record_type is 2 (received).
+
+authentication_failure_results
+null or object
+
+Details of authentication failures for SPF, DKIM, and DMARC. Only present when record_type is 2 (received).
+
++
+Show 3 properties
+record_type
+null or number
+
+The type of record (sent or received)
+
+Enum Value	Description
+1	
+
+Sent
+
+
+2	
+
+Received
+
+Example:
+1
+{
+  "id": "019ca668-1d68-7a10-bdd2-dbfe21a142fd",
+  "timestamp_created": "2026-02-28T22:39:27.080Z",
+  "timestamp_created_date": "2026-02-28",
+  "organization_id": "019ca668-1d68-7a10-bdd2-dbffee27c29f",
+  "test_id": "019ca668-1d68-7a10-bdd2-dc00ecd2ca72",
+  "is_spam": true,
+  "has_category": true,
+  "sender_email": "sender@example.com",
+  "sender_esp": 1,
+  "recipient_email": "recipient@example.com",
+  "recipient_esp": 1,
+  "recipient_geo": 1,
+  "recipient_type": 1,
+  "spf_pass": true,
+  "dkim_pass": true,
+  "dmarc_pass": true,
+  "smtp_ip_blacklist_report": null,
+  "authentication_failure_results": null,
+  "record_type": 1
+}
+Inbox Placement Blacklist & SpamAssassin Report
+
+Report data for an inbox placement test
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the inbox placement report entry
+
+Example:
+"019ca668-1d6a-7285-9e32-a1ccdaee963b"
+timestamp_created
+string
+read-only
+required
+
+Timestamp when the inbox placement report was created
+
+Example:
+"2026-02-28T22:39:27.082Z"
+timestamp_created_date
+string
+read-only
+required
+
+Date when the inbox placement report was created
+
+Example:
+"2026-02-28"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID
+
+Example:
+"019ca668-1d6a-7285-9e32-a1cd45adcafb"
+test_id
+string
+(uuid)
+read-only
+required
+
+Inbox Placement Test ID
+
+Example:
+"019ca668-1d6a-7285-9e32-a1ce5c4f7de1"
+domain
+string
+read-only
+required
+
+Domain of the inbox placement report
+
+Example:
+"growinstantly.com"
+domain_ip
+string
+read-only
+required
+
+IP address of the domain
+
+Example:
+"192.168.1.1"
+spam_assassin_score
+number
+read-only
+required
+
+SpamAssassin score for the email, indicating spam likelihood
+
+Example:
+2.5
+domain_blacklist_count
+null or number
+read-only
+
+Count of blacklists the domain is listed on
+
+Example:
+5
+domain_ip_blacklist_count
+null or number
+read-only
+
+Count of blacklists the domain IP is listed on
+
+Example:
+3
+spam_assassin_report
+object
+read-only
+
+Detailed SpamAssassin analysis report
+
++
+Show 3 properties
+blacklist_report
+object
+read-only
+
+Detailed blacklist report for the domain or IP
+
++
+Show 6 properties
+{
+  "id": "019ca668-1d6a-7285-9e32-a1ccdaee963b",
+  "timestamp_created": "2026-02-28T22:39:27.082Z",
+  "timestamp_created_date": "2026-02-28",
+  "organization_id": "019ca668-1d6a-7285-9e32-a1cd45adcafb",
+  "test_id": "019ca668-1d6a-7285-9e32-a1ce5c4f7de1",
+  "domain_blacklist_count": 5,
+  "domain": "growinstantly.com",
+  "domain_ip": "192.168.1.1",
+  "domain_ip_blacklist_count": 3,
+  "spam_assassin_score": 2.5,
+  
+"spam_assassin_report": {
+    "is_spam": false,
+    
+"report": [ … ],
+    "spam_score": 0
+  },
+  
+"blacklist_report": {
+    "address": "growinstantly.com",
+    "blacklisted_count": 5,
+    
+"details": [ … ],
+    "ip": "104.21.62.47",
+    "is_blacklisted": true,
+    "is_domain": true
+  }
+}
+API Key
+
+API Key
+
+id
+string
+(uuid)
+read-only
+required
+Example:
+"019ca668-1d47-734c-89a0-5c6cad0c5f94"
+name
+string
+required
+Example:
+"My API Key"
+scopes
+Array of strings
+required
+Items Enum
+"all:all"
+"all:create"
+"all:read"
+"all:update"
+"all:delete"
+"ai_agents:all"
+"ai_agents:create"
+"ai_agents:read"
+"ai_agents:update"
+"ai_agents:delete"
++163 more
+Example:
+["campaigns:create"]
+key
+string
+read-only
+required
+Example:
+"a1b2c3d4e5f6g7h8i9j0"
+organization_id
+string
+(uuid)
+read-only
+required
+Example:
+"019ca668-1d5f-769c-bcbf-838dbc4e2f25"
+timestamp_created
+string
+(date-time)
+read-only
+required
+Example:
+"2026-02-28T22:39:27.071Z"
+timestamp_updated
+string
+(date-time)
+read-only
+required
+Example:
+"2026-02-28T22:39:27.071Z"
+{
+  "id": "019ca668-1d47-734c-89a0-5c6cad0c5f94",
+  "name": "My API Key",
+  
+"scopes": [
+    "campaigns:create"
+  ],
+  "key": "a1b2c3d4e5f6g7h8i9j0",
+  "organization_id": "019ca668-1d5f-769c-bcbf-838dbc4e2f25",
+  "timestamp_created": "2026-02-28T22:39:27.071Z",
+  "timestamp_updated": "2026-02-28T22:39:27.071Z"
+}
+Account Campaign Mapping
+
+Account Campaign Mapping
+
+campaign_id
+string
+(uuid)
+required
+Example:
+"019ca668-1d45-7894-b724-67a114b9eb27"
+campaign_name
+string
+required
+Example:
+"Campaign Name"
+timestamp_created
+string
+read-only
+required
+
+Timestamp when the campaign was created
+
+Example:
+"2026-02-28T22:39:27.045Z"
+status
+number
+
+Campaign Status
+
+Enum Value	Description
+0	
+
+Draft
+
+
+1	
+
+Active
+
+
+2	
+
+Paused
+
+
+3	
+
+Completed
+
+
+4	
+
+Running Subsequences
+
+
+-99	
+
+Account Suspended
+
+
+-1	
+
+Accounts Unhealthy
+
+
+-2	
+
+Bounce Protect
+
+Example:
+1
+{
+  "campaign_id": "019ca668-1d45-7894-b724-67a114b9eb27",
+  "campaign_name": "Campaign Name",
+  "timestamp_created": "2026-02-28T22:39:27.045Z",
+  "status": 1
+}
+Lead
+
+A lead entity representing an individual lead
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the lead
+
+Example:
+"019ca668-122c-7699-863f-6d7572e3ae1a"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the lead was created
+
+Example:
+"2026-02-28T22:39:24.205Z"
+timestamp_updated
+string
+(date-time)
+read-only
+required
+
+Timestamp when the lead was last updated
+
+Example:
+"2026-02-28T22:39:24.205Z"
+organization
+string
+(uuid)
+read-only
+required
+
+Organization ID associated with the lead
+
+Example:
+"019ca668-122d-73e9-9810-0d3d5901ea1c"
+status
+number
+read-only
+required
+
+Status of the lead
+
+Enum Value	Description
+1	
+
+Active
+
+
+2	
+
+Paused
+
+
+3	
+
+Completed
+
+
+-1	
+
+Bounced
+
+
+-2	
+
+Unsubscribed
+
+
+-3	
+
+Skipped
+
+Example:
+1
+email_open_count
+number
+read-only
+required
+
+Number of times the email was opened
+
+Example:
+0
+email_reply_count
+number
+read-only
+required
+
+Number of times the email was replied to
+
+Example:
+0
+email_click_count
+number
+read-only
+required
+
+Number of times the email was clicked
+
+Example:
+0
+company_domain
+string
+read-only
+required
+
+Company domain of the lead
+
+Example:
+"example.com"
+status_summary
+object
+read-only
+required
+
+Status summary of the lead
+
+-
+status_summary.​lastStep
+object
++
+Show 3 properties
+status_summary.​domain_complete
+boolean
+Example:
+true
+campaign
+null or string
+(uuid)
+
+Campaign ID associated with the lead
+
+Example:
+"019ca668-122d-73e9-9810-0d3ecfdba854"
+email
+null or string
+
+Email address of the lead
+
+Example:
+"example@example.com"
+personalization
+null or string
+
+Personalization of the lead
+
+Example:
+"Hello, how are you?"
+website
+null or string
+
+Website of the lead
+
+Example:
+"https://example.com"
+last_name
+null or string
+
+Last name of the lead
+
+Example:
+"Doe"
+first_name
+null or string
+
+First name of the lead
+
+Example:
+"John"
+company_name
+null or string
+
+Company name of the lead
+
+Example:
+"Example Inc."
+phone
+null or string
+
+Phone number of the lead
+
+Example:
+"+1234567890"
+payload
+null or object
+read-only
+
+Lead custom variables. This object can contain any key, but the values have to be of type string, number, boolean, or null. We do NOT allow objects or arrays as values.
+
++
+Show 7 properties
+status_summary_subseq
+object
+read-only
+
+Subsequence status summary of the lead
+
++
+Show 3 properties
+last_step_from
+null or string
+read-only
+
+Source of the last step
+
+Example:
+"campaign"
+last_step_id
+null or string
+(uuid)
+read-only
+
+ID of the last step
+
+Example:
+"019ca668-122e-7a1e-94bb-e0c38fab4737"
+last_step_timestamp_executed
+null or string
+(date-time)
+read-only
+
+Timestamp when the last step was executed
+
+Example:
+"2026-02-28T22:39:24.206Z"
+email_opened_step
+null or number
+read-only
+
+Last email step opened by the lead
+
+Example:
+1
+email_opened_variant
+null or number
+read-only
+
+Last step variant opened by the lead
+
+Example:
+1
+email_replied_step
+null or number
+read-only
+
+Last email step the lead has replied to
+
+Example:
+1
+email_replied_variant
+null or number
+read-only
+
+Last step variant the lead has replied to
+
+Example:
+1
+email_clicked_step
+null or number
+read-only
+
+Last email step the lead has clicked
+
+Example:
+1
+email_clicked_variant
+null or number
+read-only
+
+Last step variant the lead has clicked
+
+Example:
+1
+lt_interest_status
+number
+
+Lead interest status. It can be either a static value (check below), or a custom status interest value
+
+Enum Value	Description
+0	
+
+Out of Office
+
+
+1	
+
+Interested
+
+
+2	
+
+Meeting Booked
+
+
+3	
+
+Meeting Completed
+
+
+4	
+
+Won
+
+
+-1	
+
+Not Interested
+
+
+-2	
+
+Wrong Person
+
+
+-3	
+
+Lost
+
+
+-4	
+
+No Show
+
+Example:
+1
+subsequence_id
+null or string
+read-only
+
+ID of the subsequence
+
+Example:
+"019ca668-122e-7a1e-94bb-e0c458f7ab9d"
+verification_status
+number
+read-only
+
+Verification status of the lead
+
+Enum Value	Description
+1	
+
+Verified
+
+
+11	
+
+Pending
+
+
+12	
+
+Pending Verification Job
+
+
+-1	
+
+Invalid
+
+
+-2	
+
+Risky
+
+
+-3	
+
+Catch All
+
+
+-4	
+
+Job Change
+
+Example:
+1
+pl_value_lead
+null or string
+
+Potential value of the lead
+
+Example:
+"High"
+timestamp_added_subsequence
+null or string
+(date-time)
+read-only
+
+Timestamp when the lead was added to the subsequence
+
+Example:
+"2026-02-28T22:39:24.206Z"
+timestamp_last_contact
+null or string
+(date-time)
+read-only
+
+Timestamp of the last contact with the lead
+
+Example:
+"2026-02-28T22:39:24.206Z"
+timestamp_last_open
+null or string
+(date-time)
+read-only
+
+Timestamp of the last email open
+
+Example:
+"2026-02-28T22:39:24.206Z"
+timestamp_last_reply
+null or string
+(date-time)
+read-only
+
+Timestamp of the last email reply
+
+Example:
+"2026-02-28T22:39:24.206Z"
+timestamp_last_interest_change
+null or string
+(date-time)
+read-only
+
+Timestamp of the last interest status change
+
+Example:
+"2026-02-28T22:39:24.206Z"
+timestamp_last_click
+null or string
+(date-time)
+read-only
+
+Timestamp of the last email click
+
+Example:
+"2026-02-28T22:39:24.206Z"
+enrichment_status
+number
+read-only
+
+Enrichment status of the lead
+
+Enum Value	Description
+1	
+
+Enriched
+
+
+11	
+
+Pending
+
+
+-1	
+
+Enrichment data not available
+
+
+-2	
+
+Error
+
+Example:
+1
+list_id
+null or string
+(uuid)
+
+List ID associated with the lead
+
+Example:
+"019ca668-122e-7a1e-94bb-e0c516e1f3f0"
+last_contacted_from
+null or string
+read-only
+
+Source of the last contact
+
+Example:
+"email"
+uploaded_by_user
+null or string
+(uuid)
+read-only
+
+ID of the user who uploaded the lead
+
+Example:
+"019ca668-122e-7a1e-94bb-e0c60bb9e606"
+upload_method
+string
+read-only
+
+Method used to upload the lead
+
+Enum Value	Description
+manual	
+
+Manual
+
+
+api	
+
+API
+
+
+website-visitor	
+
+Website Visitor
+
+Example:
+"manual"
+assigned_to
+null or string
+(uuid)
+
+ID of the user assigned to the lead
+
+Example:
+"019ca668-122e-7a1e-94bb-e0c7b44660f5"
+is_website_visitor
+null or boolean
+read-only
+
+Indicates if the lead is a website visitor
+
+Example:
+true
+timestamp_last_touch
+null or string
+(date-time)
+read-only
+
+Timestamp of the last touch with the lead
+
+Example:
+"2026-02-28T22:39:24.206Z"
+esp_code
+number
+read-only
+
+ESP code associated with the lead
+
+Enum Value	Description
+0	
+
+In Queue
+
+
+1	
+
+Google
+
+
+2	
+
+Microsoft
+
+
+3	
+
+Zoho
+
+
+8	
+
+AirMail
+
+
+9	
+
+Yahoo
+
+
+10	
+
+Yandex
+
+
+12	
+
+Web.de
+
+
+13	
+
+Libero.it
+
+
+999	
+
+Other
+
+
++1 more
+Example:
+1
+esg_code
+number
+read-only
+
+ESG code associated with the lead
+
+Enum Value	Description
+0	
+
+In Queue
+
+
+1	
+
+Barracuda
+
+
+2	
+
+Mimecast
+
+
+3	
+
+Proofpoint
+
+
+4	
+
+Cisco
+
+Example:
+1
+{
+  "id": "019ca668-122c-7699-863f-6d7572e3ae1a",
+  "timestamp_created": "2026-02-28T22:39:24.205Z",
+  "timestamp_updated": "2026-02-28T22:39:24.205Z",
+  "organization": "019ca668-122d-73e9-9810-0d3d5901ea1c",
+  "campaign": "019ca668-122d-73e9-9810-0d3ecfdba854",
+  "status": 1,
+  "email": "example@example.com",
+  "personalization": "Hello, how are you?",
+  "website": "https://example.com",
+  "last_name": "Doe",
+  "first_name": "John",
+  "company_name": "Example Inc.",
+  "phone": "+1234567890",
+  "email_open_count": 0,
+  "email_reply_count": 0,
+  "email_click_count": 0,
+  "company_domain": "example.com",
+  
+"status_summary": {
+    
+"lastStep": { … },
+    "domain_complete": true
+  },
+  "payload": null,
+  
+"status_summary_subseq": {
+    "from": "campaign",
+    "stepID": "019ca668-122d-73e9-9810-0d40f8cadd1e",
+    "timestampExecuted": "2026-02-28T22:39:24.206Z"
+  },
+  "last_step_from": "campaign",
+  "last_step_id": "019ca668-122e-7a1e-94bb-e0c38fab4737",
+  "last_step_timestamp_executed": "2026-02-28T22:39:24.206Z",
+  "email_opened_step": 1,
+  "email_opened_variant": 1,
+  "email_replied_step": 1,
+  "email_replied_variant": 1,
+  "email_clicked_step": 1,
+  "email_clicked_variant": 1,
+  "lt_interest_status": 1,
+  "subsequence_id": "019ca668-122e-7a1e-94bb-e0c458f7ab9d",
+  "verification_status": 1,
+  "pl_value_lead": "High",
+  "timestamp_added_subsequence": "2026-02-28T22:39:24.206Z",
+  "timestamp_last_contact": "2026-02-28T22:39:24.206Z",
+  "timestamp_last_open": "2026-02-28T22:39:24.206Z",
+  "timestamp_last_reply": "2026-02-28T22:39:24.206Z",
+  "timestamp_last_interest_change": "2026-02-28T22:39:24.206Z",
+  "timestamp_last_click": "2026-02-28T22:39:24.206Z",
+  "enrichment_status": 1,
+  "list_id": "019ca668-122e-7a1e-94bb-e0c516e1f3f0",
+  "last_contacted_from": "email",
+  "uploaded_by_user": "019ca668-122e-7a1e-94bb-e0c60bb9e606",
+  "upload_method": "manual",
+  "assigned_to": "019ca668-122e-7a1e-94bb-e0c7b44660f5",
+  "is_website_visitor": true,
+  "timestamp_last_touch": "2026-02-28T22:39:24.206Z",
+  "esp_code": 1,
+  "esg_code": 1
+}
+Background Job
+
+A background job that can be used to perform long-running tasks
+
+id
+string
+read-only
+required
+
+Unique identifier for the background job
+
+Example:
+"675266e304a8e55b17f0228b"
+workspace_id
+string
+(uuid)
+read-only
+required
+
+Workspace ID
+
+Example:
+"019ca668-1d7a-75d1-99ea-8abaf37967d4"
+type
+string
+required
+
+Type of background job
+
+Enum Value	Description
+move-leads	
+
+Move Leads
+
+
+import-leads	
+
+Import Leads
+
+
+export-leads	
+
+Export Leads
+
+
+update-warmup-accounts	
+
+Update Warmup Accounts
+
+
+rename-variable	
+
+Rename Variable
+
+Example:
+"move-leads"
+progress
+number
+[ 0 .. 100 ]
+required
+
+Progress of the job as a percentage (from 0 to 100)
+
+Example:
+0
+status
+string
+required
+
+Job status
+
+Enum Value	Description
+pending	
+
+The background job is waiting in the queue to be processed
+
+
+in-progress	
+
+The background job is being processed
+
+
+success	
+
+The background job has been successfully processed
+
+
+failed	
+
+The background job has failed
+
+Example:
+"pending"
+created_at
+string
+required
+
+Timestamp when the job was created
+
+Example:
+"2026-02-28T22:39:27.098Z"
+updated_at
+string
+required
+
+Timestamp when the job was last updated
+
+Example:
+"2026-02-28T22:39:27.098Z"
+user_id
+null or string
+(uuid)
+read-only
+
+The id of the user that triggered the action that created the job
+
+Example:
+"019ca668-1d7a-75d1-99ea-8abbecf9dac4"
+entity_id
+null or string
+(uuid)
+
+The id of the entity that the job is related to
+
+Example:
+"019ca668-1d7a-75d1-99ea-8abc095463ed"
+entity_type
+string
+
+Type of entity
+
+Enum Value	Description
+list	
+
+The entity is a lead list
+
+
+campaign	
+
+The entity is a campaign
+
+
+workspace	
+
+The entity is a workspace
+
+Example:
+"list"
+data
+object
+
+Data about the job, used to store any additional information we need to process the job
+
++
+Show property
+{
+  "id": "675266e304a8e55b17f0228b",
+  "workspace_id": "019ca668-1d7a-75d1-99ea-8abaf37967d4",
+  "user_id": "019ca668-1d7a-75d1-99ea-8abbecf9dac4",
+  "type": "move-leads",
+  "entity_id": "019ca668-1d7a-75d1-99ea-8abc095463ed",
+  "entity_type": "list",
+  "data": {},
+  "progress": 0,
+  "status": "pending",
+  "created_at": "2026-02-28T22:39:27.098Z",
+  "updated_at": "2026-02-28T22:39:27.098Z"
+}
+Custom Tag
+
+A custom tag for organizing and categorizing accounts and campaigns. You can use them as filters in apis that list accounts and campaigns.
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the custom tag
+
+Example:
+"019ca668-1d7b-78e0-b9ff-cb5211725b19"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the custom tag was created
+
+Example:
+"2026-02-28T22:39:27.099Z"
+timestamp_updated
+string
+(date-time)
+read-only
+required
+
+Timestamp when the custom tag was last updated
+
+Example:
+"2026-02-28T22:39:27.099Z"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID that owns this custom tag
+
+Example:
+"019ca668-1d7b-78e0-b9ff-cb53e031370e"
+label
+string
+required
+
+Display label for the custom tag
+
+Example:
+"Important"
+description
+null or string
+
+Detailed description of the custom tag purpose
+
+Example:
+"Used for marking important items"
+{
+  "id": "019ca668-1d7b-78e0-b9ff-cb5211725b19",
+  "timestamp_created": "2026-02-28T22:39:27.099Z",
+  "timestamp_updated": "2026-02-28T22:39:27.099Z",
+  "organization_id": "019ca668-1d7b-78e0-b9ff-cb53e031370e",
+  "label": "Important",
+  "description": "Used for marking important items"
+}
+Custom Tag Mapping
+
+This entity represents a tag being assigned to a specific campaign or email account. When an email account is assigned a tag, a new custom tag mapping entry is created, which connects the tag (tag_id field) with the email account (resource_id field). You can use it to see which tag si connected to which resource.
+
+id
+string
+(uuid)
+read-only
+required
+
+A Unique identifier
+
+Example:
+"019ca668-1dd4-7535-b2c1-715220bc6bf8"
+tag_id
+string
+(uuid)
+read-only
+required
+
+ID of the tag this custom mapping belongs to
+
+Example:
+"019ca668-1dd4-7535-b2c1-71531f971ef1"
+resource_id
+string
+(uuid)
+read-only
+required
+
+ID of the resource custom tag mapping belongs to, resource_type determines the type of resource
+
+Example:
+"019ca668-1dd4-7535-b2c1-71549b179c87"
+resource_type
+number
+read-only
+required
+
+Resource type of custom tag, can be 1 for campaigns or 2 for accounts
+
+Enum Value	Description
+1	
+
+Account
+
+
+2	
+
+Campaign
+
+Example:
+1
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the custom tag mapping was created
+
+Example:
+"2026-02-28T22:39:27.188Z"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID that owns this custom tag mapping
+
+Example:
+"019ca668-1dd4-7535-b2c1-71559f997c65"
+{
+  "id": "019ca668-1dd4-7535-b2c1-715220bc6bf8",
+  "tag_id": "019ca668-1dd4-7535-b2c1-71531f971ef1",
+  "resource_id": "019ca668-1dd4-7535-b2c1-71549b179c87",
+  "resource_type": 1,
+  "timestamp_created": "2026-02-28T22:39:27.188Z",
+  "organization_id": "019ca668-1dd4-7535-b2c1-71559f997c65"
+}
+Block List Entry
+
+A blocked email or domain
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the block list entry
+
+Example:
+"019ca668-1d81-70ad-bc67-e91da95c0b52"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the block list entry was created
+
+Example:
+"2026-02-28T22:39:27.105Z"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID that owns this block list entry
+
+Example:
+"019ca668-1d81-70ad-bc67-e91e2957ffe4"
+bl_value
+string
+required
+
+The email or domain to block
+
+Example:
+"example.com"
+is_domain
+boolean
+read-only
+required
+
+Whether this entry blocks an entire domain
+
+Example:
+true
+{
+  "id": "019ca668-1d81-70ad-bc67-e91da95c0b52",
+  "timestamp_created": "2026-02-28T22:39:27.105Z",
+  "organization_id": "019ca668-1d81-70ad-bc67-e91e2957ffe4",
+  "bl_value": "example.com",
+  "is_domain": true
+}
+Lead Label
+
+A custom label for categorizing and managing leads
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the custom lead label
+
+Example:
+"019ca668-1d88-79e9-bd9c-498731872f25"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the custom lead label was created
+
+Example:
+"2026-02-28T22:39:27.112Z"
+created_by
+string
+(uuid)
+read-only
+required
+
+User ID of the creator of this label
+
+Example:
+"019ca668-1d88-79e9-bd9c-4988455eb514"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID that owns this custom lead label
+
+Example:
+"019ca668-1d88-79e9-bd9c-498929228bfb"
+label
+string
+required
+
+Display label for the custom lead label
+
+Example:
+"Hot Lead"
+interest_status_label
+string
+required
+
+Interest status label associated with this label
+
+Enum Value	Description
+positive	
+
+Positive
+
+
+negative	
+
+Negative
+
+
+neutral	
+
+Neutral
+
+Example:
+"positive"
+interest_status
+number
+read-only
+required
+
+Interest status associated with this label. This is generated automatically by us.
+
+Example:
+1
+description
+null or string
+
+Detailed description of the custom lead label purpose
+
+Example:
+"Used for marking high-priority leads"
+use_with_ai
+null or boolean
+
+Whether this label should be used with AI features
+
+Example:
+false
+{
+  "id": "019ca668-1d88-79e9-bd9c-498731872f25",
+  "timestamp_created": "2026-02-28T22:39:27.112Z",
+  "created_by": "019ca668-1d88-79e9-bd9c-4988455eb514",
+  "organization_id": "019ca668-1d88-79e9-bd9c-498929228bfb",
+  "label": "Hot Lead",
+  "interest_status_label": "positive",
+  "interest_status": 1,
+  "description": "Used for marking high-priority leads",
+  "use_with_ai": false
+}
+Workspace
+
+A workspace entity representing a workspace
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the workspace
+
+Example:
+"019ca668-1d91-79c9-8d15-7c050a65365b"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the workspace was created
+
+Example:
+"2026-02-28T22:39:27.121Z"
+timestamp_updated
+string
+(date-time)
+read-only
+required
+
+Timestamp when the workspace was last updated
+
+Example:
+"2026-02-28T22:39:27.121Z"
+owner
+string
+(uuid)
+read-only
+required
+
+User ID of the workspace owner
+
+Example:
+"019ca668-1d91-79c9-8d15-7c063395ef76"
+name
+string
+required
+
+Name of the workspace
+
+Example:
+"My Workspace"
+plan_id
+null or string
+read-only
+
+Plan ID for workspace
+
+Example:
+"pid_hg_v1"
+add_unsub_to_block
+null or boolean
+
+Whether to add unsubscribes to block list
+
+Example:
+false
+default_opportunity_value
+null or number
+
+Default value for opportunities
+
+Example:
+250
+plan_id_leadfinder
+null or string
+read-only
+
+Plan ID for leadfinder
+
+Example:
+"pid_lf_ls_v1"
+plan_id_verification
+object
+read-only
+
+Plan ID for verification service
+
++
+Show 3 properties
+org_logo_url
+null or string
+
+URL to workspace logo
+
+Example:
+"https://example.com/logo.png"
+org_client_domain
+null or string
+read-only
+
+The domain for the white label agency mode
+
+Example:
+"example.com"
+plan_id_crm
+null or string
+read-only
+
+Plan ID for CRM
+
+Example:
+"pid_crm_v1"
+plan_id_website_visitor
+null or string
+read-only
+
+Plan ID for website visitor tracking
+
+Example:
+"pid_wvw_v1"
+plan_id_inbox_placement
+null or string
+read-only
+
+Plan ID for inbox placement
+
+Example:
+"pid_ip_v1"
+{
+  "id": "019ca668-1d91-79c9-8d15-7c050a65365b",
+  "timestamp_created": "2026-02-28T22:39:27.121Z",
+  "timestamp_updated": "2026-02-28T22:39:27.121Z",
+  "owner": "019ca668-1d91-79c9-8d15-7c063395ef76",
+  "name": "My Workspace",
+  "plan_id": "pid_hg_v1",
+  "add_unsub_to_block": false,
+  "default_opportunity_value": 250,
+  "plan_id_leadfinder": "pid_lf_ls_v1",
+  
+"plan_id_verification": {
+    "quantity": 5,
+    "product_id": "pid_verify_v1_monthly",
+    "timestamp_updated": "2024-07-22T05:56:58.667Z"
+  },
+  "org_logo_url": "https://example.com/logo.png",
+  "org_client_domain": "example.com",
+  "plan_id_crm": "pid_crm_v1",
+  "plan_id_website_visitor": "pid_wvw_v1",
+  "plan_id_inbox_placement": "pid_ip_v1"
+}
+SuperSearch Enrichment
+
+An enrichment can take different forms, such as email enrichment or LinkedIn enrichment. Leads may be imported from SuperSearch using the dedicated endpoint, or enriched directly within a list or campaign by attaching an enrichment to it.
+
+id
+string
+read-only
+required
+
+Unique identifier for the enrichment
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID that created this enrichment
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+resource_id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the entity to enrich leads into
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+resource_type
+number
+read-only
+required
+
+Type of the entity to enrich leads into
+
+Enum Value	Description
+1	
+
+Campaign
+
+
+2	
+
+List
+
+Example:
+1
+limit
+null or number
+
+The maximum number of leads to enrich
+
+Example:
+100
+enrichment_payload
+object
+
+Enrichment payload
+
++
+Show property
+auto_update
+null or boolean
+
+Whether new leads added to the resource will be automatically enriched using these same settings
+
+Example:
+true
+skip_rows_without_email
+null or boolean
+
+Whether the fully enriched profile enrichment will run even if we don't find an email
+
+Example:
+true
+in_progress
+null or boolean
+
+Whether the enrichment is in progress
+
+Example:
+true
+type
+string
+
+Enrichment type to add to the resource
+
+Enum Value	Description
+work_email_enrichment	
+
+Work Email Enrichment
+
+
+fully_enriched_profile	
+
+LinkedIn Enrichment
+
+
+email_verification	
+
+Email Verification
+
+
+joblisting	
+
+Job Listing Enrichment
+
+
+technologies	
+
+Technologies Enrichment
+
+
+news	
+
+News Enrichment
+
+
+funding	
+
+Funding Enrichment
+
+
+ai_enrichment	
+
+AI Enrichment
+
+
+custom_flow	
+
+Custom Flow Enrichment
+
+Example:
+"email_verification"
+{
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "limit": 100,
+  "organization_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "enrichment_payload": {},
+  "auto_update": true,
+  "skip_rows_without_email": true,
+  "in_progress": true,
+  "type": "email_verification",
+  "resource_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "resource_type": 1
+}
+Workspace Group Member
+
+A member of a workspace group. You can use the endpoints within this entity to manage the members of a workspace group.
+
+id
+string
+(uuid)
+read-only
+required
+
+The unique identifier of the workspace group member
+
+Example:
+"019ca668-1d9a-7431-b0b8-792d92e299b0"
+admin_workspace_id
+string
+(uuid)
+read-only
+required
+
+The id of the admin workspace
+
+Example:
+"019ca668-1d9a-7431-b0b8-792e2e505687"
+sub_workspace_id
+string
+(uuid)
+required
+
+The id of the sub workspace
+
+Example:
+"019ca668-1d9a-7431-b0b8-792fdbd25f25"
+status
+string
+required
+Enum Value	Description
+pending	
+
+The member has been invited to the workspace group but has not yet accepted the invitation.
+
+
+accepted	
+
+The member has accepted the invitation to the workspace group.
+
+
+rejected	
+
+The member has rejected the invitation to the workspace group.
+
+Example:
+"accepted"
+timestamp_created
+string
+(date-time)
+read-only
+required
+Example:
+"2026-02-28T22:39:27.130Z"
+timestamp_updated
+string
+(date-time)
+read-only
+required
+Example:
+"2026-02-28T22:39:27.130Z"
+sub_workspace_name
+null or string
+read-only
+
+The name of the sub workspace.
+
+Example:
+"My Workspace"
+admin_workspace_name
+null or string
+read-only
+
+The name of the admin workspace.
+
+Example:
+"My Workspace"
+{
+  "id": "019ca668-1d9a-7431-b0b8-792d92e299b0",
+  "admin_workspace_id": "019ca668-1d9a-7431-b0b8-792e2e505687",
+  "sub_workspace_id": "019ca668-1d9a-7431-b0b8-792fdbd25f25",
+  "status": "accepted",
+  "timestamp_created": "2026-02-28T22:39:27.130Z",
+  "timestamp_updated": "2026-02-28T22:39:27.130Z",
+  "sub_workspace_name": "My Workspace",
+  "admin_workspace_name": "My Workspace"
+}
+Workspace Member
+
+A member of a workspace with associated user details
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the workspace member
+
+Example:
+"019ca668-1d9d-7713-88c3-43112712adc4"
+email
+string
+(email)
+required
+
+Email address of the workspace member
+
+Example:
+"user@example.com"
+user_id
+string
+(uuid)
+read-only
+required
+
+User ID of the workspace member
+
+Example:
+"019ca668-1d9d-7713-88c3-43120b574ad5"
+role
+string
+required
+
+THe role of the workspace member defining their access level. While the "owner" role is listed in the enum, it cannot be created via the API, and is only assigned to the user who creates the workspace.
+
+Enum Value	Description
+owner	
+
+Owner - Full access and workspace management
+
+
+admin	
+
+Admin - Full access except workspace deletion
+
+
+editor	
+
+Editor - Can edit but not manage workspace settings
+
+
+view	
+
+View - Read-only access
+
+
+client	
+
+This is a special role for users in the whitelabel (agency) view. It is not available in the API.
+
+Example:
+"editor"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the workspace member was created
+
+Example:
+"2026-02-28T22:39:27.133Z"
+workspace_id
+string
+(uuid)
+read-only
+required
+
+ID of the workspace this member belongs to
+
+Example:
+"019ca668-1d9d-7713-88c3-43137c233798"
+accepted
+boolean
+read-only
+required
+
+Whether the member has accepted the workspace invitation
+
+Example:
+false
+user_email
+null or string
+(email)
+
+Email address of the user
+
+Example:
+"user@example.com"
+name
+object
+read-only
++
+Show 2 properties
+issuer_id
+null or string
+(uuid)
+read-only
+
+ID of the user who added this member to the workspace
+
+Example:
+"019ca668-1d9d-7713-88c3-4314819b0b03"
+permissions
+Array of strings or null
+
+The permissions for this workspace member. Used in the app to restrict access to certain sections
+
+Enum Value	Description
+dashboard.view	
+
+View the dashboard
+
+
+campaigns.view	
+
+View campaigns
+
+
+campaigns.create	
+
+Create campaigns
+
+
+campaigns.edit	
+
+Edit campaigns
+
+
+campaigns.delete	
+
+Delete campaigns
+
+
+organization.manage	
+
+Manage organization
+
+
+organization.integrations	
+
+Manage organization integrations
+
+
+organization.billing	
+
+Manage organization billing
+
+
+organization.users.manage	
+
+Manage organization users
+
+
+leadFinder.view	
+
+View lead finder
+
+
++19 more
+{
+  "id": "019ca668-1d9d-7713-88c3-43112712adc4",
+  "email": "user@example.com",
+  "user_id": "019ca668-1d9d-7713-88c3-43120b574ad5",
+  "user_email": "user@example.com",
+  
+"name": {
+    "first": "John",
+    "last": "Smith"
+  },
+  "role": "editor",
+  "timestamp_created": "2026-02-28T22:39:27.133Z",
+  "workspace_id": "019ca668-1d9d-7713-88c3-43137c233798",
+  "accepted": false,
+  "issuer_id": "019ca668-1d9d-7713-88c3-4314819b0b03",
+  "permissions": null
+}
+Campaign Subsequence
+
+A subsequence entity representing a follow-up sequence
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the subsequence
+
+Example:
+"019ca668-1da1-7be1-b69e-78a3d58d93a2"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the subsequence was created
+
+Example:
+"2026-02-28T22:39:27.137Z"
+parent_campaign
+string
+(uuid)
+required
+
+ID of the parent campaign
+
+Example:
+"019ca668-1da1-7be1-b69e-78a43de4812f"
+workspace
+string
+(uuid)
+read-only
+required
+
+ID of the workspace this subsequence belongs to
+
+Example:
+"019ca668-1da1-7be1-b69e-78a5491f7da1"
+status
+number
+read-only
+required
+
+Status of the subsequence
+
+Enum Value	Description
+0	
+
+Draft - The subsequence is in draft mode and not yet active
+
+
+1	
+
+Active - The subsequence is currently running
+
+
+2	
+
+Paused - The subsequence has been manually paused
+
+
+3	
+
+Completed - The subsequence has finished running
+
+
+4	
+
+Running Subsequences - The subsequence has active child sequences
+
+
+-99	
+
+Account Suspended - The subsequence is suspended due to account issues
+
+
+-1	
+
+Accounts Unhealthy - The subsequence is paused due to unhealthy sending accounts
+
+
+-2	
+
+Bounce Protection - The subsequence is paused due to high bounce rates
+
+Example:
+0
+timestamp_leads_updated
+string
+(date-time)
+read-only
+required
+
+Timestamp when the leads were last updated
+
+Example:
+"2026-02-28T22:39:27.137Z"
+name
+string
+required
+
+Name of the subsequence
+
+Example:
+"Follow-up sequence"
+conditions
+object
+required
+
+Conditions that trigger the subsequence
+
+-
+conditions.​crm_status
+Array of numbers
+
+Lead CRM statuses that trigger the subsequence.
+
+Items Enum Value	Description
+0	
+
+Out of Office
+
+
+1	
+
+Interested
+
+
+2	
+
+Meeting Booked
+
+
+3	
+
+Meeting Completed
+
+
+4	
+
+Won
+
+
+-1	
+
+Not Interested
+
+
+-2	
+
+Wrong Person
+
+
+-3	
+
+Lost
+
+
+-4	
+
+No Show
+
+Example:
+[1]
+conditions.​lead_activity
+Array of numbers
+
+Lead activities that trigger the subsequence.
+
+Items Enum Value	Description
+2	
+
+Email Opened - Triggered when a lead opens an email
+
+
+4	
+
+Email Link Clicked - Triggered when a lead clicks a link in an email
+
+
+91	
+
+Campaign Completed Without Reply - Triggered when a campaign completes for a lead without receiving a reply
+
+Example:
+[4]
+conditions.​reply_contains
+string
+Example:
+"yes"
+subsequence_schedule
+object
+required
+
+Schedule configuration for the subsequence
+
+-
+subsequence_schedule.​schedules
+Array of objects
+non-empty
+required
+-
+subsequence_schedule.​schedules[].​name
+string
+required
+Example:
+"My Schedule"
+subsequence_schedule.​schedules[].​timing
+object
+required
+-
+subsequence_schedule.​schedules[].​timing.​from
+string
+^([01][0-9]|2[0-3]):([0-5][0-9])$
+required
+Example:
+"09:00"
+subsequence_schedule.​schedules[].​timing.​to
+string
+^([01][0-9]|2[0-3]):([0-5][0-9])$
+required
+Example:
+"17:00"
+subsequence_schedule.​schedules[].​days
+object
+non-empty
+required
+-
+subsequence_schedule.​schedules[].​days.​0
+boolean
+Example:
+true
+subsequence_schedule.​schedules[].​days.​1
+boolean
+Example:
+true
+subsequence_schedule.​schedules[].​days.​2
+boolean
+Example:
+true
+subsequence_schedule.​schedules[].​days.​3
+boolean
+Example:
+true
+subsequence_schedule.​schedules[].​days.​4
+boolean
+Example:
+true
+subsequence_schedule.​schedules[].​days.​5
+boolean
+Example:
+false
+subsequence_schedule.​schedules[].​days.​6
+boolean
+Example:
+false
+subsequence_schedule.​schedules[].​timezone
+string
+required
+Enum
+"Etc/GMT+12"
+"Etc/GMT+11"
+"Etc/GMT+10"
+"America/Anchorage"
+"America/Dawson"
+"America/Creston"
+"America/Chihuahua"
+"America/Boise"
+"America/Belize"
+"America/Chicago"
++92 more
+Example:
+"Etc/GMT+12"
+subsequence_schedule.​start_date
+null or string
+(date)
+
+Start date in YYYY-MM-DD format. Uses the campaign's timezone.
+
+Example:
+"2025-09-25"
+subsequence_schedule.​end_date
+null or string
+(date)
+
+End date in YYYY-MM-DD format. Uses the campaign's timezone.
+
+Example:
+"2025-09-25"
+sequences
+Array of objects
+required
+
+List of sequences (the actual email copy). Even though this field is an array, only the first element is used, so please provide only one array item, and add the steps to that array
+
+-
+sequences[].​steps
+Array of objects
+required
+-
+sequences[].​steps[].​type
+string
+required
+
+Type of step. This has to be 'email' always - it's the only supported type for now
+
+Value	Description
+email	
+
+This steps represents an email
+
+Example:
+"email"
+sequences[].​steps[].​delay
+number
+required
+
+The delay value before sending the NEXT email. The unit is determined by the delay_unit field (defaults to days).
+
+Example:
+2
+sequences[].​steps[].​variants
+Array of objects
+required
+-
+sequences[].​steps[].​variants[].​subject
+string
+required
+Example:
+"Hello {{firstName}}"
+sequences[].​steps[].​variants[].​body
+string
+required
+Example:
+"Hey {{firstName}},\n\nI hope you are doing well."
+sequences[].​steps[].​variants[].​v_disabled
+boolean
+
+Whether this variant is disabled. By default, all the variants are enabled. Please set this to true if you want to disable this variant
+
+Example:
+true
+sequences[].​steps[].​delay_unit
+string
+
+The unit of time for the delay value (minutes, hours, or days). Defaults to days for backward compatibility.
+
+Default
+"days"
+Enum
+"minutes"
+"hours"
+"days"
+Example:
+"days"
+sequences[].​steps[].​pre_delay
+number
+
+The delay value before sending the FIRST email in a subsequence. Only applicable to subsequences - this field is ignored for regular campaigns. The unit is determined by the pre_delay_unit field (defaults to days).
+
+Example:
+2
+sequences[].​steps[].​pre_delay_unit
+string
+
+The unit of time for the pre_delay value (minutes, hours, or days). Only applicable to subsequences - this field is ignored for regular campaigns. Defaults to days for backward compatibility.
+
+Default
+"days"
+Enum
+"minutes"
+"hours"
+"days"
+Example:
+"days"
+{
+  "id": "019ca668-1da1-7be1-b69e-78a3d58d93a2",
+  "timestamp_created": "2026-02-28T22:39:27.137Z",
+  "parent_campaign": "019ca668-1da1-7be1-b69e-78a43de4812f",
+  "workspace": "019ca668-1da1-7be1-b69e-78a5491f7da1",
+  "status": 0,
+  "timestamp_leads_updated": "2026-02-28T22:39:27.137Z",
+  "name": "Follow-up sequence",
+  
+"conditions": {
+    
+"crm_status": [ … ],
+    
+"lead_activity": [ … ],
+    "reply_contains": "yes"
+  },
+  
+"subsequence_schedule": {
+    "start_date": "2025-09-25",
+    "end_date": "2025-09-25",
+    
+"schedules": [ … ]
+  },
+  
+"sequences": [
+    
+{ … }
+  ]
+}
+Audit Log
+
+Audit log records for tracking system activities
+
+id
+string
+(uuid)
+read-only
+required
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+timestamp
+string
+(date-time)
+read-only
+required
+
+When the activity occurred
+
+Example:
+"2026-02-28T22:39:27.145Z"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID associated with the activity
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+activity_type
+number
+read-only
+required
+
+Type of activity performed
+
+Enum Value	Description
+1	
+
+User login
+
+
+2	
+
+Lead deletion
+
+
+3	
+
+Campaign deletion
+
+
+4	
+
+Campaign launch
+
+
+5	
+
+Campaign pause
+
+
+6	
+
+Account addition
+
+
+7	
+
+Account deletion
+
+
+8	
+
+Lead moved
+
+
+9	
+
+Lead added
+
+
+10	
+
+Lead merged
+
+
++6 more
+Example:
+1
+ip_address
+string
+read-only
+required
+
+IP address from which the activity was performed
+
+Example:
+"127.0.0.1"
+from_api
+boolean
+read-only
+required
+
+Whether the activity was performed via API
+
+Example:
+false
+user_agent
+null or string
+read-only
+
+User agent of the client that performed the activity
+
+Example:
+"Mozilla/5.0..."
+user_id
+null or string
+(uuid)
+read-only
+
+ID of the user who performed the activity
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+affected_count
+null or number
+read-only
+
+Number of items affected by the activity
+
+Example:
+1
+campaign_id
+null or string
+(uuid)
+read-only
+
+Associated campaign ID if applicable
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+webhook_id
+null or string
+(uuid)
+read-only
+
+Associated webhook ID if applicable
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+subsequence_id
+null or string
+(uuid)
+read-only
+
+Associated subsequence ID if applicable
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+list_id
+null or string
+(uuid)
+read-only
+
+Associated list ID if applicable
+
+Example:
+"01234567-89ab-cdef-0123-456789abcdef"
+audit_metadata
+object
+read-only
+
+Metadata about the audit log
+
++
+Show property
+user_name
+null or string
+read-only
+
+Name of the user who performed the activity
+
+Example:
+"John Doe"
+{
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "timestamp": "2026-02-28T22:39:27.145Z",
+  "organization_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "activity_type": 1,
+  "user_agent": "Mozilla/5.0...",
+  "user_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "ip_address": "127.0.0.1",
+  "from_api": false,
+  "affected_count": 1,
+  "campaign_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "webhook_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "subsequence_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "list_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "audit_metadata": {},
+  "user_name": "John Doe"
+}
+Webhook
+
+A webhook subscription for receiving event notifications
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the webhook (UUID)
+
+Example:
+"019ca668-1dc7-7e6c-8310-2e11185b9313"
+organization
+string
+(uuid)
+read-only
+required
+
+Organization (workspace) UUID that owns this webhook
+
+Example:
+"019ca668-1dc7-7e6c-8310-2e12d9a89626"
+target_hook_url
+string
+(uri)
+^https?://
+required
+
+Target URL to send webhook payloads
+
+Example:
+"https://webhook.site/unique-url"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the webhook was created
+
+Example:
+"2026-02-28T22:39:27.176Z"
+campaign
+null or string
+(uuid)
+
+Optional campaign UUID to filter events (null = all campaigns in workspace)
+
+Example:
+"019ca668-1dc8-7e06-bbc9-6e12a9249617"
+name
+null or string
+
+Optional user-defined name for the webhook
+
+Example:
+"Zapier Positive Replies"
+event_type
+null or string
+
+Type of event to trigger the webhook (null for custom label events). Set to "all_events" to subscribe to all events - including custom label events
+
+Enum
+"all_events"
+"email_sent"
+"email_opened"
+"email_link_clicked"
+"reply_received"
+"email_bounced"
+"lead_unsubscribed"
+"campaign_completed"
+"account_error"
+"lead_neutral"
++9 more
+Example:
+"email_sent"
+custom_interest_value
+null or number
+
+Custom interest value - corresponds to LeadLabel.interest_status (used for custom label events)
+
+Example:
+1
+headers
+null or object
+
+Optional HTTP headers to include when delivering webhook payloads (key-value pairs)
+
+Example:
+{"Authorization":"Basic dXNlcm5hbWU6cGFzc3dvcmQ="}
++
+Show property
+status
+null or number
+read-only
+
+Webhook status: 1 = active, -1 = error (disabled due to delivery failures)
+
+Example:
+1
+timestamp_error
+null or string
+(date-time)
+read-only
+
+Timestamp when webhook was disabled due to delivery failures (null if active)
+
+Example:
+"2026-02-28T22:39:27.176Z"
+{
+  "id": "019ca668-1dc7-7e6c-8310-2e11185b9313",
+  "organization": "019ca668-1dc7-7e6c-8310-2e12d9a89626",
+  "campaign": "019ca668-1dc8-7e06-bbc9-6e12a9249617",
+  "name": "Zapier Positive Replies",
+  "target_hook_url": "https://webhook.site/unique-url",
+  "event_type": "email_sent",
+  "custom_interest_value": 1,
+  
+"headers": {
+    "Authorization": "Basic dXNlcm5hbWU6cGFzc3dvcmQ="
+  },
+  "timestamp_created": "2026-02-28T22:39:27.176Z",
+  "status": 1,
+  "timestamp_error": "2026-02-28T22:39:27.176Z"
+}
+Webhook Event
+
+A webhook event that was sent or attempted to be sent
+
+id
+string
+(uuid)
+read-only
+required
+
+Unique identifier for the webhook event (UUID)
+
+Example:
+"019ca668-1dcb-7e46-b85f-2aa53c24338d"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the webhook event was created
+
+Example:
+"2026-02-28T22:39:27.179Z"
+timestamp_created_date
+string
+(date)
+read-only
+required
+
+Date when the webhook event was created (for partitioning)
+
+Example:
+"2024-01-15"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization (workspace) UUID that owns this webhook event
+
+Example:
+"019ca668-1dcb-7e46-b85f-2aa6dcdc905b"
+success
+boolean
+read-only
+required
+
+Whether the webhook call was successful
+
+Example:
+true
+retry_count
+number
+read-only
+required
+
+Number of retry attempts made
+
+Example:
+0
+will_retry
+boolean
+read-only
+required
+
+Whether the webhook will be retried
+
+Example:
+false
+webhook_url
+string
+read-only
+required
+
+Target URL where the webhook was sent
+
+Example:
+"https://webhook.site/unique-url"
+payload
+object
+read-only
+
+JSON payload that was sent/attempted to be sent
+
++
+Show property
+status_code
+null or number
+read-only
+
+HTTP status code received from the webhook endpoint (if any)
+
+Example:
+200
+error_message
+null or string
+read-only
+
+Error message if the webhook failed
+
+Example:
+"Connection timeout"
+timestamp_next_retry
+null or string
+(date-time)
+read-only
+
+Timestamp for the next retry attempt (if applicable)
+
+Example:
+"2026-02-28T22:39:27.179Z"
+retry_group_id
+null or string
+(uuid)
+read-only
+
+UUID for grouping retry attempts
+
+Example:
+"019ca668-1dcb-7e46-b85f-2aa7fbcf3a96"
+retry_successful
+null or boolean
+read-only
+
+Whether the retry was successful (for retry events)
+
+Example:
+true
+lead_email
+null or string
+read-only
+
+Email address of the lead associated with this webhook event
+
+Example:
+"lead@example.com"
+response_time_ms
+null or number
+read-only
+
+Response time in milliseconds for the webhook call
+
+Example:
+150
+{
+  "id": "019ca668-1dcb-7e46-b85f-2aa53c24338d",
+  "timestamp_created": "2026-02-28T22:39:27.179Z",
+  "timestamp_created_date": "2024-01-15",
+  "organization_id": "019ca668-1dcb-7e46-b85f-2aa6dcdc905b",
+  "payload": {},
+  "success": true,
+  "retry_count": 0,
+  "will_retry": false,
+  "webhook_url": "https://webhook.site/unique-url",
+  "status_code": 200,
+  "error_message": "Connection timeout",
+  "timestamp_next_retry": "2026-02-28T22:39:27.179Z",
+  "retry_group_id": "019ca668-1dcb-7e46-b85f-2aa7fbcf3a96",
+  "retry_successful": true,
+  "lead_email": "lead@example.com",
+  "response_time_ms": 150
+}
+DFY Email Account Order
+
+A Done-For-You email account order
+
+workspace_id
+string
+read-only
+required
+
+ID of the workspace associated with the email account order
+
+Example:
+"workspace_12345"
+domain
+string
+read-only
+required
+
+Domain of the email account
+
+Example:
+"example.com"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the order was created
+
+Example:
+"2026-02-28T22:39:27.181Z"
+forwarding_domain
+null or string
+
+Forwarding domain for the email account, if any
+
+Example:
+"forward.example.com"
+is_pre_warmed_up
+null or boolean
+
+Indicates if the account is pre-warmed up
+
+Example:
+true
+timestamp_cancelled
+null or string
+(date-time)
+read-only
+
+Timestamp when the order was cancelled, if applicable
+
+Example:
+"2026-02-28T22:39:27.181Z"
+{
+  "workspace_id": "workspace_12345",
+  "domain": "example.com",
+  "forwarding_domain": "forward.example.com",
+  "is_pre_warmed_up": true,
+  "timestamp_cancelled": "2026-02-28T22:39:27.181Z",
+  "timestamp_created": "2026-02-28T22:39:27.181Z"
+}
+Custom Prompt Template
+
+Custom prompt templates for creating custom prompts
+
+id
+number
+read-only
+required
+Example:
+1
+workspace_id
+string
+(uuid)
+read-only
+required
+Example:
+"019ca668-1ddd-7a65-84de-d42582acd8a4"
+created_by
+string
+(uuid)
+read-only
+required
+Example:
+"019ca668-1dde-7acc-aed3-6c7cd729d9e7"
+name
+string
+required
+Example:
+"Prompt template name"
+category
+number
+required
+
+Prompt Custom template category
+
+Enum Value	Description
+1	
+
+Copywriting
+
+
+2	
+
+Cleaning
+
+
+3	
+
+Sales
+
+
+4	
+
+Marketing
+
+
+5	
+
+Other
+
+
+6	
+
+Personalization
+
+Example:
+1
+prompt
+string
+required
+Example:
+"Generate a name using {{property_1}} and {{property_2}} combination."
+is_public
+boolean
+required
+Example:
+true
+description
+null or string
+Example:
+"Prompt template description"
+properties
+Array of objects or null
++
+Show 2 array properties
+model_version
+string
+Enum Value	Description
+3.5	
+
+GPT-3.5
+
+
+gpt-5	
+
+GPT-5
+
+
+gpt-5-mini	
+
+GPT-5 Mini
+
+
+gpt-5-nano	
+
+GPT-5 Nano
+
+
+4.0	
+
+GPT-4.0
+
+
+4.0-Omni	
+
+GPT-4.0 Omni
+
+
+gpt-4o	
+
+GPT-4O
+
+
+o3	
+
+O3
+
+
+gpt-4.1	
+
+GPT-4.1
+
+
+gpt-4.1-mini	
+
+GPT-4.1 Mini
+
+
++11 more
+Example:
+"3.5"
+from_shared
+null or boolean
+Example:
+false
+like_count
+null or number
+read-only
+Example:
+50
+execution_count
+null or number
+read-only
+Example:
+20
+liked
+null or boolean
+read-only
+Example:
+true
+template_type
+null or string
+
+Custom Prompt template type
+
+Enum Value	Description
+custom	
+
+custom
+
+
+public	
+
+public
+
+Example:
+"public"
+created_by_instantly
+null or boolean
+read-only
+Example:
+true
+creator
+null or object
+read-only
++
+Show 2 properties
+{
+  "id": 1,
+  "workspace_id": "019ca668-1ddd-7a65-84de-d42582acd8a4",
+  "created_by": "019ca668-1dde-7acc-aed3-6c7cd729d9e7",
+  "name": "Prompt template name",
+  "description": "Prompt template description",
+  "category": 1,
+  "properties": null,
+  "prompt": "Generate a name using {{property_1}} and {{property_2}} combination.",
+  "is_public": true,
+  "model_version": "3.5",
+  "from_shared": false,
+  "like_count": 50,
+  "execution_count": 20,
+  "liked": true,
+  "template_type": "public",
+  "created_by_instantly": true,
+  "creator": null
+}
+Sales Flow
+
+Manages how sales users view and interact with campaign and lead lists within the sales flow.
+
+id
+string
+(uuid)
+read-only
+required
+Example:
+"019ca668-1dd0-739f-afa0-14c1d4d48493"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Date and time when sales flow created
+
+Example:
+"2026-02-28T22:39:27.184Z"
+organization_id
+string
+(uuid)
+read-only
+required
+
+Organization ID associated with the sales flow
+
+Example:
+"019ca668-1dd0-739f-afa0-14c2c1b9bc66"
+name
+string
+required
+
+Name of the sales flow
+
+Example:
+"Smart view name"
+queries
+Array of objects
+required
+
+An object containing the sales flow queries
+
+Example:
+[{"actionType":"email-open","values":{"occurrence-days":1}}]
+-
+queries[].​actionType
+string
+required
+Enum
+"reply"
+"email-open"
+"last-contacted"
+"link-click"
+"lead-status"
+"lead-status-change"
+Example:
+"email-open"
+queries[].​values
+object
+required
+Example:
+{"occurrence-days":1}
+-
+queries[].​values.​occurrence-days
+number
+Example:
+1
+queries[].​values.​occurrence-count
+object
++
+Show 2 properties
+queries[].​values.​lead-status
+object
++
+Show 2 properties
+created_by
+string
+(uuid)
+read-only
+required
+
+UUID of the user who created the sales flow.
+
+Example:
+"019ca668-1dd0-739f-afa0-14c38a00d267"
+is_default
+null or boolean
+
+Indicates whether this sales flow is set as the default one for the user or workspace.
+
+Example:
+true
+list_id
+null or string
+
+The ID of the list, can be "all-lists" in case of all.
+
+Example:
+"019ca668-1dd0-739f-afa0-14c4e11d3122"
+campaign_id
+null or string
+
+The ID of the campaign. Set to null when "all-campaigns" is passed.
+
+Example:
+"019ca668-1dd0-739f-afa0-14c5539e94b6"
+list_name
+null or string
+read-only
+
+The name of the list.
+
+Example:
+"List name"
+campaign_name
+null or string
+read-only
+
+The name of the campaign.
+
+Example:
+"Campaign #1"
+{
+  "id": "019ca668-1dd0-739f-afa0-14c1d4d48493",
+  "timestamp_created": "2026-02-28T22:39:27.184Z",
+  "organization_id": "019ca668-1dd0-739f-afa0-14c2c1b9bc66",
+  "name": "Smart view name",
+  "is_default": true,
+  
+"queries": [
+    
+{ … }
+  ],
+  "created_by": "019ca668-1dd0-739f-afa0-14c38a00d267",
+  "list_id": "019ca668-1dd0-739f-afa0-14c4e11d3122",
+  "campaign_id": "019ca668-1dd0-739f-afa0-14c5539e94b6",
+  "list_name": "List name",
+  "campaign_name": "Campaign #1"
+}
+Email Template
+
+A campaign email template
+
+id
+string
+(uuid)
+read-only
+required
+
+A Unique identifier
+
+Example:
+"019ca668-1de5-7df8-9872-f27cf2c7582d"
+timestamp_created
+string
+(date-time)
+read-only
+required
+
+Timestamp when the email template was added to our database.
+
+Example:
+"2026-02-28T22:39:27.205Z"
+body
+string
+required
+
+An body of the email template on html or text format
+
+Example:
+"<p>This is a test email</p>"
+name
+string
+required
+
+An email template name
+
+Example:
+"Test Email Template"
+organization
+string
+(uuid)
+read-only
+required
+
+The workspace ID
+
+Example:
+"019ca668-1de5-7df8-9872-f27d7aeb0c35"
+subject
+null or string
+
+An email template subject
+
+Example:
+"Test Email template Subject"
+{
+  "id": "019ca668-1de5-7df8-9872-f27cf2c7582d",
+  "timestamp_created": "2026-02-28T22:39:27.205Z",
+  "body": "<p>This is a test email</p>",
+  "name": "Test Email Template",
+  "subject": "Test Email template Subject",
+  "organization": "019ca668-1de5-7df8-9872-f27d7aeb0c35"
+}
+Workspace Billing
+
+Workspace Billing
+
+object
+(Workspace Billing)
+
+Workspace Billing
+
+{}
+CRM Actions
+
+CRM related actions
+
+object
+(CRM Actions)
+
+CRM related actions
+
+{}
