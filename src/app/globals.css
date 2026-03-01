@@ -72,14 +72,14 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar: oklch(0.98 0.01 250);
+  --sidebar-foreground: oklch(0.25 0.02 250);
   --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  --sidebar-accent: oklch(0.94 0.03 270);
+  --sidebar-accent-foreground: oklch(0.3 0.02 250);
+  --sidebar-border: oklch(0.93 0.01 250);
+  --sidebar-ring: oklch(0.55 0.22 270);
 }
 
 .dark {
@@ -106,14 +106,14 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar: oklch(0.16 0.02 260);
+  --sidebar-foreground: oklch(0.92 0.01 250);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --sidebar-accent: oklch(0.28 0.04 270);
+  --sidebar-accent-foreground: oklch(0.88 0.03 270);
+  --sidebar-border: oklch(0.3 0.02 260);
+  --sidebar-ring: oklch(0.65 0.2 270);
 }
 
 @layer base {
@@ -145,7 +145,7 @@
 }
 
 .typing-dot {
-  animation: typing-dot 1.4s ease-in-out infinite;
+  animation: typing-dot 1.2s infinite;
 }
 
 .typing-dot:nth-child(2) {
@@ -172,6 +172,29 @@
   animation: fade-in-up 0.3s ease-out;
 }
 
+/* Thinking spinner (used in ThinkingBlock) */
+@keyframes thinking-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.thinking-spinner {
+  animation: thinking-spin 0.8s linear infinite;
+}
+
+/* Step appear animation (slide in from left) */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Fine scrollbar (webkit) */
 .scrollbar-thin {
   scrollbar-width: thin;
@@ -196,9 +219,33 @@
 }
 
 /* Mesh background gradient (subtle, for chat viewport) */
+/* Light mode — warm multi-color mesh */
 .bg-leadsens-mesh {
   background:
-    radial-gradient(ellipse at 20% 50%, oklch(0.488 0.243 264.376 / 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, oklch(0.488 0.243 264.376 / 0.02) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, oklch(0.627 0.265 303.9 / 0.02) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(23, 195, 178, 0.30) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(44, 107, 237, 0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 60% 70%, rgba(255, 122, 61, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 25% 80%, rgba(217, 119, 6, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255, 247, 237, 0.35) 0%, transparent 80%);
+  background-attachment: fixed;
+}
+
+/* Dark mode — same colors at reduced opacity */
+.dark .bg-leadsens-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(23, 195, 178, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(44, 107, 237, 0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 60% 70%, rgba(255, 122, 61, 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 25% 80%, rgba(217, 119, 6, 0.12) 0%, transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Hide tool-call-only assistant messages before the final text response */
+.aui-assistant-msg:has(+ .aui-assistant-msg) {
+  display: none;
+}
+
+/* Thread max width for assistant-ui */
+[data-aui-thread] {
+  --aui-thread-max-width: 720px;
 }

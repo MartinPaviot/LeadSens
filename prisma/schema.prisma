@@ -133,7 +133,7 @@ model Workspace {
   name       String
   slug       String   @unique
   companyUrl String?
-  companyDna String?  @db.Text
+  companyDna Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -243,6 +243,7 @@ model Campaign {
   icpDescription      String         @db.Text
   icpFilters          Json
   tone                String?        @db.Text
+  angle               Json?
   stepsCount          Int            @default(3)
   instantlyCampaignId String?
   instantlyListId     String?

@@ -1011,29 +1011,199 @@ export const maxDuration = 300;  // 5 minutes for Pro plan
 - Avatars are `aria-hidden="true"`
 - Scroll-to-bottom pill has `aria-label="Scroll to latest message"`
 
+### Custom CSS (globals.css)
+
+These custom styles MUST be present in the global stylesheet for the chat to render correctly.
+
+#### Mesh Gradient Background
+
+```css
+/* Light mode — warm multi-color mesh */
+.bg-elevay-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(23, 195, 178, 0.30) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(44, 107, 237, 0.28) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 60% 70%, rgba(255, 122, 61, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 25% 80%, rgba(217, 119, 6, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255, 247, 237, 0.35) 0%, transparent 80%);
+}
+
+/* Dark mode — same colors at reduced opacity */
+.dark .bg-elevay-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(23, 195, 178, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(44, 107, 237, 0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 55% at 60% 70%, rgba(255, 122, 61, 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 25% 80%, rgba(217, 119, 6, 0.12) 0%, transparent 55%);
+}
+```
+
+**Color breakdown of the mesh:**
+- Top-left: Teal `rgba(23, 195, 178)` — 30% light / 16% dark
+- Top-right: Blue `rgba(44, 107, 237)` — 28% light / 18% dark
+- Bottom-right: Orange `rgba(255, 122, 61)` — 25% light / 14% dark
+- Bottom-left: Amber `rgba(217, 119, 6)` — 22% light / 12% dark
+- Center: Warm white `rgba(255, 247, 237)` — 35% light only
+
+Applied as `pointer-events-none absolute inset-0` overlay on the chat viewport.
+
+#### Fade-in-up Animation
+
+```css
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+```
+
+Used on message bubbles (`0.3s ease-out`), greeting loader (`0.5s`), scroll pill (`0.2s`), activity label (`0.15s`).
+
+#### Typing Dot Animation
+
+```css
+@keyframes typing-dot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 1.2s infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+```
+
+#### Consecutive Message Collapsing
+
+```css
+/* Hide tool-call-only assistant messages before the final text response */
+.aui-assistant-msg:has(+ .aui-assistant-msg) {
+  display: none;
+}
+```
+
+This ensures only the final assistant message in a sequence is visible. Tool call results render inside the next message's tool UI.
+
+#### Thread Max Width
+
+```css
+[data-aui-thread] {
+  --aui-thread-max-width: 720px;
+}
+```
+
 ---
 
-## 19. Key Source Files
+## 19. Visual Reference — Chat Layout
+
+```
++--------------------------------------------------------------------+
+| [<] Agent Name [icon]  [Ready]                   [gear] [sidebar]  |  <- ChatHeader
++--------------------------------------------------------------------+
+|                                                       |             |
+|    +--- max-w-[720px] centered ---+                   |  CONTEXT    |
+|    |                               |                   |  PANEL      |
+|    |  [avatar] +-----------------+ |                   |  (320px)    |
+|    |           | Agent message    | |                   |             |
+|    |           | with markdown    | |                   |  About      |
+|    |           | support and      | |                   |  --------   |
+|    |           | streaming cursor | |                   |  Caps       |
+|    |           +-----------------+ |                   |  [Gmail]    |
+|    |                               |                   |  [HubSpot]  |
+|    |      +------------------+ |   |                   |  [Slack]    |
+|    |      | User message     | |   |                   |  --------   |
+|    |      | right-aligned    |--   |                   |  Info       |
+|    |      +------------------+     |                   |  Model: S   |
+|    |                               |                   |  Convs: 12  |
+|    |  [avatar] +-----------------+ |                   |  --------   |
+|    |           | [*] [*] [*]     | |                   |  Links      |
+|    |           | Typing dots...  | |                   |  Brief      |
+|    |           +-----------------+ |                   |  Settings   |
+|    |                               |                   |  Memory     |
+|    +-------------------------------+                   |             |
+|                                                       |             |
+|    ..... bg-elevay-mesh (teal/blue/orange/amber) .... |             |
+|                                                       |             |
+|              [v Scroll to bottom]                      |             |
+|    +-------------------------------+                   |             |
+|    | [Message agent...        ] [>]|                   |             |
+|    +-------------------------------+                   |             |
++--------------------------------------------------------------------+
+```
+
+### Bubble Shapes (asymmetric border radius)
+
+```
+Assistant bubble:                    User bubble:
++------------------+                     +------------------+
+|                  |                     |                  |
+|   Agent text     |                     |    User text     |
+|                  |                     |                  |
++--            ----+                     +----            --+
+  ^ 4px corner                                   4px corner ^
+
+rounded-[16px_16px_16px_4px]         rounded-[16px_16px_4px_16px]
+(bottom-left tight)                  (bottom-right tight)
+```
+
+### Color Scheme
+
+```
+Mesh background (light mode):
+  +-----------------------------------------+
+  |  teal (30%)     |      blue (28%)       |
+  |  @ 15%,20%      |      @ 75%,15%       |
+  |                  |                       |
+  |        warm white (35%) center           |
+  |                  |                       |
+  |  amber (22%)     |     orange (25%)     |
+  |  @ 25%,80%      |      @ 60%,70%       |
+  +-----------------------------------------+
+
+Agent avatar gradient (default):
+  from-indigo-500 (#6366F1) → to-violet-600 (#7C3AED)
+  Direction: 135deg (top-left → bottom-right)
+
+Agent color palette:
+  #6366F1  #3B82F6  #8B5CF6  #06B6D4
+  #0EA5E9  #7C3AED  #2563EB  #4F46E5
+```
+
+---
+
+## 20. Key Source Files
 
 | File | Role |
 |------|------|
-| `apps/web/src/features/agents/components/chat/agent-chat.tsx` | Main chat container, streaming, state |
-| `apps/web/src/features/agents/components/chat/elevay-thread.tsx` | Thread layout with assistant-ui primitives |
-| `apps/web/src/features/agents/components/chat/elevay-composer.tsx` | Chat input (textarea + send/stop) |
-| `apps/web/src/features/agents/components/chat/elevay-assistant-message.tsx` | Agent bubble + markdown + cursor + typing |
-| `apps/web/src/features/agents/components/chat/elevay-user-message.tsx` | User bubble |
-| `apps/web/src/features/agents/components/chat/chat-header.tsx` | Top bar |
-| `apps/web/src/features/agents/components/chat/greeting-loader.tsx` | Initial loading state |
-| `apps/web/src/features/agents/components/chat/scroll-to-bottom-pill.tsx` | Floating scroll pill |
-| `apps/web/src/features/agents/components/chat/agent-runtime-provider.tsx` | assistant-ui bridge |
-| `apps/web/src/features/agents/components/chat/agent-activity-context.tsx` | Activity label context |
-| `apps/web/src/features/agents/components/chat/context/context-panel.tsx` | Right sidebar |
-| `apps/web/src/features/agents/components/chat/tool-uis/tool-ui-registry.tsx` | Tool UI mount point |
-| `apps/web/src/features/agents/components/chat/inline/*.tsx` | 21 inline components |
-| `apps/web/src/features/agents/lib/inline-component-registry.ts` | Lazy component registry |
-| `apps/web/src/features/agents/lib/assistant-ui-adapter.ts` | Message format adapter |
-| `apps/web/src/features/agents/lib/tool-labels.ts` | Activity label map |
-| `apps/web/src/features/agents/types/chat-messages.ts` | Type definitions |
-| `apps/web/src/features/agents/hooks/use-agents.ts` | TanStack Query hooks |
-| `apps/web/src/lib/agent-display.ts` | Agent visual config (icon, gradient, color) |
-| `apps/web/src/app/api/agents/chat/route.ts` | Chat API endpoint (~2000 lines) |
+| `src/components/chat/agent-chat.tsx` | Main chat container, streaming, state |
+| `src/components/chat/thread.tsx` | Thread layout with assistant-ui primitives |
+| `src/components/chat/composer.tsx` | Chat input (textarea + send/stop) |
+| `src/components/chat/assistant-message.tsx` | Agent bubble + markdown + cursor + typing |
+| `src/components/chat/user-message.tsx` | User bubble |
+| `src/components/chat/greeting-loader.tsx` | Initial loading state |
+| `src/components/chat/scroll-to-bottom.tsx` | Floating scroll pill |
+| `src/components/chat/agent-runtime-provider.tsx` | assistant-ui bridge |
+| `src/components/chat/activity-bar.tsx` | Activity label context |
+| `src/components/chat/inline/lead-table-card.tsx` | Lead table inline component |
+| `src/components/chat/inline/email-preview-card.tsx` | Email preview inline component |
+| `src/components/chat/inline/campaign-summary-card.tsx` | Campaign summary inline component |
+| `src/components/chat/inline/progress-bar.tsx` | Progress bar inline component |
+| `src/lib/inline-component-registry.ts` | Lazy component registry |
+| `src/lib/ai-events.ts` | SSE event types |
+| `src/app/api/agents/chat/route.ts` | Chat API endpoint |

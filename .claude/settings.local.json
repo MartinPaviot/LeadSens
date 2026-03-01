@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npx shadcn@latest:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
