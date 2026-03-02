@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { getInstantlyClient } from "@/server/lib/connectors/instantly";
+import { Prisma } from "@prisma/client";
+import { getInstantlyClient, normalizePreviewLead, normalizeStoredLead } from "@/server/lib/connectors/instantly";
 import { parseICP } from "./icp-parser";
 import type { ToolDefinition, ToolContext } from "./types";
 
@@ -53,11 +54,13 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         }
 
         // ── Progressive auto-broadening ──
-        // Remove filters from MOST RESTRICTIVE to LEAST.
-        // Key insight: job_titles (exact match) is far more restrictive than
-        // department + level (categorical). Remove title first, keep dept+level.
+        // Strategy: NEVER remove department or level (core user intent).
+        // Broaden company filters only, then niche-role titles, then industries.
+        //
+        // Order: extras → expand employee_count → revenue → job_titles → industries → STOP
 
         const broadened = { ...args.search_filters };
+        const broadened_fields: string[] = [];
         const ALL_EMPLOYEE_RANGES = [
           "0 - 25", "25 - 100", "100 - 250", "250 - 1000",
           "1K - 10K", "10K - 50K", "50K - 100K", "> 100K",
@@ -74,12 +77,6 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           }
         }
 
-        // ── Progressive auto-broadening ──
-        // Priority: ALWAYS keep department (core user intent: "Sales").
-        // Remove least important filters first, keep department/level last.
-        //
-        // Order: extras → employee_count → revenue → job_titles → level → industries → department
-
         // Step 1: Strip extras the LLM added (news, technologies, etc.)
         {
           const extras = [
@@ -94,63 +91,60 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             }
           }
           if (removed.length > 0) {
+            broadened_fields.push(...removed);
             console.log(`[instantly_count_leads] Broadening: removed extras: ${removed.join(", ")}`);
             const c = await tryCount("Step 1 (no extras)");
-            if (c > 0) return { count: c, search_filters: broadened };
+            if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
           }
         }
 
-        // Step 2: Remove employee_count (often too restrictive, user may not care about exact range)
+        // Step 2: Expand employee_count to ALL ranges (instead of removing)
         if (broadened.employee_count) {
-          delete broadened.employee_count;
-          console.log("[instantly_count_leads] Broadening: removed employee_count");
-          const c = await tryCount("Step 2 (no employeeCount)");
-          if (c > 0) return { count: c, search_filters: broadened };
+          const current = broadened.employee_count as string[];
+          if (current.length < ALL_EMPLOYEE_RANGES.length) {
+            broadened.employee_count = [...ALL_EMPLOYEE_RANGES];
+            broadened_fields.push("employee_count");
+            console.log("[instantly_count_leads] Broadening: expanded employee_count to all ranges");
+            const c = await tryCount("Step 2 (all employee ranges)");
+            if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
+            // If still 0 with all ranges, remove entirely
+            delete broadened.employee_count;
+            console.log("[instantly_count_leads] Broadening: removed employee_count entirely");
+            const c2 = await tryCount("Step 2b (no employee_count)");
+            if (c2 > 0) return { count: c2, search_filters: broadened, broadened_fields };
+          }
         }
 
         // Step 3: Remove revenue filter
         if (broadened.revenue) {
           delete broadened.revenue;
+          broadened_fields.push("revenue");
           console.log("[instantly_count_leads] Broadening: removed revenue");
           const c = await tryCount("Step 3 (no revenue)");
-          if (c > 0) return { count: c, search_filters: broadened };
+          if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
         }
 
-        // Step 4: Remove job_titles (keep department + level for broad role coverage)
+        // Step 4: Remove job_titles (only present for niche roles / Strategy B)
         if (broadened.job_titles) {
           delete broadened.job_titles;
-          console.log("[instantly_count_leads] Broadening: removed job_titles (kept dept+level)");
-          const c = await tryCount("Step 4 (no titles)");
-          if (c > 0) return { count: c, search_filters: broadened };
+          broadened_fields.push("job_titles");
+          console.log("[instantly_count_leads] Broadening: removed job_titles");
+          const c = await tryCount("Step 4 (no job_titles)");
+          if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
         }
 
-        // Step 5: Remove level only (keep department — "Sales" is the core intent)
-        if (broadened.level) {
-          delete broadened.level;
-          console.log("[instantly_count_leads] Broadening: removed level (kept department)");
-          const c = await tryCount("Step 5 (no level)");
-          if (c > 0) return { count: c, search_filters: broadened };
-        }
-
-        // Step 6: Remove industries
+        // Step 5: Remove industries
         if (broadened.industries) {
           delete broadened.industries;
+          broadened_fields.push("industries");
           console.log("[instantly_count_leads] Broadening: removed industries");
-          const c = await tryCount("Step 6 (no industry)");
-          if (c > 0) return { count: c, search_filters: broadened };
+          const c = await tryCount("Step 5 (no industries)");
+          if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
         }
 
-        // Step 7: Last resort — remove department
-        if (broadened.department) {
-          delete broadened.department;
-          console.log("[instantly_count_leads] Broadening: removed department (last resort)");
-          const c = await tryCount("Step 7 (no department)");
-          if (c > 0) return { count: c, search_filters: broadened };
-        }
-
-        // All broadening steps failed
-        console.warn("[instantly_count_leads] All broadening steps exhausted, returning 0");
-        return { count: 0, search_filters: broadened };
+        // STOP — never remove department or level (core user intent)
+        console.warn("[instantly_count_leads] All broadening steps exhausted (department+level preserved), returning 0");
+        return { count: 0, search_filters: broadened, broadened_fields };
       },
     },
 
@@ -166,37 +160,28 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         const client = await getInstantlyClient(ctx.workspaceId);
         const rawLeads = await client.previewLeads(args.search_filters);
 
-        // Deduplicate by name+company, then cap at 5
+        // Normalize to consistent format, deduplicate by name+company, cap at 5
+        const normalized = rawLeads.map(normalizePreviewLead);
         const seen = new Set<string>();
-        const unique = rawLeads.filter((l) => {
-          const raw = l as unknown as Record<string, unknown>;
-          const key = `${raw.first_name ?? raw.firstName ?? ""}|${raw.last_name ?? raw.lastName ?? ""}|${raw.company_name ?? raw.companyName ?? raw.company ?? ""}`.toLowerCase();
+        const unique = normalized.filter((l) => {
+          const key = `${l.firstName ?? ""}|${l.lastName ?? ""}|${l.company ?? ""}`.toLowerCase();
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
         });
         const leads = unique.slice(0, 5);
 
-        // Debug: log raw response structure to help diagnose field mapping issues
-        if (leads.length > 0) {
-          console.log("[instantly_preview_leads] Sample raw lead keys:", Object.keys(leads[0]));
-          console.log("[instantly_preview_leads] Sample raw lead:", JSON.stringify(leads[0]).slice(0, 500));
-        }
-
-        // Defensive field mapping — handle both snake_case and camelCase API formats
-        const raw = leads as unknown as Array<Record<string, unknown>>;
-        const leadsData = raw.map((l, i) => ({
+        const leadsData = leads.map((l, i) => ({
           id: `preview-${i}`,
-          firstName: (l.first_name ?? l.firstName ?? null) as string | null,
-          lastName: (l.last_name ?? l.lastName ?? null) as string | null,
-          email: (l.email ?? l.emailAddress ?? "") as string,
-          company: (l.company_name ?? l.companyName ?? l.company ?? null) as string | null,
-          jobTitle: (l.title ?? l.jobTitle ?? l.job_title ?? null) as string | null,
+          firstName: l.firstName,
+          lastName: l.lastName,
+          email: l.email,
+          company: l.company,
+          jobTitle: l.jobTitle,
           icpScore: null,
           status: "PREVIEW",
         }));
 
-        // Minimal context for LLM (avoid it repeating data in text)
         const summary = leadsData
           .filter((l) => l.firstName || l.company)
           .map((l) => `${l.firstName ?? "?"} ${l.lastName ?? ""} - ${l.company ?? "?"} (${l.jobTitle ?? "?"})`.trim())
@@ -217,12 +202,13 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
 
     instantly_source_leads: {
       name: "instantly_source_leads",
-      description: "Source leads via Instantly SuperSearch. This uses the client's credits.",
+      description: "Source leads via Instantly SuperSearch. This uses the client's credits. Returns lead_ids and campaign_id for chaining to score_leads_batch.",
       parameters: z.object({
         search_filters: searchFiltersParam,
         limit: z.number().int().min(1).max(10000),
         search_name: z.string(),
         list_name: z.string(),
+        icp_description: z.string().describe("The user's original ICP description in natural language"),
       }),
       isSideEffect: true,
       async execute(args) {
@@ -248,50 +234,66 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           ctx.onStatus?.("Sourcing in progress...");
         }
 
-        // Fetch sourced leads
+        // Fetch sourced leads and normalize field names
         ctx.onStatus?.("Fetching sourced leads...");
         const { items: leads } = await client.listLeads({ listId: resourceId });
 
-        // Debug: log raw API response field names to diagnose mapping
-        if (leads.length > 0) {
-          const raw = leads[0] as unknown as Record<string, unknown>;
-          console.log("[instantly_source_leads] Raw lead keys:", Object.keys(raw));
-          console.log("[instantly_source_leads] Raw lead sample:", JSON.stringify(raw).slice(0, 800));
-        }
-
-        // Store in DB — defensive mapping handles both snake_case and camelCase
-        let stored = 0;
+        const leadIds: string[] = [];
         for (const lead of leads) {
-          const raw = lead as unknown as Record<string, unknown>;
-          const email = (raw.email ?? raw.emailAddress ?? "") as string;
-          if (!email) continue; // Skip leads without email
+          const n = normalizeStoredLead(lead);
+          if (!n.email) continue; // Skip leads without email
 
-          await prisma.lead.upsert({
+          const dbLead = await prisma.lead.upsert({
             where: {
-              workspaceId_email: { workspaceId: ctx.workspaceId, email },
+              workspaceId_email: { workspaceId: ctx.workspaceId, email: n.email },
             },
             create: {
               workspaceId: ctx.workspaceId,
-              email,
-              firstName: (raw.first_name ?? raw.firstName ?? null) as string | null,
-              lastName: (raw.last_name ?? raw.lastName ?? null) as string | null,
-              company: (raw.company_name ?? raw.companyName ?? raw.company ?? null) as string | null,
-              jobTitle: (raw.title ?? raw.job_title ?? raw.jobTitle ?? null) as string | null,
-              linkedinUrl: (raw.linkedin_url ?? raw.linkedinUrl ?? raw.linkedin ?? null) as string | null,
-              phone: (raw.phone ?? raw.phone_number ?? null) as string | null,
-              website: (raw.website ?? raw.company_url ?? raw.domain ?? null) as string | null,
-              country: (raw.country ?? raw.location ?? null) as string | null,
-              companySize: (raw.company_size ?? raw.companySize ?? raw.employee_count ?? null) as string | null,
-              industry: (raw.industry ?? null) as string | null,
+              email: n.email,
+              firstName: n.firstName,
+              lastName: n.lastName,
+              company: n.company,
+              jobTitle: n.jobTitle,
+              linkedinUrl: n.linkedinUrl,
+              phone: n.phone,
+              website: n.website,
+              country: n.location,
+              industry: null,
               instantlyListId: resourceId,
               status: "SOURCED",
             },
             update: {},
           });
-          stored++;
+          leadIds.push(dbLead.id);
         }
 
-        return { sourced: stored, listId: resourceId };
+        // Create Campaign record to track pipeline progress
+        const campaign = await prisma.campaign.create({
+          data: {
+            workspaceId: ctx.workspaceId,
+            name: args.search_name,
+            icpDescription: args.icp_description,
+            icpFilters: args.search_filters as unknown as Prisma.InputJsonValue,
+            instantlyListId: resourceId,
+            leadsTotal: leadIds.length,
+            status: "SOURCING",
+          },
+        });
+
+        // Link leads to campaign
+        if (leadIds.length > 0) {
+          await prisma.lead.updateMany({
+            where: { id: { in: leadIds } },
+            data: { campaignId: campaign.id },
+          });
+        }
+
+        return {
+          sourced: leadIds.length,
+          listId: resourceId,
+          lead_ids: leadIds,
+          campaign_id: campaign.id,
+        };
       },
     },
 
@@ -398,11 +400,27 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
 
     instantly_list_accounts: {
       name: "instantly_list_accounts",
-      description: "List all email accounts connected to Instantly. Call this BEFORE instantly_create_campaign to let the user choose their sending account.",
-      parameters: z.object({}),
-      async execute() {
+      description: "List all email accounts connected to Instantly and render an interactive account picker. Call this BEFORE instantly_create_campaign. The user will select account(s) via the inline component.",
+      parameters: z.object({
+        total_leads: z.number().int().optional().describe("Number of leads to send to, used for multi-mailbox recommendation"),
+      }),
+      async execute(args) {
         const client = await getInstantlyClient(ctx.workspaceId);
-        return client.listAccounts();
+        const accountsData = await client.listAccounts();
+        const totalLeads = args.total_leads ?? 0;
+        const recommendedCount = Math.max(1, Math.ceil(totalLeads / 30));
+
+        return {
+          accounts: accountsData,
+          total_leads: totalLeads,
+          recommended_count: recommendedCount,
+          __component: "account-picker",
+          props: {
+            accounts: accountsData,
+            totalLeads,
+            recommendedCount,
+          },
+        };
       },
     },
   };

@@ -7,57 +7,42 @@ import {
 
 const ICP_PARSER_SYSTEM = `You are an ICP (Ideal Customer Profile) parser. Convert natural language descriptions of target prospects into structured Instantly SuperSearch filters.
 
-## PERSON FILTERS
-- job_titles: string[] — STRICT ENUM values from Instantly SuperSearch. Plain array of strings, NO include/exclude wrapper.
-  Use ONLY these exact values. Post-processing will fix minor variations but use exact values when possible.
+## PERSON TARGETING
 
-  C-Suite: "CEO", "CFO", "COO", "CMO", "CTO", "CIO", "CDO", "CHRO", "CCO", "CSO",
-  "Chief Executive Officer", "Chief Financial Officer", "Chief Operating Officer",
-  "Chief Marketing Officer", "Chief Technology Officer", "Chief Information Officer",
-  "Chief Digital Officer", "Chief Human Resources Officer", "Chief Strategy Officer"
+ALWAYS use job_titles for person targeting. job_titles is a FREE TEXT field (plain array of strings) that searches against lead job titles in Instantly.
 
-  President/VP: "President", "Vice President", "Vice President of Sales", "Vice President of Marketing",
-  "Vice President of Finance", "Vice President of IT", "Vice President of Operations",
-  "Vice President of Human Resources", "Vice President of Business Development", "Vice President of Strategy"
+For each role, set:
+1. job_titles: array of the role name and common synonyms/variations
+2. department (optional): to narrow results to the right functional area
 
-  SVP: "Senior Vice President", "Senior Vice President of Sales", "Senior Vice President of Marketing", etc.
-  EVP: "EVP (Executive Vice President)", "EVP of Sales", "EVP of Marketing", etc.
-  SVP short: "SVP (Senior Vice President)", "SVP of Sales", "SVP of Marketing", etc.
+Standard correspondences (user says → use these filters):
+- "VP Sales" → job_titles: ["VP Sales", "VP of Sales", "Vice President Sales"], department: ["Sales"]
+- "Sales Director" / "Directeur Commercial" → job_titles: ["Sales Director", "Director of Sales", "Head of Sales"], department: ["Sales"]
+- "Head of Sales" → job_titles: ["Head of Sales", "Sales Director", "Director of Sales"], department: ["Sales"]
+- "VP Marketing" → job_titles: ["VP Marketing", "VP of Marketing", "Vice President Marketing"], department: ["Marketing"]
+- "CTO" → job_titles: ["CTO", "Chief Technology Officer", "Chief Technical Officer"], department: ["Engineering"]
+- "CEO" / "PDG" / "dirigeant" → job_titles: ["CEO", "Chief Executive Officer", "Founder", "Co-Founder"]
+- "DRH" → job_titles: ["CHRO", "Chief Human Resources Officer", "HR Director", "Head of HR"], department: ["Human Resources"]
+- "DSI" → job_titles: ["CIO", "Chief Information Officer", "IT Director"], department: ["IT & IS"]
+- "VP Ops" → job_titles: ["VP Operations", "VP Ops", "Vice President Operations"], department: ["Operations"]
+- "VP Finance" / "DAF" → job_titles: ["CFO", "VP Finance", "Chief Financial Officer"], department: ["Finance & Administration"]
+- "VP HR" → job_titles: ["VP HR", "VP Human Resources", "VP People"], department: ["Human Resources"]
+- "Manager Marketing" / "Responsable Marketing" → job_titles: ["Marketing Manager"], department: ["Marketing"]
+- "Fondateur" / "Founder" → job_titles: ["Founder", "Co-Founder", "CEO", "Owner"]
+- "Growth Hacker" → job_titles: ["Growth Hacker", "Head of Growth", "Growth Manager"]
+- "Revenue Operations" → job_titles: ["Revenue Operations Manager", "RevOps Manager", "Head of RevOps"]
 
-  Director: "Managing Director", "Executive Director", "General Manager",
-  "Director of Sales", "Director of Marketing", "Director of Finance", "Director of IT",
-  "Director of Operations", "Director of Human Resources", "Director of Business Development", "Director of Strategy"
+When user mentions multiple seniority levels (e.g. "VP or Director Sales"), include all relevant titles:
+  job_titles: ["VP Sales", "VP of Sales", "Sales Director", "Director of Sales", "Head of Sales"], department: ["Sales"]
 
-  Head of: "Head of Sales", "Head of Marketing", "Head of Finance", "Head of IT",
-  "Head of Operations", "Head of Human Resources", "Head of Business Development", "Head of Strategy"
+RULES for job_titles:
+- ALWAYS include 2-3 title variations to maximize coverage (e.g., "VP Sales" + "VP of Sales" + "Vice President Sales")
+- Keep titles SHORT and realistic (exactly what you'd see on LinkedIn)
+- For C-level roles, use the acronym + full title (e.g., "CTO" + "Chief Technology Officer")
+- department is OPTIONAL but recommended — it narrows results to the right functional area
 
-  Global Head of: Same departments prefixed with "Global Head of"
-
-  Manager: "Sales Manager", "Marketing Manager", "IT Manager", "Finance Manager",
-  "Operations Manager", "Human Resources Manager", "Business Development Manager",
-  "Product Manager", "Brand Manager", "Purchasing Manager", "Supply Chain Manager",
-  "Manager of Sales", "Manager of Marketing", etc.
-
-  Other: "Founder", "Partner", "Principal"
-
-  MAPPINGS (user says → use these exact values):
-  - "VP Sales" → ["Vice President of Sales", "Head of Sales", "Global Head of Sales", "Director of Sales", "SVP of Sales", "EVP of Sales", "CSO"]
-  - "VP Marketing" → ["Vice President of Marketing", "Head of Marketing", "Global Head of Marketing", "Director of Marketing", "CMO"]
-  - "VP Finance" → ["Vice President of Finance", "Head of Finance", "Director of Finance", "CFO"]
-  - "VP HR" → ["Vice President of Human Resources", "Head of Human Resources", "Director of Human Resources", "CHRO"]
-  - "VP IT" → ["Vice President of IT", "Head of IT", "Director of IT", "CIO"]
-  - "VP Ops" → ["Vice President of Operations", "Head of Operations", "Director of Operations", "COO"]
-  - "CTO" → ["CTO", "Chief Technology Officer", "VP Engineering", "Head of Engineering"]
-  - "CEO" → ["CEO", "Chief Executive Officer", "Founder"]
-  - "Sales Director" → ["Director of Sales", "Head of Sales", "Vice President of Sales"]
-  - "Directeur Commercial" → ["Director of Sales", "Head of Sales", "Vice President of Sales", "CSO"]
-  - "DRH" → ["CHRO", "Chief Human Resources Officer", "Director of Human Resources", "Head of Human Resources"]
-  - "DSI" → ["CIO", "Chief Information Officer", "Director of IT", "Head of IT"]
-  GENERAL RULE: When the user asks for a VP/Director/Head role in a function (e.g. "VP Sales"), ALWAYS include ALL equivalent seniority titles for that function: Vice President of X, Head of X, Global Head of X, Director of X, and the relevant Chief X Officer if applicable. These roles are interchangeable across companies.
-  CRITICAL: NEVER add CEO, Chief Executive Officer, or Founder to job_titles UNLESS the user explicitly asks for CEOs. "VP Sales" does NOT mean CEO. "Director of Marketing" does NOT mean CEO. Only map to CEO when the user says "CEO", "dirigeant", "PDG", or "fondateur".
-  ALWAYS include both the acronym AND full form for C-suite roles (e.g. "CTO" + "Chief Technology Officer").
 - names: { include?: string[], exclude?: string[] } — Contact name filter. Rarely used.
-- department: string[] — Functional department. STRICT ENUM values:
+- department: string[] — Functional department (OPTIONAL, used to narrow results). STRICT ENUM values:
   "Engineering", "Finance & Administration", "Human Resources", "IT & IS",
   "Marketing", "Operations", "Sales", "Support", "Other"
   MAPPINGS:
@@ -69,18 +54,7 @@ const ICP_PARSER_SYSTEM = `You are an ICP (Ideal Customer Profile) parser. Conve
   - "finance" / "comptabilité" / "DAF" → ["Finance & Administration"]
   - "opérations" / "ops" → ["Operations"]
   - "support" / "SAV" / "service client" → ["Support"]
-- level: string[] — Seniority level. STRICT ENUM values:
-  "C-Level", "VP-Level", "Director-Level", "Manager-Level",
-  "Staff", "Entry level", "Mid-Senior level", "Director", "Associate", "Owner"
-  MAPPINGS:
-  - "C-suite" / "dirigeant" / "CEO" / "CTO" → ["C-Level"]
-  - "VP" / "vice-président" → ["VP-Level"]
-  - "directeur" → ["Director-Level"]
-  - "manager" / "responsable" → ["Manager-Level"]
-  - "senior" / "confirmé" → ["Mid-Senior level"]
-  - "junior" / "débutant" → ["Entry level"]
-  - "fondateur" / "owner" → ["Owner"]
-  Use department + level for broad targeting, job_titles for specific titles. Combine all three for best results.
+- job_titles: string[] — FREE TEXT role titles to search for. Plain array of strings, NO include/exclude wrapper. ALWAYS set this field.
 
 ## COMPANY FILTERS
 - industries: string[] — STRICT VALUES from Instantly SuperSearch. Use ONLY these exact values:
@@ -154,34 +128,52 @@ const ICP_PARSER_SYSTEM = `You are an ICP (Ideal Customer Profile) parser. Conve
 
 ## RULES
 1. ALWAYS set skip_owned_leads: true
-2. For job_titles, use EXACT enum values from the list above. ALWAYS include both acronym + full form for C-suite (e.g. "CTO" + "Chief Technology Officer"). Use "Vice President of Sales" NOT "VP Sales".
-3. Interpret French AND English descriptions
-4. Only include filters clearly specified or strongly implied by the user
-5. job_titles, employee_count, revenue, industries, department, level are ALL STRICT ENUMS — use EXACT values from the lists above. NEVER invent values.
-6. Use department + level for broad targeting (e.g., department: ["Sales"], level: ["VP-Level"]) AND job_titles for specific roles. Combine them for best results.
-7. Output valid JSON matching the schema exactly
-8. For technologies, use exact product/tool names (e.g., "Salesforce" not "CRM")
-9. For lookalike_domain, extract just the domain (e.g., "stripe.com" not "https://stripe.com")
-10. For locations, use standard English country names
-11. job_titles, industries, department, level are PLAIN ARRAYS — NOT { include, exclude } objects
-12. keyword_filter and news are PLAIN STRINGS — NOT objects
-13. company_names uses { include: [...], exclude: [...] } format
-14. CRITICAL: Output a FLAT JSON object with ALL fields at the root level. NEVER nest fields inside "person_filters", "company_filters", "location_filters" or any wrapper object.
+2. Interpret French AND English descriptions
+3. Only include filters clearly specified or strongly implied by the user
+4. employee_count, revenue, industries, department are ALL STRICT ENUMS — use EXACT values from the lists above. NEVER invent values.
+5. job_titles is FREE TEXT — ALWAYS set it for person targeting. Include 2-3 variations of the title.
+6. Output valid JSON matching the schema exactly
+7. For technologies, use exact product/tool names (e.g., "Salesforce" not "CRM")
+8. For lookalike_domain, extract just the domain (e.g., "stripe.com" not "https://stripe.com")
+9. For locations, use standard English country names
+10. job_titles, industries, department are PLAIN ARRAYS — NOT { include, exclude } objects
+11. keyword_filter and news are PLAIN STRINGS — NOT objects
+12. company_names uses { include: [...], exclude: [...] } format
+13. CRITICAL: Output a FLAT JSON object with ALL fields at the root level. NEVER nest fields inside "person_filters", "company_filters", "location_filters" or any wrapper object.
+14. NEVER include "level" in the output. Use job_titles instead to target seniority.
 
 ## OUTPUT FORMAT
 Output a FLAT JSON object. Example for "VP Sales dans le SaaS, 50-200 employés, France":
 {
-  "job_titles": ["Vice President of Sales", "SVP of Sales", "EVP of Sales", "Head of Sales", "Director of Sales"],
+  "job_titles": ["VP Sales", "VP of Sales", "Vice President Sales"],
   "department": ["Sales"],
-  "level": ["VP-Level", "Director-Level"],
   "industries": ["Software & Internet"],
   "employee_count": ["25 - 100", "100 - 250"],
   "locations": ["France"],
   "skip_owned_leads": true
 }
-WRONG (never do this):
+Example for "CTO SaaS B2B, 100-500 employés":
 {
-  "person_filters": { "job_titles": [...] },
+  "job_titles": ["CTO", "Chief Technology Officer"],
+  "department": ["Engineering"],
+  "industries": ["Software & Internet"],
+  "employee_count": ["100 - 250", "250 - 1000"],
+  "skip_owned_leads": true
+}
+Example for "Growth Hacker à Paris":
+{
+  "job_titles": ["Growth Hacker", "Head of Growth", "Growth Manager"],
+  "locations": ["Paris, France"],
+  "skip_owned_leads": true
+}
+WRONG — never use level:
+{
+  "department": ["Sales"],
+  "level": ["VP-Level"]
+}
+WRONG — never nest:
+{
+  "person_filters": { "department": [...] },
   "company_filters": { "industries": [...] }
 }`;
 
@@ -921,220 +913,6 @@ function fixFundingType(values: string[] | undefined): string[] | undefined {
   return fixed.size > 0 ? [...fixed] : undefined;
 }
 
-// ── Valid Job Titles (Instantly enum) ──
-// Grouped by department/function for readability.
-// Source: Instantly SuperSearch UI screenshots.
-
-const VALID_JOB_TITLES = new Set([
-  // C-Suite (acronyms)
-  "CEO", "CFO", "COO", "CMO", "CTO", "CIO", "CDO", "CHRO", "CCO", "CSO",
-  // C-Suite (full)
-  "Chief Executive Officer", "Chief Financial Officer", "Chief Operating Officer",
-  "Chief Marketing Officer", "Chief Technology Officer", "Chief Information Officer",
-  "Chief Digital Officer", "Chief Human Resources Officer", "Chief Strategy Officer",
-  // President
-  "President",
-  // Vice President (general + by department)
-  "Vice President",
-  "Vice President of Marketing", "Vice President of Finance",
-  "Vice President of Human Resources", "Vice President of IT",
-  "Vice President of Sales", "Vice President of Business Development",
-  "Vice President of Strategy", "Vice President of Operations",
-  // Senior Vice President
-  "Senior Vice President",
-  "Senior Vice President of Operations", "Senior Vice President of Marketing",
-  "Senior Vice President of Finance", "Senior Vice President of Human Resources",
-  "Senior Vice President of IT", "Senior Vice President of Sales",
-  "Senior Vice President of Business Development", "Senior Vice President of Strategy",
-  // EVP / SVP (short form)
-  "EVP (Executive Vice President)", "SVP (Senior Vice President)",
-  "EVP of Operations", "EVP of Marketing", "EVP of Finance",
-  "EVP of Human Resources", "EVP of IT", "EVP of Sales",
-  "EVP of Business Development", "EVP of Strategy",
-  "SVP of Operations", "SVP of Marketing", "SVP of Finance",
-  "SVP of Human Resources", "SVP of IT", "SVP of Sales",
-  "SVP of Business Development", "SVP of Strategy",
-  // Director
-  "Managing Director", "Executive Director", "General Manager",
-  "Director of Marketing", "Director of Human Resources", "Director of Sales",
-  "Director of IT", "Director of Business Development", "Director of Strategy",
-  "Director of Operations", "Director of Finance",
-  // Head of
-  "Head of Marketing", "Head of Finance", "Head of Human Resources",
-  "Head of IT", "Head of Sales", "Head of Business Development",
-  "Head of Strategy", "Head of Operations",
-  // Global Head of
-  "Global Head of Operations", "Global Head of Marketing",
-  "Global Head of Finance", "Global Head of Human Resources",
-  "Global Head of IT", "Global Head of Sales",
-  "Global Head of Business Development", "Global Head of Strategy",
-  // Manager of
-  "Manager of Operations", "Manager of Marketing", "Manager of Finance",
-  "Manager of Human Resources", "Manager of IT", "Manager of Sales",
-  // [Dept] Manager
-  "Marketing Manager", "Finance Manager", "Human Resources Manager",
-  "IT Manager", "Sales Manager", "Operations Manager",
-  "Business Development Manager", "Strategy Manager",
-  // Specific Managers
-  "Business Unit Manager", "Product Manager", "Brand Manager",
-  "Purchasing Manager", "Supply Chain Manager",
-  // Other
-  "Founder", "Partner", "Principal",
-]);
-
-// Maps natural-language / LLM-generated titles → exact Instantly enum values.
-// Each key maps to an array of valid enum titles.
-const JOB_TITLE_FIXES: Record<string, string[]> = {
-  // ── Sales ──
-  "VP Sales": ["Vice President of Sales"],
-  "VP of Sales": ["Vice President of Sales"],
-  "Vice President Sales": ["Vice President of Sales"],
-  "SVP Sales": ["SVP of Sales", "Senior Vice President of Sales"],
-  "SVP of Sales": ["SVP of Sales", "Senior Vice President of Sales"],
-  "EVP Sales": ["EVP of Sales"],
-  "EVP of Sales": ["EVP of Sales"],
-  "Sales Director": ["Director of Sales"],
-  "Director Sales": ["Director of Sales"],
-  "Head Sales": ["Head of Sales"],
-  "Global Head Sales": ["Global Head of Sales"],
-  "Sales Head": ["Head of Sales"],
-  "Sales Manager": ["Sales Manager"],
-  "Manager Sales": ["Manager of Sales"],
-  "Directeur Commercial": ["Director of Sales", "Head of Sales", "Vice President of Sales"],
-  "Directeur des Ventes": ["Director of Sales", "Head of Sales"],
-  "Responsable Commercial": ["Head of Sales", "Sales Manager"],
-  "Responsable des Ventes": ["Head of Sales", "Sales Manager"],
-
-  // ── Marketing ──
-  "VP Marketing": ["Vice President of Marketing"],
-  "VP of Marketing": ["Vice President of Marketing"],
-  "Vice President Marketing": ["Vice President of Marketing"],
-  "SVP Marketing": ["SVP of Marketing", "Senior Vice President of Marketing"],
-  "EVP Marketing": ["EVP of Marketing"],
-  "Marketing Director": ["Director of Marketing"],
-  "Director Marketing": ["Director of Marketing"],
-  "Head Marketing": ["Head of Marketing"],
-  "Global Head Marketing": ["Global Head of Marketing"],
-  "Directeur Marketing": ["Director of Marketing", "Head of Marketing", "CMO", "Chief Marketing Officer"],
-  "Responsable Marketing": ["Head of Marketing", "Marketing Manager"],
-
-  // ── Finance ──
-  "VP Finance": ["Vice President of Finance"],
-  "VP of Finance": ["Vice President of Finance"],
-  "Vice President Finance": ["Vice President of Finance"],
-  "SVP Finance": ["SVP of Finance", "Senior Vice President of Finance"],
-  "EVP Finance": ["EVP of Finance"],
-  "Finance Director": ["Director of Finance"],
-  "Director Finance": ["Director of Finance"],
-  "Head Finance": ["Head of Finance"],
-  "Global Head Finance": ["Global Head of Finance"],
-  "Directeur Financier": ["Director of Finance", "CFO", "Chief Financial Officer"],
-  "DAF": ["Director of Finance", "CFO", "Chief Financial Officer"],
-  "Responsable Finance": ["Head of Finance", "Finance Manager"],
-  "Responsable Financier": ["Head of Finance", "Finance Manager"],
-
-  // ── IT / Tech ──
-  "VP IT": ["Vice President of IT"],
-  "VP of IT": ["Vice President of IT"],
-  "Vice President IT": ["Vice President of IT"],
-  "SVP IT": ["SVP of IT", "Senior Vice President of IT"],
-  "EVP IT": ["EVP of IT"],
-  "IT Director": ["Director of IT"],
-  "Director IT": ["Director of IT"],
-  "Head IT": ["Head of IT"],
-  "Global Head IT": ["Global Head of IT"],
-  "Directeur Technique": ["CTO", "Chief Technology Officer", "Director of IT"],
-  "Directeur IT": ["Director of IT", "CIO", "Chief Information Officer"],
-  "Directeur Informatique": ["Director of IT", "CIO", "Chief Information Officer"],
-  "DSI": ["CIO", "Chief Information Officer", "Director of IT"],
-  "Responsable IT": ["Head of IT", "IT Manager"],
-  "Responsable Informatique": ["Head of IT", "IT Manager"],
-
-  // ── HR ──
-  "VP HR": ["Vice President of Human Resources"],
-  "VP of HR": ["Vice President of Human Resources"],
-  "VP Human Resources": ["Vice President of Human Resources"],
-  "Vice President HR": ["Vice President of Human Resources"],
-  "Vice President Human Resources": ["Vice President of Human Resources"],
-  "SVP HR": ["SVP of Human Resources", "Senior Vice President of Human Resources"],
-  "EVP HR": ["EVP of Human Resources"],
-  "HR Director": ["Director of Human Resources"],
-  "Director HR": ["Director of Human Resources"],
-  "Director Human Resources": ["Director of Human Resources"],
-  "Head HR": ["Head of Human Resources"],
-  "Head of HR": ["Head of Human Resources"],
-  "Global Head HR": ["Global Head of Human Resources"],
-  "HR Manager": ["Human Resources Manager"],
-  "Manager HR": ["Manager of Human Resources"],
-  "DRH": ["CHRO", "Chief Human Resources Officer", "Director of Human Resources"],
-  "Directeur RH": ["Director of Human Resources", "CHRO"],
-  "Directeur des Ressources Humaines": ["Director of Human Resources", "CHRO"],
-  "Responsable RH": ["Head of Human Resources", "Human Resources Manager"],
-
-  // ── Operations ──
-  "VP Operations": ["Vice President of Operations"],
-  "VP of Operations": ["Vice President of Operations"],
-  "Vice President Operations": ["Vice President of Operations"],
-  "SVP Operations": ["SVP of Operations", "Senior Vice President of Operations"],
-  "EVP Operations": ["EVP of Operations"],
-  "Operations Director": ["Director of Operations"],
-  "Director Operations": ["Director of Operations"],
-  "Head Operations": ["Head of Operations"],
-  "Global Head Operations": ["Global Head of Operations"],
-  "Directeur des Opérations": ["Director of Operations", "COO", "Chief Operating Officer"],
-  "Responsable des Opérations": ["Head of Operations", "Operations Manager"],
-  "Directeur Opérations": ["Director of Operations", "COO"],
-
-  // ── Business Development ──
-  "VP Business Development": ["Vice President of Business Development"],
-  "VP of Business Development": ["Vice President of Business Development"],
-  "VP BizDev": ["Vice President of Business Development"],
-  "SVP Business Development": ["SVP of Business Development", "Senior Vice President of Business Development"],
-  "EVP Business Development": ["EVP of Business Development"],
-  "BizDev Director": ["Director of Business Development"],
-  "Director Business Development": ["Director of Business Development"],
-  "Head Business Development": ["Head of Business Development"],
-  "Head of BizDev": ["Head of Business Development"],
-  "Global Head Business Development": ["Global Head of Business Development"],
-  "Directeur du Développement": ["Director of Business Development"],
-  "Responsable Développement Commercial": ["Head of Business Development", "Business Development Manager"],
-
-  // ── Strategy ──
-  "VP Strategy": ["Vice President of Strategy"],
-  "VP of Strategy": ["Vice President of Strategy"],
-  "Vice President Strategy": ["Vice President of Strategy"],
-  "SVP Strategy": ["SVP of Strategy", "Senior Vice President of Strategy"],
-  "EVP Strategy": ["EVP of Strategy"],
-  "Strategy Director": ["Director of Strategy"],
-  "Director Strategy": ["Director of Strategy"],
-  "Head Strategy": ["Head of Strategy"],
-  "Global Head Strategy": ["Global Head of Strategy"],
-  "Directeur Stratégie": ["Director of Strategy", "CSO", "Chief Strategy Officer"],
-
-  // ── C-Suite variations ──
-  "Chief Technical Officer": ["Chief Technology Officer", "CTO"],
-  "Chief Revenue Officer": ["CSO"],
-  "CRO": ["CSO"],
-  "DG": ["CEO", "Chief Executive Officer", "Managing Director"],
-  "Directeur Général": ["CEO", "Chief Executive Officer", "Managing Director"],
-  "PDG": ["CEO", "Chief Executive Officer", "President"],
-  "Président": ["President", "CEO"],
-  "Fondateur": ["Founder", "CEO"],
-  "Co-fondateur": ["Founder"],
-  "Co-founder": ["Founder"],
-  "Associé": ["Partner"],
-  "Gérant": ["Managing Director", "General Manager"],
-  "DGA": ["COO", "Chief Operating Officer", "Managing Director"],
-  "Directeur Général Adjoint": ["COO", "Chief Operating Officer"],
-
-  // ── Generic level-based terms (expand to multiple departments) ──
-  "VP": ["Vice President"],
-  "SVP": ["Senior Vice President"],
-  "EVP": ["EVP (Executive Vice President)"],
-  "Director": ["Managing Director", "Executive Director"],
-  "Head of": ["Head of Sales", "Head of Marketing", "Head of Operations"],
-  "Manager": ["General Manager"],
-};
 
 
 // ── Fuzzy matching fallback ──
@@ -1231,62 +1009,6 @@ function fixIndustries(values: string[] | undefined): string[] | undefined {
   return fixed.size > 0 ? [...fixed] : undefined;
 }
 
-function fixJobTitles(values: string[] | undefined): string[] | undefined {
-  if (!values?.length) return undefined;
-  const fixed = new Set<string>();
-  for (const v of values) {
-    // Already a valid enum value
-    if (VALID_JOB_TITLES.has(v)) {
-      fixed.add(v);
-      continue;
-    }
-    // Try exact match in fix map
-    const mapped = JOB_TITLE_FIXES[v];
-    if (mapped) {
-      mapped.forEach((m) => fixed.add(m));
-      continue;
-    }
-    // Try case-insensitive match in fix map
-    const ciMatch = Object.entries(JOB_TITLE_FIXES).find(
-      ([k]) => k.toLowerCase() === v.toLowerCase().trim(),
-    );
-    if (ciMatch) {
-      ciMatch[1].forEach((m) => fixed.add(m));
-      continue;
-    }
-    // Try case-insensitive match in valid titles
-    const validMatch = [...VALID_JOB_TITLES].find(
-      (t) => t.toLowerCase() === v.toLowerCase().trim(),
-    );
-    if (validMatch) {
-      fixed.add(validMatch);
-      continue;
-    }
-    // Fuzzy: substring matching against valid titles
-    // Only match if the valid title is at least 60% the length of the input
-    // to avoid "President" matching inside "SVP (Senior Vice President) of Sales"
-    const lower = v.toLowerCase().trim();
-    let found = false;
-    for (const valid of VALID_JOB_TITLES) {
-      const vl = valid.toLowerCase();
-      if (vl.includes(lower)) {
-        // Input is contained in valid title (e.g. "vp sales" in "Vice President of Sales") — ok
-        fixed.add(valid);
-        found = true;
-      } else if (lower.includes(vl) && vl.length >= lower.length * 0.6) {
-        // Valid title is contained in input, but only if it's a significant portion
-        fixed.add(valid);
-        found = true;
-      }
-    }
-    if (!found) {
-      // If nothing matched, just pass through — the API does its own matching
-      fixed.add(v);
-      found = true;
-    }
-  }
-  return fixed.size > 0 ? [...fixed] : undefined;
-}
 
 /**
  * Post-processes the LLM output to fix common enum mistakes
@@ -1402,8 +1124,17 @@ function postProcessFilters(raw: Record<string, unknown>): InstantlySearchFilter
   }
 
   // ── Fix enum values ──
-  if (filters.job_titles) {
-    filters.job_titles = fixJobTitles(filters.job_titles as string[]);
+  // NEVER send `level` to the Instantly API (broken: returns 0 or ignores).
+  // If level is present without job_titles, the prepareFiltersForAPI fallback
+  // in instantly.ts will auto-generate title from level+department.
+  // But ideally, we should strip it here and let the ICP parser always use job_titles.
+  if (filters.level && !filters.job_titles) {
+    console.log(`[postProcessFilters] level=${JSON.stringify(filters.level)} without job_titles — will be converted to title by prepareFiltersForAPI`);
+  }
+  // If LLM output both job_titles AND level, drop level (job_titles is the primary targeting).
+  if (filters.job_titles && filters.level) {
+    console.log("[postProcessFilters] Both job_titles and level set. Dropping level (job_titles wins).");
+    delete filters.level;
   }
 
   if (filters.industries) {
@@ -1428,58 +1159,6 @@ function postProcessFilters(raw: Record<string, unknown>): InstantlySearchFilter
 
   if (filters.funding_type) {
     filters.funding_type = fixFundingType(filters.funding_type as string[]);
-  }
-
-  // ── Auto-infer department + level from job_titles when missing ──
-  // These serve as broad fallbacks when the broadening removes specific titles.
-  if (filters.job_titles && Array.isArray(filters.job_titles) && (filters.job_titles as string[]).length > 0) {
-    const titles = (filters.job_titles as string[]).map((t) => t.toLowerCase());
-
-    // Infer department if not set
-    if (!filters.department) {
-      const deptMap: Record<string, string> = {
-        sales: "Sales", marketing: "Marketing", finance: "Finance & Administration",
-        engineering: "Engineering", hr: "Human Resources", "human resources": "Human Resources",
-        it: "IT & IS", operations: "Operations", support: "Support",
-        strategy: "Sales", "business development": "Sales",
-      };
-      const depts = new Set<string>();
-      for (const t of titles) {
-        for (const [keyword, dept] of Object.entries(deptMap)) {
-          if (t.includes(keyword)) depts.add(dept);
-        }
-      }
-      if (depts.size > 0) {
-        filters.department = [...depts];
-        console.log("[postProcessFilters] Auto-inferred department:", filters.department);
-      }
-    }
-
-    // Infer level if not set
-    if (!filters.level) {
-      const levels = new Set<string>();
-      for (const t of titles) {
-        if (t.includes("chief") || t.startsWith("c") && (t.includes("ceo") || t.includes("cto") || t.includes("cfo") || t.includes("cmo") || t.includes("coo") || t.includes("cio") || t.includes("cdo") || t.includes("cso") || t.includes("chro") || t.includes("cco"))) {
-          levels.add("C-Level");
-        }
-        if (t.includes("vice president") || t.includes("vp") || t.includes("svp") || t.includes("evp")) {
-          levels.add("VP-Level");
-        }
-        if (t.includes("director") || t.includes("head of")) {
-          levels.add("Director-Level");
-        }
-        if (t.includes("manager")) {
-          levels.add("Manager-Level");
-        }
-        if (t.includes("founder") || t.includes("owner")) {
-          levels.add("Owner");
-        }
-      }
-      if (levels.size > 0) {
-        filters.level = [...levels];
-        console.log("[postProcessFilters] Auto-inferred level:", filters.level);
-      }
-    }
   }
 
   // Remove undefined/null fields to avoid Zod issues
@@ -1521,65 +1200,6 @@ function stripInvalidFields(raw: Record<string, unknown>): Partial<InstantlySear
   return safe as Partial<InstantlySearchFilters>;
 }
 
-// ─── CEO/Founder stripping ──────────────────────────────
-// Mistral frequently injects CEO into job_titles even when the user asked for
-// "VP Sales" or "Head of Marketing". Prompt-level instructions are unreliable,
-// so we enforce this in code: strip CEO/Founder titles unless the user's
-// description explicitly mentions them.
-
-/** Terms in the user's description that signal they WANT CEO/Founder results */
-const CEO_INTENT_TERMS = /\b(ceo|pdg|dirigeant|fondateur|founder|co-?founder|co-?fondateur|chief executive|directeur g[eé]n[eé]ral|dg)\b/i;
-
-/** Job titles to strip when user did NOT ask for CEOs */
-const CEO_TITLES_TO_STRIP = new Set([
-  "CEO", "Chief Executive Officer",
-  "Founder", "Co-founder",
-  "President",
-]);
-
-/**
- * Mutates `filters` in-place: removes CEO/Founder/President from job_titles
- * and C-Level/Owner from level if user didn't ask for them.
- */
-function stripUnwantedCeoTitles(filters: Record<string, unknown>, userDescription: string): void {
-  const userWantsCeo = CEO_INTENT_TERMS.test(userDescription);
-  if (userWantsCeo) return; // User explicitly asked for CEOs — keep them
-
-  // Strip from job_titles
-  if (Array.isArray(filters.job_titles)) {
-    const before = (filters.job_titles as string[]).length;
-    filters.job_titles = (filters.job_titles as string[]).filter(
-      (t) => !CEO_TITLES_TO_STRIP.has(t),
-    );
-    const after = (filters.job_titles as string[]).length;
-    if (after < before) {
-      console.log(`[stripUnwantedCeoTitles] Removed ${before - after} CEO/Founder titles from job_titles`);
-    }
-    // If we stripped everything, remove the field entirely
-    if ((filters.job_titles as string[]).length === 0) {
-      delete filters.job_titles;
-    }
-  }
-
-  // Strip C-Level and Owner from level if only there because of CEO/Founder
-  if (Array.isArray(filters.level)) {
-    const hasNonCeoTitles = Array.isArray(filters.job_titles) &&
-      (filters.job_titles as string[]).some((t) => {
-        const lower = t.toLowerCase();
-        return lower.includes("chief") || lower.startsWith("c") && /^c[a-z]o$/i.test(t);
-      });
-    if (!hasNonCeoTitles) {
-      const cleaned = (filters.level as string[]).filter(
-        (l) => l !== "C-Level" && l !== "Owner",
-      );
-      if (cleaned.length < (filters.level as string[]).length) {
-        console.log("[stripUnwantedCeoTitles] Removed C-Level/Owner from level");
-      }
-      filters.level = cleaned.length > 0 ? cleaned : undefined;
-      if (!filters.level) delete filters.level;
-    }
-  }
-}
 
 // ─── Main parser ────────────────────────────────────────
 
@@ -1608,10 +1228,6 @@ export async function parseICP(
 
   // 2. Post-process to fix common LLM enum mistakes
   const fixed = postProcessFilters(raw as Record<string, unknown>);
-
-  // 2b. Strip CEO/Founder from job_titles unless user explicitly asked for them.
-  // Mistral ignores prompt-level instructions ("never add CEO"), so enforce in code.
-  stripUnwantedCeoTitles(fixed, description);
 
   console.log("[parseICP] After postProcess:", JSON.stringify(fixed).slice(0, 1000));
 

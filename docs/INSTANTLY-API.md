@@ -107,29 +107,63 @@ Ces champs sont dans le body de `enrich-leads-from-supersearch`, PAS dans search
 ```
 Note : la cle reelle est `number_of_leads` (pas `count`). Si > 1_000_000, l'API retourne `1000000`.
 
-### preview-leads
+### preview-leads (ATTENTION: camelCase!)
 ```json
 {
-  "number_of_leads": 2400,
-  "number_of_redacted_results": 0,
+  "number_of_leads": 637,
+  "number_of_redacted_results": 205,
   "leads": [
     {
-      "email": "john@example.com",
-      "first_name": "John",
-      "last_name": "Doe",
-      "company_name": "Acme Corp",
-      "title": "VP Sales",
-      "linkedin_url": "https://linkedin.com/in/johndoe",
-      "phone": "+1234567890",
-      "website": "https://acme.com",
-      "country": "United States",
-      "company_size": "51-200",
-      "industry": "SaaS"
+      "firstName": "Wajdi",
+      "lastName": "Fathallah",
+      "fullName": "Wajdi Fathallah",
+      "jobTitle": "Chief Technology Officer & Co-Founder",
+      "location": "Paris, Ile-de-France, France",
+      "linkedIn": "linkedin.com/in/wajdi-fathallah-18045253",
+      "companyName": "Sifflet",
+      "companyLogo": "https://s3.amazonaws.com/media.mixrank.com/hero-img/...",
+      "companyId": "71807766"
     }
   ]
 }
 ```
-Note : la cle est `leads` (pas `items`). Inclut aussi `number_of_leads` et `number_of_redacted_results`.
+**IMPORTANT** : Le preview retourne des champs **camelCase** (pas snake_case).
+Champs **absents** du preview : `email`, `phone`, `website`, `company_size`, `industry`.
+Champs **supplementaires** : `fullName`, `companyLogo`, `companyId`, `location` (pas `country`).
+
+### leads/list (leads stockes — ATTENTION: format mixte!)
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "email": "erwan@lemlist.com",
+      "first_name": "Erwan",
+      "last_name": "Gauthier",
+      "company_name": "Lemlist",
+      "company_domain": "lemlist.com",
+      "status": 0,
+      "verification_status": 1,
+      "esp_code": 1,
+      "email_open_count": 0,
+      "email_reply_count": 0,
+      "payload": {
+        "firstName": "Erwan",
+        "lastName": "Gauthier",
+        "companyName": "Lemlist",
+        "jobTitle": "Head of Growth",
+        "linkedIn": "linkedin.com/in/erwanxgrowth",
+        "location": "Lyon, Auvergne-Rhone-Alpes, France",
+        "companyDomain": "lemlist.com"
+      },
+      "list_id": "uuid",
+      "timestamp_created": "2026-03-01T22:52:27.741Z"
+    }
+  ],
+  "next_starting_after": "uuid"
+}
+```
+**IMPORTANT** : Les champs top-level sont en **snake_case**, mais `payload` contient les donnees SuperSearch en **camelCase**. `jobTitle`, `linkedIn`, `location` ne sont QUE dans `payload`.
 
 ### enrich-leads (sourcing)
 ```json
@@ -149,6 +183,138 @@ Puis poll GET `/supersearch-enrichment/{resourceId}` :
   "enrichment_payload": { ... }
 }
 ```
+
+---
+
+## 4b. Enums de statut
+
+### Lead status (dans Instantly)
+
+| Valeur | Description |
+|--------|-------------|
+| `1` | Active |
+| `2` | Paused |
+| `3` | Completed |
+| `-1` | Bounced |
+| `-2` | Unsubscribed |
+| `-3` | Skipped |
+
+### Lead interest status (`lt_interest_status`)
+
+| Valeur | Description |
+|--------|-------------|
+| `0` | Out of Office |
+| `1` | Interested |
+| `2` | Meeting Booked |
+| `3` | Meeting Completed |
+| `4` | Won |
+| `-1` | Not Interested |
+| `-2` | Wrong Person |
+| `-3` | Lost |
+| `-4` | No Show |
+
+### Campaign status
+
+| Valeur | Description |
+|--------|-------------|
+| `0` | Draft |
+| `1` | Active |
+| `2` | Paused |
+| `3` | Completed |
+| `-1` | Error |
+| `-99` | Account Suspended |
+
+### Verification status
+
+| Valeur | Description |
+|--------|-------------|
+| `1` | Verified |
+| `11` | Pending |
+| `12` | Pending Verification Job |
+| `-1` | Invalid |
+| `-2` | Risky |
+| `-3` | Catch All |
+| `-4` | Job Change |
+
+---
+
+## 4c. Campaign Schedule & Timezone
+
+Le champ `campaign_schedule` est **obligatoire** pour creer une campagne.
+
+```json
+{
+  "campaign_schedule": {
+    "schedules": [
+      {
+        "name": "Business Hours",
+        "timing": { "from": "09:00", "to": "17:00" },
+        "days": { "0": false, "1": true, "2": true, "3": true, "4": true, "5": true, "6": false },
+        "timezone": "Europe/Sarajevo"
+      }
+    ],
+    "start_date": null,
+    "end_date": null
+  }
+}
+```
+
+**IMPORTANT : Timezone enum restreinte.** `Europe/Paris` n'existe PAS dans l'enum Instantly.
+
+| Zone | Timezone Instantly valide |
+|------|--------------------------|
+| CET (Paris, Berlin, Madrid) | `Europe/Sarajevo` ou `Europe/Belgrade` |
+| EET (Helsinki, Bucharest) | `Europe/Helsinki` ou `Europe/Bucharest` |
+| TRT (Istanbul) | `Europe/Istanbul` |
+| EST (New York) | ? (non trouve — `America/Chicago` pour CST fonctionne) |
+| CST (Chicago) | `America/Chicago` |
+| AST (Anchorage) | `America/Anchorage` |
+| GMT+0 (Casablanca) | `Africa/Casablanca` |
+| GMT+1 (sans DST) | `Africa/Algiers` |
+| GMT+2 (Le Caire) | `Africa/Cairo` |
+| GMT+4 (Dubai) | `Asia/Dubai` |
+| GMT+5:30 (Kolkata) | `Asia/Kolkata` |
+| BRT (Sao Paulo) | `America/Sao_Paulo` |
+| NZST (Auckland) | `Pacific/Auckland` |
+
+### Sequences / Steps
+
+Chaque step necessite `delay_unit` et `pre_delay_unit` :
+```json
+{
+  "type": "email",
+  "delay": 3,
+  "delay_unit": "days",
+  "pre_delay_unit": "days",
+  "variants": [{ "subject": "...", "body": "..." }]
+}
+```
+
+---
+
+## 4d. Email Accounts
+
+```json
+{
+  "email": "ombeline.carcel@elevay.net",
+  "first_name": "Ombeline",
+  "last_name": "Carcel",
+  "status": 1,
+  "warmup_status": 1,
+  "provider_code": 1,
+  "stat_warmup_score": 98,
+  "setup_pending": false,
+  "is_managed_account": false,
+  "timestamp_created": "2026-02-19T20:46:07.684Z"
+}
+```
+
+| Champ | Valeurs |
+|-------|---------|
+| `status` | `1` = Active |
+| `warmup_status` | `0` = Disabled, `1` = Enabled, `2` = Max daily limit |
+| `provider_code` | `1` = Google, `2` = Microsoft |
+| `stat_warmup_score` | `0-100` (score de rechauffement) |
 
 ---
 
@@ -199,7 +365,7 @@ Puis poll GET `/supersearch-enrichment/{resourceId}` :
 
 ## 6. Statut d'implementation
 
-Tous les filtres et l'enrichment_payload sont implementes :
+### Filtres SuperSearch — tous implementes
 
 - [x] `technologies` — filtre par stack techno
 - [x] `lookalike_domain` → `look_alike` — entreprises similaires a un domaine
@@ -207,7 +373,7 @@ Tous les filtres et l'enrichment_payload sont implementes :
 - [x] `company_names` → `company_name` — include/exclude des noms d'entreprise
 - [x] `names` → `name` — array de noms de contact
 - [x] `location_filter_type` → `location_mode` — choix contact vs company HQ
-- [x] `locations` — resolution automatique des strings en place_id objects
+- [x] `locations` — resolution automatique des strings en place_id objects (pays + villes majeures)
 - [x] `enrichment_payload` — `work_email_enrichment: true` par defaut
 - [x] `department` — enum Title Case (`"Sales"`, `"Engineering"`, etc.)
 - [x] `level` — enum (`"C-Level"`, `"VP-Level"`, etc.)
@@ -217,7 +383,40 @@ Tous les filtres et l'enrichment_payload sont implementes :
 - [x] `employee_count` → `employeeCount` — camelCase
 - [x] `keyword_filter` → `{ include: string }` — wrapping objet
 - [x] `revenue` — mapping valeurs internes → valeurs API
+- [x] `news` — `string[]` enum (`"launches"`, `"hires"`, `"receives_financing"`, etc.)
+
+### Endpoints implementes
+
+| Endpoint | Fonction | Status |
+|----------|----------|--------|
+| `POST /supersearch-enrichment/count-leads-from-supersearch` | `countLeads` | ✅ |
+| `POST /supersearch-enrichment/preview-leads-from-supersearch` | `previewLeads` | ✅ |
+| `POST /supersearch-enrichment/enrich-leads-from-supersearch` | `sourceLeads` | ✅ |
+| `GET /supersearch-enrichment/{resource_id}` | `getEnrichmentStatus` | ✅ |
+| `POST /leads` | `createLead` | ✅ |
+| `POST /leads/list` | `listLeads` | ✅ |
+| `GET /leads/{id}` | `getLead` | ✅ |
+| `PATCH /leads/{id}` | `updateLead` | ✅ |
+| `DELETE /leads/{id}` | `deleteLead` | ✅ |
+| `DELETE /leads` (bulk) | `deleteLeadsBulk` | ✅ |
+| `POST /leads/add` | `addLeadsToCampaign` | ✅ |
+| `POST /leads/move` | `moveLeads` | ✅ |
+| `POST /leads/update-interest-status` | `updateLeadInterestStatus` | ✅ |
+| `POST /campaigns` | `createCampaign` | ✅ |
+| `GET /campaigns` | `listCampaigns` | ✅ |
+| `GET /campaigns/{id}` | `getCampaign` | ✅ |
+| `PATCH /campaigns/{id}` | `updateCampaign` | ✅ |
+| `DELETE /campaigns/{id}` | `deleteCampaign` | ✅ |
+| `POST /campaigns/{id}/activate` | `activateCampaign` | ✅ |
+| `GET /accounts` | `listAccounts` | ✅ |
 
 ### Note critique : enrichment_payload
 L'endpoint `enrich-leads-from-supersearch` **EXIGE** un `enrichment_payload` avec au moins un type d'enrichissement active.
 Sans ca, l'API renvoie une erreur. Notre code envoie `work_email_enrichment: true` par defaut.
+
+### Note : field normalization
+Les reponses API ont deux formats differents :
+- **Preview** (SuperSearch) : **camelCase** (`firstName`, `jobTitle`, `companyName`)
+- **Leads stockes** (leads/list) : **snake_case** top-level + **camelCase** dans `payload`
+
+Utiliser `normalizePreviewLead()` et `normalizeStoredLead()` de `instantly.ts` pour unifier.
