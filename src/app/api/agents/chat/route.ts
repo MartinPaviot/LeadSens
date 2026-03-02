@@ -53,24 +53,29 @@ When the user responds with the number of leads to source:
 - The user modifies the ICP (new industry, new title, new country) → re-run Phase 1 with the new criteria
 NEVER re-run Phase 1 (parse_icp, count, preview) if the user simply confirms. Reuse the search_filters you already have.
 
-PHASE 2 — SOURCING (after confirmation)
-Tools: instantly_source_leads → score_leads_batch
-After sourcing, call score_leads_batch (technical validation) then continue directly.
+PHASE 2 — SOURCING + SCORING (after confirmation)
+Tools chain: instantly_source_leads → score_leads_batch
+- instantly_source_leads returns { sourced, listId, lead_ids, campaign_id }
+- ALWAYS pass lead_ids AND campaign_id from the result to score_leads_batch
+- score_leads_batch returns { scored, skipped, lead_ids } (qualified leads only)
 Show ONLY: "X leads sourced, moving to enrichment."
 NEVER mention scores, eliminated leads, or quality issues. All leads pass through.
 Continue WITHOUT pause.
 
 PHASE 3 — ENRICHMENT + DRAFTING (automatic)
-Tools: enrich_leads_batch → generate_campaign_angle → draft_emails_batch
-Show email previews (render_email_preview for 2-3 representative leads)
+Tools chain: enrich_leads_batch → generate_campaign_angle → draft_emails_batch
+- Pass lead_ids from score_leads_batch result + campaign_id to enrich_leads_batch
+- enrich_leads_batch returns { enriched, lead_ids }
+- generate_campaign_angle needs campaign_id + icp_description
+- draft_emails_batch needs lead_ids (from enrich result) + campaign_id
+Email previews render automatically via inline components.
 Continue WITHOUT pause.
 
 PHASE 4 — ACCOUNT SELECTION + PUSH AS DRAFT
-Step 1: Call instantly_list_accounts to fetch available email accounts.
-Step 2: Present the accounts to the user: "Which email account do you want to send from?" with the list.
-STOP: wait for the response.
-Step 3: Call instantly_create_campaign with the selected account(s) in email_accounts.
-Step 4: Call instantly_add_leads_to_campaign.
+Step 1: Call instantly_list_accounts with total_leads = number of drafted leads. An interactive account picker renders automatically.
+STOP: Wait for the user to select account(s) via the picker component. Do NOT list accounts in text.
+Step 2: After user selects accounts, call instantly_create_campaign with the selected email_accounts.
+Step 3: Call instantly_add_leads_to_campaign.
 DO NOT call instantly_activate_campaign.
 Say: "Campaign created as draft in Instantly with X leads and their personalized emails, sending from [email]. Let me know when you want to activate."
 STOP: wait for the user to ask to activate.
@@ -80,9 +85,11 @@ Tool: instantly_activate_campaign
 Say: "Campaign activated, emails are starting to go out."
 
 CRITICAL RULES:
+- ALWAYS pass lead_ids and campaign_id between tools. These are returned by each tool — use them for the next. NEVER skip passing them.
+- NEVER skip scoring or enrichment. The full chain is: source → score → enrich → angle → draft → accounts → campaign → push.
 - When the ICP is clear, do NOT ask additional questions. Execute.
-- The ONLY mandatory pause is between Phase 1 and Phase 2 (credits).
-- After sourcing confirmation, chain Phases 2 → 3 → 4 in one go.
+- The ONLY mandatory pauses are: (1) between Phase 1 and Phase 2 (credits), (2) Phase 4 account selection (wait for picker).
+- After sourcing confirmation, chain Phases 2 → 3 → 4 without stopping (except the account picker pause).
 - NEVER offer to activate the campaign. Wait for the user to explicitly request it.
 - If a step fails, simply say what happened and suggest an alternative. Do NOT loop, do NOT retry the same thing.
 - NEVER explain internal errors, technical limitations, or how you obtain data. The user wants results, not a post-mortem.
@@ -255,6 +262,27 @@ Describe your target for this campaign. For example:
 > *"VP Sales in B2B SaaS, 50-200 employees, France"*
 
 Give me the role, industry, company size, and location. I'll handle sourcing, enrichment, and email drafting.`;
+}
+
+// ─── Singleton inline components (only one per message) ──
+
+const SINGLETON_COMPONENTS = new Set([
+  "lead-table",
+  "account-picker",
+  "campaign-summary",
+  "progress-bar",
+]);
+
+/** Remove previous @@INLINE@@ markers for a singleton component type */
+function removePreviousMarkers(content: string, componentName: string): string {
+  if (!SINGLETON_COMPONENTS.has(componentName)) return content;
+  return content.replace(/\n*@@INLINE@@([\s\S]*?)@@END@@\n*/g, (match, json: string) => {
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed.component === componentName) return "";
+    } catch { /* keep non-parseable markers */ }
+    return match;
+  });
 }
 
 // ─── SSE Event Mapping ───────────────────────────────────
@@ -430,7 +458,43 @@ export async function POST(req: Request) {
     content: m.content,
   }));
 
-  // 9. Stream response
+  // 9. Pre-save: create conversation + user message BEFORE streaming
+  //    so the sidebar shows the conversation immediately
+  const lastUserMessage = messages[messages.length - 1];
+  const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
+  const autoTitle =
+    isFirstMessage && lastUserMessage?.role === "user"
+      ? lastUserMessage.content.replace(/\n/g, " ").trim().slice(0, 80)
+      : undefined;
+
+  try {
+    await prisma.conversation.upsert({
+      where: { id: conversationId },
+      create: {
+        id: conversationId,
+        workspaceId,
+        ...(autoTitle ? { title: autoTitle } : {}),
+      },
+      update: {
+        updatedAt: new Date(),
+        ...(autoTitle ? { title: autoTitle } : {}),
+      },
+    });
+
+    if (lastUserMessage?.role === "user") {
+      await prisma.message.create({
+        data: {
+          conversationId,
+          role: "USER",
+          content: lastUserMessage.content,
+        },
+      });
+    }
+  } catch {
+    console.error("Failed to pre-save conversation");
+  }
+
+  // 10. Stream response
   const sse = new SSEEncoder();
   let fullAssistantContent = "";
   const toolCalls: Array<{ toolName: string; input: unknown; output: unknown }> = [];
@@ -487,10 +551,13 @@ export async function POST(req: Request) {
             if (out && typeof out === "object") {
               // Single component
               if ("__component" in out) {
+                const compName = out.__component as string;
                 const marker = JSON.stringify({
-                  component: out.__component,
+                  component: compName,
                   props: out.props,
                 });
+                // Remove previous marker for singleton components (last wins)
+                fullAssistantContent = removePreviousMarkers(fullAssistantContent, compName);
                 fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
               }
               // Multiple components (e.g. draft_emails_batch returning email previews)
@@ -541,42 +608,9 @@ export async function POST(req: Request) {
       } finally {
         if (keepAlive) clearInterval(keepAlive);
         streamClosed = true;
-        controller.close();
 
-        // 10. Post-stream: save messages to DB
+        // Post-stream: save assistant response + update conversation timestamp
         try {
-          const lastUserMessage = messages[messages.length - 1];
-
-          // Auto-title: use first user message (truncated to 80 chars)
-          const isFirstMessage = messages.filter((m) => m.role === "user").length === 1;
-          const autoTitle =
-            isFirstMessage && lastUserMessage?.role === "user"
-              ? lastUserMessage.content.replace(/\n/g, " ").trim().slice(0, 80)
-              : undefined;
-
-          // Ensure conversation exists (created on first message)
-          await prisma.conversation.upsert({
-            where: { id: conversationId },
-            create: {
-              id: conversationId,
-              workspaceId,
-              ...(autoTitle ? { title: autoTitle } : {}),
-            },
-            update: { updatedAt: new Date() },
-          });
-
-          // Save user message
-          if (lastUserMessage?.role === "user") {
-            await prisma.message.create({
-              data: {
-                conversationId,
-                role: "USER",
-                content: lastUserMessage.content,
-              },
-            });
-          }
-
-          // Save assistant response
           if (fullAssistantContent) {
             await prisma.message.create({
               data: {
@@ -586,10 +620,16 @@ export async function POST(req: Request) {
               },
             });
           }
+
+          await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { updatedAt: new Date() },
+          });
         } catch {
-          // DB save failure shouldn't break the response
-          console.error("Failed to save messages to DB");
+          console.error("Failed to save assistant response to DB");
         }
+
+        controller.close();
       }
     },
   });

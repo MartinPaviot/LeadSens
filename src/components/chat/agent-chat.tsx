@@ -88,6 +88,26 @@ function getStepLabel(toolName: string): string {
 const MAX_RETRIES = 3;
 const DEFAULT_RETRY_MS = 3000;
 
+// Singleton inline components — only one per message (last wins)
+const SINGLETON_COMPONENTS = new Set([
+  "lead-table",
+  "account-picker",
+  "campaign-summary",
+  "progress-bar",
+]);
+
+/** Remove previous @@INLINE@@ markers for a singleton component type */
+function removePreviousMarkers(content: string, componentName: string): string {
+  if (!SINGLETON_COMPONENTS.has(componentName)) return content;
+  return content.replace(/\n*@@INLINE@@([\s\S]*?)@@END@@\n*/g, (match, json: string) => {
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed.component === componentName) return "";
+    } catch { /* keep non-parseable markers */ }
+    return match;
+  });
+}
+
 // ─── Main Component ──────────────────────────────────────
 
 export default function AgentChat() {
@@ -408,10 +428,13 @@ export default function AgentChat() {
                 ) {
                   // Single component
                   if ("__component" in toolOutput) {
+                    const compName = toolOutput.__component as string;
                     const marker = JSON.stringify({
-                      component: toolOutput.__component,
+                      component: compName,
                       props: toolOutput.props,
                     });
+                    // Remove previous marker for singleton components (last wins)
+                    pendingContentRef.current = removePreviousMarkers(pendingContentRef.current, compName);
                     pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
                     hasNewComponents = true;
                   }
@@ -419,10 +442,12 @@ export default function AgentChat() {
                   if ("__components" in toolOutput && Array.isArray(toolOutput.__components)) {
                     for (const comp of toolOutput.__components as Array<{ component: string; props: Record<string, unknown> }>) {
                       if (comp?.component && comp?.props) {
+                        const compName = comp.component;
                         const marker = JSON.stringify({
-                          component: comp.component,
+                          component: compName,
                           props: comp.props,
                         });
+                        pendingContentRef.current = removePreviousMarkers(pendingContentRef.current, compName);
                         pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
                         hasNewComponents = true;
                       }
@@ -485,6 +510,13 @@ export default function AgentChat() {
               }
 
               case "stream-start":
+                // Conversation is already saved in DB at this point,
+                // so refresh sidebar immediately for new conversations
+                if (isNewConversationRef.current) {
+                  isNewConversationRef.current = false;
+                  registerNewConversation(convId);
+                }
+                break;
               case "stream-end":
               case "step-complete":
               case "tool-input-available":
@@ -542,13 +574,8 @@ export default function AgentChat() {
         setActivityLabel(null);
         abortRef.current = null;
 
-        // Refresh sidebar after stream completes
-        if (isNewConversationRef.current) {
-          isNewConversationRef.current = false;
-          registerNewConversation(convId);
-        } else {
-          refreshConversations();
-        }
+        // Refresh sidebar after stream completes (updates timestamp/order)
+        refreshConversations();
       }
     },
     [registerNewConversation, refreshConversations],
@@ -576,6 +603,20 @@ export default function AgentChat() {
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
   }, []);
+
+  // ─── Account picker event listener ────────────────────
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ accounts: string[] }>).detail;
+      if (detail?.accounts?.length) {
+        const accountList = detail.accounts.join(", ");
+        handleSend(`Use these sending accounts: ${accountList}`);
+      }
+    };
+    window.addEventListener("leadsens:accounts-selected", handler);
+    return () => window.removeEventListener("leadsens:accounts-selected", handler);
+  }, [handleSend]);
 
   // ─── Derived state ────────────────────────────────────
 

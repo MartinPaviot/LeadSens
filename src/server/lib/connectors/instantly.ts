@@ -74,7 +74,7 @@ export const searchFiltersSchema = z.object({
   keyword_filter: z.string().optional(),              // Plain string
   technologies: z.array(z.string()).optional(),
   lookalike_domain: z.string().optional(),
-  news: z.string().optional(),                        // Plain string
+  news: z.array(z.string()).optional(),                 // API expects string[] enum
   job_listing: z.string().optional(),
 
   // ── Deduplication ──
@@ -89,7 +89,7 @@ export type InstantlySearchFilters = z.infer<typeof searchFiltersSchema>;
 // Instantly requires {place_id, label} objects.
 // For locations not in this map, the Google Places API is needed.
 const LOCATION_PLACE_IDS: Record<string, string> = {
-  // Europe
+  // ── European countries ──
   "france": "ChIJMVd4MymgVA0R99lHx5Y__Ws",
   "germany": "ChIJa76xwh5ymkcRW-e3tIrhADA",
   "united kingdom": "ChIJqZHHQhE7WgIReiWIMkOg-MQ",
@@ -107,13 +107,43 @@ const LOCATION_PLACE_IDS: Record<string, string> = {
   "ireland": "ChIJj4MfVq-JYEgR5UdeZUQhGWk",
   "portugal": "ChIJ1SZCvy0kMgsRQfBOHAlLuB0",
   "poland": "ChIJuwtkpGSZAEcR6lXMScpzdQk",
-  // North America
+  // ── European cities ──
+  "paris": "ChIJD7fiBh9u5kcRYJSMaMOCCwQ",
+  "london": "ChIJdd4hrwug2EcRmSrV3Vo6llI",
+  "berlin": "ChIJAVkDPzdOqEcRcDteW0YgIQQ",
+  "madrid": "ChIJgTwKgJcpQg0RaSKMYcHeNtQ",
+  "barcelona": "ChIJ5TCOcRaYpBIRCmZHTz37sEQ",
+  "amsterdam": "ChIJVXealLU_xkcRja_At0z9AGY",
+  "milan": "ChIJ53USP0nBhkcRjQ50xhPN_zw",
+  "rome": "ChIJu46S-ZZhLxMROG5lkwZ3D7k",
+  "munich": "ChIJ2V-Mo_l1nkcRfZixfUq4DAE",
+  "dublin": "ChIJL6wn6oAOZ0gRoB1jVRBbNBo",
+  "lisbon": "ChIJO_PkYRozGQ0R0DaQ3CdqC68",
+  "vienna": "ChIJn8o2UZ4HbUcRRluiUei_gSs",
+  "stockholm": "ChIJywtkGTF2X0YRZnGgz3jBAAo",
+  "copenhagen": "ChIJIz2AXDxTUkYRuGeU5t1-3QQ",
+  "oslo": "ChIJOfBn8mFuQUYRmh4j019gkn4",
+  "helsinki": "ChIJ3fYyS9_KgUYREKh1PNZGAQA",
+  "zurich": "ChIJGaK-SZcLkEcR_IYBiIMRjqo",
+  "brussels": "ChIJhYWMmo7Ew0cRMF31bDU3tTg",
+  "warsaw": "ChIJAYWNPkdZzDkR4KLERnHGzuQ",
+  "prague": "ChIJi3lwCZyTC0cRkEAWZg-vAAQ",
+  "budapest": "ChIJyc_U0TTDQUcRYBEeDCnEAAQ",
+  // ── North American countries ──
   "united states": "ChIJCzYy5IS16lQRQrfeQ5K5Oxw",
   "usa": "ChIJCzYy5IS16lQRQrfeQ5K5Oxw",
   "us": "ChIJCzYy5IS16lQRQrfeQ5K5Oxw",
   "canada": "ChIJ2WrMN9MDDUsRpY9Dll18Wo4",
   "mexico": "ChIJU1NoiDs6BIQREZgJa760ZO0",
-  // Other
+  // ── North American cities ──
+  "new york": "ChIJOwg_06VPwokRYv534QaPC8g",
+  "san francisco": "ChIJIQBpAG2ahYAR_6128GcTUEo",
+  "los angeles": "ChIJE9on3F3HwoAR9AhGJW_fL-I",
+  "chicago": "ChIJ7cv00DwsDogRAMDACa2m4K8",
+  "toronto": "ChIJpTvG15DL1IkRd8S0KlBVNTI",
+  "montreal": "ChIJDbdkHFQayUwR7-8fITgxTmU",
+  "vancouver": "ChIJs0-pQ_FzhlQRi_OBm-qWkbs",
+  // ── Other countries ──
   "australia": "ChIJ38WHZwf9KysRUhNblaFnglM",
   "brazil": "ChIJzyjM68dCnAAR_gKgVYIhKQM",
   "india": "ChIJkbeSa_BfYzARphNChaFPjNc",
@@ -122,6 +152,12 @@ const LOCATION_PLACE_IDS: Record<string, string> = {
   "israel": "ChIJi8mnMiRJABURuiw1EyBCa2o",
   "uae": "ChIJvRKrsd9IXj4RpwoIwFYv0zM",
   "south africa": "ChIJGbV4-al-lR4RNIuFKk6RcOc",
+  // ── Other cities ──
+  "sydney": "ChIJP3Sa8ziYEmsRUKgyFmh9AQM",
+  "tokyo": "ChIJ51cu8IcbYWARhRyRKS_zBBg",
+  "dubai": "ChIJRcbZaklDXz4RYlEphFBu5r0",
+  "tel aviv": "ChIJH3w7GaZMHRURkD-WwKJy8eE",
+  "sao paulo": "ChIJ0WGkg4FEzpQRrlsz_whLqZs",
 };
 
 /**
@@ -138,38 +174,96 @@ export function resolveLocation(name: string): { place_id: string; label: string
 
 // ─── Response Types ──────────────────────────────────────
 
+/** Lead as returned by SuperSearch preview (camelCase, no email) */
+export interface InstantlyPreviewLead {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  jobTitle?: string;
+  location?: string;
+  linkedIn?: string;
+  companyName?: string;
+  companyLogo?: string;
+  companyId?: string;
+}
+
+/** Lead as returned by POST /leads/list (snake_case top-level + camelCase payload) */
 export interface InstantlyLead {
+  id: string;
   email: string;
-  first_name?: string;
-  last_name?: string;
-  company_name?: string;
-  title?: string;
-  linkedin_url?: string;
-  phone?: string;
-  website?: string;
-  country?: string;
-  company_size?: string;
-  industry?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  company_name?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  personalization?: string | null;
+  company_domain?: string;
+  status?: number;
+  campaign?: string | null;
+  list_id?: string | null;
+  verification_status?: number;
+  esp_code?: number;
+  lt_interest_status?: number;
+  email_open_count?: number;
+  email_reply_count?: number;
+  email_click_count?: number;
+  /** Custom variables & SuperSearch data (camelCase keys) */
+  payload?: Record<string, unknown> | null;
+  timestamp_created?: string;
+  timestamp_updated?: string;
+}
+
+/** Normalized lead for internal use (consistent field names) */
+export interface NormalizedLead {
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  company?: string | null;
+  jobTitle?: string | null;
+  linkedinUrl?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  location?: string | null;
+  companyDomain?: string | null;
 }
 
 export interface InstantlyCampaign {
   id: string;
   name: string;
-  status?: string;
+  status: number; // 0=Draft, 1=Active, 2=Paused, 3=Completed, -1=Error
+  campaign_schedule?: CampaignSchedule;
+  sequences?: Array<{
+    steps: Array<{
+      type: string;
+      delay: number;
+      delay_unit?: string;
+      pre_delay_unit?: string;
+      variants: Array<{ subject: string; body: string }>;
+    }>;
+  }>;
+  timestamp_created?: string;
+  timestamp_updated?: string;
+  organization?: string;
 }
 
 export interface InstantlyAccount {
   email: string;
   first_name?: string;
   last_name?: string;
-  status?: string;
+  status: number; // 1=Active
+  warmup_status: number; // 0=Disabled, 1=Enabled, 2=Max daily limit
+  provider_code: number; // 1=Google, 2=Microsoft
+  stat_warmup_score?: number;
+  setup_pending?: boolean;
+  is_managed_account?: boolean;
+  timestamp_created?: string;
 }
 
 // ─── HTTP Helper with Retry ──────────────────────────────
 
 async function instantlyFetch<T>(
   apiKey: string,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<T> {
@@ -219,6 +313,85 @@ function mapRevenueToAPI(v: string): string {
   return REVENUE_TO_API[v] ?? v;
 }
 
+// ─── Level → Title fallback ─────────────────────────────
+// The `level` filter in Instantly SuperSearch is NON-FUNCTIONAL:
+// - "VP-Level", "C-Level", "Staff" → always return 0 results
+// - "Director", "Manager", "Owner" → return 1M (same as no filter = ignored)
+// When the ICP parser outputs `level` without `job_titles`, we auto-generate
+// title search terms from the level + department combination.
+
+const LEVEL_TITLE_MAP: Record<string, Record<string, string[]>> = {
+  "C-Level": {
+    Sales: ["Chief Revenue Officer", "CRO"],
+    Engineering: ["CTO", "Chief Technology Officer", "Chief Technical Officer"],
+    Marketing: ["CMO", "Chief Marketing Officer"],
+    "Finance & Administration": ["CFO", "Chief Financial Officer"],
+    "Human Resources": ["CHRO", "Chief Human Resources Officer", "Chief People Officer"],
+    "IT & IS": ["CIO", "Chief Information Officer"],
+    Operations: ["COO", "Chief Operating Officer"],
+    _default: ["CEO", "CTO", "CFO", "COO", "CMO", "CRO", "CIO", "CHRO"],
+  },
+  "VP-Level": {
+    Sales: ["VP Sales", "VP of Sales", "Vice President Sales"],
+    Engineering: ["VP Engineering", "VP of Engineering", "Vice President Engineering"],
+    Marketing: ["VP Marketing", "VP of Marketing", "Vice President Marketing"],
+    "Finance & Administration": ["VP Finance", "VP of Finance"],
+    "Human Resources": ["VP HR", "VP Human Resources", "VP People"],
+    "IT & IS": ["VP IT", "VP Information Technology"],
+    Operations: ["VP Operations", "VP Ops"],
+    Support: ["VP Customer Success", "VP Support"],
+    _default: ["VP", "Vice President"],
+  },
+  "Director-Level": {
+    Sales: ["Sales Director", "Director of Sales", "Head of Sales"],
+    Engineering: ["Engineering Director", "Director of Engineering", "Head of Engineering"],
+    Marketing: ["Marketing Director", "Director of Marketing", "Head of Marketing"],
+    "Finance & Administration": ["Finance Director", "Director of Finance"],
+    "Human Resources": ["HR Director", "Director of HR", "Head of HR"],
+    "IT & IS": ["IT Director", "Director of IT"],
+    Operations: ["Director of Operations", "Head of Operations"],
+    Support: ["Director of Customer Success", "Head of Support"],
+    _default: ["Director", "Head of"],
+  },
+  "Manager-Level": {
+    Sales: ["Sales Manager"],
+    Engineering: ["Engineering Manager"],
+    Marketing: ["Marketing Manager"],
+    "Finance & Administration": ["Finance Manager"],
+    "Human Resources": ["HR Manager"],
+    "IT & IS": ["IT Manager"],
+    Operations: ["Operations Manager"],
+    Support: ["Customer Success Manager", "Support Manager"],
+    _default: ["Manager"],
+  },
+  Owner: {
+    _default: ["Founder", "Co-Founder", "Owner", "CEO"],
+  },
+};
+
+/**
+ * Generates job title search terms from level + department when the
+ * ICP parser only returned department+level (legacy Strategy A).
+ */
+function levelToTitles(levels: string[], departments?: string[]): string[] {
+  const titles = new Set<string>();
+  for (const level of levels) {
+    const levelMap = LEVEL_TITLE_MAP[level];
+    if (!levelMap) continue;
+
+    if (departments?.length) {
+      for (const dept of departments) {
+        const deptTitles = levelMap[dept] ?? levelMap._default ?? [];
+        deptTitles.forEach((t) => titles.add(t));
+      }
+    } else {
+      const defaults = levelMap._default ?? [];
+      defaults.forEach((t) => titles.add(t));
+    }
+  }
+  return [...titles];
+}
+
 // ─── Filter Preparation ─────────────────────────────────
 // Transforms internal filter schema → Instantly API v2 expected format.
 // Field name and format differences:
@@ -231,15 +404,27 @@ function mapRevenueToAPI(v: string): string {
 //   lookalike_domain: string   → look_alike: string
 //   location_filter_type       → location_mode
 //   revenue values             → mapped via REVENUE_TO_API
+//   level: NEVER sent to API   → converted to title via LEVEL_TITLE_MAP
 
 function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, unknown> {
   const api: Record<string, unknown> = {};
 
   // ── Person filters ──
 
+  // level → NEVER send to API (broken: returns 0 or 1M depending on value).
+  // If level is set without job_titles, auto-generate title from level+department.
+  let effectiveJobTitles = filters.job_titles;
+  if (filters.level?.length && !effectiveJobTitles?.length) {
+    const generated = levelToTitles(filters.level, filters.department);
+    if (generated.length > 0) {
+      effectiveJobTitles = generated;
+      console.log(`[prepareFiltersForAPI] Converted level ${JSON.stringify(filters.level)} → title ${JSON.stringify(generated)}`);
+    }
+  }
+
   // job_titles → title: { include: [...] }
-  if (filters.job_titles?.length) {
-    api.title = { include: filters.job_titles };
+  if (effectiveJobTitles?.length) {
+    api.title = { include: effectiveJobTitles };
   }
 
   // department — pass through (correct Title Case enum values)
@@ -247,10 +432,7 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, u
     api.department = filters.department;
   }
 
-  // level — pass through (correct enum values like "VP-Level", "C-Level")
-  if (filters.level?.length) {
-    api.level = filters.level;
-  }
+  // level — NEVER sent to API (see above)
 
   // names → name (API expects plain string[])
   if (filters.names?.include?.length) {
@@ -347,8 +529,8 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, u
   }
 
   // news — API expects string[] enum
-  if (filters.news) {
-    api.news = Array.isArray(filters.news) ? filters.news : [filters.news];
+  if (filters.news?.length) {
+    api.news = filters.news;
   }
 
   // job_listing — pass through
@@ -389,48 +571,52 @@ export async function countLeads(
 export async function previewLeads(
   apiKey: string,
   searchFilters: InstantlySearchFilters,
-): Promise<InstantlyLead[]> {
-  const res = await instantlyFetch<Record<string, unknown>>(
+): Promise<InstantlyPreviewLead[]> {
+  const res = await instantlyFetch<{
+    number_of_leads?: number;
+    number_of_redacted_results?: number;
+    leads?: InstantlyPreviewLead[];
+  }>(
     apiKey,
     "POST",
     "/supersearch-enrichment/preview-leads-from-supersearch",
     { search_filters: prepareFiltersForAPI(searchFilters) },
   );
 
-  // Debug: log raw response keys and first item to diagnose field mapping
-  console.log("[previewLeads] Response keys:", Object.keys(res));
-  const items = (res.items ?? res.leads ?? []) as InstantlyLead[];
-  if (items.length > 0) {
-    console.log("[previewLeads] Total items:", items.length);
-    console.log("[previewLeads] First item keys:", Object.keys(items[0]));
-    console.log("[previewLeads] First item:", JSON.stringify(items[0]).slice(0, 500));
-  } else {
-    console.log("[previewLeads] No items returned. Full response keys:", Object.keys(res), "Checking nested structures...");
-    // Try to find leads in nested structures
-    for (const key of Object.keys(res)) {
-      const val = res[key];
-      if (Array.isArray(val) && val.length > 0) {
-        console.log(`[previewLeads] Found array at key "${key}" with ${val.length} items. First:`, JSON.stringify(val[0]).slice(0, 300));
-      }
-    }
-  }
-
-  return items;
+  return res.leads ?? [];
 }
 
-export async function searchLeads(
-  apiKey: string,
-  params: {
-    searchFilters: InstantlySearchFilters;
-    limit?: number;
-    startingAfter?: string;
-  },
-): Promise<{ items: InstantlyLead[]; nextStartingAfter?: string }> {
-  return instantlyFetch(apiKey, "POST", "/lead-lists/search", {
-    search_filters: prepareFiltersForAPI(params.searchFilters),
-    limit: params.limit ?? 100,
-    starting_after: params.startingAfter,
-  });
+/** Normalize a preview lead (camelCase) to our internal format */
+export function normalizePreviewLead(lead: InstantlyPreviewLead): NormalizedLead {
+  return {
+    email: "", // Preview never includes email
+    firstName: lead.firstName ?? null,
+    lastName: lead.lastName ?? null,
+    company: lead.companyName ?? null,
+    jobTitle: lead.jobTitle ?? null,
+    linkedinUrl: lead.linkedIn ? `https://${lead.linkedIn}` : null,
+    phone: null,
+    website: null,
+    location: lead.location ?? null,
+    companyDomain: null,
+  };
+}
+
+/** Normalize a stored lead (snake_case + payload) to our internal format */
+export function normalizeStoredLead(lead: InstantlyLead): NormalizedLead {
+  const p = lead.payload ?? {};
+  return {
+    email: lead.email,
+    firstName: lead.first_name ?? (p.firstName as string) ?? null,
+    lastName: lead.last_name ?? (p.lastName as string) ?? null,
+    company: lead.company_name ?? (p.companyName as string) ?? null,
+    jobTitle: (p.jobTitle as string) ?? null,
+    linkedinUrl: (p.linkedIn as string) ? `https://${p.linkedIn as string}` : null,
+    phone: lead.phone ?? null,
+    website: lead.website ?? (p.companyDomain as string) ?? null,
+    location: (p.location as string) ?? null,
+    companyDomain: lead.company_domain ?? (p.companyDomain as string) ?? null,
+  };
 }
 
 export interface EnrichmentOptions {
@@ -496,12 +682,22 @@ export async function listLeads(
     startingAfter?: string;
   },
 ): Promise<{ items: InstantlyLead[]; nextStartingAfter?: string }> {
-  return instantlyFetch(apiKey, "POST", "/leads/list", {
-    list_id: params.listId,
-    campaign_id: params.campaignId,
-    limit: params.limit ?? 100,
-    starting_after: params.startingAfter,
-  });
+  const res = await instantlyFetch<{ items: InstantlyLead[]; next_starting_after?: string }>(
+    apiKey, "POST", "/leads/list", {
+      list_id: params.listId,
+      campaign_id: params.campaignId,
+      limit: params.limit ?? 100,
+      starting_after: params.startingAfter,
+    },
+  );
+  return { items: res.items, nextStartingAfter: res.next_starting_after };
+}
+
+export async function getLead(
+  apiKey: string,
+  leadId: string,
+): Promise<InstantlyLead> {
+  return instantlyFetch(apiKey, "GET", `/leads/${leadId}`);
 }
 
 export async function createLead(
@@ -512,6 +708,7 @@ export async function createLead(
     lastName?: string;
     companyName?: string;
     campaign?: string;
+    listId?: string;
     customVariables?: Record<string, string>;
   },
 ): Promise<InstantlyLead> {
@@ -521,7 +718,88 @@ export async function createLead(
     last_name: params.lastName,
     company_name: params.companyName,
     campaign: params.campaign,
+    list_id: params.listId,
     custom_variables: params.customVariables,
+  });
+}
+
+export async function updateLead(
+  apiKey: string,
+  leadId: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    companyName?: string;
+    phone?: string;
+    website?: string;
+    customVariables?: Record<string, string>;
+    ltInterestStatus?: number;
+  },
+): Promise<InstantlyLead> {
+  return instantlyFetch(apiKey, "PATCH", `/leads/${leadId}`, {
+    first_name: data.firstName,
+    last_name: data.lastName,
+    company_name: data.companyName,
+    phone: data.phone,
+    website: data.website,
+    custom_variables: data.customVariables,
+    lt_interest_status: data.ltInterestStatus,
+  });
+}
+
+export async function deleteLead(
+  apiKey: string,
+  leadId: string,
+): Promise<void> {
+  await instantlyFetch<unknown>(apiKey, "DELETE", `/leads/${leadId}`);
+}
+
+export async function deleteLeadsBulk(
+  apiKey: string,
+  params: { leadIds?: string[]; campaignId?: string; listId?: string },
+): Promise<void> {
+  await instantlyFetch<unknown>(apiKey, "DELETE", "/leads", {
+    lead_ids: params.leadIds,
+    campaign_id: params.campaignId,
+    list_id: params.listId,
+  });
+}
+
+export async function addLeadsToCampaign(
+  apiKey: string,
+  params: {
+    leadIds: string[];
+    campaignId: string;
+  },
+): Promise<void> {
+  await instantlyFetch(apiKey, "POST", "/leads/add", {
+    lead_ids: params.leadIds,
+    campaign_id: params.campaignId,
+  });
+}
+
+export async function moveLeads(
+  apiKey: string,
+  params: {
+    leadIds: string[];
+    fromCampaignId: string;
+    toCampaignId: string;
+  },
+): Promise<void> {
+  await instantlyFetch(apiKey, "POST", "/leads/move", {
+    lead_ids: params.leadIds,
+    from_campaign_id: params.fromCampaignId,
+    to_campaign_id: params.toCampaignId,
+  });
+}
+
+export async function updateLeadInterestStatus(
+  apiKey: string,
+  params: { leadId: string; interestStatus: number },
+): Promise<void> {
+  await instantlyFetch(apiKey, "POST", "/leads/update-interest-status", {
+    lead_id: params.leadId,
+    interest_status: params.interestStatus,
   });
 }
 
@@ -550,7 +828,7 @@ const DEFAULT_CAMPAIGN_SCHEDULE: CampaignSchedule = {
       name: "Business Hours",
       timing: { from: "09:00", to: "17:00" },
       days: { "0": false, "1": true, "2": true, "3": true, "4": true, "5": true, "6": false },
-      timezone: "Europe/Paris",
+      timezone: "Europe/Sarajevo", // CET/CEST — same as Paris (Europe/Paris not in Instantly enum)
     },
   ],
   start_date: null,
@@ -572,6 +850,8 @@ export async function createCampaign(
       steps: params.steps.map((s, i) => ({
         type: "email" as const,
         delay: s.delay ?? (i === 0 ? 0 : 3),
+        delay_unit: "days" as const,
+        pre_delay_unit: "days" as const,
         variants: [{ subject: s.subject ?? "", body: s.body }],
       })),
     },
@@ -586,6 +866,33 @@ export async function createCampaign(
   });
 }
 
+export async function getCampaign(
+  apiKey: string,
+  campaignId: string,
+): Promise<InstantlyCampaign> {
+  return instantlyFetch(apiKey, "GET", `/campaigns/${campaignId}`);
+}
+
+export async function updateCampaign(
+  apiKey: string,
+  campaignId: string,
+  data: Partial<{
+    name: string;
+    campaign_schedule: CampaignSchedule;
+    daily_limit: number;
+    email_list: string[];
+  }>,
+): Promise<InstantlyCampaign> {
+  return instantlyFetch(apiKey, "PATCH", `/campaigns/${campaignId}`, data);
+}
+
+export async function deleteCampaign(
+  apiKey: string,
+  campaignId: string,
+): Promise<void> {
+  await instantlyFetch<unknown>(apiKey, "DELETE", `/campaigns/${campaignId}`);
+}
+
 export async function activateCampaign(
   apiKey: string,
   campaignId: string,
@@ -596,12 +903,12 @@ export async function activateCampaign(
 export async function listCampaigns(
   apiKey: string,
 ): Promise<InstantlyCampaign[]> {
-  const res = await instantlyFetch<{ items?: InstantlyCampaign[] } | InstantlyCampaign[]>(
+  const res = await instantlyFetch<{ items: InstantlyCampaign[] }>(
     apiKey,
     "GET",
     "/campaigns",
   );
-  return Array.isArray(res) ? res : res.items ?? [];
+  return res.items ?? [];
 }
 
 // ─── Accounts ────────────────────────────────────────────
@@ -609,12 +916,12 @@ export async function listCampaigns(
 export async function listAccounts(
   apiKey: string,
 ): Promise<InstantlyAccount[]> {
-  const res = await instantlyFetch<{ items?: InstantlyAccount[] } | InstantlyAccount[]>(
+  const res = await instantlyFetch<{ items: InstantlyAccount[] }>(
     apiKey,
     "GET",
     "/accounts",
   );
-  return Array.isArray(res) ? res : res.items ?? [];
+  return res.items ?? [];
 }
 
 // ─── Client Factory ──────────────────────────────────────
@@ -639,16 +946,29 @@ export async function getInstantlyClient(workspaceId: string) {
   const apiKey = decrypt(integration.apiKey);
 
   return {
+    // SuperSearch
     countLeads: (filters: InstantlySearchFilters) => countLeads(apiKey, filters),
     previewLeads: (filters: InstantlySearchFilters) => previewLeads(apiKey, filters),
     sourceLeads: (params: Parameters<typeof sourceLeads>[1]) => sourceLeads(apiKey, params),
-    searchLeads: (params: Parameters<typeof searchLeads>[1]) => searchLeads(apiKey, params),
     getEnrichmentStatus: (resourceId: string) => getEnrichmentStatus(apiKey, resourceId),
+    // Leads
     listLeads: (params: Parameters<typeof listLeads>[1]) => listLeads(apiKey, params),
+    getLead: (leadId: string) => getLead(apiKey, leadId),
     createLead: (params: Parameters<typeof createLead>[1]) => createLead(apiKey, params),
+    updateLead: (leadId: string, data: Parameters<typeof updateLead>[2]) => updateLead(apiKey, leadId, data),
+    deleteLead: (leadId: string) => deleteLead(apiKey, leadId),
+    deleteLeadsBulk: (params: Parameters<typeof deleteLeadsBulk>[1]) => deleteLeadsBulk(apiKey, params),
+    addLeadsToCampaign: (params: Parameters<typeof addLeadsToCampaign>[1]) => addLeadsToCampaign(apiKey, params),
+    moveLeads: (params: Parameters<typeof moveLeads>[1]) => moveLeads(apiKey, params),
+    updateLeadInterestStatus: (params: Parameters<typeof updateLeadInterestStatus>[1]) => updateLeadInterestStatus(apiKey, params),
+    // Campaigns
     createCampaign: (params: Parameters<typeof createCampaign>[1]) => createCampaign(apiKey, params),
+    getCampaign: (campaignId: string) => getCampaign(apiKey, campaignId),
+    updateCampaign: (campaignId: string, data: Parameters<typeof updateCampaign>[2]) => updateCampaign(apiKey, campaignId, data),
+    deleteCampaign: (campaignId: string) => deleteCampaign(apiKey, campaignId),
     activateCampaign: (campaignId: string) => activateCampaign(apiKey, campaignId),
     listCampaigns: () => listCampaigns(apiKey),
+    // Accounts
     listAccounts: () => listAccounts(apiKey),
   };
 }

@@ -18,6 +18,14 @@ const MARKDOWN_CLASS =
 // ─── Marker pattern for inline components ─────────────────
 const INLINE_PATTERN = /@@INLINE@@([\s\S]*?)@@END@@/g;
 
+// Components that should only appear once per message (last wins)
+const SINGLETON_COMPONENTS = new Set([
+  "lead-table",
+  "account-picker",
+  "campaign-summary",
+  "progress-bar",
+]);
+
 // ─── Streaming markdown (assistant-ui with smooth typing) ──
 function StreamingMarkdownText() {
   return <MarkdownTextPrimitive smooth className={MARKDOWN_CLASS} />;
@@ -79,7 +87,43 @@ function InlineContent({ rawText }: { rawText: string }) {
       if (text) result.push({ type: "text", text });
     }
 
-    return result;
+    // Deduplicate singleton components (keep last) and move them to the end
+    // so they appear AFTER the text, not before
+    const lastSingletonIdx = new Map<string, number>();
+    for (let i = 0; i < result.length; i++) {
+      const part = result[i];
+      if (part.type === "inline") {
+        try {
+          const parsed = JSON.parse(part.data);
+          if (SINGLETON_COMPONENTS.has(parsed.component)) {
+            lastSingletonIdx.set(parsed.component, i);
+          }
+        } catch {}
+      }
+    }
+
+    const nonSingleton: typeof result = [];
+    const singletons: typeof result = [];
+
+    for (let i = 0; i < result.length; i++) {
+      const part = result[i];
+      if (part.type === "inline") {
+        try {
+          const parsed = JSON.parse(part.data);
+          if (SINGLETON_COMPONENTS.has(parsed.component)) {
+            // Only keep the last occurrence, skip earlier duplicates
+            if (lastSingletonIdx.get(parsed.component) === i) {
+              singletons.push(part);
+            }
+            continue;
+          }
+        } catch {}
+      }
+      nonSingleton.push(part);
+    }
+
+    // Singletons go at the end (after all text)
+    return [...nonSingleton, ...singletons];
   }, [rawText]);
 
   return (

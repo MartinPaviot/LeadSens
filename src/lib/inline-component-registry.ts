@@ -18,6 +18,10 @@ const registry: Record<string, () => Promise<{ default: ComponentType<any> }>> =
     import("@/components/chat/inline/progress-bar").then((m) => ({
       default: m.ProgressBar,
     })),
+  "account-picker": () =>
+    import("@/components/chat/inline/account-picker-card").then((m) => ({
+      default: m.AccountPickerCard,
+    })),
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,6 +37,7 @@ const TOOL_TO_COMPONENT: Record<string, string> = {
   render_email_preview: "email-preview",
   render_campaign_summary: "campaign-summary",
   render_inline_progress: "progress-bar",
+  instantly_list_accounts: "account-picker",
 };
 
 export function toolNameToComponent(toolName: string): string | null {

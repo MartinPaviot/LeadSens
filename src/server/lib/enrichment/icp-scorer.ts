@@ -1,6 +1,8 @@
 import { z } from "zod/v4";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 
+// ─── Schema ──────────────────────────────────────────────
+
 const icpScoreSchema = z.object({
   score: z.number().int().min(1).max(10),
   breakdown: z.object({
@@ -24,9 +26,58 @@ interface LeadForScoring {
   country?: string | null;
 }
 
+// ─── System Prompt ───────────────────────────────────────
+
+const SCORER_SYSTEM = `Tu es un moteur de scoring ICP B2B. Tu évalues si un lead correspond au profil client idéal (ICP) décrit par l'utilisateur.
+
+Tu reçois :
+1. La description ICP (ce que le client recherche — C'EST LA SEULE SOURCE DE VÉRITÉ)
+2. Les données brutes du lead (de Instantly SuperSearch)
+
+RÈGLE FONDAMENTALE : Tu scores UNIQUEMENT par rapport à l'ICP fourni. Tu n'as AUCUNE opinion personnelle sur ce qui est un "bon" ou "mauvais" lead. Si l'ICP cible des freelances, des agences, du non-profit ou des entreprises de 2 personnes — ces leads sont des 10/10.
+
+PONDÉRATION :
+- jobTitleFit (40%) : Le titre correspond-il au rôle recherché dans l'ICP ?
+  - 9-10 : Match exact ou synonyme direct
+  - 7-8 : Même fonction, niveau légèrement différent
+  - 4-6 : Même département mais niveau ou fonction différente
+  - 1-3 : Département ou fonction sans rapport avec l'ICP
+
+- companyFit (30%) : L'entreprise correspond-elle au profil décrit dans l'ICP ?
+  - 9-10 : Taille, type et profil correspondent parfaitement à l'ICP
+  - 7-8 : Correspond globalement, un critère légèrement hors cible
+  - 4-6 : Un critère important ne matche pas (taille trop différente, type d'entreprise différent)
+  - 1-3 : Plusieurs critères importants de l'ICP ne matchent pas
+
+- industryRelevance (20%) : L'industrie correspond-elle à ce que l'ICP demande ?
+  - 9-10 : Industrie exactement dans l'ICP
+  - 7-8 : Industrie adjacente ou sous-catégorie
+  - 4-6 : Industrie vaguement liée
+  - 1-3 : Industrie sans rapport avec l'ICP
+
+- locationFit (10%) : La localisation correspond-elle à l'ICP ?
+  - 9-10 : Match exact (pays/ville)
+  - 5-7 : Même région mais pas exactement la zone ciblée
+  - 1-4 : Hors zone géographique de l'ICP
+  - Si l'ICP ne mentionne PAS de localisation → 8 par défaut
+
+CALCUL DU SCORE FINAL :
+score = round(jobTitleFit × 0.4 + companyFit × 0.3 + industryRelevance × 0.2 + locationFit × 0.1)
+
+SI UNE DONNÉE EST "(inconnu)" :
+- Ne pénalise PAS le lead pour un champ manquant. Donne un score neutre (6) pour ce champ.
+- Mentionne le champ manquant dans la reason.
+
+JSON uniquement, pas de commentaires, pas de markdown.`;
+
+// ─── Scoring Function ────────────────────────────────────
+
 /**
  * Scores a lead against an ICP description using raw Instantly data only.
  * No scraping needed — uses Mistral Small for fast classification.
+ *
+ * Scoring weights: jobTitle 40%, company 30%, industry 20%, location 10%
+ * Threshold: score >= 5 = qualified, < 5 = skipped
  */
 export async function scoreLead(
   lead: LeadForScoring,
@@ -35,19 +86,22 @@ export async function scoreLead(
 ): Promise<IcpScore> {
   return mistralClient.json<IcpScore>({
     model: "mistral-small-latest",
-    system: "You are an ICP scoring engine. Score 1-10 with breakdown. JSON only, no comments.",
-    prompt: `
-ICP: ${icpDescription}
+    system: SCORER_SYSTEM,
+    prompt: `ICP RECHERCHÉ :
+${icpDescription}
 
-Lead (raw Instantly data):
-- Name: ${lead.firstName ?? ""} ${lead.lastName ?? ""}
-- Job Title: ${lead.jobTitle ?? "unknown"}
-- Company: ${lead.company ?? "unknown"}
-- Industry: ${lead.industry ?? "unknown"}
-- Company Size: ${lead.companySize ?? "unknown"}
-- Location: ${lead.country ?? "unknown"}
+LEAD À SCORER :
+- Prénom: ${lead.firstName ?? "(inconnu)"}
+- Nom: ${lead.lastName ?? "(inconnu)"}
+- Poste: ${lead.jobTitle ?? "(inconnu)"}
+- Entreprise: ${lead.company ?? "(inconnu)"}
+- Industrie: ${lead.industry ?? "(inconnu)"}
+- Taille entreprise: ${lead.companySize ?? "(inconnu)"}
+- Pays: ${lead.country ?? "(inconnu)"}
 
-Score this lead 1-10. JSON: {"score": N, "breakdown": {"jobTitleFit": N, "companyFit": N, "industryRelevance": N, "locationFit": N}, "reason": "one sentence"}`,
+Évalue ce lead par rapport à l'ICP. Score final = round(jobTitleFit × 0.4 + companyFit × 0.3 + industryRelevance × 0.2 + locationFit × 0.1).
+
+JSON: {"score": N, "breakdown": {"jobTitleFit": N, "companyFit": N, "industryRelevance": N, "locationFit": N}, "reason": "1 phrase expliquant la décision"}`,
     schema: icpScoreSchema,
     workspaceId,
     action: "icp-scoring",
