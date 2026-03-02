@@ -124,12 +124,12 @@ function InstantlyCard({
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Instantly connecte (${data.accounts} comptes)`);
+        toast.success(`Instantly connected (${data.accounts} accounts)`);
         onConnected();
         setApiKey("");
         setExpanded(false);
       } else {
-        toast.error(data.error || "Connexion echouee");
+        toast.error(data.error || "Connection failed");
       }
     } catch {
       toast.error("Connexion echouee");
@@ -148,7 +148,7 @@ function InstantlyCard({
           <div>
             <p className="text-sm font-medium">Instantly</p>
             <p className="text-xs text-muted-foreground">
-              Sourcing & campagnes email
+              Sourcing & email campaigns
             </p>
           </div>
         </div>
@@ -156,7 +156,7 @@ function InstantlyCard({
         {isConnected ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-600/20 border border-green-600/30 rounded-full px-2.5 py-1">
             <CheckCircle weight="fill" className="size-3.5" />
-            Connecte
+            Connected
           </span>
         ) : (
           <Button
@@ -164,7 +164,7 @@ function InstantlyCard({
             size="sm"
             onClick={() => setExpanded(!expanded)}
           >
-            Connecter
+            Connect
           </Button>
         )}
       </div>
@@ -174,7 +174,7 @@ function InstantlyCard({
         <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
           <Input
             type="password"
-            placeholder="Cle API Instantly V2"
+            placeholder="Instantly V2 API Key"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && connect()}
@@ -190,7 +190,7 @@ function InstantlyCard({
             {connecting ? (
               <CircleNotch className="size-4 animate-spin" />
             ) : (
-              "Valider"
+              "Submit"
             )}
           </Button>
         </div>

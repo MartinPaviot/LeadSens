@@ -21,26 +21,38 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         });
 
         let scored = 0;
-        let skipped = 0;
+        const skipped = 0;
 
+        // ── BYPASS: ICP scorer disabled — all leads pass as SCORED ──
+        // To re-enable: uncomment the scoring block below and remove the bypass block
         for (let i = 0; i < leads.length; i++) {
           const lead = leads[i];
           ctx.onStatus?.(`Scoring lead ${i + 1}/${leads.length}...`);
 
-          const result = await scoreLead(lead, args.icp_description, ctx.workspaceId);
+          // const result = await scoreLead(lead, args.icp_description, ctx.workspaceId);
+          //
+          // await prisma.lead.update({
+          //   where: { id: lead.id },
+          //   data: {
+          //     icpScore: result.score,
+          //     icpBreakdown: result.breakdown as unknown as Prisma.InputJsonValue,
+          //     status: result.score >= 5 ? "SCORED" : "SKIPPED",
+          //   },
+          // });
+          //
+          // if (result.score >= 5) scored++;
+          // else skipped++;
 
           await prisma.lead.update({
             where: { id: lead.id },
             data: {
-              icpScore: result.score,
-              icpBreakdown: result.breakdown as unknown as Prisma.InputJsonValue,
-              status: result.score >= 5 ? "SCORED" : "SKIPPED",
+              icpScore: 10,
+              status: "SCORED",
             },
           });
-
-          if (result.score >= 5) scored++;
-          else skipped++;
+          scored++;
         }
+        // ── END BYPASS ──
 
         return { scored, skipped, total: leads.length };
       },

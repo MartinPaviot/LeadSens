@@ -65,6 +65,8 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                     lastName: lead.lastName,
                     jobTitle: lead.jobTitle,
                     company: lead.company,
+                    industry: lead.industry,
+                    companySize: lead.companySize,
                     enrichmentData: lead.enrichmentData as EnrichmentData | null,
                   },
                   step,
@@ -116,7 +118,44 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           data: { leadsDrafted: drafted },
         });
 
-        return { drafted, failed, total: leads.length };
+        // Auto-render email previews for up to 2 sample leads (step 0 = first touch)
+        const sampleLeads = await prisma.lead.findMany({
+          where: {
+            id: { in: args.lead_ids },
+            workspaceId: ctx.workspaceId,
+            status: "DRAFTED",
+          },
+          include: {
+            emails: {
+              where: { step: 0 },
+              select: { step: true, subject: true, body: true },
+            },
+          },
+          take: 2,
+        });
+
+        const previewComponents = sampleLeads
+          .filter((l) => l.emails.length > 0)
+          .map((l) => ({
+            component: "email-preview",
+            props: {
+              leadId: l.id,
+              step: 0,
+              subject: l.emails[0].subject,
+              body: l.emails[0].body,
+              leadName: `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim(),
+              leadCompany: l.company,
+            },
+          }));
+
+        return {
+          drafted,
+          failed,
+          total: leads.length,
+          ...(previewComponents.length > 0
+            ? { __components: previewComponents }
+            : {}),
+        };
       },
     },
 
@@ -170,6 +209,8 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
             lastName: lead.lastName,
             jobTitle: lead.jobTitle,
             company: lead.company,
+            industry: lead.industry,
+            companySize: lead.companySize,
             enrichmentData: lead.enrichmentData as EnrichmentData | null,
           },
           step: args.step,

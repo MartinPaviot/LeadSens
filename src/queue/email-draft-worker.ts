@@ -43,6 +43,7 @@ export const emailDraftWorker = createWorker(
           lastName: lead.lastName,
           jobTitle: lead.jobTitle,
           company: lead.company,
+          companySize: lead.companySize,
           enrichmentData: lead.enrichmentData as EnrichmentData | null,
         },
         step,

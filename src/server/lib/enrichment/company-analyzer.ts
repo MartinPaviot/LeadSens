@@ -5,6 +5,7 @@ import { mistralClient } from "@/server/lib/llm/mistral-client";
 // ─── Schema ──────────────────────────────────────────────
 
 export const companyDnaSchema = z.object({
+  // --- Core (existants) ---
   oneLiner: z.string().default(""),
   targetBuyers: z
     .array(
@@ -16,9 +17,59 @@ export const companyDnaSchema = z.object({
     .default([]),
   keyResults: z.array(z.string()).default([]),
   differentiators: z.array(z.string()).default([]),
-  proofPoints: z.array(z.string()).default([]),
   problemsSolved: z.array(z.string()).default([]),
   pricingModel: z.string().nullable().default(null),
+
+  // --- Legacy (kept for migration, optional) ---
+  proofPoints: z.array(z.string()).optional(),
+
+  // --- New fields ---
+  socialProof: z
+    .array(
+      z.object({
+        industry: z.string(),
+        clients: z.array(z.string()),
+        keyMetric: z.string().optional(),
+      }),
+    )
+    .default([]),
+
+  toneOfVoice: z
+    .object({
+      register: z
+        .enum(["formal", "conversational", "casual"])
+        .default("conversational"),
+      traits: z.array(z.string()).default([]),
+      avoidWords: z.array(z.string()).default([]),
+    })
+    .default({ register: "conversational", traits: [], avoidWords: [] }),
+
+  ctas: z
+    .array(
+      z.object({
+        label: z.string(),
+        commitment: z.enum(["low", "medium", "high"]).default("low"),
+        url: z.string().optional(),
+      }),
+    )
+    .default([]),
+
+  senderIdentity: z
+    .object({
+      name: z.string().default(""),
+      role: z.string().default(""),
+      signatureHook: z.string().default(""),
+    })
+    .default({ name: "", role: "", signatureHook: "" }),
+
+  objections: z
+    .array(
+      z.object({
+        objection: z.string(),
+        response: z.string(),
+      }),
+    )
+    .default([]),
 });
 
 export type CompanyDna = z.infer<typeof companyDnaSchema>;
@@ -27,16 +78,29 @@ export type CompanyDna = z.infer<typeof companyDnaSchema>;
 
 const COMPANY_ANALYSIS_SYSTEM = `Tu analyses le contenu scrapé d'un site web d'entreprise pour comprendre PRÉCISÉMENT ce qu'elle vend, à qui, et pourquoi c'est utile. Ton analyse sera utilisée pour écrire des cold emails B2B de prospection — elle doit donc être orientée "selling points", pas description neutre.
 
-Tu DOIS retourner un objet JSON avec EXACTEMENT ces 7 clés (camelCase, pas de snake_case) :
+Tu DOIS retourner un objet JSON avec EXACTEMENT ces clés (camelCase, pas de snake_case) :
 
 {
-  "oneLiner": "string — UNE phrase décrivant l'entreprise. Format : '[Nom] aide [qui] à [faire quoi] grâce à [comment].'",
-  "problemsSolved": ["string[] — Les 2-4 problèmes concrets que le produit/service résout. Extrais-les du contenu (pain points clients, frustrations, inefficacités mentionnées). Formule chaque problème comme une phrase courte commençant par un verbe ou un nom."],
+  "oneLiner": "UNE phrase. Format : '[Nom] aide [qui] à [faire quoi] grâce à [comment].'",
+
+  "problemsSolved": ["Les 2-4 problèmes concrets que le produit/service résout. Extrais-les du contenu (pain points clients, frustrations, inefficacités). Phrase courte commençant par un verbe ou un nom."],
+
   "targetBuyers": [{"role": "Titre de poste (ex: VP Sales, Head of Growth, CTO)", "sellingAngle": "L'angle de vente qui résonne pour ce rôle — quel bénéfice spécifique lui importe"}],
-  "keyResults": ["string[] — Chiffres, stats, métriques, résultats de case studies RÉELLEMENT mentionnés sur le site. Ex: '+45% de conversion', '500+ clients', '3x plus rapide'. Si AUCUN chiffre n'est mentionné, retourne []."],
-  "differentiators": ["string[] — 2-3 points qui distinguent l'entreprise de la concurrence. Extrais du contenu les avantages uniques, la techno propriétaire, l'approche différente."],
-  "proofPoints": ["string[] — Noms de clients, logos, témoignages, certifications, prix, notes (G2, Capterra), partenariats mentionnés sur le site."],
-  "pricingModel": "string | null — Le modèle tarifaire si visible (freemium, par siège, sur devis, essai gratuit, etc.). null si pas trouvé."
+
+  "socialProof": [{"industry": "Secteur d'activité (ex: SaaS, E-commerce, FinTech, Santé)", "clients": ["Nom du client 1", "Nom du client 2"], "keyMetric": "+45% de conversion chez Client 1 (optionnel, seulement si mentionné)"}],
+
+  "keyResults": ["Chiffres, stats, métriques, résultats de case studies RÉELLEMENT mentionnés sur le site. Ex: '+45% de conversion', '500+ clients', '3x plus rapide'. Si AUCUN chiffre n'est mentionné, retourne []."],
+
+  "differentiators": ["2-3 points qui distinguent l'entreprise de la concurrence. Avantages uniques, techno propriétaire, approche différente."],
+
+  "toneOfVoice": {"register": "formal|conversational|casual", "traits": ["2-3 adjectifs décrivant le style d'écriture du site : direct, empathique, technique, data-driven, etc."], "avoidWords": []},
+
+  "ctas": [{"label": "Le texte du CTA visible sur le site (ex: 'Démarrer gratuitement', 'Réserver une démo')", "commitment": "low|medium|high", "url": "URL du CTA si visible"}],
+
+  "pricingModel": "Le modèle tarifaire si visible (freemium, par siège, sur devis, essai gratuit, etc.). null si pas trouvé.",
+
+  "senderIdentity": {"name": "", "role": "", "signatureHook": ""},
+  "objections": []
 }
 
 RÈGLES STRICTES :
@@ -44,9 +108,12 @@ RÈGLES STRICTES :
 - CHAQUE champ doit être rempli à partir du contenu réel du site. Cherche activement dans toutes les pages fournies.
 - "problemsSolved" : Déduis les problèmes de la proposition de valeur, des sections "why us", des pain points mentionnés. C'est un champ CRITIQUE pour les cold emails.
 - "targetBuyers" : Déduis des cas d'usage, des témoignages, des intitulés de pages (ex: "pour les équipes sales", "pour les marketers").
+- "socialProof" : C'est LE champ le plus important pour les cold emails. Cherche ACTIVEMENT : sections "trusted by", "ils nous font confiance", logos clients, case studies, témoignages. GROUPE les clients par industrie/secteur. Si un résultat chiffré est associé à un client, mets-le dans keyMetric. Si tu ne connais pas l'industrie d'un client, utilise "General".
 - "keyResults" : UNIQUEMENT des chiffres/stats explicitement écrits sur le site. JAMAIS de chiffres inventés.
-- "proofPoints" : Cherche les logos, "ils nous font confiance", "trusted by", témoignages, badges.
+- "toneOfVoice" : Analyse le style d'écriture du site. Formel = vouvoiement, corporate. Conversational = tutoiement, naturel. Casual = très familier, startup. Traits = 2-3 adjectifs. avoidWords = toujours [].
+- "ctas" : Extrais les CTAs visibles sur le site (boutons, liens d'action). Commitment : low = ressource gratuite, newsletter. medium = démo, call, audit. high = achat, abonnement.
 - "pricingModel" : Cherche dans la page pricing si elle est fournie.
+- "senderIdentity" et "objections" : Retourne TOUJOURS vide — ces infos ne sont pas sur le site, l'utilisateur les remplira.
 - Si une info est VRAIMENT absente du contenu → [] ou null. Mais cherche bien avant de conclure qu'elle est absente.
 - UTILISE EXACTEMENT les noms de clés ci-dessus (camelCase). PAS de snake_case.`;
 
@@ -62,6 +129,14 @@ function normalizeUrl(url: string): string {
 
 const ABOUT_PATHS = ["/about", "/about-us", "/a-propos", "/qui-sommes-nous"];
 const PRICING_PATHS = ["/pricing", "/tarifs", "/plans", "/offres"];
+const CASE_STUDY_PATHS = [
+  "/case-studies",
+  "/customers",
+  "/clients",
+  "/success-stories",
+  "/temoignages",
+  "/cas-clients",
+];
 
 /** Extract markdown from Jina result, return null on failure. */
 function extractMarkdown(result: Awaited<ReturnType<typeof scrapeViaJina>>): string | null {
@@ -118,18 +193,24 @@ async function scrapeClientSite(
     scrapeWithFallbacks(baseUrl, PRICING_PATHS),
   );
 
+  onStatus?.("Looking for case studies / clients page...");
+  const caseStudies = await scrapeWithRetry(() =>
+    scrapeWithFallbacks(baseUrl, CASE_STUDY_PATHS),
+  );
+
   const pages = [
     homepage ? "homepage" : null,
     about ? "about" : null,
     pricing ? "pricing" : null,
+    caseStudies ? "case studies" : null,
   ].filter(Boolean);
   onStatus?.(`Scraped ${pages.length} page(s): ${pages.join(", ")}`);
 
-  const combined = [homepage, about, pricing]
+  const combined = [homepage, about, pricing, caseStudies]
     .filter(Boolean)
     .join("\n\n---PAGE SUIVANTE---\n\n");
 
-  return combined.slice(0, 20000);
+  return combined.slice(0, 25000);
 }
 
 // ─── Key normalization (snake_case → camelCase) ──────────

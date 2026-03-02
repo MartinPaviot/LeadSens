@@ -4,12 +4,20 @@ import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 
 // ─── Schema ──────────────────────────────────────────────
 
+// Coerce non-string values to string (Mistral sometimes returns objects)
+const coerceString = z.preprocess(
+  (v) => (typeof v === "object" && v !== null ? JSON.stringify(v) : v),
+  z.string(),
+);
+
 export const campaignAngleSchema = z.object({
   angleOneLiner: z.string(),
   mainProblem: z.string(),
   proofPoint: z.string(),
   avoid: z.string(),
   tone: z.string(),
+  socialProofMatch: coerceString.optional(),
+  suggestedCta: coerceString.optional(),
 });
 
 export type CampaignAngle = z.infer<typeof campaignAngleSchema>;
@@ -24,9 +32,11 @@ JSON uniquement :
 {
   "angleOneLiner": "1 phrase : comment l'offre aide CE persona spécifiquement",
   "mainProblem": "Le problème N°1 que CE persona rencontre et que l'offre résout",
-  "proofPoint": "La stat ou le cas client le plus pertinent pour CE persona (tiré des keyResults)",
+  "proofPoint": "La stat ou le cas client le plus pertinent pour CE persona (tiré des keyResults ou socialProof)",
   "avoid": "Ce qu'il ne faut PAS mentionner à CE persona (trop technique, trop marketing, etc.)",
-  "tone": "Le registre adapté (technique, business, stratégique, opérationnel)"
+  "tone": "Le registre adapté (technique, business, stratégique, opérationnel)",
+  "socialProofMatch": "Le meilleur élément de social proof pour l'industrie/secteur de cette cible. Format: 'Clients [industrie] : [noms] ([métrique])'. Choisis dans le socialProof celui qui matche le mieux. Si aucun match, utilise le meilleur disponible.",
+  "suggestedCta": "Le CTA le plus adapté à ce persona parmi ceux disponibles. Si aucun CTA n'est fourni, suggère-en un adapté au persona."
 }`;
 
 // ─── Generation ──────────────────────────────────────────

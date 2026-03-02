@@ -84,7 +84,7 @@ export default function IntegrationsPage() {
             <div>
               <h2 className="text-sm font-semibold">Instantly</h2>
               <p className="text-xs text-muted-foreground">
-                Sourcing & campagnes email
+                Sourcing & email campaigns
               </p>
             </div>
           </div>

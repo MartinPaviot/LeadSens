@@ -20,41 +20,59 @@ Base URL : `https://api.instantly.ai/api/v2`
 
 ## 2. search_filters — Tous les parametres
 
+### IMPORTANT: Mapping noms internes → noms API
+
+Notre code utilise des noms internes (cote gauche) qui sont transformes par `prepareFiltersForAPI()` en noms API (cote droit) avant envoi :
+
+| Nom interne (code) | Nom API reel | Format API |
+|---------------------|-------------|------------|
+| `job_titles: string[]` | `title` | `{ include: string[] }` |
+| `industries: string[]` | `industry` | `{ include: string[] }` |
+| `employee_count: string[]` | `employeeCount` | `string[]` |
+| `keyword_filter: string` | `keyword_filter` | `{ include: string }` |
+| `company_names: {...}` | `company_name` | `{ include: string[], exclude: string[] }` |
+| `names: {include, exclude}` | `name` | `string[]` |
+| `lookalike_domain: string` | `look_alike` | `string` |
+| `location_filter_type: string` | `location_mode` | `"contact"` ou `"company"` |
+| `department: string[]` | `department` | `string[]` (meme nom) |
+| `level: string[]` | `level` | `string[]` (meme nom) |
+| `revenue: string[]` | `revenue` | `string[]` (valeurs mappees, voir section 2.2) |
+
 ### 2.1 Filtres sur la PERSONNE
 
-| Champ | Type | Valeurs possibles | Description |
-|-------|------|-------------------|-------------|
-| `job_titles` | `string[]` | Texte libre | Titres de poste. Ex: `["CTO", "VP Engineering", "Head of Engineering"]`. Ajouter les variantes courantes (CTO = Chief Technology Officer = Chief Technical Officer) |
-| `level` | `string[]` | `"c_suite"`, `"vp"`, `"director"`, `"manager"`, `"senior"`, `"entry"` | Niveau hierarchique / seniority |
-| `department` | `string[]` | `"engineering"`, `"finance"`, `"hr"`, `"it"`, `"legal"`, `"marketing"`, `"operations"`, `"sales"`, `"support"` | Departement fonctionnel |
-| `names` | `object` | `{ include: string[], exclude: string[] }` | Filtrer par nom de contact (prenom/nom). Rarement utile |
+| Champ interne | Champ API | Type API | Valeurs possibles | Description |
+|---------------|-----------|----------|-------------------|-------------|
+| `job_titles` | `title` | `{ include: string[] }` | Texte libre | Titres de poste. Ex: `["CTO", "Vice President of Sales"]` |
+| `level` | `level` | `string[]` | `"C-Level"`, `"VP-Level"`, `"Director-Level"`, `"Manager-Level"`, `"Staff"`, `"Entry level"`, `"Mid-Senior level"`, `"Director"`, `"Associate"`, `"Owner"` (+8 more) | Niveau hierarchique / seniority |
+| `department` | `department` | `string[]` | `"Engineering"`, `"Finance & Administration"`, `"Human Resources"`, `"IT & IS"`, `"Marketing"`, `"Operations"`, `"Sales"`, `"Support"`, `"Other"` | Departement fonctionnel |
+| `names` | `name` | `string[]` | Texte libre | Filtrer par nom de contact. API attend un array simple |
 
 ### 2.2 Filtres sur l'ENTREPRISE
 
-| Champ | Type | Valeurs possibles | Description |
-|-------|------|-------------------|-------------|
-| `industries` | `string[]` | Texte libre | Secteurs d'activite. Ex: `["SaaS", "FinTech", "Healthcare", "E-commerce"]` |
-| `employee_count` | `string[]` | `"1-10"`, `"11-50"`, `"51-200"`, `"201-500"`, `"501-1000"`, `"1001-5000"`, `"5001-10000"`, `"10001+"` | Taille d'entreprise (nombre d'employes) |
-| `revenue` | `string[]` | `"0-1M"`, `"1M-10M"`, `"10M-50M"`, `"50M-100M"`, `"100M-500M"`, `"500M-1B"`, `"1B+"` | Chiffre d'affaires annuel en USD |
-| `funding_type` | `string[]` | `"pre_seed"`, `"seed"`, `"series_a"`, `"series_b"`, `"series_c"`, `"series_d"`, `"series_e"`, `"series_f"`, `"debt_financing"`, `"grant"`, `"ipo"`, `"private_equity"`, `"undisclosed"` | Type de financement/levee de fonds |
-| `company_names` | `object` | `{ include: string[], exclude: string[] }` | Filtrer par nom d'entreprise. Utile pour exclure des concurrents ou cibler des entreprises specifiques |
+| Champ interne | Champ API | Type API | Valeurs possibles | Description |
+|---------------|-----------|----------|-------------------|-------------|
+| `industries` | `industry` | `{ include: string[] }` | ENUM stricte | `"Agriculture & Mining"`, `"Business Services"`, `"Computers & Electronics"`, `"Consumer Services"`, `"Education"`, `"Energy & Utilities"`, `"Financial Services"`, `"Government"`, `"Healthcare, Pharmaceuticals, & Biotech"`, `"Manufacturing"`, `"Media & Entertainment"`, `"Non-Profit"`, `"Other"`, `"Real Estate & Construction"`, `"Retail"`, `"Software & Internet"`, `"Telecommunications"`, `"Transportation & Storage"`, `"Travel, Recreation, and Leisure"`, `"Wholesale & Distribution"` |
+| `employee_count` | `employeeCount` | `string[]` | `"0 - 25"`, `"25 - 100"`, `"100 - 250"`, `"250 - 1000"`, `"1K - 10K"`, `"10K - 50K"`, `"50K - 100K"`, `"> 100K"` | Taille d'entreprise (nombre d'employes) |
+| `revenue` | `revenue` | `string[]` | Valeurs API: `"$0 - 1M"`, `"$1 - 10M"`, `"$10 - 50M"`, `"$50 - 100M"`, `"$100 - 250M"`, `"$250 - 500M"`, `"$500M - 1B"`, `"> $1B"`. Note: en interne on utilise `"$1M - 10M"` etc., `prepareFiltersForAPI()` mappe vers les valeurs API | Chiffre d'affaires annuel en USD |
+| `funding_type` | `funding_type` | `string[]` | `"angel"`, `"seed"`, `"pre_seed"`, `"series_a"` a `"series_g"` (+13 more) | Type de financement/levee de fonds |
+| `company_names` | `company_name` | `{ include: string[], exclude: string[] }` | Texte libre | Filtrer par nom d'entreprise |
 
 ### 2.3 Filtres GEOGRAPHIQUES
 
-| Champ | Type | Valeurs possibles | Description |
-|-------|------|-------------------|-------------|
-| `locations` | `string[]` (legacy) OU `object` (nouveau) | **Legacy :** `["France", "Paris", "United States"]` **Nouveau :** `{ include: ["France"], exclude: ["Paris"] }` | Localisation. Le format legacy (array simple) fonctionne encore. Le nouveau format permet include/exclude |
-| `location_filter_type` | `string` | `"contact"`, `"company_hq"` | Filtrer par localisation du contact OU du siege de l'entreprise. Default: `"contact"` |
+| Champ interne | Champ API | Type API | Valeurs possibles | Description |
+|---------------|-----------|----------|-------------------|-------------|
+| `locations` | `locations` | `[{place_id, label}]` ou `{ include: [...], exclude: [...] }` | Place IDs Google Maps | `prepareFiltersForAPI()` resout les strings en `{place_id, label}` objets |
+| `location_filter_type` | `location_mode` | `string` | `"contact"`, `"company"` | Note: en interne on utilise `"company_hq"`, mappe vers `"company"` |
 
 ### 2.4 Filtres AVANCES
 
-| Champ | Type | Valeurs possibles | Description |
-|-------|------|-------------------|-------------|
-| `keyword_filter` | `string` | Texte libre | Mot-cle general pour filtrer (cherche dans bio, titre, description entreprise) |
-| `technologies` | `string[]` | Texte libre | Technologies utilisees par l'entreprise. Ex: `["Salesforce", "HubSpot", "React", "AWS"]`. Scanne le site web de l'entreprise |
-| `lookalike_domain` | `string` | Domaine | Domaine d'une entreprise modele. Retourne des entreprises similaires. Ex: `"stripe.com"` |
-| `news` | `string` | Texte libre | Filtre par actualites recentes / mentions media |
-| `job_listing` | `string` | Texte libre | Filtre par offres d'emploi actives. Ex: `"sales manager"` = entreprises qui recrutent un sales manager (signal de croissance) |
+| Champ interne | Champ API | Type API | Valeurs possibles | Description |
+|---------------|-----------|----------|-------------------|-------------|
+| `keyword_filter` | `keyword_filter` | `{ include: string }` | Texte libre | Mot-cle general (bio, titre, description) |
+| `technologies` | `technologies` | `string[]` | Texte libre | Technologies de l'entreprise. Ex: `["Salesforce", "HubSpot"]` |
+| `lookalike_domain` | `look_alike` | `string` | Domaine | Entreprises similaires. Ex: `"stripe.com"` |
+| `news` | `news` | `string[]` | ENUM: `"launches"`, `"hires"`, `"receives_financing"`, `"partners_with"`, etc. | Actualites recentes |
+| `job_listing` | `job_listing` | `string` | Texte libre | Offres d'emploi actives |
 
 ### 2.5 Options de DEDUPLICATION
 
@@ -85,14 +103,16 @@ Ces champs sont dans le body de `enrich-leads-from-supersearch`, PAS dans search
 
 ### count-leads
 ```json
-{ "count": 2400 }
+{ "number_of_leads": 2400 }
 ```
-Note : si `count > 1_000_000`, l'API retourne `1000000`.
+Note : la cle reelle est `number_of_leads` (pas `count`). Si > 1_000_000, l'API retourne `1000000`.
 
 ### preview-leads
 ```json
 {
-  "items": [
+  "number_of_leads": 2400,
+  "number_of_redacted_results": 0,
+  "leads": [
     {
       "email": "john@example.com",
       "first_name": "John",
@@ -109,14 +129,17 @@ Note : si `count > 1_000_000`, l'API retourne `1000000`.
   ]
 }
 ```
+Note : la cle est `leads` (pas `items`). Inclut aussi `number_of_leads` et `number_of_redacted_results`.
 
 ### enrich-leads (sourcing)
 ```json
 {
   "id": "uuid",
-  "resourceId": "uuid"
+  "resource_id": "uuid"
 }
 ```
+Note : la cle est `resource_id` (pas `resourceId`).
+
 Puis poll GET `/supersearch-enrichment/{resourceId}` :
 ```json
 {
@@ -135,43 +158,41 @@ Puis poll GET `/supersearch-enrichment/{resourceId}` :
 
 | L'utilisateur dit... | Filtre a utiliser |
 |----------------------|-------------------|
-| "CTO", "directeur technique" | `job_titles: ["CTO", "Chief Technology Officer", "Directeur Technique"]` |
-| "VP", "vice-president" | `level: ["vp"]` + `job_titles` specifiques |
-| "C-level", "dirigeants" | `level: ["c_suite"]` |
-| "SaaS", "logiciel" | `industries: ["SaaS", "Software"]` |
+| "CTO", "directeur technique" | `job_titles: ["CTO", "Chief Technology Officer"]` + `department: ["Engineering"]` + `level: ["C-Level"]` |
+| "VP Sales" | `job_titles: ["Vice President of Sales"]` + `department: ["Sales"]` + `level: ["VP-Level"]` |
+| "C-level", "dirigeants" | `level: ["C-Level"]` |
+| "SaaS", "logiciel" | `industries: ["Software & Internet"]` |
 | "France", "en France" | `locations: ["France"]` |
 | "Paris uniquement" | `locations: ["Paris"]` |
 | "Europe sauf UK" | `locations: { include: ["Europe"], exclude: ["United Kingdom"] }` |
-| "50-200 employes" | `employee_count: ["51-200"]` |
-| "startup", "petite boite" | `employee_count: ["1-10", "11-50"]` |
-| "PME" | `employee_count: ["51-200", "201-500"]` |
-| "ETI", "mid-market" | `employee_count: ["501-1000", "1001-5000"]` |
-| "grande entreprise", "enterprise" | `employee_count: ["5001-10000", "10001+"]` |
-| "CA > 10M" | `revenue: ["10M-50M", "50M-100M", "100M-500M", "500M-1B", "1B+"]` |
-| "1 a 10M de CA" | `revenue: ["1M-10M"]` |
+| "50-200 employes" | `employee_count: ["25 - 100", "100 - 250"]` |
+| "startup", "petite boite" | `employee_count: ["0 - 25"]` |
+| "PME" | `employee_count: ["25 - 100", "100 - 250"]` |
+| "ETI", "mid-market" | `employee_count: ["250 - 1000", "1K - 10K"]` |
+| "grande entreprise", "enterprise" | `employee_count: ["10K - 50K", "50K - 100K", "> 100K"]` |
+| "CA > 10M" | `revenue: ["$10M - 50M", "$50M - 100M", "$100M - 250M", "$250M - 500M", "$500M - 1B", "> $1B"]` |
 | "qui a leve en seed" | `funding_type: ["seed"]` |
 | "series A ou B" | `funding_type: ["series_a", "series_b"]` |
 | "qui utilise Salesforce" | `technologies: ["Salesforce"]` |
 | "entreprises comme Stripe" | `lookalike_domain: "stripe.com"` |
 | "qui recrutent un dev" | `job_listing: "developer"` |
-| "equipe marketing" | `department: ["marketing"]` |
-| "equipe technique" | `department: ["engineering", "it"]` |
-| "managers et directeurs" | `level: ["manager", "director"]` |
-| "seniors" | `level: ["senior"]` |
+| "equipe marketing" | `department: ["Marketing"]` |
+| "equipe technique" | `department: ["Engineering", "IT & IS"]` |
+| "managers et directeurs" | `level: ["Manager-Level", "Director-Level"]` |
+| "seniors" | `level: ["Mid-Senior level"]` |
 
 ### Regles strictes
 
 1. **TOUJOURS** `skip_owned_leads: true`
 2. Pour les job titles, TOUJOURS ajouter les variantes courantes :
-   - CTO → `["CTO", "Chief Technology Officer", "Chief Technical Officer"]`
-   - VP Sales → `["VP Sales", "Vice President Sales", "VP of Sales"]`
-   - CEO → `["CEO", "Chief Executive Officer", "Founder", "Co-founder"]`
-   - Head of Marketing → `["Head of Marketing", "Marketing Director", "Director of Marketing"]`
-3. Interpreter le francais ET l'anglais
-4. Ne mettre QUE les filtres clairement specifies ou fortement impliques
-5. `employee_count` et `revenue` sont des enums strictes — utiliser les valeurs EXACTES
-6. Les `locations` acceptent pays, villes, regions, etats
-7. `industries` est du texte libre — utiliser les termes standards
+   - CTO → `["CTO", "Chief Technology Officer"]`
+   - VP Sales → `["Vice President of Sales"]`
+   - CEO → `["CEO", "Chief Executive Officer", "Founder"]`
+3. Combiner `department` + `level` + `job_titles` pour le meilleur ciblage
+4. Interpreter le francais ET l'anglais
+5. Ne mettre QUE les filtres clairement specifies ou fortement impliques
+6. `employee_count`, `revenue`, `industries`, `department`, `level` sont des enums strictes — utiliser les valeurs EXACTES
+7. Le post-processing corrige automatiquement les erreurs courantes du LLM
 8. `technologies` est du texte libre — utiliser les noms exacts des produits/outils
 
 ---
@@ -181,13 +202,21 @@ Puis poll GET `/supersearch-enrichment/{resourceId}` :
 Tous les filtres et l'enrichment_payload sont implementes :
 
 - [x] `technologies` — filtre par stack techno
-- [x] `lookalike_domain` — entreprises similaires a un domaine
+- [x] `lookalike_domain` → `look_alike` — entreprises similaires a un domaine
 - [x] `job_listing` — filtre par offres d'emploi actives
-- [x] `company_names` — include/exclude des noms d'entreprise
-- [x] `names` — include/exclude des noms de contact
-- [x] `location_filter_type` — choix contact vs company HQ
-- [x] `locations` format objet avec include/exclude
-- [x] `enrichment_payload` — `work_email_enrichment: true` par defaut (requis par l'API)
+- [x] `company_names` → `company_name` — include/exclude des noms d'entreprise
+- [x] `names` → `name` — array de noms de contact
+- [x] `location_filter_type` → `location_mode` — choix contact vs company HQ
+- [x] `locations` — resolution automatique des strings en place_id objects
+- [x] `enrichment_payload` — `work_email_enrichment: true` par defaut
+- [x] `department` — enum Title Case (`"Sales"`, `"Engineering"`, etc.)
+- [x] `level` — enum (`"C-Level"`, `"VP-Level"`, etc.)
+- [x] `funding_type` — enum snake_case (`"seed"`, `"series_a"`, etc.)
+- [x] `job_titles` → `title: { include: [...] }` — wrapping objet
+- [x] `industries` → `industry: { include: [...] }` — wrapping objet
+- [x] `employee_count` → `employeeCount` — camelCase
+- [x] `keyword_filter` → `{ include: string }` — wrapping objet
+- [x] `revenue` — mapping valeurs internes → valeurs API
 
 ### Note critique : enrichment_payload
 L'endpoint `enrich-leads-from-supersearch` **EXIGE** un `enrichment_payload` avec au moins un type d'enrichissement active.

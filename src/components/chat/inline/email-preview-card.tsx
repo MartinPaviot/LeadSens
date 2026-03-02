@@ -16,6 +16,20 @@ interface EmailPreviewCardProps {
 
 const STEP_LABELS = ["PAS", "Value-add", "Breakup"];
 
+/** Splits plain-text body into paragraphs (on \n\n) with inner <br/> for single \n. */
+function renderBody(text: string) {
+  return text.split(/\n{2,}/).map((paragraph, i) => (
+    <p key={i} className="text-sm leading-relaxed text-foreground/80">
+      {paragraph.split("\n").map((line, j, arr) => (
+        <span key={j}>
+          {line}
+          {j < arr.length - 1 && <br />}
+        </span>
+      ))}
+    </p>
+  ));
+}
+
 export function EmailPreviewCard({
   step,
   subject,
@@ -28,17 +42,12 @@ export function EmailPreviewCard({
   const [approved, setApproved] = useState(false);
 
   return (
-    <Card className="overflow-hidden my-2">
-      <div className="px-4 py-3 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[10px]">
-            Step {step + 1} — {STEP_LABELS[step] ?? "Email"}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            to {leadName}
-            {leadCompany ? ` @ ${leadCompany}` : ""}
-          </span>
-        </div>
+    <Card className="overflow-hidden my-2 border-border/60">
+      {/* ── Step badge ── */}
+      <div className="px-4 py-2 border-b border-border/40 flex items-center justify-between bg-muted/30">
+        <Badge variant="outline" className="text-[10px]">
+          Step {step + 1} — {STEP_LABELS[step] ?? "Email"}
+        </Badge>
         {approved && (
           <Badge className="bg-green-600/20 text-green-400 border-green-600/30 text-[10px]">
             Approved
@@ -46,34 +55,39 @@ export function EmailPreviewCard({
         )}
       </div>
 
-      <div className="px-4 py-3 space-y-2">
-        <div>
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
-            Subject
+      {/* ── Email header (To / Subject) ── */}
+      <div className="px-4 pt-3 pb-2 space-y-1 border-b border-border/30">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/60 w-12 shrink-0">To</span>
+          <span>
+            {leadName}
+            {leadCompany ? ` — ${leadCompany}` : ""}
           </span>
-          <p className="text-sm font-medium">{subject}</p>
         </div>
-
-        <div>
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
-            Body
-          </span>
-          {isEditing ? (
-            <textarea
-              value={editedBody}
-              onChange={(e) => setEditedBody(e.target.value)}
-              className="w-full mt-1 p-2 text-sm bg-muted/30 rounded-md border min-h-[120px] resize-y focus:outline-none focus:ring-1 focus:ring-primary/30"
-            />
-          ) : (
-            <p className="text-sm whitespace-pre-wrap text-muted-foreground mt-1">
-              {editedBody}
-            </p>
-          )}
+        <div className="flex items-start gap-2 text-sm">
+          <span className="font-medium text-foreground/60 text-xs w-12 shrink-0 pt-0.5">Subject</span>
+          <span className="font-semibold text-foreground">{subject}</span>
         </div>
       </div>
 
+      {/* ── Email body ── */}
+      <div className="px-4 py-4">
+        {isEditing ? (
+          <textarea
+            value={editedBody}
+            onChange={(e) => setEditedBody(e.target.value)}
+            className="w-full p-3 text-sm bg-muted/20 rounded-md border min-h-[140px] resize-y focus:outline-none focus:ring-1 focus:ring-primary/30 leading-relaxed"
+          />
+        ) : (
+          <div className="space-y-3">
+            {renderBody(editedBody)}
+          </div>
+        )}
+      </div>
+
+      {/* ── Actions ── */}
       {!approved && (
-        <div className="px-4 py-3 border-t flex gap-2 justify-end">
+        <div className="px-4 py-2.5 border-t border-border/40 flex gap-2 justify-end bg-muted/20">
           {isEditing ? (
             <>
               <Button

@@ -5,7 +5,10 @@
       "WebFetch(domain:www.npmjs.com)",
       "Bash(npx shadcn@latest:*)",
       "Bash(curl:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(node:*)",
+      "Bash(pnpm dev:*)"
     ]
   }
 }

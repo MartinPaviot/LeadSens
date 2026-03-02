@@ -55,28 +55,28 @@ export function useAgentActivity() {
 // ─── Client-side tool labels (French) ────────────────────
 
 const STEP_LABELS: Record<string, string> = {
-  parse_icp: "Analyse du profil cible (ICP)",
-  instantly_count_leads: "Estimation du nombre de leads",
-  instantly_source_leads: "Sourcing des leads via SuperSearch",
-  instantly_preview_leads: "Apercu des leads trouvés",
-  score_leads_batch: "Scoring des leads selon l'ICP",
-  enrich_leads_batch: "Enrichissement des profils",
-  draft_emails_batch: "Rédaction des emails personnalisés",
-  draft_single_email: "Rédaction d'un email",
-  generate_campaign_angle: "Génération de l'angle de campagne",
-  instantly_create_campaign: "Création du draft dans Instantly",
-  instantly_add_leads_to_campaign: "Ajout des leads à la campagne",
-  instantly_activate_campaign: "Activation de la campagne",
-  crm_check_duplicates: "Vérification des doublons CRM",
-  analyze_company_site: "Analyse du site web",
-  update_company_dna: "Mise à jour du profil entreprise",
-  save_memory: "Sauvegarde en mémoire",
-  get_memories: "Consultation de la mémoire",
-  delete_memory: "Suppression de la mémoire",
-  render_lead_table: "Préparation du tableau de leads",
-  render_email_preview: "Préparation de l'apercu email",
-  render_campaign_summary: "Préparation du résumé",
-  instantly_list_accounts: "Récupération des comptes email",
+  parse_icp: "Parsing target profile (ICP)",
+  instantly_count_leads: "Estimating available leads",
+  instantly_source_leads: "Sourcing leads via SuperSearch",
+  instantly_preview_leads: "Previewing leads found",
+  score_leads_batch: "Validating leads",
+  enrich_leads_batch: "Enriching lead profiles",
+  draft_emails_batch: "Writing personalized emails",
+  draft_single_email: "Writing an email",
+  generate_campaign_angle: "Generating campaign angle",
+  instantly_create_campaign: "Creating draft in Instantly",
+  instantly_add_leads_to_campaign: "Adding leads to campaign",
+  instantly_activate_campaign: "Activating campaign",
+  crm_check_duplicates: "Checking CRM duplicates",
+  analyze_company_site: "Analyzing website",
+  update_company_dna: "Updating company profile",
+  save_memory: "Saving to memory",
+  get_memories: "Checking memory",
+  delete_memory: "Deleting from memory",
+  render_lead_table: "Preparing lead table",
+  render_email_preview: "Preparing email preview",
+  render_campaign_summary: "Preparing summary",
+  instantly_list_accounts: "Fetching email accounts",
 };
 
 function getStepLabel(toolName: string): string {
@@ -274,7 +274,7 @@ export default function AgentChat() {
               id: assistantId,
               role: "assistant",
               content:
-                "Hey, bienvenue sur LeadSens ! 👋\n\nJe suis ton copilote prospection — tu me décris ta cible, je m'occupe de tout le reste : sourcing, scoring, enrichissement, rédaction et push dans Instantly.\n\nPour démarrer, j'ai besoin de deux choses :\n\n1. **L'URL de ton site** — j'analyse ton offre pour personnaliser chaque email\n2. **Ton compte Instantly** — connecte-le dans *Settings > Integrations* avec ta clé API V2\n\nCommence par me donner l'URL de ton site, on avance étape par étape.",
+                "Hey, welcome to LeadSens! 👋\n\nI'm your prospecting copilot. Describe your target, and I'll handle the rest: sourcing, enrichment, email drafting, and pushing everything into Instantly.\n\nTo get started, I need two things:\n\n1. **Your website URL** so I can analyze your offer and personalize every email\n2. **Your Instantly account** - connect it in *Settings > Integrations* with your API V2 key\n\nStart by giving me your website URL, and we'll go step by step.",
             },
           ]);
         }
@@ -401,28 +401,45 @@ export default function AgentChat() {
                   string,
                   unknown
                 > | null;
+                let hasNewComponents = false;
                 if (
                   toolOutput &&
-                  typeof toolOutput === "object" &&
-                  "__component" in toolOutput
+                  typeof toolOutput === "object"
                 ) {
-                  const marker = JSON.stringify({
-                    component: toolOutput.__component,
-                    props: toolOutput.props,
-                  });
-                  pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
-                  if (!updateScheduledRef.current) {
-                    updateScheduledRef.current = true;
-                    requestAnimationFrame(() => {
-                      const content = pendingContentRef.current;
-                      setMessages((prev) =>
-                        prev.map((m) =>
-                          m.id === assistantId ? { ...m, content } : m,
-                        ),
-                      );
-                      updateScheduledRef.current = false;
+                  // Single component
+                  if ("__component" in toolOutput) {
+                    const marker = JSON.stringify({
+                      component: toolOutput.__component,
+                      props: toolOutput.props,
                     });
+                    pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+                    hasNewComponents = true;
                   }
+                  // Multiple components (e.g. email previews from draft_emails_batch)
+                  if ("__components" in toolOutput && Array.isArray(toolOutput.__components)) {
+                    for (const comp of toolOutput.__components as Array<{ component: string; props: Record<string, unknown> }>) {
+                      if (comp?.component && comp?.props) {
+                        const marker = JSON.stringify({
+                          component: comp.component,
+                          props: comp.props,
+                        });
+                        pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+                        hasNewComponents = true;
+                      }
+                    }
+                  }
+                }
+                if (hasNewComponents && !updateScheduledRef.current) {
+                  updateScheduledRef.current = true;
+                  requestAnimationFrame(() => {
+                    const content = pendingContentRef.current;
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantId ? { ...m, content } : m,
+                      ),
+                    );
+                    updateScheduledRef.current = false;
+                  });
                 }
                 break;
               }

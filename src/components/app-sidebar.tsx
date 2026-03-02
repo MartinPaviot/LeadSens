@@ -194,7 +194,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="offcanvas" className="overflow-hidden">
       {/* ── Header ── */}
-      <SidebarHeader className="p-3">
+      <SidebarHeader className="p-3 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -341,7 +341,6 @@ export function AppSidebar() {
 
       {/* ── Footer ── */}
       <SidebarFooter className="px-2 pb-3 pt-0">
-        <div className="mx-1 border-t border-sidebar-border mb-1" />
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -365,6 +364,9 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+        </SidebarMenu>
+        <div className="mx-1 border-t border-sidebar-border my-1" />
+        <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={async () => {

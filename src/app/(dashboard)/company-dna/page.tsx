@@ -7,12 +7,10 @@ import {
   Trash,
   Globe,
   Target,
-  Trophy,
   Lightning,
-  ShieldCheck,
-  Warning,
-  CurrencyDollar,
   ArrowsClockwise,
+  Users,
+  CursorClick,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,14 +26,10 @@ interface TargetBuyer {
   sellingAngle: string;
 }
 
-interface CompanyDna {
-  oneLiner: string;
-  targetBuyers: TargetBuyer[];
-  keyResults: string[];
-  differentiators: string[];
-  proofPoints: string[];
-  problemsSolved: string[];
-  pricingModel: string | null;
+interface SocialProofEntry {
+  industry: string;
+  clients: string[];
+  keyMetric?: string;
 }
 
 function arrayToLines(arr: string[]): string {
@@ -115,26 +109,44 @@ export default function CompanyDnaPage() {
   // Form state
   const [urlInput, setUrlInput] = useState("");
   const [oneLiner, setOneLiner] = useState("");
-  const [targetBuyers, setTargetBuyers] = useState<TargetBuyer[]>([]);
+  const [problemsSolved, setProblemsSolved] = useState("");
   const [keyResults, setKeyResults] = useState("");
   const [differentiators, setDifferentiators] = useState("");
-  const [proofPoints, setProofPoints] = useState("");
-  const [problemsSolved, setProblemsSolved] = useState("");
-  const [pricingModel, setPricingModel] = useState("");
+  const [socialProof, setSocialProof] = useState<SocialProofEntry[]>([]);
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [targetBuyers, setTargetBuyers] = useState<TargetBuyer[]>([]);
 
-  // Sync form state when query data arrives or changes
+  // Sync form state when query data arrives
   useEffect(() => {
     if (!data) return;
 
-    const dna = (data.companyDna ?? {}) as Partial<CompanyDna>;
+    const dna = (data.companyDna ?? {}) as Record<string, unknown>;
 
-    setOneLiner(dna.oneLiner || "");
-    setTargetBuyers(dna.targetBuyers?.length ? dna.targetBuyers : []);
-    setKeyResults(arrayToLines(dna.keyResults || []));
-    setDifferentiators(arrayToLines(dna.differentiators || []));
-    setProofPoints(arrayToLines(dna.proofPoints || []));
-    setProblemsSolved(arrayToLines(dna.problemsSolved || []));
-    setPricingModel(dna.pricingModel || "");
+    setOneLiner((dna.oneLiner as string) || "");
+    setProblemsSolved(arrayToLines((dna.problemsSolved as string[]) || []));
+    setKeyResults(arrayToLines((dna.keyResults as string[]) || []));
+    setDifferentiators(arrayToLines((dna.differentiators as string[]) || []));
+    setSocialProof(
+      Array.isArray(dna.socialProof) && dna.socialProof.length > 0
+        ? (dna.socialProof as SocialProofEntry[])
+        : [],
+    );
+
+    // CTA — read first entry from the array
+    const ctasArr = Array.isArray(dna.ctas) ? dna.ctas : [];
+    const firstCta = ctasArr[0] as { label?: string; url?: string } | undefined;
+    setCtaLabel(firstCta?.label || "");
+    setCtaUrl(firstCta?.url || "");
+
+    // Target buyers
+    const buyers = Array.isArray(dna.targetBuyers) ? dna.targetBuyers : [];
+    setTargetBuyers(
+      buyers.length > 0
+        ? (buyers as TargetBuyer[])
+        : [],
+    );
+
     if (data.companyUrl) setUrlInput(data.companyUrl);
   }, [data]);
 
@@ -156,30 +168,48 @@ export default function CompanyDnaPage() {
   };
 
   const handleSave = () => {
-    const payload: CompanyDna = {
+    // Preserve existing backend fields not shown on this page
+    const existing = (data?.companyDna ?? {}) as Record<string, unknown>;
+
+    const payload = {
       oneLiner,
-      targetBuyers,
+      problemsSolved: linesToArray(problemsSolved),
       keyResults: linesToArray(keyResults),
       differentiators: linesToArray(differentiators),
-      proofPoints: linesToArray(proofPoints),
-      problemsSolved: linesToArray(problemsSolved),
-      pricingModel: pricingModel.trim() || null,
+      socialProof,
+      targetBuyers,
+      ctas: ctaLabel.trim()
+        ? [{ label: ctaLabel.trim(), commitment: "medium" as const, ...(ctaUrl.trim() ? { url: ctaUrl.trim() } : {}) }]
+        : [],
+      // Preserve backend-only fields
+      pricingModel: (existing.pricingModel as string | null) ?? null,
+      toneOfVoice: (existing.toneOfVoice as { register: "formal" | "conversational" | "casual"; traits: string[]; avoidWords: string[] }) ?? { register: "conversational" as const, traits: [], avoidWords: [] },
+      senderIdentity: (existing.senderIdentity as { name: string; role: string; signatureHook: string }) ?? { name: "", role: "", signatureHook: "" },
+      objections: (existing.objections as Array<{ objection: string; response: string }>) ?? [],
     };
     updateMutation.mutate({ companyDna: payload });
   };
 
-  // Target buyers management
+  // ─── Array item managers ───────────────────────────────
+
+  // Target buyers
   const addBuyer = () =>
     setTargetBuyers((prev) => [...prev, { role: "", sellingAngle: "" }]);
   const removeBuyer = (idx: number) =>
     setTargetBuyers((prev) => prev.filter((_, i) => i !== idx));
-  const updateBuyer = (
-    idx: number,
-    field: keyof TargetBuyer,
-    value: string,
-  ) =>
+  const updateBuyer = (idx: number, field: keyof TargetBuyer, value: string) =>
     setTargetBuyers((prev) =>
       prev.map((b, i) => (i === idx ? { ...b, [field]: value } : b)),
+    );
+
+  // Social proof
+  const addSocialProof = () =>
+    setSocialProof((prev) => [...prev, { industry: "", clients: [] }]);
+  const removeSocialProof = (idx: number) =>
+    setSocialProof((prev) => prev.filter((_, i) => i !== idx));
+  const updateSocialProof = (idx: number, field: string, value: unknown) =>
+    setSocialProof((prev) =>
+      prev.map((sp, i) => (i === idx ? { ...sp, [field]: value } : sp)),
     );
 
   const hasDna = !!data?.companyDna;
@@ -265,7 +295,7 @@ export default function CompanyDnaPage() {
 
       {/* Form sections */}
       <div className="space-y-8">
-        {/* One-liner */}
+        {/* ── 1. One-liner ── */}
         <Section
           icon={<Buildings className="size-4" weight="duotone" />}
           title="One-liner"
@@ -278,25 +308,148 @@ export default function CompanyDnaPage() {
           />
         </Section>
 
-        {/* Problems Solved — before target buyers for narrative flow */}
+        {/* ── 2. Selling Points ── */}
         <Section
-          icon={<Warning className="size-4" weight="duotone" />}
-          title="Problems Solved"
-          description="The pain points your product addresses."
+          icon={<Lightning className="size-4" weight="duotone" />}
+          title="Selling Points"
+          description="Problems you solve, key results, and differentiators."
         >
-          <Textarea
-            value={problemsSolved}
-            onChange={(e) => setProblemsSolved(e.target.value)}
-            placeholder="One problem per line"
-            rows={3}
-          />
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Problems you solve
+              </label>
+              <Textarea
+                value={problemsSolved}
+                onChange={(e) => setProblemsSolved(e.target.value)}
+                placeholder="One problem per line"
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Key results
+              </label>
+              <Textarea
+                value={keyResults}
+                onChange={(e) => setKeyResults(e.target.value)}
+                placeholder="One result per line (real numbers only)"
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                What makes you different
+              </label>
+              <Textarea
+                value={differentiators}
+                onChange={(e) => setDifferentiators(e.target.value)}
+                placeholder="One differentiator per line"
+                rows={2}
+              />
+            </div>
+          </div>
         </Section>
 
-        {/* Target Buyers */}
+        {/* ── 3. Social Proof ── */}
+        <Section
+          icon={<Users className="size-4" weight="duotone" />}
+          title="Social Proof"
+          description="Clients grouped by industry. Used to cite relevant references to each prospect."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs shrink-0"
+              onClick={addSocialProof}
+            >
+              <Plus className="size-3 mr-1" />
+              Add
+            </Button>
+          }
+        >
+          {socialProof.length > 0 ? (
+            <div className="space-y-2">
+              {socialProof.map((sp, idx) => (
+                <div
+                  key={idx}
+                  className="flex gap-2 items-start p-2.5 rounded-lg border bg-muted/30"
+                >
+                  <div className="flex-1 space-y-1.5">
+                    <Input
+                      value={sp.industry}
+                      onChange={(e) => updateSocialProof(idx, "industry", e.target.value)}
+                      placeholder="Industry (e.g. SaaS, FinTech, E-commerce)"
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      value={sp.clients.join(", ")}
+                      onChange={(e) =>
+                        updateSocialProof(
+                          idx,
+                          "clients",
+                          e.target.value.split(",").map((c) => c.trim()).filter(Boolean),
+                        )
+                      }
+                      placeholder="Clients, comma-separated (e.g. Stripe, Notion)"
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      value={sp.keyMetric || ""}
+                      onChange={(e) => updateSocialProof(idx, "keyMetric", e.target.value || undefined)}
+                      placeholder="Result (e.g. +45% conversion) — optional"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeSocialProof(idx)}
+                  >
+                    <Trash className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                No social proof yet. Add client references grouped by industry.
+              </p>
+            </div>
+          )}
+        </Section>
+
+        {/* ── 4. CTA ── */}
+        <Section
+          icon={<CursorClick className="size-4" weight="duotone" />}
+          title="CTA"
+          description="The call-to-action used in your emails."
+        >
+          <div className="flex gap-2">
+            <Input
+              value={ctaLabel}
+              onChange={(e) => setCtaLabel(e.target.value)}
+              placeholder="e.g. Free 15-min audit"
+              className="text-sm flex-1"
+            />
+            <Input
+              value={ctaUrl}
+              onChange={(e) => setCtaUrl(e.target.value)}
+              placeholder="URL (optional)"
+              className="text-sm flex-1"
+            />
+          </div>
+        </Section>
+
+        {/* ── 5. Target Buyers ── */}
         <Section
           icon={<Target className="size-4" weight="duotone" />}
           title="Target Buyers"
-          description="Who you sell to and what angle resonates."
+          description="Who you sell to and what angle resonates with each role."
           action={
             <Button
               type="button"
@@ -320,18 +473,14 @@ export default function CompanyDnaPage() {
                   <div className="flex-1 space-y-1.5">
                     <Input
                       value={buyer.role}
-                      onChange={(e) =>
-                        updateBuyer(idx, "role", e.target.value)
-                      }
+                      onChange={(e) => updateBuyer(idx, "role", e.target.value)}
                       placeholder="Role (e.g. Head of Growth)"
                       className="h-8 text-sm"
                     />
                     <Input
                       value={buyer.sellingAngle}
-                      onChange={(e) =>
-                        updateBuyer(idx, "sellingAngle", e.target.value)
-                      }
-                      placeholder="Selling angle / pain point"
+                      onChange={(e) => updateBuyer(idx, "sellingAngle", e.target.value)}
+                      placeholder="Selling angle for this role"
                       className="h-8 text-sm"
                     />
                   </div>
@@ -354,61 +503,6 @@ export default function CompanyDnaPage() {
               </p>
             </div>
           )}
-        </Section>
-
-        {/* Key Results */}
-        <Section
-          icon={<Trophy className="size-4" weight="duotone" />}
-          title="Key Results"
-          description="Stats, metrics, case study outcomes."
-        >
-          <Textarea
-            value={keyResults}
-            onChange={(e) => setKeyResults(e.target.value)}
-            placeholder="One result per line (only real numbers from your site)"
-            rows={3}
-          />
-        </Section>
-
-        {/* Differentiators */}
-        <Section
-          icon={<Lightning className="size-4" weight="duotone" />}
-          title="Differentiators"
-          description="What sets you apart from competitors."
-        >
-          <Textarea
-            value={differentiators}
-            onChange={(e) => setDifferentiators(e.target.value)}
-            placeholder="One differentiator per line"
-            rows={3}
-          />
-        </Section>
-
-        {/* Proof Points */}
-        <Section
-          icon={<ShieldCheck className="size-4" weight="duotone" />}
-          title="Proof Points"
-          description="Client logos, testimonials, certifications, awards."
-        >
-          <Textarea
-            value={proofPoints}
-            onChange={(e) => setProofPoints(e.target.value)}
-            placeholder="One proof point per line"
-            rows={3}
-          />
-        </Section>
-
-        {/* Pricing Model */}
-        <Section
-          icon={<CurrencyDollar className="size-4" weight="duotone" />}
-          title="Pricing Model"
-          description="Optional. Visible pricing model from your site."
-        >
-          <Input
-            value={pricingModel}
-            onChange={(e) => setPricingModel(e.target.value)}
-            placeholder="e.g. freemium, per seat, custom quote..."
-          />
         </Section>
 
         {/* Save */}

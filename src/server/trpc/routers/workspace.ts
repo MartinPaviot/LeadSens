@@ -39,18 +39,30 @@ function normalizeMemoryToSchema(
   out.differentiators = raw.differentiators ?? [];
   out.problemsSolved = raw.problemsSolved ?? raw.problems_solved ?? [];
 
-  // proofPoints can come as "social_proof" (object or array)
-  const proof = raw.proofPoints ?? raw.proof_points ?? raw.social_proof;
-  if (Array.isArray(proof)) {
-    out.proofPoints = proof;
-  } else if (proof && typeof proof === "object") {
-    // Flatten social_proof object to string array
-    out.proofPoints = Object.entries(proof as Record<string, unknown>).map(
-      ([k, v]) => `${snakeToCamel(k)}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`,
-    );
+  // socialProof — migrate from proofPoints if needed
+  const socialProofRaw = raw.socialProof ?? raw.social_proof;
+  if (Array.isArray(socialProofRaw) && socialProofRaw.length > 0 && typeof socialProofRaw[0] === "object") {
+    out.socialProof = socialProofRaw;
   } else {
-    out.proofPoints = [];
+    // Migrate flat proofPoints to socialProof with "General" industry
+    const flatProof = raw.proofPoints ?? raw.proof_points ?? raw.social_proof;
+    if (Array.isArray(flatProof) && flatProof.length > 0 && typeof flatProof[0] === "string") {
+      out.socialProof = [{ industry: "General", clients: flatProof as string[] }];
+    } else if (flatProof && typeof flatProof === "object" && !Array.isArray(flatProof)) {
+      const entries = Object.entries(flatProof as Record<string, unknown>).map(
+        ([k, v]) => `${snakeToCamel(k)}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`,
+      );
+      out.socialProof = entries.length > 0 ? [{ industry: "General", clients: entries }] : [];
+    } else {
+      out.socialProof = [];
+    }
   }
+
+  // New fields with defaults
+  out.toneOfVoice = raw.toneOfVoice ?? raw.tone_of_voice ?? { register: "conversational", traits: [], avoidWords: [] };
+  out.ctas = raw.ctas ?? [];
+  out.senderIdentity = raw.senderIdentity ?? raw.sender_identity ?? { name: "", role: "", signatureHook: "" };
+  out.objections = raw.objections ?? [];
 
   out.pricingModel =
     raw.pricingModel ?? raw.pricing_model ?? raw.pricing ?? null;

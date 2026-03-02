@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "LeadSens",
   description: "AI-powered B2B lead prospecting agent",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

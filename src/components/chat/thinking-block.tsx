@@ -71,8 +71,8 @@ export function ThinkingBlock() {
           )}
           <span className="text-muted-foreground">
             {isThinking
-              ? "Réflexion en cours..."
-              : `${doneCount} étape${doneCount > 1 ? "s" : ""} terminée${doneCount > 1 ? "s" : ""}`}
+              ? "Thinking..."
+              : `${doneCount} step${doneCount > 1 ? "s" : ""} completed`}
           </span>
         </button>
 
