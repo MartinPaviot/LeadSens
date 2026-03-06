@@ -5,6 +5,7 @@ import type {
 } from "@mistralai/mistralai/models/components";
 import { z } from "zod/v4";
 import { logAIEvent } from "@/lib/ai-events";
+import { compressToolOutput } from "./context-manager";
 import type {
   StreamEvent,
   ChatStreamOptions,
@@ -114,15 +115,20 @@ function tryExtractPhantomToolCall(
   text: string,
   toolNames: string[],
 ): PhantomToolCall | null {
-  // Format 1: toolName{...}
+  // Format 1: toolName...{...} (garbage chars allowed between name and brace)
   for (const name of toolNames) {
     const idx = text.indexOf(name);
     if (idx === -1) continue;
 
-    let braceStart = idx + name.length;
-    while (braceStart < text.length && /\s/.test(text[braceStart])) braceStart++;
+    // Scan forward up to 50 chars to find the opening brace
+    const searchStart = idx + name.length;
+    const searchEnd = Math.min(searchStart + 50, text.length);
+    let braceStart = -1;
+    for (let j = searchStart; j < searchEnd; j++) {
+      if (text[j] === "{") { braceStart = j; break; }
+    }
 
-    if (braceStart < text.length && text[braceStart] === "{") {
+    if (braceStart !== -1) {
       const result = extractBalancedJSON(text, braceStart);
       if (result) {
         return { toolName: name, args: result.parsed };
@@ -177,25 +183,44 @@ function stripPhantomToolCalls(text: string, toolNames: string[]): string {
 
   let result = text;
 
-  // 1. Strip "toolName{...}" with brace-balanced matching
+  // 1. Strip "toolName...{...}" with brace-balanced matching
+  //    (allows garbage chars between name and brace, up to 50 chars)
   for (const name of toolNames) {
     let idx = 0;
     while (idx < result.length) {
       const nameIdx = result.indexOf(name, idx);
       if (nameIdx === -1) break;
 
-      let braceStart = nameIdx + name.length;
-      while (braceStart < result.length && /\s/.test(result[braceStart])) braceStart++;
+      // Also strip non-ASCII garbage immediately before the tool name
+      // (Mistral sometimes prepends Cyrillic or other junk)
+      let stripStart = nameIdx;
+      while (stripStart > 0 && result.charCodeAt(stripStart - 1) > 127) stripStart--;
 
-      if (braceStart < result.length && result[braceStart] === "{") {
+      const searchStart = nameIdx + name.length;
+      const searchEnd = Math.min(searchStart + 50, result.length);
+      let braceStart = -1;
+      for (let j = searchStart; j < searchEnd; j++) {
+        if (result[j] === "{") { braceStart = j; break; }
+      }
+
+      if (braceStart !== -1) {
         const extracted = extractBalancedJSON(result, braceStart);
         if (extracted) {
-          result = result.slice(0, nameIdx) + result.slice(extracted.end + 1);
-          continue; // re-check same position
+          // Strip from (garbage+tool name) through end of JSON
+          result = result.slice(0, stripStart) + result.slice(extracted.end + 1);
+          idx = stripStart;
+          continue;
         }
-        idx = nameIdx + name.length;
+        // Broken/incomplete JSON — strip from tool name to end of line
+        const lineEnd = result.indexOf("\n", braceStart);
+        result = result.slice(0, stripStart) + (lineEnd !== -1 ? result.slice(lineEnd) : "");
+        idx = stripStart;
+        continue;
       } else {
-        idx = nameIdx + name.length;
+        // Bare tool name with no JSON — strip it
+        result = result.slice(0, stripStart) + result.slice(nameIdx + name.length);
+        idx = stripStart;
+        continue;
       }
     }
   }
@@ -228,7 +253,13 @@ function stripPhantomToolCalls(text: string, toolNames: string[]): string {
   // 5. Strip degenerate repetitive output (e.g. "))))..." or "}}}}...")
   result = result.replace(/(.)\1{20,}/g, "");
 
-  // 6. Clean up residual whitespace
+  // 6. Safety net: remove any remaining bare tool name occurrences
+  //    (these snake_case names never appear in natural language)
+  for (const name of toolNames) {
+    result = result.split(name).join("");
+  }
+
+  // 7. Clean up residual whitespace
   result = result.replace(/\n{3,}/g, "\n\n").trim();
 
   return result;
@@ -478,7 +509,7 @@ export async function* chatStream(
           });
           messages.push({
             role: "user",
-            content: `[Tool result from ${phantom.toolName}]:\n${JSON.stringify(output).slice(0, 4000)}`,
+            content: `[Tool result from ${phantom.toolName}]:\n${compressToolOutput(output).slice(0, 4000)}`,
           });
 
           // Continue the loop — Mistral will see the tool result and
@@ -566,10 +597,10 @@ export async function* chatStream(
         output,
       };
 
-      // Add tool result to messages
+      // Add tool result to messages (compressed: rendering keys stripped)
       messages.push({
         role: "tool",
-        content: JSON.stringify(output),
+        content: compressToolOutput(output),
         toolCallId: toolCall.id,
         name: toolName,
       });
@@ -590,6 +621,7 @@ export async function* chatStream(
 
     let finalTokensIn = 0;
     let finalTokensOut = 0;
+    const finalChunks: string[] = [];
 
     for await (const event of finalStream) {
       const choice = event.data?.choices?.[0];
@@ -597,13 +629,21 @@ export async function* chatStream(
 
       const delta = choice.delta;
       if (delta?.content && typeof delta.content === "string") {
-        yield { type: "text-delta", delta: delta.content };
+        finalChunks.push(delta.content);
       }
 
       if (event.data?.usage) {
         finalTokensIn = event.data.usage.promptTokens ?? 0;
         finalTokensOut = event.data.usage.completionTokens ?? 0;
       }
+    }
+
+    // Sanitize before yielding — even without tools passed, the LLM can
+    // echo tool names from conversation history
+    const toolNames = options.tools ? Object.keys(options.tools) : [];
+    const sanitized = stripPhantomToolCalls(finalChunks.join(""), toolNames);
+    if (sanitized) {
+      yield { type: "text-delta", delta: sanitized };
     }
 
     totalTokensIn += finalTokensIn;

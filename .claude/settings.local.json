@@ -12,7 +12,16 @@
       "WebSearch",
       "WebFetch(domain:developer.instantly.ai)",
       "Bash(npx tsx:*)",
-      "Bash(do echo:*)"
+      "Bash(echo:*)",
+      "WebFetch(domain:www.clay.com)",
+      "WebFetch(domain:www.tinyfish.ai)",
+      "WebFetch(domain:help.instantly.ai)",
+      "WebFetch(domain:app.theneo.io)",
+      "Bash(pnpm test:icp:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx next:*)"
     ]
   }
 }

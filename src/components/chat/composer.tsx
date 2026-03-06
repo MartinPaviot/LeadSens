@@ -1,11 +1,15 @@
 "use client";
 
-import { ComposerPrimitive } from "@assistant-ui/react";
-import { PaperPlaneRight } from "@phosphor-icons/react/dist/ssr";
+import { ComposerPrimitive, useThreadRuntime } from "@assistant-ui/react";
+import { PaperPlaneRight, Stop } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAgentActivity } from "./agent-chat";
 
 export function LeadSensComposer() {
+  const { isStreaming } = useAgentActivity();
+  const threadRuntime = useThreadRuntime();
+
   return (
     <div className="px-6 pb-4 pt-2 shrink-0">
       <div className="max-w-[720px] mx-auto">
@@ -20,13 +24,23 @@ export function LeadSensComposer() {
             )}
           />
 
-          {/* Send button */}
-          <ComposerPrimitive.Send asChild>
-            <Button size="icon" className="size-8 rounded-lg shrink-0">
-              <PaperPlaneRight className="size-4" weight="fill" />
-              <span className="sr-only">Send</span>
+          {isStreaming ? (
+            <Button
+              size="icon"
+              className="size-8 rounded-lg shrink-0"
+              onClick={() => threadRuntime.cancelRun()}
+            >
+              <Stop className="size-4" weight="fill" />
+              <span className="sr-only">Stop</span>
             </Button>
-          </ComposerPrimitive.Send>
+          ) : (
+            <ComposerPrimitive.Send asChild>
+              <Button size="icon" className="size-8 rounded-lg shrink-0">
+                <PaperPlaneRight className="size-4" weight="fill" />
+                <span className="sr-only">Send</span>
+              </Button>
+            </ComposerPrimitive.Send>
+          )}
         </ComposerPrimitive.Root>
       </div>
     </div>

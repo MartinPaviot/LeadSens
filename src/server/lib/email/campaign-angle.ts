@@ -18,6 +18,8 @@ export const campaignAngleSchema = z.object({
   tone: z.string(),
   socialProofMatch: coerceString.optional(),
   suggestedCta: coerceString.optional(),
+  timelineProof: coerceString.optional(),
+  signalHooks: z.array(z.string()).optional(),
 });
 
 export type CampaignAngle = z.infer<typeof campaignAngleSchema>;
@@ -36,7 +38,9 @@ JSON uniquement :
   "avoid": "Ce qu'il ne faut PAS mentionner à CE persona (trop technique, trop marketing, etc.)",
   "tone": "Le registre adapté (technique, business, stratégique, opérationnel)",
   "socialProofMatch": "Le meilleur élément de social proof pour l'industrie/secteur de cette cible. Format: 'Clients [industrie] : [noms] ([métrique])'. Choisis dans le socialProof celui qui matche le mieux. Si aucun match, utilise le meilleur disponible.",
-  "suggestedCta": "Le CTA le plus adapté à ce persona parmi ceux disponibles. Si aucun CTA n'est fourni, suggère-en un adapté au persona."
+  "suggestedCta": "Le CTA le plus adapté à ce persona parmi ceux disponibles. Si aucun CTA n'est fourni, suggère-en un adapté au persona.",
+  "timelineProof": "Le meilleur case study en format timeline. Format: 'En [durée], [Client similaire] a atteint [résultat]'. Choisis le case study le plus pertinent pour ce persona. Si aucun case study n'est disponible, utilise le meilleur keyResult avec un contexte temporel.",
+  "signalHooks": ["2-3 connexions signal→besoin→solution. Format: '[Signal] → [conséquence pour le prospect] → [comment ton offre aide]'. Ex: 'Recrutement massif → besoin d'onboarder rapidement → ta plateforme réduit le temps d'onboarding de 60%'"]
 }`;
 
 // ─── Generation ──────────────────────────────────────────

@@ -7,8 +7,6 @@
 // - Retry directive for client reconnection
 // - Type-safe event payloads
 
-import type { TotalUsage } from "@/server/lib/llm/types";
-
 // ─── Event Types ──────────────────────────────────────────
 
 export type SSEEventName =

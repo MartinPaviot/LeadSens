@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { MessagePrimitive, useMessage } from "@assistant-ui/react";
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import Markdown from "react-markdown";
+import { Copy, Check } from "@phosphor-icons/react";
 import { getInlineComponent } from "@/lib/inline-component-registry";
 
 const MARKDOWN_CLASS =
@@ -24,6 +25,7 @@ const SINGLETON_COMPONENTS = new Set([
   "account-picker",
   "campaign-summary",
   "progress-bar",
+  "enrichment",
 ]);
 
 // ─── Streaming markdown (assistant-ui with smooth typing) ──
@@ -139,6 +141,38 @@ function InlineContent({ rawText }: { rawText: string }) {
   );
 }
 
+// ─── Strip inline markers for clipboard ────────────────────
+function getCleanText(raw: string): string {
+  return raw.replace(/\n*@@INLINE@@[\s\S]*?@@END@@\n*/g, "").trim();
+}
+
+// ─── Copy button ────────────────────────────────────────────
+function CopyButton({ rawText }: { rawText: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    const clean = getCleanText(rawText);
+    if (!clean) return;
+    await navigator.clipboard.writeText(clean);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [rawText]);
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity size-6 flex items-center justify-center rounded-md bg-muted/80 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground"
+      aria-label="Copy message"
+    >
+      {copied ? (
+        <Check className="size-3.5" weight="bold" />
+      ) : (
+        <Copy className="size-3.5" />
+      )}
+    </button>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────
 export function AssistantMessage() {
   const message = useMessage();
@@ -159,7 +193,7 @@ export function AssistantMessage() {
   const hasInlineComponents = rawText.includes("@@INLINE@@");
 
   return (
-    <MessagePrimitive.Root className="flex gap-3 items-start max-w-[85%] motion-safe:animate-[fade-in-up_0.3s_ease-out]">
+    <MessagePrimitive.Root className="flex gap-3 items-start motion-safe:animate-[fade-in-up_0.3s_ease-out]">
       {/* Avatar */}
       <div className="aui-avatar relative shrink-0">
         <div className="size-8 rounded-lg overflow-hidden">
@@ -168,7 +202,8 @@ export function AssistantMessage() {
       </div>
 
       {/* Content bubble */}
-      <div className="rounded-[16px_16px_16px_4px] bg-secondary/90 backdrop-blur-sm px-4 py-3 min-w-0">
+      <div className="group relative rounded-[16px_16px_16px_4px] bg-secondary/90 backdrop-blur-sm px-4 py-3 min-w-0">
+        <CopyButton rawText={rawText} />
         {hasInlineComponents ? (
           <InlineContent rawText={rawText} />
         ) : (

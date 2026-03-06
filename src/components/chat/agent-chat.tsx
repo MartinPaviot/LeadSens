@@ -77,6 +77,7 @@ const STEP_LABELS: Record<string, string> = {
   render_email_preview: "Preparing email preview",
   render_campaign_summary: "Preparing summary",
   instantly_list_accounts: "Fetching email accounts",
+  search_leads: "Searching for lead",
 };
 
 function getStepLabel(toolName: string): string {
@@ -94,6 +95,7 @@ const SINGLETON_COMPONENTS = new Set([
   "account-picker",
   "campaign-summary",
   "progress-bar",
+  "enrichment",
 ]);
 
 /** Remove previous @@INLINE@@ markers for a singleton component type */

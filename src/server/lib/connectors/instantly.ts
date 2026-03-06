@@ -21,6 +21,9 @@ export const searchFiltersSchema = z.object({
     "C-Level", "VP-Level", "Director-Level", "Manager-Level",
     "Staff", "Entry level", "Mid-Senior level", "Director",
     "Associate", "Owner",
+    "Executive", "Manager", "Senior",
+    "Chief X Officer (CxO)", "Internship",
+    "Vice President (VP)", "Unpaid / Internship", "Partner",
   ])).optional(),
   department: z.array(z.enum([
     "Engineering", "Finance & Administration", "Human Resources",
@@ -42,6 +45,7 @@ export const searchFiltersSchema = z.object({
     "Telecommunications", "Transportation & Storage",
     "Travel, Recreation, and Leisure", "Wholesale & Distribution",
   ])).optional(),
+  sub_industries: z.array(z.string()).optional(),
   employee_count: z.array(z.enum([
     "0 - 25", "25 - 100", "100 - 250", "250 - 1000",
     "1K - 10K", "10K - 50K", "50K - 100K", "> 100K",
@@ -50,7 +54,18 @@ export const searchFiltersSchema = z.object({
     "$0 - 1M", "$1M - 10M", "$10M - 50M", "$50M - 100M",
     "$100M - 250M", "$250M - 500M", "$500M - 1B", "> $1B",
   ])).optional(),
-  funding_type: z.array(z.string()).optional(),
+  funding_type: z.array(z.enum([
+    "angel", "seed", "pre_seed",
+    "series_a", "series_b", "series_c", "series_d",
+    "series_e", "series_f", "series_g", "series_h", "series_i", "series_j",
+    "pre_series_a", "pre_series_b", "pre_series_c", "pre_series_d",
+    "pre_series_e", "pre_series_f", "pre_series_g", "pre_series_h", "pre_series_i", "pre_series_j",
+    "convertible_note", "corporate_round", "debt_financing",
+    "equity_crowdfunding", "grant", "initial_coin_offering",
+    "non_equity_assistance", "post_ipo_debt", "post_ipo_equity",
+    "post_ipo_secondary", "private_equity", "product_crowdfunding",
+    "secondary_market", "undisclosed",
+  ])).optional(),
   company_names: z.object({
     include: z.array(z.string()).optional(),
     exclude: z.array(z.string()).optional(),
@@ -74,7 +89,24 @@ export const searchFiltersSchema = z.object({
   keyword_filter: z.string().optional(),              // Plain string
   technologies: z.array(z.string()).optional(),
   lookalike_domain: z.string().optional(),
-  news: z.array(z.string()).optional(),                 // API expects string[] enum
+  news: z.array(z.enum([
+    "has_had_recent_funding", "has_had_recent_acquisition_or_merger",
+    "has_had_recent_job_change", "has_had_recent_technology_change",
+    "has_had_recent_leadership_change", "has_had_recent_layoffs",
+    "has_upcoming_contract_renewal", "has_had_recent_new_partnerships",
+    "has_had_recent_award", "has_had_product_launch",
+    "has_had_recent_expansion", "has_had_recent_earnings_report",
+    "has_had_recent_data_breach_security_event", "has_had_recent_regulatory_change",
+    "has_had_recent_customer_win_or_significant_deal",
+    "has_filed_recent_patent", "has_had_recent_cost_cutting",
+    "has_had_recent_rebranding", "has_had_ipo",
+    "has_entered_new_market_or_geography", "has_had_recent_restructuring",
+    "has_had_recent_sustainability_csr_initiative",
+    "has_had_recent_legal_issue_or_controversy",
+    "has_had_recent_management_change",
+    "has_active_job_listings", "has_had_ieo",
+    "has_had_recent_investment", "has_had_recent_dividend_announcement",
+  ])).optional(),
   job_listing: z.string().optional(),
 
   // ── Deduplication ──
@@ -397,6 +429,7 @@ function levelToTitles(levels: string[], departments?: string[]): string[] {
 // Field name and format differences:
 //   job_titles: string[]       → title: { include: string[] }
 //   industries: string[]       → industry: { include: string[] }
+//   sub_industries: string[]   → subIndustry: { include: string[] }
 //   employee_count: string[]   → employeeCount: string[]
 //   keyword_filter: string     → keyword_filter: { include: string }
 //   company_names: {...}       → company_name: {...}
@@ -406,8 +439,14 @@ function levelToTitles(levels: string[], departments?: string[]): string[] {
 //   revenue values             → mapped via REVENUE_TO_API
 //   level: NEVER sent to API   → converted to title via LEVEL_TITLE_MAP
 
-function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, unknown> {
+export interface PreparedFilters {
+  api: Record<string, unknown>;
+  warnings: string[];
+}
+
+function prepareFiltersForAPI(filters: InstantlySearchFilters): PreparedFilters {
   const api: Record<string, unknown> = {};
+  const warnings: string[] = [];
 
   // ── Person filters ──
 
@@ -444,6 +483,11 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, u
   // industries → industry: { include: [...] }
   if (filters.industries?.length) {
     api.industry = { include: filters.industries };
+  }
+
+  // sub_industries → subIndustry: { include: [...] } (official API field name: camelCase, singular)
+  if (filters.sub_industries?.length) {
+    api.subIndustry = { include: filters.sub_industries };
   }
 
   // employee_count → employeeCount (camelCase)
@@ -491,6 +535,7 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, u
 
       if (unresolved.length > 0) {
         console.warn(`[Instantly] Could not resolve locations: ${unresolved.join(", ")}. Skipped.`);
+        warnings.push(`Location filter ignored — could not resolve: ${unresolved.join(", ")}. Leads will NOT be filtered by location.`);
       }
 
       if (resolved.length > 0) {
@@ -548,7 +593,8 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, u
   }
 
   console.log("[prepareFiltersForAPI] Sending to Instantly:", JSON.stringify(api).slice(0, 1000));
-  return api;
+  if (warnings.length > 0) console.warn("[prepareFiltersForAPI] Warnings:", warnings);
+  return { api, warnings };
 }
 
 // ─── SuperSearch ─────────────────────────────────────────
@@ -556,22 +602,24 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): Record<string, u
 export async function countLeads(
   apiKey: string,
   searchFilters: InstantlySearchFilters,
-): Promise<{ count: number }> {
+): Promise<{ count: number; warnings: string[] }> {
+  const { api, warnings } = prepareFiltersForAPI(searchFilters);
   const res = await instantlyFetch<Record<string, unknown>>(apiKey, "POST", "/supersearch-enrichment/count-leads-from-supersearch", {
-    search_filters: prepareFiltersForAPI(searchFilters),
+    search_filters: api,
   });
 
   console.log("[countLeads] Raw API response:", JSON.stringify(res).slice(0, 500));
 
   // The API may return { count }, { total_count }, { total }, or a nested structure
   const count = (res.number_of_leads ?? res.count ?? res.total_count ?? res.total ?? 0) as number;
-  return { count };
+  return { count, warnings };
 }
 
 export async function previewLeads(
   apiKey: string,
   searchFilters: InstantlySearchFilters,
-): Promise<InstantlyPreviewLead[]> {
+): Promise<{ leads: InstantlyPreviewLead[]; warnings: string[] }> {
+  const { api, warnings } = prepareFiltersForAPI(searchFilters);
   const res = await instantlyFetch<{
     number_of_leads?: number;
     number_of_redacted_results?: number;
@@ -580,10 +628,10 @@ export async function previewLeads(
     apiKey,
     "POST",
     "/supersearch-enrichment/preview-leads-from-supersearch",
-    { search_filters: prepareFiltersForAPI(searchFilters) },
+    { search_filters: api },
   );
 
-  return res.leads ?? [];
+  return { leads: res.leads ?? [], warnings };
 }
 
 /** Normalize a preview lead (camelCase) to our internal format */
@@ -594,7 +642,9 @@ export function normalizePreviewLead(lead: InstantlyPreviewLead): NormalizedLead
     lastName: lead.lastName ?? null,
     company: lead.companyName ?? null,
     jobTitle: lead.jobTitle ?? null,
-    linkedinUrl: lead.linkedIn ? `https://${lead.linkedIn}` : null,
+    linkedinUrl: lead.linkedIn
+      ? lead.linkedIn.startsWith("http") ? lead.linkedIn : `https://${lead.linkedIn}`
+      : null,
     phone: null,
     website: null,
     location: lead.location ?? null,
@@ -611,7 +661,9 @@ export function normalizeStoredLead(lead: InstantlyLead): NormalizedLead {
     lastName: lead.last_name ?? (p.lastName as string) ?? null,
     company: lead.company_name ?? (p.companyName as string) ?? null,
     jobTitle: (p.jobTitle as string) ?? null,
-    linkedinUrl: (p.linkedIn as string) ? `https://${p.linkedIn as string}` : null,
+    linkedinUrl: (p.linkedIn as string)
+      ? (p.linkedIn as string).startsWith("http") ? (p.linkedIn as string) : `https://${p.linkedIn as string}`
+      : null,
     phone: lead.phone ?? null,
     website: lead.website ?? (p.companyDomain as string) ?? null,
     location: (p.location as string) ?? null,
@@ -639,13 +691,14 @@ export async function sourceLeads(
     listName: string;
     enrichment?: EnrichmentOptions;
   },
-): Promise<{ id: string; resourceId: string }> {
+): Promise<{ id: string; resourceId: string; warnings: string[] }> {
   const enrichment = params.enrichment ?? DEFAULT_ENRICHMENT;
+  const { api, warnings } = prepareFiltersForAPI(params.searchFilters);
 
   // Enrichment options are TOP-LEVEL body params per Instantly API v2 docs,
   // NOT nested inside an enrichment_payload object.
   const res = await instantlyFetch<Record<string, unknown>>(apiKey, "POST", "/supersearch-enrichment/enrich-leads-from-supersearch", {
-    search_filters: prepareFiltersForAPI(params.searchFilters),
+    search_filters: api,
     limit: params.limit,
     search_name: params.searchName,
     list_name: params.listName,
@@ -655,6 +708,7 @@ export async function sourceLeads(
   return {
     id: (res.id ?? "") as string,
     resourceId: (res.resource_id ?? res.resourceId ?? "") as string,
+    warnings,
   };
 }
 
@@ -903,12 +957,123 @@ export async function activateCampaign(
 export async function listCampaigns(
   apiKey: string,
 ): Promise<InstantlyCampaign[]> {
-  const res = await instantlyFetch<{ items: InstantlyCampaign[] }>(
+  const all: InstantlyCampaign[] = [];
+  let startingAfter: string | undefined;
+
+  do {
+    const query = new URLSearchParams({ limit: "100" });
+    if (startingAfter) query.set("starting_after", startingAfter);
+
+    const res = await instantlyFetch<{
+      items: InstantlyCampaign[];
+      next_starting_after?: string;
+    }>(apiKey, "GET", `/campaigns?${query.toString()}`);
+
+    all.push(...(res.items ?? []));
+    startingAfter = res.next_starting_after;
+  } while (startingAfter);
+
+  return all;
+}
+
+// ─── Campaign Monitoring ─────────────────────────────────
+
+export interface InstantlySendingStatus {
+  campaign_id: string;
+  in_progress: number;
+  not_yet_contacted: number;
+  completed: number;
+  leads_in_campaign: number;
+}
+
+export interface InstantlyCampaignAnalytics {
+  campaign_id: string;
+  campaign_name?: string;
+  total_leads: number;
+  contacted: number;
+  emails_sent: number;
+  emails_read: number;
+  replied: number;
+  bounced: number;
+  unsubscribed: number;
+  new_leads_contacted: number;
+  total_opportunities: number;
+}
+
+export interface InstantlyEmail {
+  id: string;
+  timestamp_created: string;
+  from_address: string;
+  to_address: string;
+  subject: string;
+  content_preview?: string;
+  body?: { html?: string; text?: string };
+  ue_type: number; // 1=sent_campaign, 2=received(reply), 3=sent_manual
+  thread_id?: string;
+  campaign_id?: string;
+  is_unread?: number; // 0 or 1
+  is_auto_reply?: number; // 0 or 1
+  ai_interest_value?: number | null;
+  i_status?: string;
+  lead_email?: string;
+}
+
+export async function getCampaignSendingStatus(
+  apiKey: string,
+  campaignId: string,
+): Promise<InstantlySendingStatus> {
+  return instantlyFetch<InstantlySendingStatus>(
     apiKey,
     "GET",
-    "/campaigns",
+    `/campaigns/${campaignId}/sending-status`,
   );
-  return res.items ?? [];
+}
+
+export async function pauseCampaign(
+  apiKey: string,
+  campaignId: string,
+): Promise<void> {
+  await instantlyFetch(apiKey, "POST", `/campaigns/${campaignId}/pause`);
+}
+
+export async function getCampaignAnalytics(
+  apiKey: string,
+  campaignId: string,
+): Promise<InstantlyCampaignAnalytics> {
+  const query = new URLSearchParams({ campaign_id: campaignId });
+  const items = await instantlyFetch<InstantlyCampaignAnalytics[]>(
+    apiKey,
+    "GET",
+    `/campaigns/analytics?${query.toString()}`,
+  );
+  // API returns array; return the first matching campaign or throw
+  const match = Array.isArray(items) ? items[0] : items;
+  if (!match) throw new Error(`[Instantly] No analytics found for campaign ${campaignId}`);
+  return match;
+}
+
+export async function getEmails(
+  apiKey: string,
+  params: {
+    campaign_id?: string;
+    email_type?: string;
+    is_unread?: boolean;
+    lead?: string;
+    limit?: number;
+  },
+): Promise<{ items: InstantlyEmail[]; next_starting_after?: string }> {
+  const query = new URLSearchParams();
+  if (params.campaign_id) query.set("campaign_id", params.campaign_id);
+  if (params.email_type) query.set("email_type", params.email_type);
+  if (params.is_unread !== undefined) query.set("is_unread", params.is_unread ? "1" : "0");
+  if (params.lead) query.set("lead", params.lead);
+  query.set("limit", String(params.limit ?? 25));
+
+  return instantlyFetch<{ items: InstantlyEmail[]; next_starting_after?: string }>(
+    apiKey,
+    "GET",
+    `/emails?${query.toString()}`,
+  );
 }
 
 // ─── Accounts ────────────────────────────────────────────
@@ -916,12 +1081,23 @@ export async function listCampaigns(
 export async function listAccounts(
   apiKey: string,
 ): Promise<InstantlyAccount[]> {
-  const res = await instantlyFetch<{ items: InstantlyAccount[] }>(
-    apiKey,
-    "GET",
-    "/accounts",
-  );
-  return res.items ?? [];
+  const all: InstantlyAccount[] = [];
+  let startingAfter: string | undefined;
+
+  do {
+    const query = new URLSearchParams({ limit: "100" });
+    if (startingAfter) query.set("starting_after", startingAfter);
+
+    const res = await instantlyFetch<{
+      items: InstantlyAccount[];
+      next_starting_after?: string;
+    }>(apiKey, "GET", `/accounts?${query.toString()}`);
+
+    all.push(...(res.items ?? []));
+    startingAfter = res.next_starting_after;
+  } while (startingAfter);
+
+  return all;
 }
 
 // ─── Client Factory ──────────────────────────────────────
@@ -968,6 +1144,11 @@ export async function getInstantlyClient(workspaceId: string) {
     deleteCampaign: (campaignId: string) => deleteCampaign(apiKey, campaignId),
     activateCampaign: (campaignId: string) => activateCampaign(apiKey, campaignId),
     listCampaigns: () => listCampaigns(apiKey),
+    // Campaign Monitoring
+    getCampaignSendingStatus: (campaignId: string) => getCampaignSendingStatus(apiKey, campaignId),
+    pauseCampaign: (campaignId: string) => pauseCampaign(apiKey, campaignId),
+    getCampaignAnalytics: (campaignId: string) => getCampaignAnalytics(apiKey, campaignId),
+    getEmails: (params: Parameters<typeof getEmails>[1]) => getEmails(apiKey, params),
     // Accounts
     listAccounts: () => listAccounts(apiKey),
   };

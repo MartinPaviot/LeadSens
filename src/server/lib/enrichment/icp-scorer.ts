@@ -38,10 +38,30 @@ RÈGLE FONDAMENTALE : Tu scores UNIQUEMENT par rapport à l'ICP fourni. Tu n'as 
 
 PONDÉRATION :
 - jobTitleFit (40%) : Le titre correspond-il au rôle recherché dans l'ICP ?
-  - 9-10 : Match exact ou synonyme direct
-  - 7-8 : Même fonction, niveau légèrement différent
-  - 4-6 : Même département mais niveau ou fonction différente
-  - 1-3 : Département ou fonction sans rapport avec l'ICP
+
+  CRITÈRES D'ÉVALUATION (par ordre d'importance) :
+
+  1. POUVOIR DE DÉCISION : Le lead a-t-il le même niveau de pouvoir de décision
+     que le rôle ciblé ? Un décideur stratégique (signe les budgets, définit la
+     stratégie) n'est PAS interchangeable avec un exécutant opérationnel.
+     → Si l'ICP cible un décideur et le lead est un exécutant : score MAX 3
+
+  2. PÉRIMÈTRE DE RESPONSABILITÉ : Le lead a-t-il le même scope ? Quelqu'un qui
+     gère un département entier n'est PAS interchangeable avec quelqu'un qui
+     travaille sur un sous-domaine du même département.
+     → Si le scope est fondamentalement différent : score MAX 4
+
+  3. SYNONYMES : Les titres exacts varient entre entreprises et pays. Deux titres
+     différents qui désignent le MÊME niveau de pouvoir + le MÊME périmètre = 9-10.
+
+  4. ADJACENCE : Le N+1 ou N-1 direct dans la même fonction reste pertinent = 7-8.
+
+  GRILLE :
+  - 9-10 : Même pouvoir de décision + même périmètre (titres synonymes)
+  - 7-8 : Même périmètre, adjacence directe en pouvoir de décision (N+1 ou N-1)
+  - 4-6 : Même département mais pouvoir de décision OU périmètre significativement différent
+  - 2-3 : Même département mais pouvoir de décision ET périmètre très différents
+  - 1 : Département ou fonction sans rapport avec l'ICP
 
 - companyFit (30%) : L'entreprise correspond-elle au profil décrit dans l'ICP ?
   - 9-10 : Taille, type et profil correspondent parfaitement à l'ICP

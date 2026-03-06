@@ -38,6 +38,7 @@ export interface ToolDefinition {
 export interface ToolContext {
   workspaceId: string;
   userId: string;
+  conversationId?: string;
   onStatus?: (label: string) => void;
 }
 

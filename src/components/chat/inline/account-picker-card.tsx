@@ -104,7 +104,7 @@ export function AccountPickerCard({
             .filter(Boolean)
             .join(" ");
           const isActive =
-            !account.status || account.status.toLowerCase() === "active" || account.status === "1";
+            !account.status || String(account.status).toLowerCase() === "active" || String(account.status) === "1";
 
           return (
             <button
