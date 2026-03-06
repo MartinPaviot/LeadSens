@@ -1,7 +1,11 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DownloadSimple, CaretDown } from "@phosphor-icons/react";
+import { escapeCsv, downloadBlob } from "@/lib/csv-utils";
 
 interface LeadRow {
   id: string;
@@ -10,6 +14,7 @@ interface LeadRow {
   email: string;
   company?: string | null;
   jobTitle?: string | null;
+  linkedinUrl?: string | null;
   icpScore?: number | null;
   status: string;
 }
@@ -17,57 +22,191 @@ interface LeadRow {
 interface LeadTableCardProps {
   title: string;
   leads: LeadRow[];
+  campaignId?: string;
 }
 
 function ScoreBadge({ score }: { score: number | null | undefined }) {
-  if (score == null) return <Badge variant="outline">—</Badge>;
+  if (score == null) return null;
   if (score >= 8) return <Badge className="bg-green-600/20 text-green-400 border-green-600/30">{score}</Badge>;
   if (score >= 5) return <Badge className="bg-yellow-600/20 text-yellow-400 border-yellow-600/30">{score}</Badge>;
   return <Badge className="bg-red-600/20 text-red-400 border-red-600/30">{score}</Badge>;
 }
 
-export function LeadTableCard({ title, leads }: LeadTableCardProps) {
-  const displayLeads = leads.slice(0, 10);
+/** Detect which columns have at least one non-empty value */
+function useVisibleColumns(leads: LeadRow[]) {
+  return useMemo(() => {
+    const hasName = leads.some((l) => l.firstName || l.lastName);
+    const hasEmail = leads.some((l) => l.email && l.email.length > 0);
+    const hasCompany = leads.some((l) => l.company);
+    const hasTitle = leads.some((l) => l.jobTitle);
+    const hasLinkedin = leads.some((l) => l.linkedinUrl);
+    const hasScore = leads.some((l) => l.icpScore != null);
+    return { hasName, hasEmail, hasCompany, hasTitle, hasLinkedin, hasScore };
+  }, [leads]);
+}
+
+function buildLeadCsv(leads: LeadRow[]): string {
+  const headers = ["Name", "Email", "Company", "Job Title", "LinkedIn URL", "ICP Score", "Status"];
+  const rows = leads.map((l) =>
+    [
+      [l.firstName, l.lastName].filter(Boolean).join(" "),
+      l.email,
+      l.company || "",
+      l.jobTitle || "",
+      l.linkedinUrl || "",
+      l.icpScore != null ? String(l.icpScore) : "",
+      l.status,
+    ].map(escapeCsv),
+  );
+  return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+}
+
+function LeadTableExport({ leads, campaignId }: { leads: LeadRow[]; campaignId?: string }) {
+  const [open, setOpen] = useState(false);
+
+  const handleQuickCsv = useCallback(() => {
+    downloadBlob(buildLeadCsv(leads), "leads.csv");
+    setOpen(false);
+  }, [leads]);
+
+  const handleFullExport = useCallback(
+    (format: "csv" | "xlsx") => {
+      if (!campaignId) return;
+      const a = document.createElement("a");
+      a.href = `/api/campaigns/${campaignId}/export?format=${format}`;
+      a.download = `campaign-export.${format}`;
+      a.click();
+      setOpen(false);
+    },
+    [campaignId],
+  );
 
   return (
-    <Card className="overflow-hidden my-2">
-      <div className="px-4 py-3 border-b">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <p className="text-xs text-muted-foreground">{leads.length} leads</p>
+    <div className="relative">
+      <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2" onClick={() => setOpen(!open)}>
+        <DownloadSimple className="size-3" />
+        Export
+        <CaretDown className="size-2" />
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-50 bg-popover border rounded-md shadow-md py-1 min-w-[160px]">
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+              onClick={handleQuickCsv}
+            >
+              Quick CSV (table data)
+            </button>
+            {campaignId && (
+              <>
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+                  onClick={() => handleFullExport("csv")}
+                >
+                  Full Export (CSV)
+                </button>
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+                  onClick={() => handleFullExport("xlsx")}
+                >
+                  Full Export (XLSX)
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function LeadTableCard({ title, leads, campaignId }: LeadTableCardProps) {
+  const cols = useVisibleColumns(leads);
+
+  return (
+    <Card className="overflow-hidden my-2 border-border/60">
+      <div className="px-4 py-2.5 border-b border-border/40 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] tabular-nums">
+              {leads.length}
+            </Badge>
+            <LeadTableExport leads={leads} campaignId={campaignId} />
+          </div>
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b bg-muted/30">
-              <th className="px-3 py-2 text-left font-medium">Name</th>
-              <th className="px-3 py-2 text-left font-medium">Email</th>
-              <th className="px-3 py-2 text-left font-medium">Company</th>
-              <th className="px-3 py-2 text-left font-medium">Title</th>
-              <th className="px-3 py-2 text-center font-medium">ICP</th>
+      <div className="max-h-[600px] overflow-y-auto">
+        <table className="w-full text-xs table-fixed">
+          <colgroup>
+            <col className="w-5" />
+            {cols.hasName && <col className="w-[20%]" />}
+            {cols.hasLinkedin && <col className="w-7" />}
+            {cols.hasEmail && <col />}
+            {cols.hasCompany && <col className="w-[24%]" />}
+            {cols.hasTitle && <col className="w-[28%]" />}
+            {cols.hasScore && <col className="w-9" />}
+          </colgroup>
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-border/40">
+              <th className="pl-2 pr-0.5 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">#</th>
+              {cols.hasName && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Name</th>}
+              {cols.hasLinkedin && <th className="px-1 py-2 text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">LI</th>}
+              {cols.hasEmail && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Email</th>}
+              {cols.hasCompany && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Co.</th>}
+              {cols.hasTitle && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Title</th>}
+              {cols.hasScore && <th className="px-1 py-2 text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">ICP</th>}
             </tr>
           </thead>
           <tbody>
-            {displayLeads.map((lead) => (
-              <tr key={lead.id} className="border-b last:border-0 hover:bg-muted/20">
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {[lead.firstName, lead.lastName].filter(Boolean).join(" ") || "—"}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{lead.email}</td>
-                <td className="px-3 py-2">{lead.company ?? "—"}</td>
-                <td className="px-3 py-2 max-w-[200px] truncate">{lead.jobTitle ?? "—"}</td>
-                <td className="px-3 py-2 text-center">
-                  <ScoreBadge score={lead.icpScore} />
-                </td>
+            {leads.map((lead, idx) => (
+              <tr key={lead.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors">
+                <td className="pl-2 pr-0.5 py-1.5 text-muted-foreground/50 tabular-nums">{idx + 1}</td>
+                {cols.hasName && (
+                  <td className="px-2 py-1.5 font-medium truncate" title={[lead.firstName, lead.lastName].filter(Boolean).join(" ")}>
+                    {[lead.firstName, lead.lastName].filter(Boolean).join(" ")}
+                  </td>
+                )}
+                {cols.hasLinkedin && (
+                  <td className="px-1 py-1.5 text-center">
+                    {lead.linkedinUrl ? (
+                      <a
+                        href={lead.linkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                        title="View LinkedIn profile"
+                      >
+                        <svg className="inline-block w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
+                  </td>
+                )}
+                {cols.hasEmail && (
+                  <td className="px-2 py-1.5 text-muted-foreground font-mono text-[10px] truncate" title={lead.email}>{lead.email}</td>
+                )}
+                {cols.hasCompany && (
+                  <td className="px-2 py-1.5 truncate" title={lead.company ?? undefined}>{lead.company}</td>
+                )}
+                {cols.hasTitle && (
+                  <td className="px-2 py-1.5 truncate text-muted-foreground" title={lead.jobTitle ?? undefined}>{lead.jobTitle}</td>
+                )}
+                {cols.hasScore && (
+                  <td className="px-1 py-1.5 text-center">
+                    <ScoreBadge score={lead.icpScore} />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {leads.length > 10 && (
-        <div className="px-4 py-2 text-xs text-muted-foreground border-t">
-          +{leads.length - 10} more leads
-        </div>
-      )}
     </Card>
   );
 }

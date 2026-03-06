@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface EmailPreviewCardProps {
+  emailId?: string;
   leadId: string;
   step: number;
   subject: string;
@@ -31,6 +32,7 @@ function renderBody(text: string) {
 }
 
 export function EmailPreviewCard({
+  emailId,
   step,
   subject,
   body,
@@ -40,6 +42,26 @@ export function EmailPreviewCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editedBody, setEditedBody] = useState(body);
   const [approved, setApproved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function persistEdit(editBody: string, isApproved?: boolean) {
+    if (!emailId) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/emails/${emailId}/edit`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(editBody !== body ? { body: editBody } : {}),
+          ...(isApproved !== undefined ? { approved: isApproved } : {}),
+        }),
+      });
+    } catch (err) {
+      console.error("[EmailPreviewCard] Failed to persist edit:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <Card className="overflow-hidden my-2 border-border/60">
@@ -102,9 +124,13 @@ export function EmailPreviewCard({
               </Button>
               <Button
                 size="sm"
-                onClick={() => setIsEditing(false)}
+                disabled={saving}
+                onClick={async () => {
+                  await persistEdit(editedBody);
+                  setIsEditing(false);
+                }}
               >
-                Save
+                {saving ? "Saving..." : "Save"}
               </Button>
             </>
           ) : (
@@ -118,9 +144,13 @@ export function EmailPreviewCard({
               </Button>
               <Button
                 size="sm"
-                onClick={() => setApproved(true)}
+                disabled={saving}
+                onClick={async () => {
+                  await persistEdit(editedBody, true);
+                  setApproved(true);
+                }}
               >
-                Approve
+                {saving ? "..." : "Approve"}
               </Button>
             </>
           )}

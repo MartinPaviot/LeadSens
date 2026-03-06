@@ -1,343 +1,201 @@
-# APPEL LLM MANQUANT — Analyse du site client → companyDna structuré
+# LLM Company DNA — Signal Intelligence & Email Pipeline
 
-> **Problème :** Actuellement, `companyDna` est un champ texte libre rempli par l'user OU scrapé une seule fois pendant l'onboarding. Si c'est vague ("On fait du SaaS B2B"), tous les 900 emails de la campagne seront génériques. Le companyDna est la FONDATION de chaque email — et personne ne le structure.
->
-> **Insight Belkins (2000+ campagnes) :** La value proposition doit être adaptée au RÔLE du destinataire. Un même produit se pitche différemment à un CTO vs un VP Sales vs un CMO.
+## Top 5 Signaux d'Achat (par reply rate)
 
----
+| # | Signal | Reply Rate | Multiplicateur |
+|---|--------|-----------|----------------|
+| 1 | **Leadership changes** (new VP, C-level hire) | 14-25% | 4-7x vs generic |
+| 2 | **Funding rounds** (Series A/B/C, revenue milestone) | 12-20% | 3-5x |
+| 3 | **Hiring surges** (10+ postes, nouveau department) | 10-18% | 2-4x |
+| 4 | **Public priorities** (CEO quotes, strategic initiatives) | 10-15% | 2-3x |
+| 5 | **Tech stack changes** (migrations, new tool adoption) | 8-15% | 2-3x |
 
-## Le flux corrigé
+### Philosophie : Timeline Hooks > Problem Hooks (2.3x)
 
-```
-ONBOARDING (1 seule fois par workspace) :
+**Timeline hooks sont 2.3x plus efficaces que les problem hooks.**
 
-User donne l'URL de son site
-  │
-  ▼
-Jina Reader scrape homepage + /about + /pricing (si existe)
-  │
-  ▼
-NOUVEL APPEL LLM : Mistral Large → companyDna structuré
-  │
-  ▼
-L'agent montre le résultat à l'user : "Voici comment je comprends ton offre. Corrige-moi."
-  │
-  ▼
-User valide ou corrige → stocké dans workspace.companyDna (JSON)
-  │
-  ▼
-Sauvegardé aussi en AgentMemory pour les conversations futures
+| Approche | Exemple | Reply Rate |
+|----------|---------|-----------|
+| Timeline hook | "Depuis votre Série B, la pression pour scaler l'outbound..." | 15-25% |
+| Problem hook | "Vous avez du mal à scaler votre outbound ?" | 6-10% |
+| Question rhétorique | "Et si vous pouviez doubler votre pipeline ?" | 3-5% |
 
-
-AVANT CHAQUE CAMPAGNE (à chaque nouveau ICP) :
-
-companyDna structuré + ICP du moment (rôle, secteur)
-  │
-  ▼
-NOUVEL APPEL LLM : Mistral Large → "campaignAngle" adapté au persona
-  │
-  ▼
-L'agent montre : "Voici l'angle que je propose pour cette campagne. Ça te va ?"
-  │
-  ▼
-User valide → injecté dans le prompt email à la place du companyDna brut
-```
+**Signal stacking** (2-3 signaux combinés dans un email) : 25-40% reply rate.
 
 ---
 
-## Appel LLM A — Analyse site client (onboarding, 1 fois)
-
-### Fiche technique
-
-| Paramètre | Valeur |
-|-----------|--------|
-| **Quand** | Onboarding — l'user donne son URL |
-| **Modèle** | `mistral-large-latest` |
-| **Méthode** | `json()` |
-| **Température** | 0.3 |
-| **Input** | Markdown Jina (homepage + /about + /pricing, ~8000 chars) |
-| **Action log** | `company-analysis` |
-
-### Stratégie de scraping
-
-On scrape 3 pages au lieu d'1 pour avoir une vue complète :
+## Schéma CompanyDna
 
 ```typescript
-async function scrapeClientSite(url: string): Promise<string> {
-  const pages = [
-    url,                    // Homepage : pitch principal
-    `${url}/about`,         // About : mission, histoire, équipe
-    `${url}/pricing`,       // Pricing : offres, segments cibles
-  ];
-
-  const results = await Promise.all(
-    pages.map(p => scrapeViaJina(p).catch(() => null))
-  );
-
-  return results.filter(Boolean).join("\n\n---PAGE SUIVANTE---\n\n").slice(0, 8000);
-}
-```
-
-### System prompt
-
-```
-Tu analyses le site web d'une entreprise pour comprendre PRÉCISÉMENT ce qu'elle vend, à qui, et pourquoi c'est utile. Ton analyse sera utilisée pour écrire des cold emails B2B de prospection — elle doit donc être orientée "selling points", pas description neutre.
-
-Extrais les informations suivantes en JSON :
-
-1. "oneLiner" : En UNE phrase, ce que fait l'entreprise. Format : "[Entreprise] aide [qui] à [faire quoi] grâce à [comment]."
-2. "targetBuyers" : Les 2-3 types d'acheteurs les plus probables (titre de poste + ce qui les intéresse).
-3. "keyResults" : Les résultats concrets mentionnés sur le site (chiffres, stats, case studies). Si aucun résultat n'est mentionné, retourne [].
-4. "differentiators" : Ce qui les distingue de la concurrence (max 3 points).
-5. "proofPoints" : Logos clients, témoignages, prix, certifications mentionnés.
-6. "problemsSolved" : Les 2-3 problèmes que le produit/service résout.
-7. "pricingModel" : Le modèle tarifaire si visible (freemium, par siège, sur devis, etc.). null si pas visible.
-
-RÈGLES :
-- Base-toi UNIQUEMENT sur le contenu fourni. Ne complète pas avec des suppositions.
-- Si une info n'est pas trouvée → null ou [].
-- "keyResults" ne doit contenir QUE des chiffres/stats réellement présents sur le site.
-- "targetBuyers" doit inclure le titre de poste ET l'angle de vente adapté.
-
-JSON uniquement.
-```
-
-### User prompt
-
-```
-Analyse ce site web et extrais les informations commerciales :
-
-{markdown combiné des 3 pages}
-```
-
-### Schema de sortie
-
-```typescript
-type CompanyDna = {
-  oneLiner: string;
-  targetBuyers: {
-    role: string;          // "VP Sales", "CTO", "Head of Marketing"
-    sellingAngle: string;  // "réduire le cycle de vente", "simplifier l'intégration tech"
-  }[];
-  keyResults: string[];    // ["40% de réduction du cycle de vente", "500+ clients"]
-  differentiators: string[];
-  proofPoints: string[];   // ["Client : Airbus", "Prix : Best SaaS 2025"]
-  problemsSolved: string[];
-  pricingModel: string | null;
-};
-```
-
-### Interaction avec l'user
-
-L'agent présente le résultat sous forme lisible :
-
-```
-Voici comment je comprends ton offre :
-
-**{oneLiner}**
-
-Tu résous ces problèmes : {problemsSolved}
-Tes acheteurs types : {targetBuyers.map(b => b.role).join(", ")}
-Résultats mentionnés sur ton site : {keyResults}
-Ce qui te différencie : {differentiators}
-
-C'est correct ? Si je me trompe sur un point, dis-moi et je corrige.
-```
-
-L'user peut corriger → l'agent met à jour le JSON → sauvegardé en `workspace.companyDna` (JSON, pas texte libre).
-
----
-
-## Appel LLM B — Campaign Angle (avant chaque campagne)
-
-### Fiche technique
-
-| Paramètre | Valeur |
-|-----------|--------|
-| **Quand** | Après le scoring, avant le drafting — quand on connaît l'ICP |
-| **Modèle** | `mistral-large-latest` |
-| **Méthode** | `json()` |
-| **Température** | 0.5 |
-| **Input** | companyDna + ICP description |
-| **Action log** | `campaign-angle` |
-
-### Pourquoi cet appel est nécessaire
-
-L'insight clé de Belkins : la value proposition doit être adaptée au RÔLE du destinataire.
-
-Exemples concrets :
-- Si tu vends un outil de sales automation et que tu cibles des **VP Sales** → l'angle est "réduire le cycle de vente, augmenter le pipeline"
-- Le MÊME outil ciblant des **CTO** → l'angle est "s'intègre avec votre CRM en 2h, API ouverte, pas de migration"
-- Le MÊME outil ciblant des **CEO de PME** → l'angle est "votre équipe de 3 fait le travail de 10"
-
-Sans cet appel, les 900 emails de la campagne utilisent le même angle générique.
-
-### System prompt
-
-```
-Tu es un expert en cold email B2B. Tu adaptes le positionnement d'une offre au persona ciblé par la campagne.
-
-À partir de l'offre du client et de la cible de la campagne, génère un "campaign angle" — c'est-à-dire le CADRAGE spécifique de l'offre pour CE type de prospect.
-
-JSON uniquement :
 {
-  "angleOneLiner": "1 phrase : comment l'offre aide CE persona spécifiquement",
-  "mainProblem": "Le problème N°1 que CE persona rencontre et que l'offre résout",
-  "proofPoint": "La stat ou le cas client le plus pertinent pour CE persona (tiré des keyResults)",
-  "avoid": "Ce qu'il ne faut PAS mentionner à CE persona (trop technique, trop marketing, etc.)",
-  "tone": "Le registre adapté (technique, business, stratégique, opérationnel)"
+  // Core
+  oneLiner: string,
+  targetBuyers: [{ role, sellingAngle }],
+  keyResults: string[],
+  differentiators: string[],
+  problemsSolved: string[],
+  pricingModel: string | null,
+
+  // Social proof
+  socialProof: [{ industry, clients[], keyMetric? }],
+
+  // Case studies (avec timeline)
+  caseStudies: [{
+    client: string,       // "Acme Corp"
+    industry: string,     // "SaaS"
+    timeline: string,     // "En 90 jours", "Après leur Série B"
+    result: string,       // "+45% pipeline"
+    context?: string,     // "Après leur migration Salesforce → HubSpot"
+  }],
+
+  // Tone & identity
+  toneOfVoice: { register, traits[], avoidWords[] },
+  ctas: [{ label, commitment, url? }],
+  senderIdentity: { name, role, signatureHook },
+  objections: [{ objection, response }],
 }
 ```
 
-### User prompt
+### Case studies : pourquoi le timeline est critique
 
-```
-OFFRE DU CLIENT :
-{JSON.stringify(companyDna)}
+Les résultats avec timeline sont 2.3x plus impactants :
+- "En 90 jours, Acme a doublé son pipeline" > "Acme a doublé son pipeline"
+- "Après leur Série B, Acme a réduit son cycle de vente de 40%" > "Acme a réduit son cycle de vente de 40%"
 
-CIBLE DE CETTE CAMPAGNE :
-- Rôle : {icpDescription — ex: "VP Sales SaaS 50-200 employés"}
-- Secteur : {industry}
-- Taille d'entreprise : {companySize}
+L'extraction scrape aussi `/results` et `/roi` en plus des pages classiques.
 
-Adapte le positionnement de l'offre pour cette cible spécifique.
-```
+---
 
-### Schema de sortie
+## Schéma EnrichmentData (signaux structurés)
 
 ```typescript
-type CampaignAngle = {
-  angleOneLiner: string;    // "Ton équipe SDR passe 3h/jour sur la data — on automatise ça"
-  mainProblem: string;      // "Les SDR passent plus de temps à chercher des leads qu'à closer"
-  proofPoint: string;       // "[Client X] a doublé son pipeline en 3 mois"
-  avoid: string;            // "Ne pas parler de l'API ou de l'architecture technique"
-  tone: string;             // "business, direct, orienté résultats"
-};
+{
+  // Existants (string[] — backward compat)
+  hiringSignals: string[],
+  fundingSignals: string[],
+  productLaunches: string[],
+  signals: string[],
+
+  // Nouveaux (structurés avec dates)
+  leadershipChanges: [{
+    event: string,        // "New VP Sales: Jane Doe"
+    date: string | null,  // "2026-02"
+    source: string | null,
+  }],
+  publicPriorities: [{
+    statement: string,    // "CEO: Our #1 priority is APAC expansion"
+    source: string | null,
+    date: string | null,
+  }],
+  techStackChanges: [{
+    change: string,       // "Migrated from Salesforce to HubSpot"
+    date: string | null,
+  }],
+}
 ```
 
-### Injection dans le prompt email
-
-Le `campaignAngle` REMPLACE le `companyDna` brut dans le prompt email :
+### Signal prioritization (dans prompt-builder.ts)
 
 ```
-## QUI TU ES (adapté à cette campagne)
-{campaignAngle.angleOneLiner}
+prioritizeSignals(enrichmentData) retourne :
+1. leadershipChanges (14-25%)
+2. fundingSignals (12-20%)
+3. hiringSignals (10-18%)
+4. publicPriorities (10-15%)
+5. techStackChanges (8-15%)
+6. signals (fallback)
 
-Problème que tu résous pour eux : {campaignAngle.mainProblem}
-Preuve : {campaignAngle.proofPoint}
-Ton : {campaignAngle.tone}
-À éviter : {campaignAngle.avoid}
-```
-
-C'est beaucoup plus actionnable pour le modèle que "On fait du SaaS B2B d'automatisation."
-
----
-
-## Impact sur le coût
-
-| Appel | Fréquence | Modèle | Coût estimé |
-|-------|-----------|--------|-------------|
-| Company Analysis | 1 fois par workspace | Large | ~$0.02 |
-| Campaign Angle | 1 fois par campagne | Large | ~$0.005 |
-
-**Total additionnel : ~$0.025 par campagne.** Négligeable vs le coût total de ~$2, et l'impact sur la qualité est disproportionné — c'est la différence entre des emails génériques et des emails adaptés au persona.
-
----
-
-## Impact sur le flow principal
-
-```
-User décrit son ICP en langage naturel
-  │
-  ▼
-Mistral parse → JSON search_filters
-  │
-  ▼
-Instantly SuperSearch count → confirmation
-  │
-  ▼
-Instantly SuperSearch source → leads
-  │
-  ▼
-HubSpot dedup (si connecté)
-  │
-  ▼
-ICP scoring (Mistral Small) → skip < 5
-  │
-  ▼
-Jina Reader → Mistral Small summarize → triggerEvents + painPoints
-  │
-  ▼
-★ NOUVEAU : Campaign Angle (Mistral Large)    ← ICI
-  │            companyDna + ICP → angle adapté
-  │            L'agent montre l'angle, l'user valide
-  ▼
-Mistral Large draft 3 emails par lead
-  │  Utilise campaignAngle au lieu de companyDna brut
-  │  + triggerEvents du prospect pour le timeline hook
-  ▼
-Preview → corrections → style learner → push Instantly
+Triés par recency : recent (< 6 mois) > unknown > older
 ```
 
 ---
 
-## Fichiers à créer/modifier
+## Schéma CampaignAngle (signal-aware)
 
-| Fichier | Action |
-|---------|--------|
-| `server/lib/enrichment/company-analyzer.ts` | **NOUVEAU** — analyzeClientSite() |
-| `server/lib/email/campaign-angle.ts` | **NOUVEAU** — generateCampaignAngle() |
-| `server/lib/tools/instantly-tools.ts` | Ajouter l'appel campaign angle avant le drafting |
-| `server/lib/email/prompt-builder.ts` | Injecter campaignAngle au lieu de companyDna brut |
-| `prisma/schema.prisma` | `workspace.companyDna` passe de `@db.Text` à `Json` |
-| `prisma/schema.prisma` | Ajouter `campaign.angle Json?` |
+```typescript
+{
+  angleOneLiner: string,
+  mainProblem: string,
+  proofPoint: string,
+  avoid: string,
+  tone: string,
+  socialProofMatch?: string,
+  suggestedCta?: string,
 
----
-
-## Interaction agent pendant l'onboarding (flow conversationnel)
-
-```
-User: Mon site c'est https://elevay.io
-
-Agent: [scrape via Jina, analyse via Mistral Large]
-
-Agent: "Voici comment je comprends ton offre :
-
-Elevay aide les PME à automatiser leurs processus métier (Sales, Marketing, RH, Ops) grâce à des agents IA autonomes.
-
-Problèmes que tu résous :
-- Les PME passent trop de temps sur des tâches répétitives
-- Pas de budget pour une équipe ops dédiée
-- Les outils existants sont trop complexes à configurer
-
-Résultats mentionnés : [s'il y en a sur le site]
-Ce qui te différencie : [s'il y en a]
-
-C'est fidèle ? Si je me trompe quelque part, corrige-moi."
-
-User: "Oui mais on se concentre sur le sales automation en ce moment, pas les autres verticals"
-
-Agent: [met à jour le companyDna] "Noté. Je recentre sur le sales automation. Prêt pour la suite — décris-moi ta cible."
+  // Nouveaux
+  timelineProof?: string,   // "En 90 jours, [Client] a atteint [résultat]"
+  signalHooks?: string[],   // ["Funding → scaling urgent → ton outil accélère"]
+}
 ```
 
 ---
 
-## Interaction agent avant une campagne
+## Séquence 6 Steps
+
+| Step | Framework | Delay | Max mots | CTA | Clé |
+|------|-----------|-------|----------|-----|-----|
+| 0 | PAS (Timeline Hook) | J+0 | 90 | Medium | Signal récent en opener, timeline proof |
+| 1 | Value-add | J+2 | 70 | Low | Insight/benchmark, case study timeline, signal != step 0 |
+| 2 | Social Proof | J+5 | 80 | Medium | Case study même secteur, format narratif, projection |
+| 3 | New Angle | J+9 | 65 | Low | Angle complètement différent, signal non exploité |
+| 4 | Micro-value | J+14 | 50 | Low | 3-4 phrases, 1 insight actionable, expertise domaine |
+| 5 | Breakup | J+21 | 50 | Low | 2-3 phrases, respect, rappel meilleur résultat |
+
+### Évolution depuis la V1 (3 steps)
+
+| Avant (3 steps) | Après (6 steps) |
+|-----------------|-----------------|
+| PAS → Value-add → Breakup | PAS Timeline → Value-add → Social Proof → New Angle → Micro-value → Breakup |
+| Follow-ups sans body context | Body complet des steps précédents (tronqué 500 chars) |
+| Signaux en listing plat | Signaux priorisés par impact + recency |
+| Problem hooks | Timeline hooks (2.3x) |
+| Pas de signal stacking | Signal stacking quand 2+ signaux (25-40%) |
+| Pas de case studies structurés | Case studies avec timeline |
+
+---
+
+## Flux Complet
 
 ```
-Agent: [après le scoring] "J'ai 280 leads qualifiés. Avant de rédiger les emails, je vais adapter ton pitch à cette cible.
-
-Ta cible : VP Sales dans le SaaS, 50-200 employés, France
-
-L'angle que je propose :
-→ 'Ton équipe SDR perd 3h/jour sur de la prospection manuelle — Elevay automatise le sourcing et la personnalisation pour que tes reps passent leur temps à closer.'
-→ Problème principal : les SDR sous-performent parce qu'ils font trop de data entry
-→ Preuve : [résultat client si disponible]
-→ Ton : direct, orienté résultats, pas technique
-
-Ça te va pour l'angle de cette campagne ?"
-
-User: "Parfait, go"
-
-Agent: [lance le drafting avec cet angle]
+EnrichmentData (signaux structurés + dates)
+  │
+  ▼
+prioritizeSignals() → classement par impact + recency
+  │
+  ▼
+buildSignalsSection() → section priorisée dans le prompt
+  │
+  ▼
+Step 0: PAS + Timeline Hook (signal #1)
+  │  ↓ body complet passé
+  ▼
+Step 1: Value-add + Signal Stacking (signaux #1 + #2 si dispo)
+  │  ↓ body complet steps 0-1
+  ▼
+Step 2: Social Proof (case study même secteur, timeline)
+  │  ↓ body complet steps 0-2
+  ▼
+Step 3: New Angle (signal non exploité dans 0-2)
+  │  ↓ body complet steps 0-3
+  ▼
+Step 4: Micro-value (1 insight pur, pas de pitch)
+  │  ↓ body complet steps 0-4
+  ▼
+Step 5: Breakup (rappel meilleur argument de la séquence)
 ```
+
+Chaque step reçoit le body complet (tronqué à 500 chars) de tous les steps précédents pour construire une narration cohérente et éviter les répétitions.
+
+---
+
+## Fichiers concernés
+
+| Fichier | Rôle |
+|---------|------|
+| `server/lib/enrichment/company-analyzer.ts` | Scrape + analyse site → CompanyDna (avec caseStudies) |
+| `server/lib/enrichment/summarizer.ts` | Signaux structurés (leadershipChanges, publicPriorities, techStackChanges) |
+| `server/lib/email/campaign-angle.ts` | CampaignAngle signal-aware (timelineProof, signalHooks) |
+| `server/lib/email/prompt-builder.ts` | 6 frameworks, prioritizeSignals(), signal stacking, timeline hooks |
+| `server/lib/email/drafting.ts` | System prompt enrichi (timeline hooks, narration inter-emails) |
+| `server/lib/tools/email-tools.ts` | 6 steps loop, full body context |
+| `server/lib/tools/instantly-tools.ts` | 6-step campaigns, delays [0, 2, 5, 9, 14, 21] |

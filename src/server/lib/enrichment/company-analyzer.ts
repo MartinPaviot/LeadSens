@@ -62,6 +62,18 @@ export const companyDnaSchema = z.object({
     })
     .default({ name: "", role: "", signatureHook: "" }),
 
+  caseStudies: z
+    .array(
+      z.object({
+        client: z.string(),
+        industry: z.string(),
+        timeline: z.string(),
+        result: z.string(),
+        context: z.string().optional(),
+      }),
+    )
+    .default([]),
+
   objections: z
     .array(
       z.object({
@@ -99,6 +111,8 @@ Tu DOIS retourner un objet JSON avec EXACTEMENT ces clés (camelCase, pas de sna
 
   "pricingModel": "Le modèle tarifaire si visible (freemium, par siège, sur devis, essai gratuit, etc.). null si pas trouvé.",
 
+  "caseStudies": [{"client": "Nom du client", "industry": "Secteur (SaaS, E-commerce, etc.)", "timeline": "En 90 jours / Après leur Série B / En 6 mois", "result": "+45% pipeline / 3x plus de demos / -60% de churn", "context": "Contexte optionnel : taille entreprise, situation avant, déclencheur"}],
+
   "senderIdentity": {"name": "", "role": "", "signatureHook": ""},
   "objections": []
 }
@@ -112,6 +126,7 @@ RÈGLES STRICTES :
 - "keyResults" : UNIQUEMENT des chiffres/stats explicitement écrits sur le site. JAMAIS de chiffres inventés.
 - "toneOfVoice" : Analyse le style d'écriture du site. Formel = vouvoiement, corporate. Conversational = tutoiement, naturel. Casual = très familier, startup. Traits = 2-3 adjectifs. avoidWords = toujours [].
 - "ctas" : Extrais les CTAs visibles sur le site (boutons, liens d'action). Commitment : low = ressource gratuite, newsletter. medium = démo, call, audit. high = achat, abonnement.
+- "caseStudies" : Extrais les case studies avec TIMELINE. Pour chaque résultat chiffré trouvé dans les pages case studies, clients, ou témoignages, extrais : le client, son industrie, le TIMELINE (en combien de temps, après quel événement), et le résultat. Les résultats avec timeline sont 2.3x plus impactants en cold email. Si pas de timeline explicite, déduis-le du contexte ("après leur migration", "en Q1 2024"). Si vraiment impossible, mets "N/A". Cherche dans TOUTES les pages fournies.
 - "pricingModel" : Cherche dans la page pricing si elle est fournie.
 - "senderIdentity" et "objections" : Retourne TOUJOURS vide — ces infos ne sont pas sur le site, l'utilisateur les remplira.
 - Si une info est VRAIMENT absente du contenu → [] ou null. Mais cherche bien avant de conclure qu'elle est absente.
@@ -136,6 +151,8 @@ const CASE_STUDY_PATHS = [
   "/success-stories",
   "/temoignages",
   "/cas-clients",
+  "/results",
+  "/roi",
 ];
 
 /** Extract markdown from Jina result, return null on failure. */

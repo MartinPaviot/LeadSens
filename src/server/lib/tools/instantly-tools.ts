@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getInstantlyClient, normalizePreviewLead, normalizeStoredLead } from "@/server/lib/connectors/instantly";
-import { parseICP } from "./icp-parser";
+import { parseICPv2, buildFilterSummary } from "./icp-parser";
 import type { ToolDefinition, ToolContext } from "./types";
 
 // Lightweight schema for tool parameters — Mistral only needs to know
@@ -23,8 +23,27 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         description: z.string().describe("The user's ICP description in natural language"),
       }),
       async execute(args) {
-        const filters = await parseICP(args.description, ctx.workspaceId);
-        return { search_filters: filters };
+        const { filters, inferredIndustries, parseWarnings, clarificationNeeded } = await parseICPv2(args.description, ctx.workspaceId);
+
+        // Description too vague — ask the user to clarify before proceeding
+        if (clarificationNeeded) {
+          return {
+            status: "clarification_needed",
+            message: clarificationNeeded,
+          };
+        }
+
+        const result: Record<string, unknown> = {
+          search_filters: filters,
+          human_summary: buildFilterSummary(filters),
+        };
+        if (inferredIndustries?.length) {
+          result.confirmation_needed = `J'ai déduit l'industrie « ${inferredIndustries.join(", ")} » de ta description car elle n'était pas explicitement spécifiée. Confirme que c'est correct ou précise l'industrie souhaitée avant de continuer.`;
+        }
+        if (parseWarnings?.length) {
+          result.filter_warnings = parseWarnings;
+        }
+        return result;
       },
     },
 
@@ -36,7 +55,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         const client = await getInstantlyClient(ctx.workspaceId);
 
         // First attempt
-        let result: { count: number };
+        let result: { count: number; warnings: string[] };
 
         console.log("[instantly_count_leads] Filters:", JSON.stringify(args.search_filters).slice(0, 500));
 
@@ -49,8 +68,13 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
 
         console.log(`[instantly_count_leads] Initial count: ${result.count}`);
 
+        // Surface filter warnings (e.g. unresolved locations) to the LLM so it informs the user
+        const filterWarnings = result.warnings.length > 0
+          ? { filter_warnings: result.warnings }
+          : {};
+
         if (result.count > 0) {
-          return { count: result.count, search_filters: args.search_filters };
+          return { count: result.count, search_filters: args.search_filters, ...filterWarnings };
         }
 
         // ── Progressive auto-broadening ──
@@ -70,6 +94,12 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           try {
             const retry = await client.countLeads(broadened);
             console.log(`[instantly_count_leads] ${label}: ${retry.count} leads`);
+            // Accumulate warnings from broadening attempts
+            if (retry.warnings.length > 0) {
+              for (const w of retry.warnings) {
+                if (!result.warnings.includes(w)) result.warnings.push(w);
+              }
+            }
             return retry.count;
           } catch (err) {
             console.warn(`[instantly_count_leads] ${label} error:`, err);
@@ -94,7 +124,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             broadened_fields.push(...removed);
             console.log(`[instantly_count_leads] Broadening: removed extras: ${removed.join(", ")}`);
             const c = await tryCount("Step 1 (no extras)");
-            if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
+            if (c > 0) return { count: c, search_filters: broadened, broadened_fields, ...filterWarnings };
           }
         }
 
@@ -106,12 +136,12 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             broadened_fields.push("employee_count");
             console.log("[instantly_count_leads] Broadening: expanded employee_count to all ranges");
             const c = await tryCount("Step 2 (all employee ranges)");
-            if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
+            if (c > 0) return { count: c, search_filters: broadened, broadened_fields, ...filterWarnings };
             // If still 0 with all ranges, remove entirely
             delete broadened.employee_count;
             console.log("[instantly_count_leads] Broadening: removed employee_count entirely");
             const c2 = await tryCount("Step 2b (no employee_count)");
-            if (c2 > 0) return { count: c2, search_filters: broadened, broadened_fields };
+            if (c2 > 0) return { count: c2, search_filters: broadened, broadened_fields, ...filterWarnings };
           }
         }
 
@@ -121,7 +151,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           broadened_fields.push("revenue");
           console.log("[instantly_count_leads] Broadening: removed revenue");
           const c = await tryCount("Step 3 (no revenue)");
-          if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
+          if (c > 0) return { count: c, search_filters: broadened, broadened_fields, ...filterWarnings };
         }
 
         // Step 4: Remove job_titles (only present for niche roles / Strategy B)
@@ -130,7 +160,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           broadened_fields.push("job_titles");
           console.log("[instantly_count_leads] Broadening: removed job_titles");
           const c = await tryCount("Step 4 (no job_titles)");
-          if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
+          if (c > 0) return { count: c, search_filters: broadened, broadened_fields, ...filterWarnings };
         }
 
         // Step 5: Remove industries
@@ -139,28 +169,33 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           broadened_fields.push("industries");
           console.log("[instantly_count_leads] Broadening: removed industries");
           const c = await tryCount("Step 5 (no industries)");
-          if (c > 0) return { count: c, search_filters: broadened, broadened_fields };
+          if (c > 0) return { count: c, search_filters: broadened, broadened_fields, ...filterWarnings };
         }
 
         // STOP — never remove department or level (core user intent)
         console.warn("[instantly_count_leads] All broadening steps exhausted (department+level preserved), returning 0");
-        return { count: 0, search_filters: broadened, broadened_fields };
+        return { count: 0, search_filters: broadened, broadened_fields, ...filterWarnings };
       },
     },
 
     instantly_preview_leads: {
       name: "instantly_preview_leads",
       description:
-        "Preview up to 5 sample leads for given search filters and render them as an inline table automatically. " +
+        "Preview sample leads for given search filters and render them as an inline table automatically. " +
+        "Default: 30 leads. The user can request more or less. " +
         "Use the search_filters returned by instantly_count_leads. " +
         "DO NOT call render_lead_table after this — the table is already rendered. " +
         "DO NOT repeat the lead data in your text response — the table component handles the display.",
-      parameters: z.object({ search_filters: searchFiltersParam }),
+      parameters: z.object({
+        search_filters: searchFiltersParam,
+        limit: z.number().int().min(1).max(50).optional().describe("Number of leads to preview. Default 30."),
+      }),
       async execute(args) {
+        const previewLimit = args.limit ?? 30;
         const client = await getInstantlyClient(ctx.workspaceId);
-        const rawLeads = await client.previewLeads(args.search_filters);
+        const { leads: rawLeads, warnings } = await client.previewLeads(args.search_filters);
 
-        // Normalize to consistent format, deduplicate by name+company, cap at 5
+        // Normalize to consistent format, deduplicate by name+company
         const normalized = rawLeads.map(normalizePreviewLead);
         const seen = new Set<string>();
         const unique = normalized.filter((l) => {
@@ -169,7 +204,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           seen.add(key);
           return true;
         });
-        const leads = unique.slice(0, 5);
+        const leads = unique.slice(0, previewLimit);
 
         const leadsData = leads.map((l, i) => ({
           id: `preview-${i}`,
@@ -178,6 +213,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           email: l.email,
           company: l.company,
           jobTitle: l.jobTitle,
+          linkedinUrl: l.linkedinUrl,
           icpScore: null,
           status: "PREVIEW",
         }));
@@ -190,7 +226,8 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         return {
           preview_count: leadsData.length,
           sample_summary: summary || "Preview data loaded",
-          _display_note: "The lead table is already rendered as an inline component. Do NOT generate a markdown table or list the leads in your text.",
+          ...(warnings.length > 0 ? { filter_warnings: warnings } : {}),
+          _display_note: "The lead table is already rendered as an inline component. Do NOT generate a markdown table or list the leads in your text. If filter_warnings is present, WARN the user about these issues BEFORE showing results.",
           __component: "lead-table",
           props: {
             title: `Lead preview (${leadsData.length} profiles)`,
@@ -224,6 +261,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           enrichment: { work_email_enrichment: true },
         });
         const resourceId = result.resourceId;
+        const sourceWarnings = result.warnings;
 
         // Poll until complete
         let inProgress = true;
@@ -234,37 +272,90 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           ctx.onStatus?.("Sourcing in progress...");
         }
 
-        // Fetch sourced leads and normalize field names
+        // Fetch ALL sourced leads with pagination
         ctx.onStatus?.("Fetching sourced leads...");
-        const { items: leads } = await client.listLeads({ listId: resourceId });
+        const allLeads: Awaited<ReturnType<typeof client.listLeads>>["items"] = [];
+        let cursor: string | undefined;
+        do {
+          const page = await client.listLeads({ listId: resourceId, limit: 100, startingAfter: cursor });
+          allLeads.push(...page.items);
+          cursor = page.nextStartingAfter;
+        } while (cursor);
 
-        const leadIds: string[] = [];
-        for (const lead of leads) {
+        // Extract industry from ICP filters (available at sourcing time)
+        const filters = args.search_filters as Record<string, unknown>;
+        const icpIndustries = Array.isArray(filters.industries) ? filters.industries as string[] : [];
+        const icpIndustry = icpIndustries.length > 0 ? icpIndustries.join(", ") : null;
+
+        // ── Dedup: batch-query existing leads by email ──
+        const allEmails = allLeads
+          .map((l) => normalizeStoredLead(l).email)
+          .filter((e): e is string => !!e);
+        const uniqueEmails = [...new Set(allEmails.map((e) => e.toLowerCase()))];
+
+        const existingLeads = uniqueEmails.length > 0
+          ? await prisma.lead.findMany({
+              where: { workspaceId: ctx.workspaceId, email: { in: uniqueEmails } },
+              select: { id: true, email: true, status: true, campaignId: true },
+            })
+          : [];
+        const existingByEmail = new Map(
+          existingLeads.map((l) => [l.email.toLowerCase(), l]),
+        );
+
+        // Count existing leads by status for dedup report
+        const statusCounts: Record<string, number> = {};
+        let inActiveCampaign = 0;
+        for (const ex of existingLeads) {
+          statusCounts[ex.status] = (statusCounts[ex.status] ?? 0) + 1;
+          if (ex.campaignId) inActiveCampaign++;
+        }
+
+        const newLeadIds: string[] = [];
+        const skippedExisting: string[] = [];
+        let totalWithEmail = 0;
+
+        for (const lead of allLeads) {
           const n = normalizeStoredLead(lead);
-          if (!n.email) continue; // Skip leads without email
+          if (!n.email) continue;
+          totalWithEmail++;
 
-          const dbLead = await prisma.lead.upsert({
-            where: {
-              workspaceId_email: { workspaceId: ctx.workspaceId, email: n.email },
-            },
-            create: {
-              workspaceId: ctx.workspaceId,
-              email: n.email,
-              firstName: n.firstName,
-              lastName: n.lastName,
-              company: n.company,
-              jobTitle: n.jobTitle,
-              linkedinUrl: n.linkedinUrl,
-              phone: n.phone,
-              website: n.website,
-              country: n.location,
-              industry: null,
-              instantlyListId: resourceId,
-              status: "SOURCED",
-            },
-            update: {},
-          });
-          leadIds.push(dbLead.id);
+          const emailLower = n.email.toLowerCase();
+
+          // Skip leads that already exist in the workspace
+          if (existingByEmail.has(emailLower)) {
+            skippedExisting.push(emailLower);
+            continue;
+          }
+
+          try {
+            const dbLead = await prisma.lead.create({
+              data: {
+                workspaceId: ctx.workspaceId,
+                email: n.email,
+                firstName: n.firstName,
+                lastName: n.lastName,
+                company: n.company,
+                jobTitle: n.jobTitle,
+                linkedinUrl: n.linkedinUrl,
+                phone: n.phone,
+                website: n.website,
+                companyDomain: n.companyDomain,
+                country: n.location,
+                industry: icpIndustry,
+                instantlyListId: resourceId,
+                status: "SOURCED",
+              },
+            });
+            newLeadIds.push(dbLead.id);
+          } catch (err) {
+            // P2002 = unique constraint violation (race condition) → treat as existing
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+              skippedExisting.push(emailLower);
+              continue;
+            }
+            throw err;
+          }
         }
 
         // Create Campaign record to track pipeline progress
@@ -275,24 +366,40 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             icpDescription: args.icp_description,
             icpFilters: args.search_filters as unknown as Prisma.InputJsonValue,
             instantlyListId: resourceId,
-            leadsTotal: leadIds.length,
+            leadsTotal: newLeadIds.length,
             status: "SOURCING",
           },
         });
 
-        // Link leads to campaign
-        if (leadIds.length > 0) {
+        // Link campaign ↔ conversation (1:1) so subsequent turns
+        // can resolve the campaign from conversationId alone
+        if (ctx.conversationId) {
+          await prisma.conversation.update({
+            where: { id: ctx.conversationId },
+            data: { campaignId: campaign.id },
+          });
+        }
+
+        // Link only NEW leads to campaign (existing leads keep their original campaign)
+        if (newLeadIds.length > 0) {
           await prisma.lead.updateMany({
-            where: { id: { in: leadIds } },
+            where: { id: { in: newLeadIds } },
             data: { campaignId: campaign.id },
           });
         }
 
         return {
-          sourced: leadIds.length,
+          sourced: newLeadIds.length,
           listId: resourceId,
-          lead_ids: leadIds,
+          lead_ids: newLeadIds,
           campaign_id: campaign.id,
+          ...(sourceWarnings.length > 0 ? { filter_warnings: sourceWarnings } : {}),
+          dedup: {
+            existing_count: skippedExisting.length,
+            by_status: statusCounts,
+            in_active_campaign: inActiveCampaign,
+            total_from_api: totalWithEmail,
+          },
         };
       },
     },
@@ -300,7 +407,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
     instantly_create_campaign: {
       name: "instantly_create_campaign",
       description:
-        "Create a new campaign in Instantly with 3 email steps (PAS, Value-add, Breakup). " +
+        "Create a new campaign in Instantly with 6 email steps (PAS Timeline Hook, Value-add, Social Proof, New Angle, Micro-value, Breakup). " +
         "Steps use {{email_step_N_subject/body}} template variables automatically filled per lead. " +
         "REQUIRED: email_accounts must contain the sending email(s) chosen by the user. " +
         "Call instantly_list_accounts first, ask the user which account to use, then pass it here.",
@@ -310,16 +417,16 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         email_accounts: z.array(z.string()).min(1).describe("Sending email account(s) selected by the user. REQUIRED."),
         delays: z
           .array(z.number().int())
-          .length(3)
+          .length(6)
           .optional()
-          .describe("Days between each step. Default [0, 3, 3]."),
+          .describe("Days between each step. Default [0, 2, 5, 9, 14, 21]."),
       }),
       isSideEffect: true,
       async execute(args) {
         const client = await getInstantlyClient(ctx.workspaceId);
-        const delays = args.delays ?? [0, 3, 3];
+        const delays = args.delays ?? [0, 2, 5, 9, 14, 21];
 
-        const steps = [0, 1, 2].map((i) => ({
+        const steps = [0, 1, 2, 3, 4, 5].map((i) => ({
           subject: `{{email_step_${i}_subject}}`,
           body: `{{email_step_${i}_body}}`,
           delay: delays[i],
@@ -355,8 +462,20 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           },
         });
 
+        // Filter out leads already pushed (prevent spam / double-push)
+        const alreadyPushed = leads.filter((l) => l.status === "PUSHED");
+        const safeToPush = leads.filter((l) => l.status !== "PUSHED");
+
+        if (safeToPush.length === 0) {
+          return {
+            added: 0,
+            skipped_already_pushed: alreadyPushed.length,
+            warning: "All leads have already been pushed to a campaign.",
+          };
+        }
+
         let added = 0;
-        for (const lead of leads) {
+        for (const lead of safeToPush) {
           const customVars: Record<string, string> = {};
           for (const email of lead.emails) {
             const rawBody = email.userEdit ?? email.body;
@@ -382,7 +501,10 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           added++;
         }
 
-        return { added };
+        return {
+          added,
+          ...(alreadyPushed.length > 0 ? { skipped_already_pushed: alreadyPushed.length } : {}),
+        };
       },
     },
 
@@ -420,6 +542,94 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             totalLeads,
             recommendedCount,
           },
+        };
+      },
+    },
+
+    // ─── Monitoring Tools ──────────────────────────────────
+
+    instantly_campaign_sending_status: {
+      name: "instantly_campaign_sending_status",
+      description: "Get real-time sending status for a campaign: how many leads are in progress, not yet contacted, and completed. Renders an inline status card.",
+      parameters: z.object({
+        campaign_id: z.string().describe("Instantly campaign ID"),
+      }),
+      async execute(args) {
+        const client = await getInstantlyClient(ctx.workspaceId);
+        const status = await client.getCampaignSendingStatus(args.campaign_id);
+
+        return {
+          ...status,
+          __component: "campaign-status",
+          props: status,
+        };
+      },
+    },
+
+    instantly_pause_campaign: {
+      name: "instantly_pause_campaign",
+      description: "Pause a running campaign. Emails will stop sending.",
+      parameters: z.object({
+        campaign_id: z.string().describe("Instantly campaign ID"),
+      }),
+      isSideEffect: true,
+      async execute(args) {
+        const client = await getInstantlyClient(ctx.workspaceId);
+        await client.pauseCampaign(args.campaign_id);
+        return { paused: true, campaign_id: args.campaign_id };
+      },
+    },
+
+    instantly_campaign_analytics: {
+      name: "instantly_campaign_analytics",
+      description: "Get analytics for a campaign: emails sent, opened, replied, bounced, etc. Renders an inline analytics card.",
+      parameters: z.object({
+        campaign_id: z.string().describe("Instantly campaign ID"),
+      }),
+      async execute(args) {
+        const client = await getInstantlyClient(ctx.workspaceId);
+        const analytics = await client.getCampaignAnalytics(args.campaign_id);
+
+        return {
+          ...analytics,
+          __component: "campaign-analytics",
+          props: analytics,
+        };
+      },
+    },
+
+    instantly_get_replies: {
+      name: "instantly_get_replies",
+      description: "Fetch recent replies (received emails) for a campaign. Useful to check what leads responded and their interest level.",
+      parameters: z.object({
+        campaign_id: z.string().describe("Instantly campaign ID"),
+        limit: z.number().int().min(1).max(50).optional().describe("Max replies to fetch (default 25)"),
+      }),
+      async execute(args) {
+        const client = await getInstantlyClient(ctx.workspaceId);
+        const res = await client.getEmails({
+          campaign_id: args.campaign_id,
+          email_type: "2", // ue_type 2 = received (reply)
+          limit: args.limit ?? 25,
+        });
+
+        const replies = res.items.map((e) => ({
+          id: e.id,
+          from: e.from_address,
+          to: e.to_address,
+          subject: e.subject,
+          preview: e.content_preview ?? "",
+          timestamp: e.timestamp_created,
+          is_auto_reply: e.is_auto_reply === 1,
+          ai_interest: e.ai_interest_value,
+          thread_id: e.thread_id,
+        }));
+
+        return {
+          campaign_id: args.campaign_id,
+          total_replies: replies.length,
+          has_more: !!res.next_starting_after,
+          replies,
         };
       },
     },

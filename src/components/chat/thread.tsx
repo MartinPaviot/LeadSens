@@ -7,6 +7,7 @@ import { LeadSensComposer } from "./composer";
 import { ScrollToBottomPill } from "./scroll-to-bottom";
 import { ThinkingBlock } from "./thinking-block";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function LeadSensThread({ isStreaming }: { isStreaming: boolean }) {
   return (
     <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">

@@ -2,114 +2,133 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from "@/lib/sse";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
-import { buildToolSet, getToolLabel } from "@/server/lib/tools";
+import { buildToolSet, filterToolsByPhase, getToolLabel } from "@/server/lib/tools";
 import { getStyleSamples } from "@/server/lib/email/style-learner";
+import {
+  prepareMessagesForLLM,
+  estimateTokens,
+} from "@/server/lib/llm/context-manager";
 import type { ChatMessage, StreamEvent } from "@/server/lib/llm/types";
 import type { WorkspaceWithIntegrations } from "@/server/lib/tools/types";
 import { z } from "zod/v4";
 
 export const maxDuration = 300;
 
-// ─── System Prompt ───────────────────────────────────────
+// ─── System Prompt (tiered by pipeline phase) ───────────
 
-const LEADSENS_BASE_PROMPT = `You are LeadSens, an intelligent B2B prospecting agent.
+const CORE_PROMPT = `You are LeadSens, an intelligent B2B prospecting agent.
 
-PERSONALITY:
-- Warm and approachable, you use a casual, conversational tone
-- Direct and concise, no walls of text, no unnecessary formality. Get to the point
-- You structure your responses with clean markdown: bullet points, **bold** for key info, well-spaced line breaks
-- MANDATORY FORMATTING: each bullet point (- or *) or numbered item (1. 2. 3.) MUST be on its own line, with a line break before it. NEVER put multiple bullet points on the same line
-- You ask the right questions when needed, one at a time
-- You use simple analogies to explain concepts
-- When presenting numbers, highlight them (bold, bullet points)
-- NEVER repeat what the user just said, move forward
-- NEVER use em dashes in your responses. Use commas, periods, or rephrase
+PERSONALITY: Warm, direct, concise. Casual tone, clean markdown (bullets on own lines, **bold** key info). One question at a time. No walls of text, no em dashes, no repeating what the user said.
 
-WORKFLOW — When the user describes a clear ICP, execute the pipeline WITHOUT stopping except where indicated.
+COMMUNICATION:
+- Silent execution: never explain internal mappings, adjustments, or limitations. Just do it and show results.
+- Zero text between tool calls. Call all needed tools, then ONE response.
+- Tool errors: silently fix params, retry ONCE. Only report if retry also fails.
+- Structured data: ALWAYS use render_lead_table / render_email_preview / show_drafted_emails. Never markdown tables, never raw @@INLINE@@ markers, never tool names in text.
+- Never fabricate tool results. Never appear hesitant ("let me try", "let's see if").
 
-PHASE 0 — PREREQUISITES (once only)
-If no CompanyDNA exists in the system prompt, ask for the website URL and ALWAYS call the analyze_company_site tool.
-NEVER generate the analysis yourself from your own knowledge. You MUST use the tool to scrape the real website.
-If the tool returns an error, tell the user clearly and suggest retrying or using the Company DNA page.
-NEVER use save_memory to store CompanyDNA. Only analyze_company_site and update_company_dna handle that.
-Present the result (one-liner, personas, differentiators). STOP: "Does this look right?"
-NEVER explain scraping limitations or how you obtained the data. Just present the result.
+LEAD RESOLUTION: enrich_single_lead and draft_single_email auto-resolve leads (by id, name/email, or auto). Never guess lead_ids from history.
 
-PHASE 1 — PARSING + ESTIMATION (no credits used)
+ON-DEMAND DISPLAY:
+- "show leads" → render_lead_table(campaign_id). Never re-use instantly_preview_leads outside Phase 1.
+- "show emails" → show_drafted_emails(campaign_id). Default: step 0. Never confuse with "show leads".
+- Save ICPs and style prefs to memory (not CompanyDNA, which has its own tools).`;
+
+// Phase 0: onboarding (no CompanyDNA yet)
+const PHASE_ONBOARDING = `
+CURRENT PHASE: ONBOARDING
+Ask for the website URL, call analyze_company_site. Never generate analysis from your own knowledge.
+Present result (one-liner, personas, differentiators). Ask: "Does this look right?"
+Never use save_memory for CompanyDNA.`;
+
+// Phases 0-1: ICP validation + parsing + estimation (no campaign yet)
+const PHASE_DISCOVERY = `
+WORKFLOW: When the user describes an ICP, execute without stopping except where indicated.
+
+ICP VALIDATION — check for: Role/Department, Industry, Geography.
+If any missing, ask ONE question. If all present, proceed. Optional criteria (size, revenue) are not blockers.
+
+PHASE 1 — PARSING + ESTIMATION (no credits)
 Tools: parse_icp → instantly_count_leads → instantly_preview_leads
-instantly_preview_leads automatically renders the preview table. DO NOT call render_lead_table in Phase 1.
-CRITICAL: Pass the search_filters returned by parse_icp AS-IS to instantly_count_leads. NEVER modify them, NEVER remove any field, NEVER trim the job_titles list. The full JSON returned by parse_icp must be passed intact.
-ALWAYS use the search_filters returned by instantly_count_leads AS-IS for instantly_preview_leads. NEVER modify them.
-NEVER call instantly_count_leads or instantly_preview_leads a second time. One call each, that's it.
-Show: "~X leads found. Here's a preview:" (the table renders above via the inline component)
-IMPORTANT: the lead table is ALREADY displayed automatically as a visual component. NEVER repeat the lead data in your text (no markdown table, no list of names). Just mention the count.
+- Pass search_filters AS-IS between tools. Never modify, remove fields, or trim job_titles.
+- After parse_icp, ALWAYS present the human_summary to the user for confirmation before calling instantly_count_leads. Example: "Voici les filtres : {human_summary}. C'est bien ça ?"
+- Preview renders automatically. Never repeat lead data in text.
+- One count call only. Default preview: 5 leads.
 STOP: "~X leads available. How many do you want to source? (this uses Instantly credits)"
-This is the ONLY mandatory pause in the pipeline. The user picks the exact number (e.g. 2, 50, 500). Use that number as the limit in instantly_source_leads.
 
-TRANSITION Phase 1 → Phase 2:
-When the user responds with the number of leads to source:
-- "yes", "go", "let's do it", "ok", "sure", implicit confirmation → launch Phase 2 directly with instantly_source_leads
-- The user REPEATS the ICP or says "that's what I want" → this is A CONFIRMATION, not a new ICP. Launch Phase 2 directly.
-- The user modifies the ICP (new industry, new title, new country) → re-run Phase 1 with the new criteria
-NEVER re-run Phase 1 (parse_icp, count, preview) if the user simply confirms. Reuse the search_filters you already have.
+TRANSITION: confirmation/number → Phase 2. New criteria → re-run Phase 1. Never re-run if user just confirms.`;
 
-PHASE 2 — SOURCING + SCORING (after confirmation)
-Tools chain: instantly_source_leads → score_leads_batch
-- instantly_source_leads returns { sourced, listId, lead_ids, campaign_id }
-- ALWAYS pass lead_ids AND campaign_id from the result to score_leads_batch
-- score_leads_batch returns { scored, skipped, lead_ids } (qualified leads only)
-Show ONLY: "X leads sourced, moving to enrichment."
-NEVER mention scores, eliminated leads, or quality issues. All leads pass through.
-Continue WITHOUT pause.
+// Phase 2: sourcing + scoring
+const PHASE_SOURCING = `
+CURRENT PHASE: SOURCING + SCORING
+Tools: instantly_source_leads → score_leads_batch
+- Pass lead_ids AND campaign_id from source result to score.
+- Report dedup results. Never mention scores or quality issues.
+Continue to enrichment WITHOUT pause.`;
 
-PHASE 3 — ENRICHMENT + DRAFTING (automatic)
-Tools chain: enrich_leads_batch → generate_campaign_angle → draft_emails_batch
-- Pass lead_ids from score_leads_batch result + campaign_id to enrich_leads_batch
-- enrich_leads_batch returns { enriched, lead_ids }
-- generate_campaign_angle needs campaign_id + icp_description
-- draft_emails_batch needs lead_ids (from enrich result) + campaign_id
-Email previews render automatically via inline components.
-Continue WITHOUT pause.
+// Phase 3: enrichment + drafting
+const PHASE_ENRICHING = `
+CURRENT PHASE: ENRICHMENT + DRAFTING
+Tools: enrich_leads_batch → generate_campaign_angle → draft_emails_batch
+- Pass lead_ids + campaign_id through the chain.
+- Always generate campaign angle BEFORE drafting.
+- Email previews render automatically.
+Continue to account selection WITHOUT pause.`;
 
-PHASE 4 — ACCOUNT SELECTION + PUSH AS DRAFT
-Step 1: Call instantly_list_accounts with total_leads = number of drafted leads. An interactive account picker renders automatically.
-STOP: Wait for the user to select account(s) via the picker component. Do NOT list accounts in text.
-Step 2: After user selects accounts, call instantly_create_campaign with the selected email_accounts.
-Step 3: Call instantly_add_leads_to_campaign.
-DO NOT call instantly_activate_campaign.
-Say: "Campaign created as draft in Instantly with X leads and their personalized emails, sending from [email]. Let me know when you want to activate."
-STOP: wait for the user to ask to activate.
+// Phase 4: account selection + push
+const PHASE_PUSHING = `
+CURRENT PHASE: CAMPAIGN SETUP
+Step 1: instantly_list_accounts (account picker renders automatically). STOP: wait for user selection.
+Step 2: instantly_create_campaign with selected email_accounts.
+Step 3: instantly_add_leads_to_campaign.
+Say: "Campaign created as draft with X leads. Let me know when you want to activate."
+STOP: wait for explicit activation request. Never offer to activate.`;
 
-PHASE 5 — ACTIVATION (on explicit request only)
-Tool: instantly_activate_campaign
-Say: "Campaign activated, emails are starting to go out."
+// Phase 5: active
+const PHASE_ACTIVE = `
+CURRENT PHASE: CAMPAIGN ACTIVE
+Campaign is live. Respond to questions about leads, emails, or new campaigns.
+If user describes a new ICP, start a new pipeline from Phase 1.`;
 
-CRITICAL RULES:
-- ALWAYS pass lead_ids and campaign_id between tools. These are returned by each tool — use them for the next. NEVER skip passing them.
-- NEVER skip scoring or enrichment. The full chain is: source → score → enrich → angle → draft → accounts → campaign → push.
-- When the ICP is clear, do NOT ask additional questions. Execute.
-- The ONLY mandatory pauses are: (1) between Phase 1 and Phase 2 (credits), (2) Phase 4 account selection (wait for picker).
-- After sourcing confirmation, chain Phases 2 → 3 → 4 without stopping (except the account picker pause).
-- NEVER offer to activate the campaign. Wait for the user to explicitly request it.
-- If a step fails, simply say what happened and suggest an alternative. Do NOT loop, do NOT retry the same thing.
-- NEVER explain internal errors, technical limitations, or how you obtain data. The user wants results, not a post-mortem.
-- All sourced leads go directly to enrichment. No filtering.
-- Emails follow the PAS / Value-add / Breakup frameworks. NEVER improvised.
-- Always generate the campaign angle BEFORE drafting emails.
-- NEVER repeat what the user just said.
-- Do NOT ask questions whose answer is already in the data you extracted.
-- Save to memory: ICPs, style preferences (but NOT companyDna, which has its own tools).
-- NEVER invent or hallucinate tool results. If a tool fails, say so. NEVER fabricate data.
+// Pipeline rules (always included, but condensed)
+const PIPELINE_RULES = `
+PIPELINE RULES:
+- Always pass lead_ids and campaign_id between tools. Never skip.
+- Full chain: source → score → enrich → angle → draft → accounts → campaign → push.
+- Only 2 mandatory pauses: (1) before sourcing (credits), (2) account selection.
+- If a step fails, explain briefly and suggest an alternative. No loops, no retries.
+- If user describes a new ICP at any point, start Phase 1 fresh.`;
 
-COMMUNICATION RULES (VERY IMPORTANT):
-- NEVER explain internal mappings. If the user says "SaaS", you search "Software" in Instantly WITHOUT explaining the translation. It should be transparent to the user.
-- NEVER say "this category is not recognized" or "I'll adjust". Adjust silently and present the final result.
-- GENERATE NO TEXT between your tool calls. Call ALL necessary tools first (parse_icp, instantly_count_leads, instantly_preview_leads), then write ONE SINGLE final response with all results. Zero intermediate text.
-- If a tool returns an error, silently fix the parameters and retry ONCE without explaining anything to the user. Only show the problem if the second attempt also fails.
-- You must NEVER appear hesitant. No "let me try", "let's see if", "that category doesn't exist". You execute and show results.
-- NEVER generate markdown tables (| col1 | col2 |). To display leads, ALWAYS use render_lead_table. To display emails, ALWAYS use render_email_preview. Inline components are your ONLY option for structured data.
-- Call render_lead_table ONCE per phase, with the final results. Never multiple calls.
-- NEVER write tool names in your response text. Tool calls are separate actions from text. Your text should only contain natural language for the user.`;
+type CampaignPhase = "DRAFT" | "SOURCING" | "SCORING" | "ENRICHING" | "DRAFTING" | "READY" | "PUSHED" | "ACTIVE";
+
+function getPhasePrompt(
+  hasCompanyDna: boolean,
+  campaignStatus: CampaignPhase | null,
+): string {
+  // No campaign yet
+  if (!campaignStatus) {
+    if (!hasCompanyDna) return PHASE_ONBOARDING + "\n" + PHASE_DISCOVERY;
+    return PHASE_DISCOVERY;
+  }
+
+  // Map campaign status to relevant phase instructions
+  switch (campaignStatus) {
+    case "DRAFT":
+    case "SOURCING":
+    case "SCORING":
+      return PHASE_SOURCING + "\n" + PHASE_ENRICHING;
+    case "ENRICHING":
+    case "DRAFTING":
+      return PHASE_ENRICHING + "\n" + PHASE_PUSHING;
+    case "READY":
+    case "PUSHED":
+      return PHASE_PUSHING + "\n" + PHASE_ACTIVE;
+    case "ACTIVE":
+      return PHASE_ACTIVE;
+    default:
+      return PHASE_DISCOVERY;
+  }
+}
 
 // ─── Request Schema ──────────────────────────────────────
 
@@ -126,12 +145,30 @@ const requestSchema = z.object({
 
 // ─── Build Dynamic System Prompt ─────────────────────────
 
+interface PipelineState {
+  id: string;
+  name: string;
+  status: string;
+  icpDescription: string;
+  leadsTotal: number;
+  leadsScored: number;
+  leadsSkipped: number;
+  leadsEnriched: number;
+  leadsDrafted: number;
+  leadsPushed: number;
+}
+
 function buildSystemPrompt(
   workspace: WorkspaceWithIntegrations,
   memories: Array<{ key: string; value: string }>,
   styleCorrections: string[],
+  campaign: PipelineState | null,
 ): string {
-  const parts = [LEADSENS_BASE_PROMPT];
+  const hasCompanyDna = !!workspace.companyDna;
+  const campaignStatus = campaign?.status as CampaignPhase | null;
+  const phasePrompt = getPhasePrompt(hasCompanyDna, campaignStatus);
+
+  const parts = [CORE_PROMPT, phasePrompt, PIPELINE_RULES];
 
   if (workspace.companyDna) {
     const dna = workspace.companyDna as Record<string, unknown>;
@@ -197,6 +234,17 @@ function buildSystemPrompt(
     `\n## Connected integrations\n${connected.length > 0 ? connected.join(", ") : "None yet"}`,
   );
 
+  if (campaign) {
+    parts.push(
+      `\n## Pipeline state\nCampaign: "${campaign.name}" (${campaign.id})\n` +
+        `Phase: ${campaign.status}\nICP: ${campaign.icpDescription}\n` +
+        `Progress: ${campaign.leadsTotal} sourced → ${campaign.leadsScored} scored ` +
+        `(${campaign.leadsSkipped} skipped) → ${campaign.leadsEnriched} enriched → ` +
+        `${campaign.leadsDrafted} drafted` +
+        (campaign.leadsPushed > 0 ? ` → ${campaign.leadsPushed} pushed` : ""),
+    );
+  }
+
   return parts.join("\n");
 }
 
@@ -259,9 +307,10 @@ Once that's done, we'll launch your first campaign.`;
 
 Describe your target for this campaign. For example:
 
-> *"VP Sales in B2B SaaS, 50-200 employees, France"*
+> *"Marketing managers in fashion, France"*
+> *"VP Sales in B2B SaaS, 50-500 employees, US + UK"*
 
-Give me the role, industry, company size, and location. I'll handle sourcing, enrichment, and email drafting.`;
+Give me the role, industry, and location. I'll handle sourcing, enrichment, and email drafting.`;
 }
 
 // ─── Singleton inline components (only one per message) ──
@@ -271,6 +320,7 @@ const SINGLETON_COMPONENTS = new Set([
   "account-picker",
   "campaign-summary",
   "progress-bar",
+  "enrichment",
 ]);
 
 /** Remove previous @@INLINE@@ markers for a singleton component type */
@@ -429,12 +479,33 @@ export async function POST(req: Request) {
   }
 
   // 5. Load context in parallel
-  const [memories, styleCorrections] = await Promise.all([
+  const [memories, styleCorrections, pipelineState] = await Promise.all([
     prisma.agentMemory.findMany({
       where: { workspaceId },
       select: { key: true, value: true },
     }),
     getStyleSamples(workspaceId),
+    prisma.conversation
+      .findUnique({
+        where: { id: conversationId },
+        select: {
+          campaign: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              icpDescription: true,
+              leadsTotal: true,
+              leadsScored: true,
+              leadsSkipped: true,
+              leadsEnriched: true,
+              leadsDrafted: true,
+              leadsPushed: true,
+            },
+          },
+        },
+      })
+      .then((c) => c?.campaign ?? null),
   ]);
 
   // 6. Build system prompt
@@ -442,21 +513,45 @@ export async function POST(req: Request) {
     workspace as WorkspaceWithIntegrations,
     memories,
     styleCorrections,
+    pipelineState,
   );
 
-  // 7. Build tool set
+  // 7. Build tool set (phase-filtered to reduce LLM confusion)
   const toolCtx = {
     workspaceId,
     userId: user.id,
+    conversationId,
     onStatus: undefined as ((label: string) => void) | undefined,
   };
-  const tools = buildToolSet(workspace as WorkspaceWithIntegrations, toolCtx);
+  const allTools = buildToolSet(workspace as WorkspaceWithIntegrations, toolCtx);
+  const tools = filterToolsByPhase(allTools, pipelineState?.status as CampaignPhase | null);
 
-  // 8. Convert messages to ChatMessage format
-  const chatMessages: ChatMessage[] = messages.map((m) => ({
+  // 8. Convert messages to ChatMessage format + context management
+  const rawMessages: ChatMessage[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
   }));
+
+  const systemTokens = estimateTokens(systemPrompt);
+  // Rough estimate for tool schemas (~150 tokens per tool)
+  const toolSchemaTokens = Object.keys(tools).length * 150;
+  const contextResult = prepareMessagesForLLM(
+    rawMessages,
+    systemTokens,
+    toolSchemaTokens,
+  );
+  const chatMessages = contextResult.messages;
+
+  console.log(
+    `[context] Raw ~${contextResult.rawTokens}tok → Clean ~${contextResult.cleanTokens}tok` +
+      (contextResult.markersStripped > 0
+        ? ` (stripped ${contextResult.markersStripped} markers)`
+        : "") +
+      (contextResult.toolResultsCompressed > 0
+        ? ` (compressed ${contextResult.toolResultsCompressed} tool results)`
+        : "") +
+      (contextResult.windowed ? " [windowed]" : ""),
+  );
 
   // 9. Pre-save: create conversation + user message BEFORE streaming
   //    so the sidebar shows the conversation immediately
@@ -514,6 +609,13 @@ export async function POST(req: Request) {
             ts: Date.now(),
           }),
         );
+
+        // Notify user if context was windowed
+        if (contextResult.windowed) {
+          controller.enqueue(
+            sse.encode("status", { label: "Long conversation, refreshing context..." }),
+          );
+        }
 
         // Keepalive: ping every 15s to prevent proxy timeouts
         keepAlive = setInterval(() => {

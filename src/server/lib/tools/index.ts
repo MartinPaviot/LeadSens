@@ -24,6 +24,92 @@ export function buildToolSet(
   };
 }
 
+// ─── Phase-aware tool filtering ──────────────────────────
+// Only expose tools relevant to the current pipeline phase.
+// Fewer tools = less LLM confusion = better tool calling accuracy.
+//
+// Always available: memory, company, search_leads, render_lead_table,
+//                   show_drafted_emails, render_email_preview
+
+const ALWAYS_AVAILABLE = new Set([
+  "save_memory", "get_memories", "delete_memory",
+  "analyze_company_site", "update_company_dna",
+  "search_leads", "render_lead_table",
+  "show_drafted_emails", "render_email_preview",
+  "render_campaign_summary",
+]);
+
+const PHASE_TOOLS: Record<string, Set<string>> = {
+  // No campaign or just created: discovery phase — ICP tools + sourcing
+  NONE: new Set([
+    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
+    "instantly_source_leads",
+  ]),
+  DRAFT: new Set([
+    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
+    "instantly_source_leads", "score_leads_batch",
+  ]),
+  // Sourcing/Scoring: source + score + start enrichment
+  SOURCING: new Set([
+    "instantly_source_leads", "score_leads_batch",
+    "enrich_leads_batch", "enrich_single_lead",
+  ]),
+  SCORING: new Set([
+    "score_leads_batch",
+    "enrich_leads_batch", "enrich_single_lead",
+  ]),
+  // Enriching/Drafting: enrich + angle + draft
+  ENRICHING: new Set([
+    "enrich_leads_batch", "enrich_single_lead",
+    "generate_campaign_angle",
+    "draft_emails_batch", "draft_single_email",
+  ]),
+  DRAFTING: new Set([
+    "generate_campaign_angle",
+    "draft_emails_batch", "draft_single_email",
+    "instantly_list_accounts", "instantly_create_campaign",
+    "instantly_add_leads_to_campaign",
+  ]),
+  // Ready/Pushed: campaign management + activation
+  READY: new Set([
+    "instantly_list_accounts", "instantly_create_campaign",
+    "instantly_add_leads_to_campaign", "instantly_activate_campaign",
+  ]),
+  PUSHED: new Set([
+    "instantly_activate_campaign",
+    // Monitoring
+    "instantly_campaign_sending_status", "instantly_pause_campaign",
+    "instantly_campaign_analytics", "instantly_get_replies",
+    // Allow starting new pipeline
+    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
+    "instantly_source_leads",
+  ]),
+  // Active: monitoring + new pipeline
+  ACTIVE: new Set([
+    "instantly_campaign_sending_status", "instantly_pause_campaign",
+    "instantly_campaign_analytics", "instantly_get_replies",
+    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
+    "instantly_source_leads",
+  ]),
+};
+
+export function filterToolsByPhase(
+  tools: Record<string, ToolDefinition>,
+  campaignStatus: string | null,
+): Record<string, ToolDefinition> {
+  const phaseKey = campaignStatus ?? "NONE";
+  const phaseTools = PHASE_TOOLS[phaseKey] ?? PHASE_TOOLS.NONE;
+
+  const filtered: Record<string, ToolDefinition> = {};
+  for (const [name, def] of Object.entries(tools)) {
+    if (ALWAYS_AVAILABLE.has(name) || phaseTools.has(name)) {
+      filtered[name] = def;
+    }
+  }
+
+  return filtered;
+}
+
 // Activity labels (SPEC-BACKEND.md section 3.3)
 const TOOL_LABELS: Record<string, string> = {
   parse_icp: "Parsing ICP filters...",
@@ -42,6 +128,11 @@ const TOOL_LABELS: Record<string, string> = {
   analyze_company_site: "Analyzing your website...",
   update_company_dna: "Updating company profile...",
   generate_campaign_angle: "Generating campaign angle...",
+  search_leads: "Searching for lead...",
+  instantly_campaign_sending_status: "Checking sending status...",
+  instantly_pause_campaign: "Pausing campaign...",
+  instantly_campaign_analytics: "Fetching campaign analytics...",
+  instantly_get_replies: "Fetching campaign replies...",
 };
 
 export function getToolLabel(toolName: string): string {
