@@ -130,6 +130,37 @@
    Reference: SPEC-CHAT.md section 18
    ============================================ */
 
+/* ─── Typography Scale ─────────────────────── */
+:root {
+  --text-compact: 0.625rem;  /* 10px — data tables, badges */
+  --text-small: 0.75rem;     /* 12px — metadata, captions */
+  --text-body: 0.875rem;     /* 14px — chat messages, body */
+  --text-heading: 1.125rem;  /* 18px — page titles */
+}
+
+/* ─── Semantic Color Tokens ────────────────── */
+:root {
+  --color-success: oklch(0.55 0.18 155);
+  --color-success-muted: oklch(0.55 0.18 155 / 15%);
+  --color-warning: oklch(0.75 0.18 75);
+  --color-warning-muted: oklch(0.75 0.18 75 / 15%);
+  --color-error: oklch(0.58 0.24 27);
+  --color-error-muted: oklch(0.58 0.24 27 / 15%);
+  --color-info: oklch(0.55 0.2 260);
+  --color-info-muted: oklch(0.55 0.2 260 / 15%);
+}
+
+.dark {
+  --color-success: oklch(0.7 0.19 155);
+  --color-success-muted: oklch(0.7 0.19 155 / 15%);
+  --color-warning: oklch(0.8 0.16 80);
+  --color-warning-muted: oklch(0.8 0.16 80 / 15%);
+  --color-error: oklch(0.7 0.2 22);
+  --color-error-muted: oklch(0.7 0.2 22 / 15%);
+  --color-info: oklch(0.65 0.2 265);
+  --color-info-muted: oklch(0.65 0.2 265 / 15%);
+}
+
 /* Typing indicator dots animation */
 @keyframes typing-dot {
   0%,
@@ -248,4 +279,48 @@
 /* Thread max width for assistant-ui */
 [data-aui-thread] {
   --aui-thread-max-width: 720px;
+}
+
+/* ─── Micro-interactions ───────────────────── */
+
+/* Card lift on hover */
+.card-hover {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Button press feedback */
+.btn-press:active {
+  transform: scale(0.98);
+}
+
+/* Table row highlight (for lead tables & data lists) */
+.row-hover {
+  transition: background-color 150ms ease;
+}
+
+.row-hover:hover {
+  background-color: oklch(0.967 0.001 286 / 60%);
+}
+
+.dark .row-hover:hover {
+  background-color: oklch(0.274 0.006 286 / 60%);
+}
+
+/* Pipeline step transitions */
+@keyframes pipeline-fill {
+  from { width: 0; }
+  to { width: var(--pipeline-pct); }
+}
+
+.pipeline-bar {
+  animation: pipeline-fill 0.6s ease-out forwards;
 }

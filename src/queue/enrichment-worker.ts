@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { scrapeViaJina } from "@/server/lib/connectors/jina";
-import { summarizeCompanyContext } from "@/server/lib/enrichment/summarizer";
+import { summarizeCompanyContext, enrichmentDataSchema, extractFlatEnrichmentFields } from "@/server/lib/enrichment/summarizer";
 import { createWorker } from "./factory";
 
 interface EnrichmentJobData {
@@ -29,11 +29,14 @@ export const enrichmentWorker = createWorker(
     const markdown = jinaResult.markdown;
 
     const enrichment = await summarizeCompanyContext(markdown, workspaceId);
+    const parsed = enrichmentDataSchema.safeParse(enrichment);
+    const flatFields = parsed.success ? extractFlatEnrichmentFields(parsed.data) : {};
 
     await prisma.lead.update({
       where: { id: leadId },
       data: {
         enrichmentData: enrichment as unknown as Prisma.InputJsonValue,
+        ...flatFields,
         enrichedAt: new Date(),
         status: "ENRICHED",
       },

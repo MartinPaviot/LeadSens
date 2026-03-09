@@ -52,36 +52,10 @@ export function useAgentActivity() {
   return useContext(AgentActivityContext);
 }
 
-// ─── Client-side tool labels (French) ────────────────────
+// ─── Tool label fallback (server sends labels via SSE status events) ──
 
-const STEP_LABELS: Record<string, string> = {
-  parse_icp: "Parsing target profile (ICP)",
-  instantly_count_leads: "Estimating available leads",
-  instantly_source_leads: "Sourcing leads via SuperSearch",
-  instantly_preview_leads: "Previewing leads found",
-  score_leads_batch: "Validating leads",
-  enrich_leads_batch: "Enriching lead profiles",
-  draft_emails_batch: "Writing personalized emails",
-  draft_single_email: "Writing an email",
-  generate_campaign_angle: "Generating campaign angle",
-  instantly_create_campaign: "Creating draft in Instantly",
-  instantly_add_leads_to_campaign: "Adding leads to campaign",
-  instantly_activate_campaign: "Activating campaign",
-  crm_check_duplicates: "Checking CRM duplicates",
-  analyze_company_site: "Analyzing website",
-  update_company_dna: "Updating company profile",
-  save_memory: "Saving to memory",
-  get_memories: "Checking memory",
-  delete_memory: "Deleting from memory",
-  render_lead_table: "Preparing lead table",
-  render_email_preview: "Preparing email preview",
-  render_campaign_summary: "Preparing summary",
-  instantly_list_accounts: "Fetching email accounts",
-  search_leads: "Searching for lead",
-};
-
-function getStepLabel(toolName: string): string {
-  return STEP_LABELS[toolName] ?? toolName.replace(/_/g, " ");
+function formatToolName(toolName: string): string {
+  return toolName.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) + "...";
 }
 
 // ─── Constants ────────────────────────────────────────────
@@ -89,26 +63,7 @@ function getStepLabel(toolName: string): string {
 const MAX_RETRIES = 3;
 const DEFAULT_RETRY_MS = 3000;
 
-// Singleton inline components — only one per message (last wins)
-const SINGLETON_COMPONENTS = new Set([
-  "lead-table",
-  "account-picker",
-  "campaign-summary",
-  "progress-bar",
-  "enrichment",
-]);
-
-/** Remove previous @@INLINE@@ markers for a singleton component type */
-function removePreviousMarkers(content: string, componentName: string): string {
-  if (!SINGLETON_COMPONENTS.has(componentName)) return content;
-  return content.replace(/\n*@@INLINE@@([\s\S]*?)@@END@@\n*/g, (match, json: string) => {
-    try {
-      const parsed = JSON.parse(json);
-      if (parsed.component === componentName) return "";
-    } catch { /* keep non-parseable markers */ }
-    return match;
-  });
-}
+// Singleton dedup is handled server-side (route.ts) — no client-side dedup needed
 
 // ─── Main Component ──────────────────────────────────────
 
@@ -126,6 +81,7 @@ export default function AgentChat() {
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [integrations, setIntegrations] = useState<{ type: string; status: string; accountEmail?: string | null }[]>([]);
 
   // Mutable refs for the current session
   const conversationIdRef = useRef(generateId());
@@ -135,6 +91,14 @@ export default function AgentChat() {
   const isNewConversationRef = useRef(true);
   const retryCountRef = useRef(0);
   const retryIntervalRef = useRef(DEFAULT_RETRY_MS);
+
+  // Fetch integrations once on mount — data is ready before GreetingScreen renders
+  useEffect(() => {
+    fetch("/api/trpc/integration.list")
+      .then((r) => r.json())
+      .then((data) => { if (data?.result?.data) setIntegrations(data.result.data); })
+      .catch(() => {});
+  }, []);
 
   // Track chatKey to detect conversation switches
   const prevChatKeyRef = useRef(chatKey);
@@ -215,14 +179,11 @@ export default function AgentChat() {
 
   const sendGreeting = useCallback(
     async (convId: string) => {
-      const controller = new AbortController();
-      abortRef.current = controller;
       setIsStreaming(true);
-      pendingContentRef.current = "";
 
       const assistantId = generateId();
 
-      const attemptStream = async (): Promise<void> => {
+      try {
         const res = await fetch("/api/agents/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -231,78 +192,25 @@ export default function AgentChat() {
             messages: [],
             isGreeting: true,
           }),
-          signal: controller.signal,
         });
 
-        if (!res.ok || !res.body) {
-          throw new Error(`Greeting failed: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`Greeting failed: ${res.status}`);
+        const data = await res.json();
+        const greetingText = data.greeting ?? "";
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-
-        setMessages([{ id: assistantId, role: "assistant", content: "" }]);
-
-        const parser = createParser({
-          onEvent(event) {
-            const eventName = event.event as SSEEventName | undefined;
-            if (!eventName) return;
-            const eventData = JSON.parse(event.data);
-
-            if (eventName === "text-delta") {
-              const payload = eventData as SSEEventPayload["text-delta"];
-              pendingContentRef.current += payload.delta;
-              if (!updateScheduledRef.current) {
-                updateScheduledRef.current = true;
-                requestAnimationFrame(() => {
-                  const content = pendingContentRef.current;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId ? { ...m, content } : m,
-                    ),
-                  );
-                  updateScheduledRef.current = false;
-                });
-              }
-            }
+        setMessages([{ id: assistantId, role: "assistant", content: greetingText }]);
+      } catch {
+        // Fallback greeting
+        setMessages([
+          {
+            id: assistantId,
+            role: "assistant",
+            content:
+              "Hey, welcome to LeadSens! 👋\n\nI'm your prospecting copilot. Describe your target, and I'll handle the rest: sourcing, enrichment, email drafting, and pushing everything into Instantly.\n\nTo get started, I need two things:\n\n1. **Your website URL** so I can analyze your offer and personalize every email\n2. **Your Instantly account** - connect it in *Settings > Integrations* with your API V2 key\n\nStart by giving me your website URL, and we'll go step by step.",
           },
-          onRetry() {},
-          onComment() {},
-        });
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          parser.feed(decoder.decode(value, { stream: true }));
-        }
-
-        if (pendingContentRef.current) {
-          const finalContent = pendingContentRef.current;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: finalContent } : m,
-            ),
-          );
-        }
-      };
-
-      try {
-        await attemptStream();
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          // Fallback greeting
-          setMessages([
-            {
-              id: assistantId,
-              role: "assistant",
-              content:
-                "Hey, welcome to LeadSens! 👋\n\nI'm your prospecting copilot. Describe your target, and I'll handle the rest: sourcing, enrichment, email drafting, and pushing everything into Instantly.\n\nTo get started, I need two things:\n\n1. **Your website URL** so I can analyze your offer and personalize every email\n2. **Your Instantly account** - connect it in *Settings > Integrations* with your API V2 key\n\nStart by giving me your website URL, and we'll go step by step.",
-            },
-          ]);
-        }
+        ]);
       } finally {
         setIsStreaming(false);
-        abortRef.current = null;
       }
     },
     [],
@@ -378,7 +286,10 @@ export default function AgentChat() {
 
               case "tool-input-start": {
                 const payload = data as SSEEventPayload["tool-input-start"];
-                const stepLabel = getStepLabel(payload.toolName);
+                // Server sends a status event with the label right before tool-input-start.
+                // Use the current activityLabel (set by the status event) as the step label,
+                // with a formatted fallback if the server label hasn't arrived yet.
+                const stepLabel = activityLabel ?? formatToolName(payload.toolName);
                 if (payload.toolCallId) {
                   toolCallNames.set(payload.toolCallId, payload.toolName);
                 }
@@ -430,13 +341,10 @@ export default function AgentChat() {
                 ) {
                   // Single component
                   if ("__component" in toolOutput) {
-                    const compName = toolOutput.__component as string;
                     const marker = JSON.stringify({
-                      component: compName,
+                      component: toolOutput.__component as string,
                       props: toolOutput.props,
                     });
-                    // Remove previous marker for singleton components (last wins)
-                    pendingContentRef.current = removePreviousMarkers(pendingContentRef.current, compName);
                     pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
                     hasNewComponents = true;
                   }
@@ -444,12 +352,10 @@ export default function AgentChat() {
                   if ("__components" in toolOutput && Array.isArray(toolOutput.__components)) {
                     for (const comp of toolOutput.__components as Array<{ component: string; props: Record<string, unknown> }>) {
                       if (comp?.component && comp?.props) {
-                        const compName = comp.component;
                         const marker = JSON.stringify({
-                          component: compName,
+                          component: comp.component,
                           props: comp.props,
                         });
-                        pendingContentRef.current = removePreviousMarkers(pendingContentRef.current, compName);
                         pendingContentRef.current += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
                         hasNewComponents = true;
                       }
@@ -647,7 +553,7 @@ export default function AgentChat() {
           {/* Header */}
           <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="size-7 rounded-lg overflow-hidden">
+              <div className="size-7 rounded-lg overflow-hidden bg-white">
                 <img src="/L.svg" alt="LeadSens" className="size-7" />
               </div>
               <h1 className="text-sm font-semibold">LeadSens</h1>
@@ -667,8 +573,8 @@ export default function AgentChat() {
               <GreetingLoader />
             ) : showGreetingScreen ? (
               <GreetingScreen
-                greetingContent={messages[0]?.content ?? ""}
                 isStreaming={isStreaming}
+                integrations={integrations}
               />
             ) : (
               <LeadSensThread isStreaming={isStreaming} />

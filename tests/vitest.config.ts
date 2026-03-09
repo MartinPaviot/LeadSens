@@ -7,7 +7,10 @@ export default defineConfig({
     hookTimeout: 30_000,
     maxWorkers: 1,
     fileParallelism: false,
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+  },
+  esbuild: {
+    jsx: "automatic",
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "../src") },

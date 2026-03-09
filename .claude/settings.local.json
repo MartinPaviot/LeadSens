@@ -21,7 +21,8 @@
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
       "Bash(npx vitest:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

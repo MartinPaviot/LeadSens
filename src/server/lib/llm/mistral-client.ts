@@ -1,11 +1,11 @@
-import { Mistral } from "@mistralai/mistralai";
+import { Mistral, HTTPClient } from "@mistralai/mistralai";
 import type {
   Tool,
   ToolCall,
 } from "@mistralai/mistralai/models/components";
 import { z } from "zod/v4";
 import { logAIEvent } from "@/lib/ai-events";
-import { compressToolOutput } from "./context-manager";
+import { compressToolOutput, compressLoopMessages } from "./context-manager";
 import type {
   StreamEvent,
   ChatStreamOptions,
@@ -22,9 +22,36 @@ import type {
 
 let _client: Mistral | null = null;
 
+/**
+ * Ensure Content-Length is set on POST requests.
+ * The Mistral SDK (Speakeasy) can lose the auto-computed header after
+ * internal request.clone() on Node.js 22 + Windows, causing 411 errors
+ * at large payload sizes.
+ */
+async function ensureContentLength(req: Request): Promise<Request | void> {
+  if (req.method !== "POST" || !req.body || req.headers.has("content-length")) {
+    return;
+  }
+  const cloned = req.clone();
+  const bodyText = await cloned.text();
+  const byteLength = Buffer.byteLength(bodyText, "utf-8");
+  const headers = new Headers(req.headers);
+  headers.set("content-length", String(byteLength));
+  return new Request(req.url, {
+    method: req.method,
+    headers,
+    body: bodyText,
+  });
+}
+
 function getClient(): Mistral {
   if (!_client) {
-    _client = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
+    const httpClient = new HTTPClient();
+    httpClient.addHook("beforeRequest", ensureContentLength);
+    _client = new Mistral({
+      apiKey: process.env.MISTRAL_API_KEY!,
+      httpClient,
+    });
   }
   return _client;
 }
@@ -301,6 +328,19 @@ export async function* chatStream(
 
   while (step < maxSteps) {
     step++;
+
+    // Check abort signal between steps
+    if (options.signal?.aborted) {
+      yield { type: "text-delta" as const, delta: "" };
+      yield { type: "finish", usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, totalSteps: step }, finishReason: "stop" };
+      return;
+    }
+
+    // Prevent unbounded message growth across tool-call rounds
+    if (step > 1) {
+      compressLoopMessages(messages);
+    }
+
     const startMs = Date.now();
 
     // Wrap API call in try-catch — phantom recovery can produce message
@@ -502,14 +542,20 @@ export async function* chatStream(
           // Inject tool result as plain messages (avoid tool_calls format
           // which requires matching IDs that Mistral can reject).
           // The assistant "acknowledges" calling the tool, and the result
-          // is injected as a user context message so Mistral continues.
+          // is injected as a user context message with [SYSTEM] prefix
+          // so it's distinguishable from real user messages.
           messages.push({
             role: "assistant",
             content: `I called ${phantom.toolName}.`,
           });
+          const compressed = compressToolOutput(output);
+          // JSON-safe truncation: don't cut mid-value — find last complete line
+          const truncated = compressed.length > 4000
+            ? compressed.slice(0, compressed.lastIndexOf("\n", 4000) || 4000)
+            : compressed;
           messages.push({
             role: "user",
-            content: `[Tool result from ${phantom.toolName}]:\n${compressToolOutput(output).slice(0, 4000)}`,
+            content: `[SYSTEM: Tool result from ${phantom.toolName}]\n${truncated}`,
           });
 
           // Continue the loop — Mistral will see the tool result and
@@ -547,6 +593,12 @@ export async function* chatStream(
 
     // Execute each tool
     for (const toolCall of toolCalls) {
+      // Check abort signal before each tool execution
+      if (options.signal?.aborted) {
+        yield { type: "finish", usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, totalSteps: step }, finishReason: "stop" };
+        return;
+      }
+
       const toolName = toolCall.function.name;
       const toolDef = options.tools?.[toolName];
 
@@ -605,11 +657,16 @@ export async function* chatStream(
         name: toolName,
       });
     }
+
+    // Signal between-round status so the client shows activity
+    // while waiting for the next Mistral API call (TTFT ~5-10s)
+    yield { type: "status" as const, label: "Analyzing results..." };
   }
 
   // Max steps reached — force one final call WITHOUT tools so the LLM
   // generates a text response instead of leaving the user with nothing.
   {
+    compressLoopMessages(messages);
     const finalStream = await client.chat.stream({
       model,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -804,6 +861,7 @@ export async function jsonRaw(options: JsonRawOptions): Promise<unknown> {
 
 const emailResultSchema = z.object({
   subject: z.string(),
+  subjects: z.array(z.string()).optional(),
   body: z.string(),
 });
 

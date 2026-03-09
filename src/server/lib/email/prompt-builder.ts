@@ -1,23 +1,8 @@
 import type { EnrichmentData } from "@/server/lib/enrichment/summarizer";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "@/server/lib/email/campaign-angle";
-
-interface LeadForEmail {
-  firstName?: string | null;
-  lastName?: string | null;
-  jobTitle?: string | null;
-  company?: string | null;
-  industry?: string | null;
-  companySize?: string | null;
-  country?: string | null;
-  enrichmentData?: EnrichmentData | null;
-}
-
-interface DraftedEmailRef {
-  step: number;
-  subject: string;
-  body?: string;
-}
+import type { LeadForEmail, DraftedEmailRef } from "./types";
+import { findBestMatches, findPortfolioMatches } from "./industry-taxonomy";
 
 interface Framework {
   name: string;
@@ -26,74 +11,74 @@ interface Framework {
   maxWords: number;
 }
 
-function getFramework(step: number): Framework {
+export function getFramework(step: number): Framework {
   switch (step) {
     case 0:
       return {
         name: "PAS (Timeline Hook)",
         instructions:
-          "Framework PAS (Problem-Agitate-Solve) avec TIMELINE HOOK. " +
-          "1) OPENER : utilise le signal le plus récent et pertinent comme timeline hook. Format gagnant : \"Depuis [signal], [conséquence pour leur business]...\" " +
-          "2) Une phrase qui amplifie — conséquence concrète de ce problème. " +
-          "3) Présente ta solution en 1 phrase avec timeline proof si disponible. " +
-          "CTA : question ouverte orientée échange (medium commitment). Ex: 'Ça vaudrait un échange de 10 min ?'",
-        objective: "Déclencher la curiosité via un signal concret. Le prospect doit se dire 'il sait ce qui se passe chez nous'.",
+          "PAS (Problem-Agitate-Solve) framework with TIMELINE HOOK. " +
+          "1) OPENER: use the most recent and relevant signal as a timeline hook. Winning format: \"Since [signal], [consequence for their business]...\" " +
+          "2) One sentence that amplifies — concrete consequence of this problem. " +
+          "3) Present your solution in 1 sentence with timeline proof if available. " +
+          "CTA: open-ended question oriented toward exchange (medium commitment). E.g.: 'Worth a 10-min call?'",
+        objective: "Trigger curiosity via a concrete signal. The prospect should think 'they know what's going on at our company'.",
         maxWords: 90,
       };
     case 1:
       return {
         name: "Value-add",
         instructions:
-          "Apporte de la valeur concrète : un insight chiffré, un benchmark secteur, ou un case study avec TIMELINE (ex: 'En 90 jours, [client] a atteint [résultat]'). " +
-          "PAS de 'suite à mon dernier email'. Le prospect doit apprendre quelque chose. " +
-          "Utilise un signal DIFFÉRENT du step 0. Si signal stacking possible (2+ signaux), combine-les. " +
-          "CTA : low commitment (resource, insight). Ex: 'Je t'envoie le benchmark ?'",
-        objective: "Se positionner comme un pair qui apporte de la valeur. Case study + timeline = crédibilité.",
+          "Deliver concrete value: a data-backed insight, an industry benchmark, or a case study with TIMELINE (e.g.: 'In 90 days, [client] achieved [result]'). " +
+          "NO 'following up on my last email'. The prospect must learn something. " +
+          "Use a DIFFERENT signal from step 0. If signal stacking is possible (2+ signals), combine them. " +
+          "CTA: low commitment (resource, insight). E.g.: 'Want me to send the benchmark?'",
+        objective: "Position yourself as a peer who brings value. Case study + timeline = credibility.",
         maxWords: 70,
       };
     case 2:
       return {
         name: "Social Proof",
         instructions:
-          "Case study détaillé dans le MÊME SECTEUR que le prospect. Format narratif : " +
-          "'[Client similaire] avait [même problème]. En [timeline], ils ont atteint [résultat]. " +
-          "Avec [taille/contexte similaire], tu pourrais [projection].' " +
-          "Si pas de case study même secteur, utilise le meilleur case study disponible avec projection. " +
-          "CTA : medium commitment (demo, call).",
-        objective: "Faire projeter le prospect dans le résultat. Narration > listing de features.",
+          "Detailed case study in the SAME INDUSTRY as the prospect. Narrative format: " +
+          "'[Similar client] had [same problem]. In [timeline], they achieved [result]. " +
+          "With [similar size/context], you could [projection].' " +
+          "If no same-industry case study, use the best available case study with projection. " +
+          "CTA: medium commitment (demo, call).",
+        objective: "Make the prospect project themselves into the result. Narrative > feature listing.",
         maxWords: 80,
       };
     case 3:
       return {
         name: "New Angle",
         instructions:
-          "Angle COMPLÈTEMENT différent des steps 0-2. " +
-          "Utilise un signal non exploité précédemment (techStackChanges, publicPriorities, ou un pain point inexploré). " +
-          "Élément de surprise — aborde un problème que le prospect n'a peut-être pas identifié lui-même. " +
-          "CTA : low commitment (question ouverte, partage d'insight).",
-        objective: "Relancer l'attention avec une perspective inattendue. Montrer la profondeur de ta compréhension.",
+          "COMPLETELY different angle from steps 0-2. " +
+          "Use a previously unexploited signal (techStackChanges, publicPriorities, or an unexplored pain point). " +
+          "Element of surprise — address a problem the prospect may not have identified themselves. " +
+          "CTA: low commitment (open question, insight sharing).",
+        objective: "Reignite attention with an unexpected perspective. Show the depth of your understanding.",
         maxWords: 65,
       };
     case 4:
       return {
         name: "Micro-value",
         instructions:
-          "3-4 phrases maximum. UN SEUL insight actionable qui démontre ton expertise du domaine. " +
-          "Peut être : une stat récente du secteur, un tip pratique, une observation sur leur marché. " +
-          "Question ouverte à la fin — pas de pitch, juste de la valeur pure. " +
-          "CTA : low commitment (question ouverte).",
-        objective: "Ultra-court, ultra-ciblé. Le prospect doit se dire 'ce type connaît mon métier'.",
+          "3-4 sentences maximum. ONE SINGLE actionable insight that demonstrates your domain expertise. " +
+          "Can be: a recent industry stat, a practical tip, an observation about their market. " +
+          "Open-ended question at the end — no pitch, just pure value. " +
+          "CTA: low commitment (open question).",
+        objective: "Ultra-short, ultra-targeted. The prospect should think 'this person knows my business'.",
         maxWords: 50,
       };
     case 5:
       return {
         name: "Breakup",
         instructions:
-          "2-3 phrases max. Reconnaître que c'est pas forcément le bon timing. " +
-          "Rappeler LE meilleur résultat de toute la séquence (le case study ou la stat la plus forte). " +
-          "Laisser la porte ouverte sans pression. " +
-          "CTA : low commitment. Ex: 'Si le timing est meilleur plus tard, dis-moi quand.'",
-        objective: "Fermer la boucle proprement. Low-pressure, high-respect. Rappel du meilleur argument.",
+          "2-3 sentences max. Acknowledge this may not be the right timing. " +
+          "Recall THE best result from the entire sequence (the strongest case study or stat). " +
+          "Leave the door open without pressure. " +
+          "CTA: low commitment. E.g.: 'If timing's better later, let me know when.'",
+        objective: "Close the loop cleanly. Low-pressure, high-respect. Recall the best argument.",
         maxWords: 50,
       };
     default:
@@ -119,7 +104,17 @@ function classifyRecency(dateStr: string | null | undefined): "recent" | "older"
   return parsed >= sixMonthsAgo ? "recent" : "older";
 }
 
-function prioritizeSignals(ed: EnrichmentData): PrioritizedSignal[] {
+/** Default signal weights (hardcoded from benchmark data) */
+const DEFAULT_SIGNAL_WEIGHTS: Record<string, number> = {
+  leadership_change: 5,
+  funding: 4,
+  hiring: 3,
+  public_priority: 2.5,
+  tech_stack_change: 2,
+  signal: 1,
+};
+
+export function prioritizeSignals(ed: EnrichmentData, weights?: Record<string, number>): PrioritizedSignal[] {
   const signals: PrioritizedSignal[] = [];
 
   // 1. Leadership changes (14-25% reply rate)
@@ -136,7 +131,7 @@ function prioritizeSignals(ed: EnrichmentData): PrioritizedSignal[] {
   for (const f of ed.fundingSignals ?? []) {
     signals.push({
       type: "funding",
-      label: "Financement",
+      label: "Funding",
       detail: f,
       recency: "unknown",
     });
@@ -146,7 +141,7 @@ function prioritizeSignals(ed: EnrichmentData): PrioritizedSignal[] {
   for (const h of ed.hiringSignals ?? []) {
     signals.push({
       type: "hiring",
-      label: "Recrutement",
+      label: "Hiring",
       detail: h,
       recency: "unknown",
     });
@@ -156,7 +151,7 @@ function prioritizeSignals(ed: EnrichmentData): PrioritizedSignal[] {
   for (const pp of ed.publicPriorities ?? []) {
     signals.push({
       type: "public_priority",
-      label: "Priorité publique",
+      label: "Public priority",
       detail: pp.statement + (pp.date ? ` (${pp.date})` : ""),
       recency: classifyRecency(pp.date),
     });
@@ -166,7 +161,7 @@ function prioritizeSignals(ed: EnrichmentData): PrioritizedSignal[] {
   for (const tc of ed.techStackChanges ?? []) {
     signals.push({
       type: "tech_stack_change",
-      label: "Stack technique",
+      label: "Tech stack",
       detail: tc.change + (tc.date ? ` (${tc.date})` : ""),
       recency: classifyRecency(tc.date),
     });
@@ -182,35 +177,38 @@ function prioritizeSignals(ed: EnrichmentData): PrioritizedSignal[] {
     });
   }
 
-  // Sort: recent first, then by type priority (already ordered by push sequence)
+  // Sort: recent first, then by weight (data-driven if available, else default)
+  const w = weights ?? DEFAULT_SIGNAL_WEIGHTS;
   signals.sort((a, b) => {
     const recencyOrder = { recent: 0, unknown: 1, older: 2 };
-    return recencyOrder[a.recency] - recencyOrder[b.recency];
+    const recencyDiff = recencyOrder[a.recency] - recencyOrder[b.recency];
+    if (recencyDiff !== 0) return recencyDiff;
+    return (w[b.type] ?? 1) - (w[a.type] ?? 1);
   });
 
   return signals;
 }
 
-function buildSignalsSection(ed: EnrichmentData): string {
-  const signals = prioritizeSignals(ed);
+function buildSignalsSection(ed: EnrichmentData, weights?: Record<string, number>): string {
+  const signals = prioritizeSignals(ed, weights);
   if (signals.length === 0) return "";
 
-  const lines = ["## SIGNAUX D'ACHAT (par priorité)"];
+  const lines = ["## BUYING SIGNALS (by priority)"];
   for (let i = 0; i < signals.length && i < 8; i++) {
     const s = signals[i];
-    const recencyTag = s.recency === "recent" ? " ★ RÉCENT" : "";
+    const recencyTag = s.recency === "recent" ? " ★ RECENT" : "";
     lines.push(`${i + 1}. [${s.type}] ${s.detail}${recencyTag}`);
   }
 
   if (signals.filter((s) => s.recency === "recent").length >= 2) {
     lines.push("");
-    lines.push("⚡ SIGNAL STACKING POSSIBLE : 2+ signaux récents disponibles. Combine les 2 meilleurs dans les steps 0-1 pour 25-40% reply rate (vs 8-15% pour 1 signal isolé).");
+    lines.push("⚡ SIGNAL STACKING POSSIBLE: 2+ recent signals available. Combine the 2 best in steps 0-1 for 25-40% reply rate (vs 8-15% for a single signal).");
   }
 
   return lines.join("\n");
 }
 
-// ─── Social Proof Matching ──────────────────────────────
+// ─── Social Proof Matching (taxonomy-aware) ─────────────
 
 function findRelevantProof(
   socialProof: NonNullable<CompanyDna["socialProof"]>,
@@ -218,33 +216,19 @@ function findRelevantProof(
 ): string | null {
   if (!socialProof.length) return null;
 
-  // Try industry match
-  if (leadIndustry) {
-    const needle = leadIndustry.toLowerCase();
-    const match = socialProof.find(
-      (sp) =>
-        sp.industry.toLowerCase().includes(needle) ||
-        needle.includes(sp.industry.toLowerCase()),
-    );
-    if (match) {
-      const clientList = match.clients.slice(0, 3).join(", ");
-      return match.keyMetric
-        ? `Clients ${match.industry} : ${clientList} (${match.keyMetric})`
-        : `Clients ${match.industry} : ${clientList}`;
-    }
-  }
+  const ranked = findBestMatches(socialProof, leadIndustry);
+  const best = ranked[0];
+  if (!best) return null;
 
-  // Fallback: entry with a keyMetric
-  const withMetric = socialProof.find((sp) => sp.keyMetric);
-  if (withMetric) {
-    return `${withMetric.clients.slice(0, 2).join(", ")} (${withMetric.keyMetric})`;
-  }
-
-  // Last resort: first entry
-  return `Clients : ${socialProof[0].clients.slice(0, 3).join(", ")}`;
+  const sp = best.item;
+  const clientList = sp.clients.slice(0, 3).join(", ");
+  const parts: string[] = [`${sp.industry} clients: ${clientList}`];
+  if (sp.keyMetric) parts[0] += ` (${sp.keyMetric})`;
+  if (sp.testimonialQuote) parts.push(`"${sp.testimonialQuote}"`);
+  return parts.join("\n");
 }
 
-// ─── Case Study Matching ────────────────────────────────
+// ─── Case Study Matching (taxonomy-aware) ───────────────
 
 function findRelevantCaseStudy(
   caseStudies: NonNullable<CompanyDna["caseStudies"]>,
@@ -252,20 +236,23 @@ function findRelevantCaseStudy(
 ): string | null {
   if (!caseStudies.length) return null;
 
-  let best = caseStudies[0];
+  const ranked = findBestMatches(caseStudies, leadIndustry);
+  const best = ranked[0].item;
 
-  // Try industry match
-  if (leadIndustry) {
-    const needle = leadIndustry.toLowerCase();
-    const match = caseStudies.find(
-      (cs) =>
-        cs.industry.toLowerCase().includes(needle) ||
-        needle.includes(cs.industry.toLowerCase()),
-    );
-    if (match) best = match;
+  const parts: string[] = [];
+  if (best.beforeState) {
+    parts.push(`Before: ${best.beforeState}`);
   }
-
-  return `En ${best.timeline}, ${best.client} (${best.industry}) a atteint ${best.result}${best.context ? ` — ${best.context}` : ""}`;
+  parts.push(
+    `In ${best.timeline}, ${best.client} (${best.industry}) achieved ${best.result}${best.context ? ` — ${best.context}` : ""}`,
+  );
+  if (best.productUsed) {
+    parts.push(`Using: ${best.productUsed}`);
+  }
+  if (best.quote) {
+    parts.push(`"${best.quote}"`);
+  }
+  return parts.join("\n");
 }
 
 // ─── CTA Selection ──────────────────────────────────────
@@ -293,7 +280,7 @@ function buildWhoYouAre(
 ): string {
   // String-only fallback (no structured DNA)
   if (typeof companyDna === "string") {
-    return `## Qui tu es\n${companyDna}`;
+    return `## Who you are\n${companyDna}`;
   }
 
   const dna = companyDna;
@@ -301,19 +288,19 @@ function buildWhoYouAre(
 
   // Identity
   const oneLiner = campaignAngle?.angleOneLiner ?? dna.oneLiner;
-  parts.push(`## QUI TU ES\n${oneLiner}`);
+  parts.push(`## WHO YOU ARE\n${oneLiner}`);
 
   // Problem
   const problem = campaignAngle?.mainProblem ?? dna.problemsSolved[0];
   if (problem) {
-    parts.push(`Problème que tu résous : ${problem}`);
+    parts.push(`Problem you solve: ${problem}`);
   }
 
   // Social proof (industry-matched)
   const proof = findRelevantProof(dna.socialProof ?? [], leadIndustry);
   const angleProof = campaignAngle?.proofPoint;
   if (proof || angleProof) {
-    const lines = ["## PREUVES SOCIALES"];
+    const lines = ["## SOCIAL PROOF"];
     if (proof) lines.push(`- ${proof}`);
     if (angleProof && angleProof !== proof) lines.push(`- ${angleProof}`);
     if (dna.keyResults.length > 0) {
@@ -321,18 +308,28 @@ function buildWhoYouAre(
     }
     parts.push(lines.join("\n"));
   } else if (dna.keyResults.length > 0) {
-    parts.push(`## PREUVES\n${dna.keyResults.slice(0, 3).map((r) => `- ${r}`).join("\n")}`);
+    parts.push(`## PROOF\n${dna.keyResults.slice(0, 3).map((r) => `- ${r}`).join("\n")}`);
   }
 
   // Case studies (industry-matched, timeline format)
   const caseStudy = findRelevantCaseStudy(dna.caseStudies ?? [], leadIndustry);
   if (caseStudy) {
-    parts.push(`## CASE STUDY (format timeline)\n${caseStudy}`);
+    parts.push(`## CASE STUDY (timeline format)\n${caseStudy}`);
+  }
+
+  // Similar clients from portfolio (industry-matched)
+  if (dna.clientPortfolio?.length && leadIndustry) {
+    const similarClients = findPortfolioMatches(dna.clientPortfolio, leadIndustry);
+    if (similarClients.length > 0) {
+      parts.push(
+        `## SIMILAR CLIENTS IN THEIR INDUSTRY\nCompanies in ${leadIndustry}: ${similarClients.slice(0, 5).join(", ")}\n→ Drop these names naturally in the email for maximum resonance.`,
+      );
+    }
   }
 
   // Timeline proof & signal hooks from campaign angle
   if (campaignAngle?.timelineProof) {
-    parts.push(`Timeline proof : ${campaignAngle.timelineProof}`);
+    parts.push(`Timeline proof: ${campaignAngle.timelineProof}`);
   }
   if (campaignAngle?.signalHooks?.length) {
     parts.push(`## SIGNAL HOOKS\n${campaignAngle.signalHooks.map((h) => `- ${h}`).join("\n")}`);
@@ -340,36 +337,36 @@ function buildWhoYouAre(
 
   // Differentiators
   if (dna.differentiators.length > 0) {
-    parts.push(`Ce qui te différencie : ${dna.differentiators.join(", ")}`);
+    parts.push(`What sets you apart: ${dna.differentiators.join(", ")}`);
   }
 
   // CTA
   const cta = selectCta(dna.ctas ?? [], step);
   if (cta) {
-    parts.push(`## CTA À UTILISER\n${cta}`);
+    parts.push(`## CTA TO USE\n${cta}`);
   }
 
   // Tone
   const tone = dna.toneOfVoice;
   if (tone) {
-    const toneParts: string[] = [`Registre : ${tone.register}`];
-    if (tone.traits.length > 0) toneParts.push(`Traits : ${tone.traits.join(", ")}`);
+    const toneParts: string[] = [`Register: ${tone.register}`];
+    if (tone.traits.length > 0) toneParts.push(`Traits: ${tone.traits.join(", ")}`);
     const avoidWords = [
       ...(tone.avoidWords ?? []),
       ...(campaignAngle?.avoid ? [campaignAngle.avoid] : []),
     ];
-    if (avoidWords.length > 0) toneParts.push(`À éviter : ${avoidWords.join(", ")}`);
-    parts.push(`## TON\n${toneParts.join("\n")}`);
+    if (avoidWords.length > 0) toneParts.push(`Avoid: ${avoidWords.join(", ")}`);
+    parts.push(`## TONE\n${toneParts.join("\n")}`);
   } else if (campaignAngle?.tone) {
-    parts.push(`## TON\n${campaignAngle.tone}`);
+    parts.push(`## TONE\n${campaignAngle.tone}`);
   }
 
   // Sender identity
   const sender = dna.senderIdentity;
   if (sender && (sender.name || sender.role)) {
-    let senderLine = `## EXPÉDITEUR\n${sender.name}${sender.role ? `, ${sender.role}` : ""}`;
+    let senderLine = `## SENDER\n${sender.name}${sender.role ? `, ${sender.role}` : ""}`;
     if (step === 0 && sender.signatureHook) {
-      senderLine += `\nSignature hook : ${sender.signatureHook}`;
+      senderLine += `\nSignature hook: ${sender.signatureHook}`;
     }
     parts.push(senderLine);
   }
@@ -382,7 +379,7 @@ function buildWhoYouAre(
 function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
   if (!previousEmails.length) return "";
 
-  const lines = ["## Emails précédents (NE PAS répéter, PROGRESSE la conversation)"];
+  const lines = ["## Previous emails (DO NOT repeat, ADVANCE the conversation)"];
   for (const email of previousEmails) {
     lines.push(`### Step ${email.step} — "${email.subject}"`);
     if (email.body) {
@@ -391,6 +388,56 @@ function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
     }
   }
   return lines.join("\n");
+}
+
+// ─── Style + Performance Section Builders ────────────────
+
+function buildStyleSection(
+  styleSamples?: string[],
+  winningPatterns?: WinningPattern[],
+): string {
+  const parts: string[] = ["## Style guide"];
+
+  if (styleSamples?.length) {
+    parts.push("### From user corrections:");
+    parts.push(...styleSamples);
+  }
+
+  if (winningPatterns?.length) {
+    parts.push("");
+    parts.push("### From winning emails (emails that got replies):");
+    for (const p of winningPatterns) {
+      parts.push(`- ${p.summary} (${p.replyRate.toFixed(1)}% reply rate)`);
+    }
+  }
+
+  return parts.join("\n");
+}
+
+function buildStepAnnotation(
+  annotation: StepPerformanceAnnotation,
+  step: number,
+): string {
+  if (annotation.sampleSize < 50) return ""; // Only annotate with high confidence
+  const comparison = annotation.isTop
+    ? "This is your best-performing step."
+    : "This step underperforms compared to others.";
+  return `\n## PERFORMANCE DATA (Step ${step}: ${annotation.stepName})
+Your ${annotation.stepName} emails average ${annotation.replyRate.toFixed(1)}% reply rate (${annotation.sampleSize} emails). ${comparison}\n`;
+}
+
+/** Performance annotations injected when we have data */
+export interface StepPerformanceAnnotation {
+  stepName: string;
+  replyRate: number;
+  sampleSize: number;
+  isTop: boolean;
+}
+
+/** Winning email patterns from past campaigns */
+export interface WinningPattern {
+  summary: string; // e.g. "Used leadership_change signal, 62 words, question CTA"
+  replyRate: number;
 }
 
 /**
@@ -404,76 +451,136 @@ export function buildEmailPrompt(params: {
   campaignAngle?: CampaignAngle;
   previousEmails?: DraftedEmailRef[];
   styleSamples?: string[];
+  icpDescription?: string;
+  /** Data-driven signal weights (from correlator) */
+  signalWeights?: Record<string, number>;
+  /** Performance annotation for this step */
+  stepAnnotation?: StepPerformanceAnnotation;
+  /** Winning email patterns from past campaigns */
+  winningPatterns?: WinningPattern[];
 }): string {
   const fw = getFramework(params.step);
   const ed = params.lead.enrichmentData;
 
-  // Build prioritized signals section
-  const signalsSection = ed ? buildSignalsSection(ed) : "";
+  // Build prioritized signals section (data-driven weights if available)
+  const signalsSection = ed ? buildSignalsSection(ed, params.signalWeights) : "";
+
+  // Vertical mismatch detection
+  let verticalWarning = "";
+  if (params.icpDescription && ed?.industry) {
+    const icpLower = params.icpDescription.toLowerCase();
+    const leadIndustry = (ed.industry as string).toLowerCase();
+    const icpIndustryTerms = icpLower.match(/\b(saas|fintech|healthcare|edtech|martech|e-commerce|ecommerce|retail|manufacturing|logistics|real estate|insurance|legal|hr|cybersecurity|ai|ml|data|analytics|cloud|devops|iot|blockchain|crypto)\b/g) ?? [];
+    const mismatch = icpIndustryTerms.length > 0 && !icpIndustryTerms.some((term) => leadIndustry.includes(term));
+    if (mismatch) {
+      verticalWarning = `\n## VERTICAL ADAPTATION REQUIRED
+The ICP targets "${icpIndustryTerms.join("/")}" but this prospect is in "${ed.industry}".
+ADAPT your angle to their actual vertical. Use their specific pain points and products — do NOT apply a generic ${icpIndustryTerms[0] ?? "SaaS"} playbook.
+Frame the sender's solution in terms that resonate with ${ed.industry} buyers.\n`;
+    }
+  }
+
+  // Enrichment enforcement block
+  const hasEnrichment = !!(ed?.companySummary || ed?.painPoints?.length || ed?.products?.length);
+  const hasPainPoints = (ed?.painPoints?.length ?? 0) > 0;
+  const hasProducts = (ed?.products?.length ?? 0) > 0;
+  const hasSignals = signalsSection.length > 0;
+
+  let enforcementBlock = "";
+  if (hasEnrichment) {
+    const requirements: string[] = [];
+    if (hasPainPoints) requirements.push("at least 1 pain point from the prospect's data above");
+    if (hasProducts) requirements.push("a reference to their product/service (not yours)");
+    if (hasSignals) requirements.push("at least 1 buying signal from the BUYING SIGNALS section");
+
+    enforcementBlock = `## ENRICHMENT DATA USAGE (MANDATORY)
+Rich prospect data is available above. You MUST use:
+${requirements.map((r) => `- ${r}`).join("\n")}
+Do NOT write a generic email that could apply to any company. Every sentence must show you know THIS prospect's business.
+${ed?.industry ? `If the prospect's industry (${ed.industry}) differs from typical targets, ADAPT the angle to their vertical — do not force a mismatched playbook.` : ""}
+`;
+  } else {
+    enforcementBlock = `## LIMITED PROSPECT DATA
+No detailed enrichment data available for this prospect. Use the basic profile (role, company, industry) and ICP context to write a relevant but less personalized email. Acknowledge internally that personalization is limited — keep the email shorter and more question-oriented.
+`;
+  }
 
   return `
 ${buildWhoYouAre(params.companyDna, params.step, params.lead.industry, params.campaignAngle)}
 
-## Le prospect
-- Prénom: ${params.lead.firstName ?? ""}
-- Poste: ${params.lead.jobTitle ?? "unknown"}
-- Entreprise: ${params.lead.company ?? "unknown"}
-${params.lead.industry ? `- Industrie: ${params.lead.industry}` : ""}
-${params.lead.companySize ? `- Taille entreprise: ${params.lead.companySize}` : ""}
-${params.lead.country ? `- Localisation: ${params.lead.country}` : ""}
-${ed?.companySummary ? `- Activité: ${ed.companySummary}` : ""}
+## The prospect
+- First name: ${params.lead.firstName ?? ""}
+- Role: ${params.lead.jobTitle ?? "unknown"}
+- Company: ${params.lead.company ?? "unknown"}
+${params.lead.industry ? `- Industry: ${params.lead.industry}` : ""}
+${params.lead.companySize ? `- Company size: ${params.lead.companySize}` : ""}
+${params.lead.country ? `- Location: ${params.lead.country}` : ""}
+${ed?.companySummary ? `- Business: ${ed.companySummary}` : ""}
 ${ed?.painPoints?.length ? `- Pain points: ${ed.painPoints.join(", ")}` : ""}
-${ed?.products?.length ? `- Produits/Services: ${ed.products.join(", ")}` : ""}
-${ed?.targetMarket ? `- Marché cible: ${ed.targetMarket}` : ""}
-${ed?.valueProposition ? `- Proposition de valeur: ${ed.valueProposition}` : ""}
-${ed?.techStack?.length ? `- Stack technique: ${ed.techStack.join(", ")}` : ""}
-${ed?.industry ? `- Industrie (enrichie): ${ed.industry}` : ""}
-${ed?.linkedinHeadline ? `- Headline LinkedIn: ${ed.linkedinHeadline}` : ""}
-${ed?.recentLinkedInPosts?.length ? `- Posts LinkedIn récents: ${ed.recentLinkedInPosts.join(" | ")}` : ""}
-${ed?.careerHistory?.length ? `- Parcours: ${ed.careerHistory.join(" → ")}` : ""}
-
+${ed?.products?.length ? `- Products/Services: ${ed.products.join(", ")}` : ""}
+${ed?.targetMarket ? `- Target market: ${ed.targetMarket}` : ""}
+${ed?.valueProposition ? `- Value proposition: ${ed.valueProposition}` : ""}
+${ed?.techStack?.length ? `- Tech stack: ${ed.techStack.join(", ")}` : ""}
+${ed?.industry ? `- Industry (enriched): ${ed.industry}` : ""}
+${ed?.linkedinHeadline ? `- LinkedIn headline: ${ed.linkedinHeadline}` : ""}
+${ed?.recentLinkedInPosts?.length ? `- Recent LinkedIn posts: ${ed.recentLinkedInPosts.join(" | ")}` : ""}
+${ed?.careerHistory?.length ? `- Career path: ${ed.careerHistory.join(" → ")}` : ""}
+${verticalWarning}
 ${signalsSection}
 
-## INSTRUCTION CRITIQUE — Connection Bridge
-Ne LISTE PAS les pain points du prospect séparément.
-Choisis LE SEUL pain point qui résonne le plus avec ta solution (section "QUI TU ES").
-Construis TOUT l'email autour de ce pont unique :
-  1. Signal ou problème spécifique du prospect
-  2. → Capacité spécifique de ta solution qui résout CE problème
-  3. → Preuve avec TIMELINE (cas client, chiffre, durée) qui démontre le résultat
-Si aucun pain point ne matche → utilise le signal d'achat le plus récent.
+## CRITICAL INSTRUCTION — Connection Bridge
+Do NOT LIST the prospect's pain points separately.
+Choose THE SINGLE pain point that resonates most with your solution (section "WHO YOU ARE").
+Build the ENTIRE email around this unique bridge:
+  1. Specific signal or problem from the prospect
+  2. → Specific capability of your solution that solves THIS problem
+  3. → Proof with TIMELINE (client case, metric, duration) that demonstrates the result
+If no pain point matches → use the most recent buying signal.
 
 ## Framework — Step ${params.step}: ${fw.name}
 ${fw.instructions}
 
-## Objectif
+## Objective
 ${fw.objective}
 
 ${params.previousEmails?.length ? buildPreviousEmailsSection(params.previousEmails) : ""}
-${params.styleSamples?.length ? `## Style guide\n${params.styleSamples.join("\n")}` : ""}
+${params.styleSamples?.length || params.winningPatterns?.length ? buildStyleSection(params.styleSamples, params.winningPatterns) : ""}
+${params.stepAnnotation ? buildStepAnnotation(params.stepAnnotation, params.step) : ""}
 
-${params.step === 0 ? `## TIMELINE HOOK (step 0 uniquement)
-Format gagnant : "Depuis [signal], [conséquence pour leur business]..."
-C'est 2.3x plus efficace que les problem hooks ou les questions rhétoriques.
+${params.step === 0 ? `## TIMELINE HOOK (step 0 only)
+Winning format: "Since [signal], [consequence for their business]..."
+This is 2.3x more effective than problem hooks or rhetorical questions.
 
-Priorité d'opener :
-1. Signal récent (★ RÉCENT dans la liste) → Timeline hook obligatoire
-2. Actu/news récente → Référence directe avec conséquence
-3. Changement de poste LinkedIn → Référence au nouveau rôle
-4. Si aucun signal → Observation sectorielle data-driven
+Opener priority:
+1. Recent signal (★ RECENT in the list) → Timeline hook mandatory
+2. Recent news/event → Direct reference with consequence
+3. LinkedIn job change → Reference to new role
+4. If no signal → Data-driven industry observation
 
-ÉVITER : problem hooks ("Vous avez du mal à..."), questions rhétoriques, flatterie, "Je me permets de..."
+AVOID: problem hooks ("Are you struggling with..."), rhetorical questions, flattery, "I'd love to..."
 ` : ""}${params.step <= 1 && signalsSection.includes("SIGNAL STACKING") ? `## SIGNAL STACKING (steps 0-1)
-Combine les 2 meilleurs signaux dans ton message. Le signal stacking (2-3 signaux combinés) génère 25-40% de reply rate vs 8-15% pour 1 signal isolé.
-Format : "[Signal 1] + [Signal 2] → [conséquence combinée] → [ta solution]"
-` : ""}## Contraintes
-- Max ${fw.maxWords} mots pour le body. Chaque mot doit mériter sa place.
-- Objet : 2-4 mots, minuscule, pas de majuscule forcée, pas de ponctuation.
-- 1 seul CTA orienté meeting/échange/appel. Jamais de "let me know" passif.
-- 1 élément spécifique au prospect minimum (signal, actu, pain point).
-- Langue : français si prospect FR, sinon anglais.
-- Commence par le prénom, sans formule de politesse.
-- FORMATAGE : utilise \\n pour les sauts de ligne dans le body JSON. Chaque bullet point sur sa propre ligne. Paragraphes séparés par \\n\\n.
+Combine the 2 best signals in your message. Signal stacking (2-3 combined signals) generates 25-40% reply rate vs 8-15% for a single signal.
+Format: "[Signal 1] + [Signal 2] → [combined consequence] → [your solution]"
+` : ""}${enforcementBlock}
+## SUBJECT LINE PATTERNS (pick the best fit for this step)
+| Pattern | Best for | Examples |
+|---------|----------|---------|
+| **Question** | Step 0, 4 — sparks curiosity | "quick question, {{firstName}}" · "thoughts on {{painPoint}}?" · "{{company}}'s approach to {{topic}}?" |
+| **Observation** | Step 0, 1 — shows research | "noticed your {{signal}}" · "saw {{company}} is {{action}}" · "your {{recentMove}}" |
+| **Curiosity gap** | Step 1, 3 — teases insight | "idea for {{painPoint}}" · "{{industry}} trend you'll want to see" · "what {{similarCompany}} changed" |
+| **Direct** | Step 2, 5 — cuts to the point | "{{solution}} for {{company}}" · "{{result}} in {{timeline}}" · "{{company}} + {{senderCompany}}" |
+| **Personalized** | Any step with strong signal | "re: {{specific_trigger}}" · "congrats on {{achievement}}" · "following {{event}}" |
+
+Each variant in "subjects" MUST use a DIFFERENT pattern from this table. Never repeat the same pattern across variants.
+
+## Constraints
+- Max ${fw.maxWords} words for the body. Every word must earn its place.
+- Subject: 2-4 words, lowercase, no forced caps, no punctuation.
+- 1 single CTA oriented toward meeting/exchange/call. Never a passive "let me know".
+- At least 1 prospect-specific element (signal, news, pain point).
+- Language: English by default. Write in the prospect's language only if their country is non-English-speaking.
+- Start with first name, no greeting formula.
+- FORMATTING: use \\n for line breaks in the body JSON. Each bullet point on its own line. Paragraphs separated by \\n\\n.
 
 JSON uniquement : {"subject": "...", "body": "..."}`.trim();
 }

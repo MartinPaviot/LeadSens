@@ -14,7 +14,7 @@ export function LeadSensThread({ isStreaming }: { isStreaming: boolean }) {
       <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto scrollbar-thin relative flex flex-col bg-leadsens-mesh">
 
         {/* Content column */}
-        <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 py-6 flex-1 space-y-5">
+        <div className="max-w-[816px] mx-auto w-full px-4 md:pl-0 md:pr-12 py-6 flex-1 space-y-5">
           <ThreadPrimitive.Messages
             components={{
               AssistantMessage,

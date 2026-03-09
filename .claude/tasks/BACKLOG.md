@@ -28,22 +28,15 @@
 ### Bugs critiques (STRATEGY §6.2)
 
 - [x] **T1-FIX-01** Fix `industry: null` dans instantly_source_leads ✅ *Audit 2026-03-09: instantly-tools.ts:289-292 — extrait industries depuis filtres ICP, fallback enrichment data*
-- [ ] **T1-FIX-02** Pagination listLeads ⚠️ *Non vérifié dans cet audit — à vérifier*
+- [x] **T1-FIX-02** Pagination listLeads ✅ *2026-03-09: Verified — all 4 callers already use cursor-based do/while pagination loops. No code change needed.*
 
 ---
 
 ## Tier 2 — Impact significatif (objectif : 14% → 17%)
 
-### Subject Lines (STRATEGY §7.2.1 — ~~actuel 2/10~~ **actuel 5/10**, cible 6/10) ⚠️ ÉCART -1
+### Subject Lines (STRATEGY §7.2.1 — ~~actuel 2/10~~ **actuel 6/10**, cible 6/10) ✅ CIBLE ATTEINTE
 
-- [ ] **T2-SUBJ-01** Librairie de 5 patterns subject line ⚠️ *Audit 2026-03-09: PAS de librairie formelle. Enforcement implicite via banned phrases + quality gate, mais pas d'enum explicite (question, observation, curiosité, direct, personnalisé)*
-  **Fichiers:** `src/server/lib/email/prompt-builder.ts`
-  **Réf:** STRATEGY §7.2.1
-  **PASS IF:**
-  - 5 patterns hardcodés dans le prompt : question, observation, curiosité, direct, personnalisé
-  - Chaque pattern a 2-3 exemples
-  - Snapshot test du prompt
-  - `pnpm typecheck && pnpm test` passent
+- [x] **T2-SUBJ-01** Librairie de 5 patterns subject line ✅ *2026-03-09: 5 patterns (Question/Observation/Curiosity gap/Direct/Personalized), 3 exemples chacun, step mapping, snapshot test (25 tests)*
 
 - [x] **T2-SUBJ-02** Générer 2-3 variantes par step ✅ *Audit 2026-03-09: 3 variantes/step, drafting.ts:108-114*
 - [x] **T2-SUBJ-03** Utiliser `variants[]` natif Instantly ✅ *Audit 2026-03-09: instantly.ts:919-930 maps to native variants[]*

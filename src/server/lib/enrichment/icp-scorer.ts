@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
+import type { EnrichmentData } from "./summarizer";
 
 // ─── Schema ──────────────────────────────────────────────
 
@@ -15,6 +16,15 @@ const icpScoreSchema = z.object({
 });
 
 export type IcpScore = z.infer<typeof icpScoreSchema>;
+
+/** Combined score breakdown including intent + timing dimensions */
+export interface CombinedScoreBreakdown {
+  fitScore: number; // Original ICP fit (1-10)
+  intentScore: number; // Intent signals: hiring, tech changes, engagement (1-10)
+  timingScore: number; // Timing signals: funding, leadership, news (1-10)
+  combinedScore: number; // Weighted: fit 40% + intent 35% + timing 25%
+  signals: string[]; // Which signals contributed
+}
 
 interface LeadForScoring {
   firstName?: string | null;
@@ -126,4 +136,105 @@ JSON: {"score": N, "breakdown": {"jobTitleFit": N, "companyFit": N, "industryRel
     workspaceId,
     action: "icp-scoring",
   });
+}
+
+// ─── Post-enrichment Signal Boost (deterministic, 0 LLM) ─
+
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+/**
+ * Computes intent + timing scores from enrichment data.
+ * Called after enrichment to upgrade the pre-enrichment fit-only score
+ * into a multi-dimensional combined score.
+ *
+ * Weights (STRATEGY §7.3.3):
+ *   Fit 40% (from pre-enrichment LLM scoring)
+ *   Intent 35% (hiring, tech changes, LinkedIn engagement)
+ *   Timing 25% (funding, leadership change, public priorities)
+ *
+ * Baseline = 3 (no signals). Each signal type adds points, capped at 10.
+ */
+export function computeSignalBoost(
+  fitScore: number,
+  ed: EnrichmentData | null | undefined,
+): CombinedScoreBreakdown {
+  if (!ed) {
+    return {
+      fitScore,
+      intentScore: 5, // neutral when no data
+      timingScore: 5,
+      combinedScore: fitScore,
+      signals: [],
+    };
+  }
+
+  const signals: string[] = [];
+  let intent = 3;
+  let timing = 3;
+
+  // ── Intent signals (hiring, tech changes, engagement) ──
+
+  const hiringCount = ed.hiringSignals?.length ?? 0;
+  if (hiringCount > 0) {
+    intent += clamp(hiringCount * 2, 1, 4); // 1 signal → +2, 2+ → +4 cap
+    signals.push(`hiring×${hiringCount}`);
+  }
+
+  const techChanges = ed.techStackChanges?.length ?? 0;
+  if (techChanges > 0) {
+    intent += clamp(techChanges * 2, 1, 3);
+    signals.push(`tech_change×${techChanges}`);
+  }
+
+  // LinkedIn activity = engagement proxy
+  if ((ed.recentLinkedInPosts?.length ?? 0) > 0) {
+    intent += 1;
+    signals.push("linkedin_active");
+  }
+
+  // Product launches = potential buying window
+  const launches = ed.productLaunches?.length ?? 0;
+  if (launches > 0) {
+    intent += clamp(launches, 1, 2);
+    signals.push(`product_launch×${launches}`);
+  }
+
+  // ── Timing signals (funding, leadership, priorities) ──
+
+  const fundingCount = ed.fundingSignals?.length ?? 0;
+  if (fundingCount > 0) {
+    timing += clamp(fundingCount * 3, 2, 5); // funding is strongest timing signal
+    signals.push(`funding×${fundingCount}`);
+  }
+
+  const leadershipCount = ed.leadershipChanges?.length ?? 0;
+  if (leadershipCount > 0) {
+    timing += clamp(leadershipCount * 2, 2, 4);
+    signals.push(`leadership×${leadershipCount}`);
+  }
+
+  const priorityCount = ed.publicPriorities?.length ?? 0;
+  if (priorityCount > 0) {
+    timing += clamp(priorityCount, 1, 2);
+    signals.push(`priority×${priorityCount}`);
+  }
+
+  // Recent news = freshness indicator
+  const newsCount = ed.recentNews?.length ?? 0;
+  if (newsCount > 0) {
+    timing += clamp(newsCount, 1, 2);
+    signals.push(`news×${newsCount}`);
+  }
+
+  const intentScore = clamp(intent, 1, 10);
+  const timingScore = clamp(timing, 1, 10);
+  const combinedScore = Math.round(fitScore * 0.4 + intentScore * 0.35 + timingScore * 0.25);
+
+  return {
+    fitScore,
+    intentScore,
+    timingScore,
+    combinedScore: clamp(combinedScore, 1, 10),
+    signals,
+  };
 }

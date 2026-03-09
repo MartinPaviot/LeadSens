@@ -432,14 +432,22 @@ describe("buildFilterSummary", () => {
     expect(summary).toContain("Software & Internet");
   });
 
-  it("summarizes employee count", () => {
+  it("shows exact Instantly buckets for employee count", () => {
     const summary = buildFilterSummary({
       job_titles: ["VP Sales"],
       employee_count: ["25 - 100", "100 - 250"],
       skip_owned_leads: true,
     } as any);
     expect(summary).toContain("VP Sales");
-    expect(summary).toContain("25 - 100");
+    expect(summary).toContain("Taille : 25 - 100, 100 - 250");
+  });
+
+  it("shows exact Instantly buckets for revenue", () => {
+    const summary = buildFilterSummary({
+      revenue: ["$1M - 10M", "$10M - 50M", "$50M - 100M"],
+      skip_owned_leads: true,
+    } as any);
+    expect(summary).toContain("CA : $1M - 10M, $10M - 50M, $50M - 100M");
   });
 
   it("summarizes locations", () => {

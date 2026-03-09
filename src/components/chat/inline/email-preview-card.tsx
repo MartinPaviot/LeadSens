@@ -15,7 +15,7 @@ interface EmailPreviewCardProps {
   leadCompany?: string;
 }
 
-const STEP_LABELS = ["PAS", "Value-add", "Breakup"];
+const STEP_LABELS = ["PAS", "Value-add", "Social Proof", "New Angle", "Micro-value", "Breakup"];
 
 /** Splits plain-text body into paragraphs (on \n\n) with inner <br/> for single \n. */
 function renderBody(text: string) {

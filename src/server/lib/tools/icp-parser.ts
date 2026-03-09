@@ -2278,6 +2278,9 @@ export interface ParseICPResult {
   /** Warnings about filter issues (e.g. stripped locations, unresolved geo).
    *  When present, the agent MUST inform the user before proceeding. */
   parseWarnings?: string[];
+  /** Explains where Instantly's bucket granularity doesn't match the user's exact request.
+   *  The agent MUST relay these to the user so they understand the approximation. */
+  approximations?: string[];
   /** When set, the description is too vague to produce reliable filters.
    *  The agent MUST relay this message to the user and NOT proceed with sourcing. */
   clarificationNeeded?: string;
@@ -2914,8 +2917,60 @@ function getSynonyms(title: string): string[] {
 
 // ── Assemble raw intent → Instantly filters ──
 
-function mapRawIntentToFilters(raw: RawIntent): InstantlySearchFilters {
+interface MappingResult {
+  filters: InstantlySearchFilters;
+  approximations: string[];
+}
+
+/**
+ * Detect when bucket ranges don't exactly match the user's request.
+ * Returns human-readable explanations for each approximation.
+ */
+function detectBucketApproximations(
+  requestedMin: number | undefined,
+  requestedMax: number | undefined,
+  selectedBuckets: { label: string; min: number; max: number }[],
+  fieldLabel: string,
+  formatNum: (n: number) => string,
+): string[] {
+  if (!selectedBuckets.length) return [];
+  const results: string[] = [];
+
+  const firstBucket = selectedBuckets[0];
+  const lastBucket = selectedBuckets[selectedBuckets.length - 1];
+
+  // Check if the first selected bucket starts below the requested min
+  if (requestedMin !== undefined && firstBucket.min < requestedMin) {
+    results.push(
+      `Tu as demandé ${fieldLabel} > ${formatNum(requestedMin)}, mais Instantly filtre par tranches. ` +
+      `La tranche la plus proche est "${firstBucket.label}" qui inclut aussi des valeurs en dessous de ${formatNum(requestedMin)}.`,
+    );
+  }
+
+  // Check if the last selected bucket extends above the requested max
+  if (requestedMax !== undefined && lastBucket.max > requestedMax && lastBucket.max !== Infinity) {
+    results.push(
+      `Tu as demandé ${fieldLabel} < ${formatNum(requestedMax)}, mais Instantly filtre par tranches. ` +
+      `La tranche la plus proche est "${lastBucket.label}" qui inclut aussi des valeurs au-dessus de ${formatNum(requestedMax)}.`,
+    );
+  }
+
+  return results;
+}
+
+function formatMillions(n: number): string {
+  if (n >= 1000) return `$${(n / 1000).toFixed(0)}B`;
+  return `$${n}M`;
+}
+
+function formatEmployees(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`;
+  return String(n);
+}
+
+function mapRawIntentToFilters(raw: RawIntent): MappingResult {
   const filters: Record<string, unknown> = {};
+  const approximations: string[] = [];
 
   // Roles → job_titles + department
   if (raw.roles?.length) {
@@ -2952,13 +3007,31 @@ function mapRawIntentToFilters(raw: RawIntent): InstantlySearchFilters {
   // Employee count
   if (raw.employee_range) {
     const emp = mapEmployeeRange(raw.employee_range.min, raw.employee_range.max, raw.employee_range.label);
-    if (emp) filters.employee_count = emp;
+    if (emp) {
+      filters.employee_count = emp;
+      // Detect approximation
+      const min = raw.employee_range.min;
+      const max = raw.employee_range.max;
+      if (min !== undefined || max !== undefined) {
+        const matched = emp.map(l => EMPLOYEE_BUCKETS.find(b => b.label === l)).filter(Boolean) as typeof EMPLOYEE_BUCKETS;
+        approximations.push(...detectBucketApproximations(min, max, matched, "taille d'entreprise", formatEmployees));
+      }
+    }
   }
 
   // Revenue
   if (raw.revenue_range) {
     const rev = mapRevenue(raw.revenue_range.min_millions, raw.revenue_range.max_millions);
-    if (rev) filters.revenue = rev;
+    if (rev) {
+      filters.revenue = rev;
+      // Detect approximation
+      const min = raw.revenue_range.min_millions;
+      const max = raw.revenue_range.max_millions;
+      if (min !== undefined || max !== undefined) {
+        const matched = rev.map(l => REVENUE_BUCKETS.find(b => b.label === l)).filter(Boolean) as typeof REVENUE_BUCKETS;
+        approximations.push(...detectBucketApproximations(min, max, matched, "chiffre d'affaires", formatMillions));
+      }
+    }
   }
 
   // Locations
@@ -2997,7 +3070,7 @@ function mapRawIntentToFilters(raw: RawIntent): InstantlySearchFilters {
   filters.skip_owned_leads = true;
   filters.show_one_lead_per_company = true;
 
-  return filters as InstantlySearchFilters;
+  return { filters: filters as InstantlySearchFilters, approximations };
 }
 
 // ── Filter summary for UX confirmation ──
@@ -3132,7 +3205,7 @@ export async function parseICPv2(
   }
 
   // 2. Deterministic mapping: raw intent → Instantly filters
-  const mapped = mapRawIntentToFilters(rawIntent);
+  const { filters: mapped, approximations } = mapRawIntentToFilters(rawIntent);
   console.log("[parseICPv2] After mapping:", JSON.stringify(mapped).slice(0, 1000));
 
   // 3. Apply the same safety nets from v1
@@ -3207,9 +3280,15 @@ export async function parseICPv2(
       filters: finalFilters,
       inferredIndustries,
       parseWarnings,
+      approximations: approximations.length > 0 ? approximations : undefined,
       clarificationNeeded: insufficientFilters,
     };
   }
 
-  return { filters: finalFilters, inferredIndustries, parseWarnings };
+  return {
+    filters: finalFilters,
+    inferredIndustries,
+    parseWarnings,
+    approximations: approximations.length > 0 ? approximations : undefined,
+  };
 }

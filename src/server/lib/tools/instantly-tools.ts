@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getInstantlyClient, normalizePreviewLead, normalizeStoredLead } from "@/server/lib/connectors/instantly";
 import { parseICPv2, buildFilterSummary } from "./icp-parser";
 import type { ToolDefinition, ToolContext } from "./types";
+import { transitionLeadStatus } from "@/server/lib/lead-status";
 
 // Lightweight schema for tool parameters — Mistral only needs to know
 // "pass the search_filters object from parse_icp". The full searchFiltersSchema
@@ -23,7 +24,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         description: z.string().describe("The user's ICP description in natural language"),
       }),
       async execute(args) {
-        const { filters, inferredIndustries, parseWarnings, clarificationNeeded } = await parseICPv2(args.description, ctx.workspaceId);
+        const { filters, inferredIndustries, parseWarnings, approximations, clarificationNeeded } = await parseICPv2(args.description, ctx.workspaceId);
 
         // Description too vague — ask the user to clarify before proceeding
         if (clarificationNeeded) {
@@ -42,6 +43,9 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         }
         if (parseWarnings?.length) {
           result.filter_warnings = parseWarnings;
+        }
+        if (approximations?.length) {
+          result.filter_approximations = approximations;
         }
         return result;
       },
@@ -388,8 +392,21 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           });
         }
 
+        // Fetch actual sourced lead details for LLM context + UI
+        const sourcedLeads = newLeadIds.length > 0
+          ? await prisma.lead.findMany({
+              where: { id: { in: newLeadIds } },
+              select: { id: true, firstName: true, lastName: true, company: true, jobTitle: true, email: true },
+            })
+          : [];
+
+        const sourcedSummary = sourcedLeads
+          .map((l) => `${l.firstName ?? "?"} ${l.lastName ?? ""} - ${l.company ?? "?"} (${l.jobTitle ?? "?"}) <${l.email}>`.trim())
+          .join(", ");
+
         return {
           sourced: newLeadIds.length,
+          sourced_leads_summary: sourcedSummary || "No lead details available",
           listId: resourceId,
           lead_ids: newLeadIds,
           campaign_id: campaign.id,
@@ -399,6 +416,21 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             by_status: statusCounts,
             in_active_campaign: inActiveCampaign,
             total_from_api: totalWithEmail,
+          },
+          __component: "lead-table",
+          props: {
+            title: `Sourced leads (${sourcedLeads.length} profiles)`,
+            leads: sourcedLeads.map((l) => ({
+              id: l.id,
+              firstName: l.firstName,
+              lastName: l.lastName,
+              email: l.email,
+              company: l.company,
+              jobTitle: l.jobTitle,
+              linkedinUrl: null,
+              icpScore: null,
+              status: "SOURCED",
+            })),
           },
         };
       },
@@ -428,6 +460,11 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
 
         const steps = [0, 1, 2, 3, 4, 5].map((i) => ({
           subject: `{{email_step_${i}_subject}}`,
+          subjects: [
+            `{{email_step_${i}_subject}}`,
+            `{{email_step_${i}_subject_v2}}`,
+            `{{email_step_${i}_subject_v3}}`,
+          ],
           body: `{{email_step_${i}_body}}`,
           delay: delays[i],
         }));
@@ -457,7 +494,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           where: { id: { in: args.lead_ids }, workspaceId: ctx.workspaceId },
           include: {
             emails: {
-              select: { step: true, subject: true, body: true, userEdit: true },
+              select: { step: true, subject: true, subjectVariants: true, body: true, userEdit: true },
             },
           },
         });
@@ -483,6 +520,14 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             const htmlBody = rawBody.replace(/\n/g, "<br>");
             customVars[`email_step_${email.step}_subject`] = email.subject;
             customVars[`email_step_${email.step}_body`] = htmlBody;
+
+            // Subject variants for A/B testing
+            const variants = (email as Record<string, unknown>).subjectVariants as string[] | null;
+            if (variants?.length) {
+              variants.forEach((v, idx) => {
+                customVars[`email_step_${email.step}_subject_v${idx + 2}`] = v;
+              });
+            }
           }
 
           await client.createLead({
@@ -494,10 +539,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
             customVariables: customVars,
           });
 
-          await prisma.lead.update({
-            where: { id: lead.id },
-            data: { status: "PUSHED" },
-          });
+          await transitionLeadStatus(lead.id, "PUSHED");
           added++;
         }
 

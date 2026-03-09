@@ -2,28 +2,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 
-type EnrichmentJson = Record<string, unknown>;
-
 function str(val: unknown): string {
   if (val == null) return "";
   if (typeof val === "string") return val;
   return String(val);
-}
-
-function arr(val: unknown): string {
-  if (!Array.isArray(val) || val.length === 0) return "";
-  return val
-    .map((item) => {
-      if (typeof item === "string") return item;
-      if (typeof item === "object" && item !== null) {
-        const obj = item as Record<string, unknown>;
-        const text = str(obj.event ?? obj.statement ?? obj.change ?? "");
-        const date = str(obj.date);
-        return date ? `${text} (${date})` : text;
-      }
-      return String(item);
-    })
-    .join("; ");
 }
 
 export async function GET(
@@ -65,9 +47,8 @@ export async function GET(
     orderBy: { icpScore: { sort: "desc", nulls: "last" } },
   });
 
-  // Build leads sheet data
+  // Build leads sheet data — flat enrichment columns read directly from DB
   const leadsRows = leads.map((l) => {
-    const e = (l.enrichmentData as EnrichmentJson) ?? {};
     const row: Record<string, string> = {
       "First Name": str(l.firstName),
       "Last Name": str(l.lastName),
@@ -82,25 +63,19 @@ export async function GET(
       Industry: str(l.industry),
       "ICP Score": l.icpScore != null ? String(l.icpScore) : "",
       Status: l.status,
-      // Enrichment fields
-      "Company Summary": str(e.companySummary),
-      Products: arr(e.products),
-      "Target Market": str(e.targetMarket),
-      "Value Proposition": str(e.valueProposition),
-      "Pain Points": arr(e.painPoints),
-      "Recent News": arr(e.recentNews),
-      "Buying Signals": arr(e.signals),
-      "Tech Stack": arr(e.techStack),
-      "Hiring Signals": arr(e.hiringSignals),
-      "Funding Signals": arr(e.fundingSignals),
-      "Product Launches": arr(e.productLaunches),
-      "Leadership Changes": arr(e.leadershipChanges),
-      "Public Priorities": arr(e.publicPriorities),
-      "Tech Stack Changes": arr(e.techStackChanges),
-      "LinkedIn Headline": str(e.linkedinHeadline),
-      "Career History": arr(e.careerHistory),
-      "Recent LinkedIn Posts": arr(e.recentLinkedInPosts),
-      "Team Size": str(e.teamSize),
+      // Flat enrichment columns (direct from DB, no JSON parsing)
+      "Company Positioning": str(l.companyPositioning),
+      "Company One-Liner": str(l.companyOneLiner),
+      "Company Description": str(l.companyDescription),
+      "Pain Points": str(l.painPointsFlat),
+      Products: str(l.productsFlat),
+      "Value Prop": str(l.valueProp),
+      "Target Customers": str(l.targetCustomers),
+      "Buying Signals": str(l.buyingSignals),
+      "Tech Stack": str(l.techStackFlat),
+      "LinkedIn Headline": str(l.linkedinHeadline),
+      "Career History": str(l.careerHistory),
+      "Recent Posts": str(l.recentPosts),
     };
 
     if (format === "csv") {

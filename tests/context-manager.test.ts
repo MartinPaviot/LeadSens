@@ -4,6 +4,8 @@ import {
   stripInlineMarkers,
   compressToolOutput,
   prepareMessagesForLLM,
+  extractIdsAndCounts,
+  compressLoopMessages,
 } from "@/server/lib/llm/context-manager";
 import type { ChatMessage } from "@/server/lib/llm/types";
 
@@ -243,6 +245,154 @@ describe("compressToolOutput", () => {
     // Token savings: compressed should be much smaller than raw
     const rawSize = JSON.stringify(output).length;
     expect(compressed.length).toBeLessThan(rawSize * 0.3);
+  });
+});
+
+// ─── extractIdsAndCounts ─────────────────────────────────
+
+describe("extractIdsAndCounts", () => {
+  it("preserves lead_ids, campaign_id, and counts", () => {
+    const input = JSON.stringify({
+      lead_ids: ["a", "b", "c"],
+      campaign_id: "xyz",
+      count: 3,
+      total: 10,
+      leads: [{ id: "a", firstName: "Alice", enrichmentData: { big: "blob" } }],
+      summary: "x".repeat(500),
+    });
+    const result = JSON.parse(extractIdsAndCounts(input));
+    expect(result.lead_ids).toEqual(["a", "b", "c"]);
+    expect(result.campaign_id).toBe("xyz");
+    expect(result.count).toBe(3);
+    expect(result.total).toBe(10);
+    expect(result.leads).toBeUndefined();
+    expect(result.summary).toBeUndefined();
+  });
+
+  it("returns short content unchanged", () => {
+    const input = '{"status":"ok"}';
+    expect(extractIdsAndCounts(input)).toBe(input);
+  });
+
+  it("handles non-JSON gracefully", () => {
+    const input = "This is not JSON and is quite long " + "x".repeat(300);
+    const result = extractIdsAndCounts(input);
+    expect(result.length).toBeLessThanOrEqual(201 + 1); // 200 + "…"
+    expect(result.endsWith("…")).toBe(true);
+  });
+
+  it("preserves keys ending in _id and _ids", () => {
+    const input = JSON.stringify({
+      list_id: "lst-123",
+      workspace_ids: ["w1", "w2"],
+      irrelevant: "data".repeat(100),
+    });
+    const result = JSON.parse(extractIdsAndCounts(input));
+    expect(result.list_id).toBe("lst-123");
+    expect(result.workspace_ids).toEqual(["w1", "w2"]);
+    expect(result.irrelevant).toBeUndefined();
+  });
+});
+
+// ─── compressLoopMessages ────────────────────────────────
+
+describe("compressLoopMessages", () => {
+  function makeMessages(count: number, contentSize: number) {
+    const msgs: Array<Record<string, unknown>> = [
+      { role: "system", content: "You are a helpful assistant." },
+    ];
+    for (let i = 0; i < count; i++) {
+      msgs.push({
+        role: "assistant",
+        content: "I'll call the tool.",
+        toolCalls: [{ id: `tc-${i}`, function: { name: "test_tool", arguments: "{}" } }],
+      });
+      msgs.push({
+        role: "tool",
+        content: JSON.stringify({
+          lead_ids: [`lead-${i}`],
+          count: 1,
+          leads: [{ id: `lead-${i}`, firstName: "Test", enrichmentData: { big: "x".repeat(contentSize) } }],
+          summary: "y".repeat(contentSize),
+        }),
+        toolCallId: `tc-${i}`,
+        name: "test_tool",
+      });
+    }
+    return msgs;
+  }
+
+  it("no-op when under budget", () => {
+    const msgs = makeMessages(2, 50);
+    const original = JSON.stringify(msgs);
+    compressLoopMessages(msgs);
+    expect(JSON.stringify(msgs)).toBe(original);
+  });
+
+  it("compresses old tool results when over budget", () => {
+    const msgs = makeMessages(30, 4000);
+    const originalSize = JSON.stringify(msgs).length;
+    compressLoopMessages(msgs);
+    const compressedSize = JSON.stringify(msgs).length;
+    expect(compressedSize).toBeLessThan(originalSize * 0.5);
+  });
+
+  it("keeps system message and last 4 messages intact", () => {
+    const msgs = makeMessages(30, 4000);
+    const systemContent = msgs[0].content;
+    const last4 = msgs.slice(-4).map((m) => ({ ...m }));
+
+    compressLoopMessages(msgs);
+
+    // System untouched
+    expect(msgs[0].content).toBe(systemContent);
+
+    // Last 4 untouched
+    const newLast4 = msgs.slice(-4);
+    for (let i = 0; i < 4; i++) {
+      expect(newLast4[i].content).toBe(last4[i].content);
+    }
+  });
+
+  it("preserves assistant toolCalls arrays while clearing verbose content", () => {
+    const msgs = makeMessages(30, 4000);
+    compressLoopMessages(msgs);
+
+    // Check an old assistant message (not in last 4)
+    const oldAssistant = msgs.find(
+      (m, idx) => m.role === "assistant" && m.toolCalls && idx < msgs.length - 4 && idx > 0,
+    );
+    expect(oldAssistant).toBeTruthy();
+    expect(oldAssistant!.content).toBe("");
+    expect(oldAssistant!.toolCalls).toBeTruthy();
+  });
+
+  it("compresses user messages with phantom tool results", () => {
+    const msgs: Array<Record<string, unknown>> = [
+      { role: "system", content: "System prompt" },
+      { role: "assistant", content: "I called parse_icp." },
+      {
+        role: "user",
+        content: `[Tool result from parse_icp]:\n${JSON.stringify({
+          lead_ids: ["a"],
+          count: 1,
+          bigData: "z".repeat(5000),
+        })}`,
+      },
+    ];
+    // Add enough to exceed 32K token budget (~118K chars)
+    for (let i = 0; i < 20; i++) {
+      msgs.push({ role: "assistant", content: "x".repeat(8000) });
+      msgs.push({ role: "user", content: `step ${i}` });
+    }
+
+    compressLoopMessages(msgs);
+
+    // The phantom tool result (index 2) should be compressed
+    const phantomMsg = msgs[2];
+    expect((phantomMsg.content as string).length).toBeLessThan(5000);
+    // But lead_ids should still be there
+    expect(phantomMsg.content as string).toContain("lead_ids");
   });
 });
 

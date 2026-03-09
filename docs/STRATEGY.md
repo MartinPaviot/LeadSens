@@ -75,6 +75,8 @@ Deux camps incompatibles :
 
 ### 3.3 Points de controle par mode
 
+**Pre-launch :**
+
 | Etape | Full auto | Supervise | Manuel |
 |-------|-----------|-----------|--------|
 | ICP parsing | Auto | Auto | Validation |
@@ -85,6 +87,17 @@ Deux camps incompatibles :
 | Redaction emails | Auto | **Preview par segment** | **Preview + edit** |
 | Creation campagne | Auto | **Confirmation** | **Confirmation** |
 | Activation envoi | **Auto** | **Confirmation** | **Confirmation** |
+
+**Post-launch :**
+
+| Etape | Full auto | Supervise | Manuel |
+|-------|-----------|-----------|--------|
+| Reply classification | Auto | Auto | Review manuel |
+| Reply drafting | Auto send | Preview avant envoi | Composition manuelle |
+| CRM push (lead interesse) | Auto create contact + deal | Confirmation | Manuel |
+| A/B variant disable (perf basse) | Auto | Confirmation | Manuel |
+| Campaign pause (perf basse) | Auto | Confirmation | Manuel |
+| Performance summary | Weekly auto-report | On-demand | On-demand |
 
 ### 3.4 Positionnement
 
@@ -108,38 +121,83 @@ LeadSens est le seul produit qui couvre **tout l'axe controle ↔ autonomie**. L
 
 ---
 
-## 4. Les 20% d'outils qui gerent 80% du marche
+## 4. Strategie d'integrations
 
-### 4.1 Selection 80/20
+### 4.1 Les 3 buyers et ce qui les bloque
 
-| Couche | Outil | Pourquoi | Cout |
-|--------|-------|----------|------|
-| **Sourcing** | **Instantly SuperSearch** | 450M+ contacts, standard cold email | Inclus ($47-97/mo) |
-| **Sending** | **Instantly** | Warmup, rotation, #1 | $47-97/mo |
-| **Sending (alt)** | **Smartlead** | #2, agences, API similaire | $78/mo |
-| **Enrichissement contact** | **Apollo.io** | 275M contacts, free tier | Free → $49/mo |
-| **Enrichissement contextuel** | **Jina Reader** | URL → markdown, gratuit | Gratuit |
-| **Verification** | **ZeroBounce** | Leader, 99%+ precision | ~$0.008/email |
+Trois personas, leur stack typique, ce qui fonctionne, et ce qui bloque l'adoption :
 
-5 outils. C'est tout.
+**Solo Founder / Starter SDR**
+- Stack : Instantly seul (~$94/mo)
+- Ce qui marche : pipeline amont complet (ICP → Source → Score → Enrich → Draft → Push)
+- **Bloquant :** pas d'import CSV (leads existants inutilisables), pas de visibilite post-launch (doit retourner dans Instantly pour les resultats)
 
-### 4.2 Pourquoi pas les autres
+**Sales Team startup**
+- Stack : Instantly + Apollo + ZeroBounce + HubSpot (~$200-300/mo)
+- Ce qui marche : enrichissement Apollo, verification ZeroBounce, dedup HubSpot
+- **Bloquant :** HubSpot limite au dedup (pas de push leads qualifies), pas de handoff CRM, pipeline coupe en deux (pre-launch dans LeadSens, post-launch dans Instantly)
+
+**Agency**
+- Stack : Smartlead + Apollo + ZeroBounce (~$140-200/mo/client)
+- Ce qui marche : abstractions multi-ESP pretes (`ESPProvider` + 3 implementations + `getESPProvider()`)
+- **Bloquant :** les tools appellent Instantly directement malgre l'abstraction `ESPProvider`. Un user Smartlead obtient des outils casses
+
+### 4.2 Matrice d'integrations par priorite
+
+Trois tiers bases sur l'impact reel d'adoption, pas la difficulte technique.
+
+**Tier A — Bloquant (pas de workaround)**
+
+| Integration | Pourquoi c'est bloquant | Effort | Abstractions pretes |
+|---|---|---|---|
+| Import CSV / leads manuels | Users avec leads existants exclus du produit | 1-2 sem | Non (a creer) |
+| Multi-ESP routing (tools → ESPProvider) | Users Smartlead/Lemlist = tools casses | 2-3 sem | Oui (`ESPProvider` + Instantly/Smartlead/Lemlist + `getESPProvider()`) |
+| CRM push complet (HubSpot) | Leads qualifies ne remontent pas au CRM | 1 sem | Oui (`CRMProvider.createContact/updateContact` existent, pas de tool) |
+
+**Tier B — Impact significatif (workaround = quitter LeadSens)**
+
+| Integration | Pourquoi | Effort | Abstractions |
+|---|---|---|---|
+| Reply management (Instantly Unibox API) | Sans ca, user retourne dans Instantly pour les resultats | 2-3 sem | API prete (`GET /emails`, `POST /emails/reply`, threads, interest) |
+| Webhooks Instantly | Events temps reel (reply, bounce, unsub) vs polling manuel | 1-2 sem | API prete (7 endpoints webhooks) |
+| Salesforce CRM | Enterprise buyers, 23% du marche CRM | 2-3 sem | `CRMProvider` interface prete |
+| Apollo sourcing | Alternative a Instantly SuperSearch | 2 sem | `SourcingProvider` interface prete + implementation Apollo |
+
+**Tier C — Nice-to-have**
+
+| Integration | Valeur | Effort |
+|---|---|---|
+| Pipedrive CRM | PME europeennes | 2 sem (`CRMProvider`) |
+| NeverBounce | Alternative ZeroBounce | 1 sem (`EmailVerifier`) |
+| Slack notifications | Alertes reply/bounce/performance | 1 sem |
+| Google Sheets export | Reporting managers | 1 sem |
+| Calendly / Cal.com | Lien meeting dans CTA email | 0.5 sem |
+| Crunchbase | Signals funding | 1 sem |
+| BuiltWith / DetectZeStack | Signals tech stack | 1 sem |
+
+### 4.3 Configurations types
+
+| Profil | Sourcing | Sending | CRM | Enrichment | Verification | Cout hors LeadSens |
+|--------|----------|---------|-----|------------|-------------|-------------------|
+| **Starter** | Instantly | Instantly | — | Jina (gratuit) | — | ~$94/mo |
+| **Starter+** | Instantly + CSV import | Instantly | — | Jina | — | ~$94/mo |
+| **Pro** | Instantly | Instantly | HubSpot | Apollo + Jina | ZeroBounce | ~$200/mo |
+| **Sales Team** | Instantly + CSV | Instantly | HubSpot + Salesforce | Apollo + Jina | ZeroBounce | ~$250-350/mo |
+| **Agency** | Instantly + CSV | Smartlead | — | Apollo + Jina | ZeroBounce | ~$180/mo/client |
+
+**Point cle :** CSV import apparait dans 4 profils sur 5. C'est le feature le plus universellement necessaire qui n'existe pas.
+
+### 4.4 Ce qu'on ne fait PAS et pourquoi
 
 | Ecarte | Raison |
 |--------|--------|
+| LinkedIn automation | Risque legal post-Proxycurl 2025. Apify = scraping passif, pas d'automation |
+| Gmail / SMTP direct | Les ESPs gerent l'infra d'envoi (warmup, rotation, deliverability) |
+| WhatsApp / SMS | Compliance differente, hors scope |
+| Zapier / n8n natif | Webhooks Instantly suffisent pour les integrateurs |
+| Fine-tuning LLM | Few-shot + prompt engineering suffisent en V1 |
 | Clay ($134-720/mo) | Notre intelligence remplace leur waterfall |
-| BuiltWith ($295/mo) | Trop cher V1. DetectZeStack ($15/mo) plus tard |
-| Clearbit | Rachete par HubSpot, Apollo fait pareil |
 | ZoomInfo ($15K+/an) | Enterprise only |
-| People Data Labs | Apollo a meilleure UX + free tier |
-
-### 4.3 Configs types
-
-| Profil | Outils | Cout hors LeadSens |
-|--------|--------|-------------------|
-| **Starter** | Instantly seul | ~$94/mo |
-| **Pro** | Instantly + Apollo + ZeroBounce | ~$160/mo |
-| **Agency** | Smartlead + Apollo + ZeroBounce | ~$143/mo |
 
 ---
 
@@ -457,7 +515,7 @@ Recuperer `email_open_count`, `email_reply_count`, `email_click_count` par campa
 | Risque | Mitigation |
 |--------|-----------|
 | Instantly copie notre flow | Multi-ESP + avancer vite + qualite email superieure |
-| Dependance API Instantly | Multi-ESP Phase 3 |
+| Dependance API Instantly | Multi-ESP Phase 2 (abstractions pretes, §4.2 Tier A) |
 | Taux de reponse pas meilleur que mail merge | **Tier 1 ameliorations = prerequis avant launch** |
 | AI SDR autonomes s'ameliorent | Notre curseur couvre aussi le full auto |
 
@@ -514,73 +572,188 @@ Economie : $116 par campagne.
 
 ---
 
-## 11. Multi-ESP (Phase 3)
+## 11. Pipeline complet : ICP → Meeting Booked
 
-### Pourquoi
+### 11.1 Ou le pipeline meurt aujourd'hui
 
-Construire uniquement sur Instantly = risque plateforme. Si Instantly change son API/pricing ou ajoute nos features nativement, on est mort.
+Diagnostic factuel :
 
-### Faisabilite
+- `LeadStatus` enum : SOURCED → SCORED → ENRICHED → DRAFTED → PUSHED → **dead end**
+- `PUSHED` n'a aucune transition sortante dans `lead-status.ts`
+- `EmailPerformance` et `StepAnalytics` existent dans le schema Prisma (champs complets : openCount, replyCount, clickCount, bounced, interestStatus, syncedAt) mais **aucun code ne les peuple**
+- `instantly_get_replies` retourne du JSON brut sans sync DB ni update de statut
+- Le curseur d'autonomie (§3) s'arretait a "Activation envoi" (etendu en §3.3 post-launch)
 
-Les ESPs ont converge vers un modele API quasi identique :
+L'utilisateur doit quitter LeadSens apres le lancement de campagne et retourner dans Instantly pour voir les resultats. Le pipeline est coupe en deux.
 
-| Concept | Instantly | Smartlead | Lemlist | Reply.io |
-|---------|-----------|-----------|---------|----------|
-| Campagnes CRUD | Oui | Oui | Oui | Oui |
-| Steps/sequences | Oui | Oui | Oui | Oui |
-| Leads + custom vars | Oui | Oui | Oui | Oui |
-| Analytics | Oui | Oui | Oui | Oui |
-| Webhooks | Oui | Oui | Oui | Oui |
+### 11.2 Le cycle de vie etendu du lead
 
-**Effort : ~4-6 semaines pour 3 providers.**
+Extension du state machine :
 
-Priorite : Smartlead (#2) → Lemlist (Europe) → Reply.io (Master API key).
+```
+PRE-LAUNCH (existant) :
+  SOURCED → SCORED → ENRICHED → DRAFTED → PUSHED
 
-Le sourcing (SuperSearch) reste specifique a Instantly. Separation claire : **couche sourcing** vs **couche envoi**.
+POST-LAUNCH (nouveau) :
+  PUSHED → SENT → REPLIED → INTERESTED → MEETING_BOOKED
+                           → NOT_INTERESTED
+                  → BOUNCED
+                  → UNSUBSCRIBED
+```
+
+Choix de design :
+- **OPENED n'est PAS un statut lead** — trop peu fiable (Apple Mail Privacy Protection, image blocking ~40%). Tracke dans `EmailPerformance.openCount` mais pas promu en etat lifecycle.
+- Chaque transition post-launch **declenche une action agent** (pas juste un update DB).
+
+| Statut | Source de donnees | Action agent | Action CRM |
+|--------|-------------------|-------------|------------|
+| SENT | Webhook `campaign_started` ou sync analytiques | Update EmailPerformance | — |
+| REPLIED | Webhook `reply_received` ou polling Unibox | Classify interest (Mistral Small) | — |
+| INTERESTED | Classification LLM (ai_interest ≥ 7) | Draft reply, notify user | Create/update contact |
+| NOT_INTERESTED | Classification LLM (ai_interest < 3) | Remove from sequence | Tag "not interested" |
+| MEETING_BOOKED | Detection dans reply ("let's schedule", lien Calendly) | Notify user, remove from sequence | Create deal |
+| BOUNCED | Webhook `email_bounced` | Mark lead, alert si taux > 5% | — |
+| UNSUBSCRIBED | Webhook `lead_unsubscribed` | Remove from all sequences | Tag "unsubscribed" |
+
+### 11.3 L'experience utilisateur phase par phase
+
+7 phases decrites du point de vue user (dialogue agent-user) :
+
+**1. Discovery** (existant) — "Qui cibler ?"
+ICP en langage naturel → parsing → confirmation filtres → comptage.
+
+**2. Preparation** (existant) — "Rediger les emails"
+Sourcing → scoring → enrichissement → drafting → preview.
+
+**3. Launch** (existant) — "Envoyer"
+Creation campagne Instantly → ajout leads → activation.
+
+**4. Monitoring** (NOUVEAU) — "Comment ca se passe ?"
+- Sync automatique des analytics (EmailPerformance + StepAnalytics)
+- Agent proactif : "Ta campagne tourne depuis 3 jours. Open rate 42%, 2 reponses. Le step 0 subject A performe 2x mieux que B."
+- A/B variant management : suggestion d'auto-pause des variantes faibles
+- Alerte si bounce rate > 5% ou reply rate < 2% apres 7 jours
+
+**5. Reply Management** (NOUVEAU) — "Quelqu'un a repondu"
+- Webhook ou polling → nouvelle reponse detectee
+- Classification LLM (Mistral Small) : interesse / pas interesse / question / auto-reply / OOO
+- Si interesse : "Martin de Acme a repondu positivement. Voici un draft de reponse." → preview → envoi via Unibox API
+- Si pas interesse : "Reponse negative de Lisa chez TechCorp. Je la retire de la sequence."
+
+**6. Handoff** (NOUVEAU) — "Ce lead est qualifie"
+- Lead classifie INTERESTED → push CRM automatique ou sur confirmation
+- Creation contact HubSpot/Salesforce avec toutes les donnees enrichies (Company DNA, pain points, historique emails)
+- Creation deal dans le pipeline CRM
+- Retrait de la sequence d'envoi
+
+**7. Learning Loop** (NOUVEAU) — "Qu'est-ce qui a marche ?"
+- Analytics croisees par segment, industrie, taille, role
+- Identification des patterns gagnants : "Les CTOs repondent 3x plus au step 2 (Social Proof) qu'au step 0 (PAS)"
+- Suggestions d'ajustement ICP : "85% des reponses viennent de startups 50-200 employes. Affiner le ciblage ?"
+- Propagation des learnings aux prochaines campagnes
+
+### 11.4 Infrastructure technique necessaire
+
+**Nouveaux outils agent :**
+
+| Tool | Phase | Description |
+|---|---|---|
+| `sync_campaign_performance` | ACTIVE | Appelle analytics Instantly → ecrit dans EmailPerformance + StepAnalytics |
+| `classify_reply` | ACTIVE | LLM (Mistral Small) classifie l'interet d'une reponse, update lead status |
+| `reply_to_email` | ACTIVE | Envoie une reponse via `POST /emails/reply` Instantly |
+| `draft_reply` | ACTIVE | Genere une reponse contextuelle (enrichment + historique conversation) |
+| `crm_create_contact` | ACTIVE | Cree un contact CRM avec toutes les donnees d'enrichissement |
+| `crm_create_deal` | ACTIVE | Cree un deal dans le pipeline CRM |
+| `import_leads_csv` | ANY | Parse CSV, valide, dedup, cree les leads |
+| `campaign_insights` | ACTIVE | Agrege les donnees de performance, identifie les patterns gagnants |
+
+**Webhook endpoint :** `POST /api/webhooks/instantly`
+- Events : `reply_received`, `email_bounced`, `lead_unsubscribed`, `campaign_completed`
+- Auto-registration via `setup_webhooks` au premier lancement de campagne
+
+**Nouveau modele Prisma :** `ReplyThread` + `Reply` (conversation threads par lead)
+
+**Nouveau prompt tier :** PHASE_MONITORING — instructions agent pour la phase post-launch (proactivite, tone, actions permises)
+
+### 11.5 Dependance avec les integrations (§4)
+
+Le pipeline complet ne fonctionne qu'avec les integrations Tier A et B :
+
+| Fonctionnalite pipeline | Integration requise | Tier |
+|---|---|---|
+| Monitoring (analytics sync) | Instantly API analytics | Existant |
+| Reply management | Instantly Unibox API | Tier B |
+| Webhooks temps reel | Instantly Webhooks | Tier B |
+| CRM handoff | HubSpot/Salesforce CRM push | Tier A (HubSpot) / B (Salesforce) |
+| Import leads existants | CSV import | Tier A |
+| Multi-ESP monitoring | ESPProvider routing | Tier A |
 
 ---
 
 ## 12. Roadmap
 
-### Phase 1 — Fix the basics (pre-launch)
+Restructuree autour de deux axes : **completude du pipeline** (ICP → Meeting Booked) et **couverture marche** (personas bloques).
 
-Ameliorations Tier 1 = prerequis. Sans ca, on est un "bon template automatise".
+### Phase 1 — Pipeline complet (pre-launch + post-launch)
 
+L'objectif : un lead entre dans LeadSens et n'en sort plus jusqu'au meeting booke. Pas de "retourne dans Instantly pour voir les resultats".
+
+**Pre-launch (qualite email) :**
 - [ ] Multi-page scraping + cache par domaine (about, blog, careers, press)
 - [ ] Connection bridge explicite dans le prompt email
 - [ ] Trigger event en opener (priorite dans le prompt)
 - [ ] Injecter TOUTES les donnees enrichies dans le prompt
 - [ ] Fix bug industry: null dans instantly_source_leads
 - [ ] Pagination listLeads (au-dela de 100)
-- [ ] Pipeline complet end-to-end
-- [ ] Onboarding BYOT + Company DNA + curseur autonomie
 
-### Phase 2 — Competitive edge
+**Post-launch (pipeline etendu) :**
+- [ ] Extension LeadStatus enum : SENT, REPLIED, INTERESTED, NOT_INTERESTED, MEETING_BOOKED, BOUNCED, UNSUBSCRIBED
+- [ ] Extension state machine dans `lead-status.ts` (transitions post-PUSHED)
+- [ ] Import CSV / leads manuels (`import_leads_csv` tool)
+- [ ] `sync_campaign_performance` : peupler EmailPerformance + StepAnalytics
+- [ ] `classify_reply` + `draft_reply` + `reply_to_email` (reply management via Unibox API)
+- [ ] Webhook Instantly (`POST /api/webhooks/instantly` — reply, bounce, unsub)
+- [ ] PHASE_MONITORING prompt tier (instructions agent post-launch)
+- [ ] Modeles Prisma `ReplyThread` + `Reply`
 
-Ameliorations Tier 2 = ce qui nous separe du mail merge.
+### Phase 2 — Couverture marche
 
-- [ ] Subject lines : librairie patterns + 2-3 variantes + A/B via variants[]
+Debloquer les 3 personas identifies en §4.1 et ajouter les leviers competitifs email.
+
+**Integrations (Tier A + B) :**
+- [ ] Multi-ESP routing : tools → `ESPProvider` (Smartlead, Lemlist fonctionnels)
+- [ ] CRM push complet : `crm_create_contact`, `crm_create_deal` tools (HubSpot)
+- [ ] Salesforce `CRMProvider` implementation
+- [ ] Apollo sourcing via `SourcingProvider` (alternative a Instantly SuperSearch)
+
+**Email competitif :**
+- [ ] Subject lines : librairie patterns + 2-3 variantes + A/B via `variants[]`
 - [ ] Sequence 5-7 steps (PAS → Value-add → Social proof → New angle → Micro-value → Breakup)
 - [ ] Follow-ups coherents (body complet des steps precedents dans le prompt)
 - [ ] Cadence variable (0-2-5-9-14-21)
-- [ ] Clustering par segments (5K-25K leads)
-- [ ] Connexion Apollo + ZeroBounce dans l'onboarding
 
-### Phase 3 — Defensibility
+### Phase 3 — Intelligence & Optimisation
 
-- [ ] Quality gate (score + regeneration)
-- [ ] Feedback loop stats Instantly (open/reply/click → optimisation)
-- [ ] Interface ESPProvider + Smartlead + Lemlist
-- [ ] Scoring multi-dimensionnel (fit + intent + timing)
+Boucle fermee : les resultats des campagnes ameliorent les prochaines.
+
+- [ ] `campaign_insights` tool : analytics croisees, patterns gagnants, suggestions ICP
+- [ ] A/B auto-pause des variantes faibles
+- [ ] Reply rate par segment → ajustement CampaignAngle
+- [ ] Quality gate enforcement (score + regeneration systematique)
 - [ ] Style learner avance (profil distille, categorise, par persona)
+- [ ] Scoring multi-dimensionnel (fit + intent + timing)
+- [ ] Deliverability monitoring (warmup analytics, account health)
 
-### Phase 4 — Intelligence avancee
+### Phase 4 — Plateforme & Scale
 
+- [ ] Slack / notifications (alertes reply, bounce, performance)
+- [ ] Pipedrive CRM (`CRMProvider`)
+- [ ] Google Sheets export
+- [ ] Meeting booking (Calendly/Cal.com URL dans CTA)
 - [ ] Scraping careers page (signal hiring, gratuit via Jina)
-- [ ] Signaux funding (Crunchbase, $49/mo)
-- [ ] Enrichissement waterfall (gratuit → payant si gap)
-- [ ] Dashboard resultats par segment
-- [ ] A/B auto-pause variantes faibles
+- [ ] Crunchbase funding signals
+- [ ] Clustering par segments (5K-25K leads)
+- [ ] Agency features (multi-workspace, reporting cross-clients)
 
 ---
 

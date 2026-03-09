@@ -193,16 +193,13 @@ export function AssistantMessage() {
   const hasInlineComponents = rawText.includes("@@INLINE@@");
 
   return (
-    <MessagePrimitive.Root className="flex gap-3 items-start motion-safe:animate-[fade-in-up_0.3s_ease-out]">
-      {/* Avatar */}
-      <div className="aui-avatar relative shrink-0">
-        <div className="size-8 rounded-lg overflow-hidden">
-          <img src="/L.svg" alt="LeadSens" className="size-8" />
+    <MessagePrimitive.Root className="flex items-start w-full motion-safe:animate-[fade-in-up_0.3s_ease-out]">
+      <div className="w-12 shrink-0 flex justify-center pt-0.5">
+        <div className="size-8 rounded-lg overflow-hidden isolate" style={{ backgroundColor: '#fff' }}>
+          <img src="/L.svg" alt="LeadSens" className="size-8 block" />
         </div>
       </div>
-
-      {/* Content bubble */}
-      <div className="group relative rounded-[16px_16px_16px_4px] bg-secondary/90 backdrop-blur-sm px-4 py-3 min-w-0">
+      <div className="group relative flex-1 rounded-2xl bg-card/90 backdrop-blur-md border border-white/60 dark:border-white/[0.07] shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3 min-w-0">
         <CopyButton rawText={rawText} />
         {hasInlineComponents ? (
           <InlineContent rawText={rawText} />

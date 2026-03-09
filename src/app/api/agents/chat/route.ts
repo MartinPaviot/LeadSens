@@ -10,6 +10,7 @@ import {
 } from "@/server/lib/llm/context-manager";
 import type { ChatMessage, StreamEvent } from "@/server/lib/llm/types";
 import type { WorkspaceWithIntegrations } from "@/server/lib/tools/types";
+import { parseCompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import { z } from "zod/v4";
 
 export const maxDuration = 300;
@@ -20,11 +21,16 @@ const CORE_PROMPT = `You are LeadSens, an intelligent B2B prospecting agent.
 
 PERSONALITY: Warm, direct, concise. Casual tone, clean markdown (bullets on own lines, **bold** key info). One question at a time. No walls of text, no em dashes, no repeating what the user said.
 
+LANGUAGE: Always respond in English unless the user's last message is in French — then respond in French.
+
 COMMUNICATION:
 - Silent execution: never explain internal mappings, adjustments, or limitations. Just do it and show results.
 - Zero text between tool calls. Call all needed tools, then ONE response.
 - Tool errors: silently fix params, retry ONCE. Only report if retry also fails.
+- Questions about past results: When the user asks about a previous error or result ("what went wrong?", "why did it fail?", "qu'est-ce qui s'est passé ?"), ANSWER from conversation history. Do NOT re-run the tool. Only retry if the user explicitly asks to retry ("try again", "relance", "réessaie").
+- NEVER suggest "re-launching the search" or "your criteria are too strict" when tools already returned leads. If tools returned an error, explain that error instead.
 - Structured data: ALWAYS use render_lead_table / render_email_preview / show_drafted_emails. Never markdown tables, never raw @@INLINE@@ markers, never tool names in text.
+- After tool calls that render components (lead-table, enrichment, email-preview), do NOT add descriptive text like "Voici les details" or tables — the component already shows everything. Just comment briefly on the results.
 - Never fabricate tool results. Never appear hesitant ("let me try", "let's see if").
 
 LEAD RESOLUTION: enrich_single_lead and draft_single_email auto-resolve leads (by id, name/email, or auto). Never guess lead_ids from history.
@@ -51,20 +57,28 @@ If any missing, ask ONE question. If all present, proceed. Optional criteria (si
 PHASE 1 — PARSING + ESTIMATION (no credits)
 Tools: parse_icp → instantly_count_leads → instantly_preview_leads
 - Pass search_filters AS-IS between tools. Never modify, remove fields, or trim job_titles.
-- After parse_icp, ALWAYS present the human_summary to the user for confirmation before calling instantly_count_leads. Example: "Voici les filtres : {human_summary}. C'est bien ça ?"
+- After parse_icp, ALWAYS present the human_summary to the user for confirmation before calling instantly_count_leads. Example: "Here are the filters: {human_summary}. Does this look right?"
+- If filter_approximations is returned, ALWAYS explain each approximation to the user. Instantly uses fixed ranges (e.g. $1M-10M, $10M-50M) so exact thresholds like ">$5M" cannot be applied precisely. Be transparent about this limitation.
 - Preview renders automatically. Never repeat lead data in text.
 - One count call only. Default preview: 5 leads.
 STOP: "~X leads available. How many do you want to source? (this uses Instantly credits)"
 
-TRANSITION: confirmation/number → Phase 2. New criteria → re-run Phase 1. Never re-run if user just confirms.`;
+TRANSITION: confirmation/number → Phase 2. New criteria → re-run Phase 1. Never re-run if user just confirms.
 
-// Phase 2: sourcing + scoring
+AFTER SOURCING (same turn): When instantly_source_leads returns lead_ids + campaign_id:
+1. If HubSpot is connected, call crm_check_duplicates with the lead_ids first to skip existing contacts.
+2. Then call score_leads_batch (pass lead_ids, campaign_id, and the original icp_description).
+3. Then continue to enrich_leads_batch. Do NOT pause between sourcing → scoring → enrichment.`;
+
+// Phase 2: post-sourcing — score + enrich (never re-source)
 const PHASE_SOURCING = `
-CURRENT PHASE: SOURCING + SCORING
-Tools: instantly_source_leads → score_leads_batch
-- Pass lead_ids AND campaign_id from source result to score.
-- Report dedup results. Never mention scores or quality issues.
-Continue to enrichment WITHOUT pause.`;
+CURRENT PHASE: SCORING + ENRICHMENT
+Leads are ALREADY sourced. NEVER call instantly_source_leads again — dedup will return 0 new leads.
+- Call score_leads_batch with campaign_id and icp_description. You can omit lead_ids — it auto-finds all SOURCED leads in the campaign.
+- After sourcing, NEVER reference preview data. Only describe leads from the sourcing result (sourced_leads_summary). Preview leads and sourced leads are DIFFERENT.
+- After scoring, continue to enrich_leads_batch with the qualified lead_ids. Do NOT pause.
+- Report results after execution, never before. Never present "scorer et enrichir" as a suggestion — just do it.
+- If a tool returns an error (e.g. "No SOURCED leads", "Lead must be scored first"), explain the error to the user clearly. NEVER respond by suggesting to re-search or re-source — the leads are already in the system.`;
 
 // Phase 3: enrichment + drafting
 const PHASE_ENRICHING = `
@@ -73,33 +87,79 @@ Tools: enrich_leads_batch → generate_campaign_angle → draft_emails_batch
 - Pass lead_ids + campaign_id through the chain.
 - Always generate campaign angle BEFORE drafting.
 - Email previews render automatically.
-Continue to account selection WITHOUT pause.`;
+Continue to account selection WITHOUT pause.
+
+ENRICHMENT RESULTS — how to interpret:
+- The enrichment_summary in tool results tells you EXACTLY what data was found per lead.
+- quality: "rich" = 5+ fields (company, pain points, signals, LinkedIn) — excellent for personalization.
+- quality: "partial" = 3-4 fields — good enough, draft will use available data.
+- quality: "minimal" = 1-2 fields — drafting will rely more on ICP context.
+- quality: "none" = no scrape data — drafting uses basic Instantly profile only.
+- NEVER say "enrichment didn't return usable data" if quality is "rich" or "partial". The EnrichmentCard shows the data — trust it.
+- NEVER say "no data" when the tool returned enriched: true and scraped: true.
+- If a lead's enriched industry doesn't match the ICP vertical, say so explicitly: "This lead is in [industry], which differs from your ICP ([icp_vertical]). The emails will be adapted to their actual vertical."
+- After enrichment, comment briefly on the quality (e.g. "Rich data for 8/10 leads, 2 had no website") then proceed to angle + drafting.
+- If Apollo is connected, enrichment automatically includes Apollo data (verified emails, org data). Mention "Apollo-enriched" in your summary if apollo_enriched > 0.
+- If ZeroBounce is connected and leads have been drafted, call verify_emails before pushing to campaign. Report invalid emails clearly.`;
 
 // Phase 4: account selection + push
 const PHASE_PUSHING = `
 CURRENT PHASE: CAMPAIGN SETUP
+Step 0 (if ZeroBounce connected): verify_emails to check email validity before pushing.
 Step 1: instantly_list_accounts (account picker renders automatically). STOP: wait for user selection.
 Step 2: instantly_create_campaign with selected email_accounts.
 Step 3: instantly_add_leads_to_campaign.
 Say: "Campaign created as draft with X leads. Let me know when you want to activate."
 STOP: wait for explicit activation request. Never offer to activate.`;
 
-// Phase 5: active
+// Phase 5: active — monitoring + reply management + analytics
 const PHASE_ACTIVE = `
 CURRENT PHASE: CAMPAIGN ACTIVE
-Campaign is live. Respond to questions about leads, emails, or new campaigns.
+Campaign is live. You now manage the full post-launch lifecycle.
+
+ANALYTICS:
+When user asks about campaign performance ("how's it going?", "what's working?", "results?"):
+1. Call sync_campaign_analytics first (ensures fresh data)
+2. Call campaign_performance_report for the specific campaign
+3. Share key metrics and actionable insights
+
+When user asks "what should I do differently?" or "what's working best?":
+→ Call campaign_insights or performance_insights for cross-campaign learnings
+
+REPLY MANAGEMENT:
+When user asks about replies or you detect new replies:
+1. Call instantly_get_replies to fetch recent replies
+2. For each meaningful reply (not auto-reply), call classify_reply with the lead_id and reply content
+3. Based on classification:
+   - interested → Call draft_reply, show draft to user, wait for approval before reply_to_email
+   - not_interested → Inform user, suggest removing from sequence
+   - question → Call draft_reply to prepare an answer
+   - auto_reply/ooo → Inform user, no action needed
+
+CRM HANDOFF:
+When a lead is classified as INTERESTED:
+- If CRM is connected, suggest creating a CRM contact (crm_create_contact)
+- If user confirms, also offer to create a deal (crm_create_deal)
+- Always wait for user confirmation before CRM actions
+
+PROACTIVE INSIGHTS:
+- If bounce rate > 5%, alert the user
+- If reply rate < 2% after 7+ days, suggest reviewing email copy or ICP
+- If a specific segment has 3x+ better reply rate, mention it
+
 If user describes a new ICP, start a new pipeline from Phase 1.`;
 
 // Pipeline rules (always included, but condensed)
 const PIPELINE_RULES = `
 PIPELINE RULES:
-- Always pass lead_ids and campaign_id between tools. Never skip.
+- Pass lead_ids and campaign_id between tools when available. If you lost track of lead_ids or campaign_id, you can omit them — score_leads_batch and enrich_leads_batch auto-resolve from the most recent campaign.
 - Full chain: source → score → enrich → angle → draft → accounts → campaign → push.
 - Only 2 mandatory pauses: (1) before sourcing (credits), (2) account selection.
 - If a step fails, explain briefly and suggest an alternative. No loops, no retries.
+- NEVER suggest "re-launching the search" or "criteria are too strict" when leads are already sourced. If a tool returned an error, explain that error.
 - If user describes a new ICP at any point, start Phase 1 fresh.`;
 
-type CampaignPhase = "DRAFT" | "SOURCING" | "SCORING" | "ENRICHING" | "DRAFTING" | "READY" | "PUSHED" | "ACTIVE";
+type CampaignPhase = "DRAFT" | "SOURCING" | "SCORING" | "ENRICHING" | "DRAFTING" | "READY" | "PUSHED" | "ACTIVE" | "MONITORING";
 
 function getPhasePrompt(
   hasCompanyDna: boolean,
@@ -171,8 +231,9 @@ function buildSystemPrompt(
   const parts = [CORE_PROMPT, phasePrompt, PIPELINE_RULES];
 
   if (workspace.companyDna) {
-    const dna = workspace.companyDna as Record<string, unknown>;
-    if (typeof dna === "object" && dna !== null && "oneLiner" in dna) {
+    const parsedDna = parseCompanyDna(workspace.companyDna);
+    const dna = parsedDna && typeof parsedDna === "object" ? (parsedDna as Record<string, unknown>) : null;
+    if (dna && "oneLiner" in dna) {
       const buyers = Array.isArray(dna.targetBuyers)
         ? (dna.targetBuyers as Array<{ role: string; sellingAngle: string }>)
             .map((b) => `${b.role} (${b.sellingAngle})`)
@@ -283,10 +344,10 @@ Send me your URL and we'll move on.`;
 
   // Case 3: Has company DNA but no Instantly
   if (hasCompanyDna && !hasInstantly) {
-    const dna = workspace.companyDna as Record<string, unknown>;
+    const parsedDna = parseCompanyDna(workspace.companyDna);
     const oneLiner =
-      typeof dna === "object" && dna !== null && "oneLiner" in dna
-        ? String(dna.oneLiner)
+      parsedDna && typeof parsedDna === "object" && "oneLiner" in parsedDna
+        ? String(parsedDna.oneLiner)
         : null;
 
     return `Hey${name}! ${oneLiner ? `I have your offer in mind: *${oneLiner}*` : "Your offer is configured."}
@@ -297,20 +358,9 @@ Once that's done, we'll launch your first campaign.`;
   }
 
   // Case 4: Everything ready — ask for ICP
-  const dna = workspace.companyDna as Record<string, unknown>;
-  const oneLiner =
-    typeof dna === "object" && dna !== null && "oneLiner" in dna
-      ? String(dna.oneLiner)
-      : null;
+  return `Hello${name}, I've analyzed your offer and your tools are connected. Describe your target for this campaign, the more precise you are on role, industry, geo, company size and revenue, the more accurate sourcing will be.
 
-  return `Hey${name}, everything's set up! 🚀${oneLiner ? ` I have your offer: *${oneLiner}*` : ""}, Instantly connected.
-
-Describe your target for this campaign. For example:
-
-> *"Marketing managers in fashion, France"*
-> *"VP Sales in B2B SaaS, 50-500 employees, US + UK"*
-
-Give me the role, industry, and location. I'll handle sourcing, enrichment, and email drafting.`;
+For example: "VP Sales in B2B SaaS, US + UK, 50 to 500 employees, revenue > $5M"`;
 }
 
 // ─── Singleton inline components (only one per message) ──
@@ -421,61 +471,33 @@ export async function POST(req: Request) {
     },
   });
 
-  // 4. Greeting fast-path — deterministic, no LLM
+  // 4. Greeting fast-path — deterministic, no LLM, plain JSON response
   if (isGreeting) {
     const firstName = (user.name ?? "").split(" ")[0] || undefined;
     const greetingText = buildGreeting(workspace as WorkspaceWithIntegrations, firstName);
-    const sse = new SSEEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          controller.enqueue(sse.retryDirective(3000));
-          controller.enqueue(
-            sse.encode("stream-start", {
-              streamId: generateStreamId(),
-              conversationId,
-              ts: Date.now(),
-            }),
-          );
-          controller.enqueue(
-            sse.encode("text-delta", { delta: greetingText }),
-          );
-          controller.enqueue(
-            sse.encode("finish", {
-              tokensIn: 0,
-              tokensOut: 0,
-              totalSteps: 0,
-              finishReason: "stop",
-            }),
-          );
-          controller.enqueue(sse.encode("stream-end", {}));
 
-          // Persist conversation + greeting message to DB
-          await prisma.conversation.upsert({
-            where: { id: conversationId },
-            create: { id: conversationId, workspaceId },
-            update: { updatedAt: new Date() },
-          });
-          await prisma.message.create({
-            data: {
-              conversationId,
-              role: "ASSISTANT",
-              content: greetingText,
-            },
-          });
-        } catch (err) {
-          controller.enqueue(
-            sse.encode("error", {
-              message: err instanceof Error ? err.message : "Greeting failed",
-            }),
-          );
-        } finally {
-          controller.close();
-        }
-      },
-    });
+    // Persist conversation + greeting message to DB
+    try {
+      await prisma.conversation.upsert({
+        where: { id: conversationId },
+        create: { id: conversationId, workspaceId },
+        update: { updatedAt: new Date() },
+      });
+      await prisma.message.create({
+        data: {
+          conversationId,
+          role: "ASSISTANT",
+          content: greetingText,
+        },
+      });
+    } catch {
+      console.error("Failed to persist greeting");
+    }
 
-    return new Response(stream, { headers: SSE_HEADERS });
+    return new Response(
+      JSON.stringify({ greeting: greetingText }),
+      { headers: { "Content-Type": "application/json" } },
+    );
   }
 
   // 5. Load context in parallel
@@ -592,7 +614,6 @@ export async function POST(req: Request) {
   // 10. Stream response
   const sse = new SSEEncoder();
   let fullAssistantContent = "";
-  const toolCalls: Array<{ toolName: string; input: unknown; output: unknown }> = [];
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -610,10 +631,15 @@ export async function POST(req: Request) {
           }),
         );
 
-        // Notify user if context was windowed
+        // Notify user if context was windowed — both status label and visible message
         if (contextResult.windowed) {
           controller.enqueue(
             sse.encode("status", { label: "Long conversation, refreshing context..." }),
+          );
+          const windowingNote = "\n\n*(Context refreshed — I may need you to re-state recent details)*\n\n";
+          fullAssistantContent += windowingNote;
+          controller.enqueue(
+            sse.encode("text-delta", { delta: windowingNote }),
           );
         }
 
@@ -638,6 +664,7 @@ export async function POST(req: Request) {
           temperature: 0.7,
           maxSteps: 15,
           onStatus: toolCtx.onStatus,
+          signal: req.signal,
         });
 
         for await (const event of generator) {
@@ -681,18 +708,6 @@ export async function POST(req: Request) {
           if (event.type === "tool-input-start") {
             const label = getToolLabel(event.toolName);
             controller.enqueue(sse.encode("status", { label }));
-          }
-
-          // Track tool calls for DB save
-          if (event.type === "tool-input-available") {
-            toolCalls.push({
-              toolName: "",
-              input: event.input,
-              output: null,
-            });
-          }
-          if (event.type === "tool-output-available" && toolCalls.length > 0) {
-            toolCalls[toolCalls.length - 1].output = event.output;
           }
 
           // Forward all events to client as named SSE events

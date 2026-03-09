@@ -15,7 +15,7 @@ function deduplicateSteps(steps: ThinkingStep[]): ThinkingStep[] {
 }
 
 export function ThinkingBlock() {
-  const { steps, isThinking, isStreaming } = useAgentActivity();
+  const { steps, isThinking, isStreaming, label } = useAgentActivity();
   const [collapsed, setCollapsed] = useState(false);
 
   const visibleSteps = deduplicateSteps(steps);
@@ -24,22 +24,53 @@ export function ThinkingBlock() {
 
   // Never hide while streaming — more steps may be coming.
   // Only hide when stream is fully done AND all steps completed.
-  if (visibleSteps.length === 0) return null;
+  if (visibleSteps.length === 0 && !isStreaming) return null;
   if (allDone && !isStreaming) return null;
+
+  // Streaming with no steps yet — minimal "Thinking..." card
+  if (visibleSteps.length === 0 && isStreaming) {
+    return (
+      <div
+        className="flex gap-3 items-start max-w-[85%] motion-safe:animate-[fade-in-up_0.25s_ease-out]"
+        role="status"
+        aria-label="LeadSens is thinking..."
+      >
+        <div className="relative shrink-0">
+          <div className="size-8 rounded-lg overflow-hidden bg-white">
+            <img src="/L.svg" alt="LeadSens" className="size-8" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/[0.04] dark:bg-indigo-500/[0.08] px-4 py-3 min-w-0 w-full">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <span className="thinking-spinner size-3.5 rounded-full border-[1.5px] border-indigo-500/30 border-t-indigo-500 shrink-0" />
+            <span className="text-muted-foreground">Thinking...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Header text logic:
+  // - Streaming + running step → "Thinking..."
+  // - Streaming + no running step (between rounds) → label or "Processing..."
+  // - Not streaming → "X steps completed"
+  const headerText = isStreaming
+    ? (isThinking ? "Thinking..." : (label ?? "Processing..."))
+    : `${doneCount} step${doneCount > 1 ? "s" : ""} completed`;
 
   return (
     <div
       className="flex gap-3 items-start max-w-[85%] motion-safe:animate-[fade-in-up_0.25s_ease-out]"
       role="status"
       aria-label={
-        isThinking
+        isStreaming
           ? "LeadSens is analyzing..."
           : `${doneCount} steps completed`
       }
     >
       {/* Avatar (same as assistant message) */}
       <div className="relative shrink-0">
-        <div className="size-8 rounded-lg overflow-hidden">
+        <div className="size-8 rounded-lg overflow-hidden bg-white">
           <img src="/L.svg" alt="LeadSens" className="size-8" />
         </div>
       </div>
@@ -56,7 +87,7 @@ export function ThinkingBlock() {
               : "cursor-default"
           }`}
         >
-          {isThinking ? (
+          {isStreaming ? (
             <span className="thinking-spinner size-3.5 rounded-full border-[1.5px] border-indigo-500/30 border-t-indigo-500 shrink-0" />
           ) : (
             <svg
@@ -70,9 +101,7 @@ export function ThinkingBlock() {
             </svg>
           )}
           <span className="text-muted-foreground">
-            {isThinking
-              ? "Thinking..."
-              : `${doneCount} step${doneCount > 1 ? "s" : ""} completed`}
+            {headerText}
           </span>
         </button>
 
