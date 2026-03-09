@@ -1,12 +1,52 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { draftEmail } from "@/server/lib/email/drafting";
-import { getStyleSamples } from "@/server/lib/email/style-learner";
+import { draftWithQualityGate } from "@/server/lib/email/quality-gate";
+import { getStyleSamples, getWinningEmailPatterns } from "@/server/lib/email/style-learner";
+import { getDataDrivenWeights, getStepAnnotation } from "@/server/lib/analytics/adaptive";
 import type { EnrichmentData } from "@/server/lib/enrichment/summarizer";
+import { parseCompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "@/server/lib/email/campaign-angle";
+import { prioritizeSignals, getFramework } from "@/server/lib/email/prompt-builder";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
+import { transitionLeadStatus } from "@/server/lib/lead-status";
+
+/** Classify how much enrichment data is available for a lead */
+function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string {
+  if (!ed) return "none";
+  let fields = 0;
+  if (ed.companySummary) fields++;
+  if (ed.painPoints?.length) fields++;
+  if (ed.products?.length) fields++;
+  if (ed.techStack?.length) fields++;
+  if (ed.signals?.length || ed.hiringSignals?.length || ed.fundingSignals?.length || ed.leadershipChanges?.length) fields++;
+  if (ed.linkedinHeadline) fields++;
+  if (ed.recentLinkedInPosts?.length) fields++;
+  if (ed.careerHistory?.length) fields++;
+  if (ed.valueProposition) fields++;
+  if (ed.targetMarket) fields++;
+  if (fields >= 5) return "rich";
+  if (fields >= 3) return "partial";
+  if (fields >= 1) return "minimal";
+  return "none";
+}
+
+/** Build metadata fields for DraftedEmail correlation */
+function buildDraftMetadata(lead: { enrichmentData?: unknown; industry?: string | null }, step: number, body: string) {
+  const ed = lead.enrichmentData as EnrichmentData | null;
+  const signals = ed ? prioritizeSignals(ed) : [];
+  const framework = getFramework(step);
+  return {
+    signalType: signals[0]?.type ?? null,
+    signalCount: signals.length,
+    frameworkName: framework.name,
+    enrichmentDepth: classifyEnrichmentDepth(ed),
+    bodyWordCount: body.split(/\s+/).filter(Boolean).length,
+    leadIndustry: lead.industry ?? (ed?.industry as string | undefined) ?? null,
+  };
+}
 
 export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinition> {
   return {
@@ -24,7 +64,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           }),
           prisma.campaign.findUniqueOrThrow({
             where: { id: args.campaign_id },
-            select: { angle: true },
+            select: { angle: true, icpDescription: true },
           }),
         ]);
 
@@ -32,7 +72,14 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           return { error: "Company DNA not set. Please configure it in settings first." };
         }
 
-        const companyDna = workspace.companyDna as unknown as CompanyDna | string;
+        let companyDna: CompanyDna | string;
+        try {
+          const parsed = parseCompanyDna(workspace.companyDna);
+          if (!parsed) return { error: "Company DNA not set. Please configure it in settings first." };
+          companyDna = parsed;
+        } catch (err) {
+          return { error: `Company DNA is malformed: ${err instanceof Error ? err.message : "unknown error"}. Please re-analyze your website.` };
+        }
         const campaignAngle = campaign.angle
           ? (campaign.angle as unknown as CampaignAngle)
           : undefined;
@@ -45,7 +92,13 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           },
         });
 
-        const styleSamples = await getStyleSamples(ctx.workspaceId);
+        // Load style + adaptive data in parallel
+        const [styleSamples, signalWeights, winningPatterns] = await Promise.all([
+          getStyleSamples(ctx.workspaceId),
+          getDataDrivenWeights(ctx.workspaceId),
+          getWinningEmailPatterns(ctx.workspaceId),
+        ]);
+
         let drafted = 0;
         let failed = 0;
 
@@ -58,26 +111,49 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           const results = await Promise.allSettled(
             batch.map(async (lead) => {
               const previousEmails: { step: number; subject: string; body?: string }[] = [];
+              const leadName = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim();
 
               for (let step = 0; step < 6; step++) {
-                const result = await draftEmail({
-                  lead: {
-                    firstName: lead.firstName,
-                    lastName: lead.lastName,
-                    jobTitle: lead.jobTitle,
-                    company: lead.company,
-                    industry: lead.industry,
-                    companySize: lead.companySize,
-                    country: lead.country,
-                    enrichmentData: lead.enrichmentData as EnrichmentData | null,
+                // Load step annotation lazily (only for this step)
+                const stepAnnotation = await getStepAnnotation(ctx.workspaceId, step);
+
+                const { subject, subjects, body, qualityScore } = await draftWithQualityGate({
+                  draftFn: () =>
+                    draftEmail({
+                      lead: {
+                        firstName: lead.firstName,
+                        lastName: lead.lastName,
+                        jobTitle: lead.jobTitle,
+                        company: lead.company,
+                        industry: lead.industry,
+                        companySize: lead.companySize,
+                        country: lead.country,
+                        enrichmentData: lead.enrichmentData as EnrichmentData | null,
+                      },
+                      step,
+                      companyDna,
+                      campaignAngle,
+                      workspaceId: ctx.workspaceId,
+                      previousEmails,
+                      styleSamples,
+                      icpDescription: campaign.icpDescription ?? undefined,
+                      signalWeights: signalWeights ?? undefined,
+                      stepAnnotation: stepAnnotation ?? undefined,
+                      winningPatterns: winningPatterns.length > 0 ? winningPatterns : undefined,
+                    }),
+                  context: {
+                    leadName,
+                    leadJobTitle: lead.jobTitle,
+                    leadCompany: lead.company,
+                    step,
                   },
-                  step,
-                  companyDna,
-                  campaignAngle,
                   workspaceId: ctx.workspaceId,
-                  previousEmails,
-                  styleSamples,
                 });
+
+                // Filter out the primary subject from variants to store only alternatives
+                const altSubjects = subjects?.filter((s) => s !== subject) ?? [];
+
+                const metadata = buildDraftMetadata(lead, step, body);
 
                 await prisma.draftedEmail.upsert({
                   where: {
@@ -87,24 +163,27 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                     leadId: lead.id,
                     campaignId: args.campaign_id,
                     step,
-                    subject: result.subject,
-                    body: result.body,
+                    subject,
+                    subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
+                    body,
+                    qualityScore: qualityScore.overall,
                     model: "mistral-large-latest",
+                    ...metadata,
                   },
                   update: {
-                    subject: result.subject,
-                    body: result.body,
+                    subject,
+                    subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
+                    body,
+                    qualityScore: qualityScore.overall,
                     model: "mistral-large-latest",
+                    ...metadata,
                   },
                 });
 
-                previousEmails.push({ step, subject: result.subject, body: result.body });
+                previousEmails.push({ step, subject, body });
               }
 
-              await prisma.lead.update({
-                where: { id: lead.id },
-                data: { status: "DRAFTED" },
-              });
+              await transitionLeadStatus(lead.id, "DRAFTED");
             }),
           );
 
@@ -185,7 +264,14 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           return { error: "Company DNA not set." };
         }
 
-        const companyDna = workspace.companyDna as unknown as CompanyDna | string;
+        let companyDna: CompanyDna | string;
+        try {
+          const parsed = parseCompanyDna(workspace.companyDna);
+          if (!parsed) return { error: "Company DNA not set." };
+          companyDna = parsed;
+        } catch (err) {
+          return { error: `Company DNA is malformed: ${err instanceof Error ? err.message : "unknown error"}. Please re-analyze your website.` };
+        }
 
         // ── Lead resolution: id > name/email > auto ──
         let lead;
@@ -240,52 +326,101 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           return { error: `Lead must be enriched first (current status: ${lead.status}). Run the full pipeline: score → enrich → draft.` };
         }
 
-        // Fetch campaign angle if the lead belongs to a campaign
+        // Fetch campaign angle + ICP description if the lead belongs to a campaign
         let campaignAngle: CampaignAngle | undefined;
+        let icpDescription: string | undefined;
         if (lead.campaignId) {
           const campaign = await prisma.campaign.findUnique({
             where: { id: lead.campaignId },
-            select: { angle: true },
+            select: { angle: true, icpDescription: true },
           });
           if (campaign?.angle) {
             campaignAngle = campaign.angle as unknown as CampaignAngle;
           }
+          icpDescription = campaign?.icpDescription ?? undefined;
         }
 
-        const styleSamples = await getStyleSamples(ctx.workspaceId);
+        // Load style + adaptive data in parallel
+        const [styleSamples, singleWeights, singleWinning, singleStepAnnotation, previousDrafts] = await Promise.all([
+          getStyleSamples(ctx.workspaceId),
+          getDataDrivenWeights(ctx.workspaceId),
+          getWinningEmailPatterns(ctx.workspaceId),
+          getStepAnnotation(ctx.workspaceId, args.step),
+          prisma.draftedEmail.findMany({
+            where: { leadId: lead.id, step: { lt: args.step } },
+            orderBy: { step: "asc" },
+          }),
+        ]);
 
-        // Get previously drafted emails for this lead
-        const previousDrafts = await prisma.draftedEmail.findMany({
-          where: { leadId: lead.id, step: { lt: args.step } },
-          orderBy: { step: "asc" },
+        const leadName = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim();
+
+        const { subject, body, qualityScore } = await draftWithQualityGate({
+          draftFn: () =>
+            draftEmail({
+              lead: {
+                firstName: lead.firstName,
+                lastName: lead.lastName,
+                jobTitle: lead.jobTitle,
+                company: lead.company,
+                industry: lead.industry,
+                companySize: lead.companySize,
+                country: lead.country,
+                enrichmentData: lead.enrichmentData as EnrichmentData | null,
+              },
+              step: args.step,
+              companyDna,
+              campaignAngle,
+              workspaceId: ctx.workspaceId,
+              previousEmails: previousDrafts.map((d) => ({ step: d.step, subject: d.subject, body: d.userEdit ?? d.body })),
+              styleSamples,
+              icpDescription,
+              signalWeights: singleWeights ?? undefined,
+              stepAnnotation: singleStepAnnotation ?? undefined,
+              winningPatterns: singleWinning.length > 0 ? singleWinning : undefined,
+            }),
+          context: {
+            leadName,
+            leadJobTitle: lead.jobTitle,
+            leadCompany: lead.company,
+            step: args.step,
+          },
+          workspaceId: ctx.workspaceId,
         });
 
-        const result = await draftEmail({
-          lead: {
-            firstName: lead.firstName,
-            lastName: lead.lastName,
-            jobTitle: lead.jobTitle,
-            company: lead.company,
-            industry: lead.industry,
-            companySize: lead.companySize,
-            country: lead.country,
-            enrichmentData: lead.enrichmentData as EnrichmentData | null,
+        // Persist the draft
+        const singleMeta = buildDraftMetadata(lead, args.step, body);
+
+        await prisma.draftedEmail.upsert({
+          where: {
+            leadId_step: { leadId: lead.id, step: args.step },
           },
-          step: args.step,
-          companyDna,
-          campaignAngle,
-          workspaceId: ctx.workspaceId,
-          previousEmails: previousDrafts.map((d) => ({ step: d.step, subject: d.subject, body: d.userEdit ?? d.body })),
-          styleSamples,
+          create: {
+            leadId: lead.id,
+            campaignId: lead.campaignId ?? "",
+            step: args.step,
+            subject,
+            body,
+            qualityScore: qualityScore.overall,
+            model: "mistral-large-latest",
+            ...singleMeta,
+          },
+          update: {
+            subject,
+            body,
+            qualityScore: qualityScore.overall,
+            model: "mistral-large-latest",
+            ...singleMeta,
+          },
         });
 
         return {
-          subject: result.subject,
-          body: result.body,
+          subject,
+          body,
           leadId: lead.id,
-          leadName: `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim(),
+          leadName,
           leadCompany: lead.company,
           step: args.step,
+          qualityScore: qualityScore.overall,
         };
       },
     },

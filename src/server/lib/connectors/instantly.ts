@@ -239,10 +239,24 @@ export interface InstantlyLead {
   email_open_count?: number;
   email_reply_count?: number;
   email_click_count?: number;
+  timestamp_last_open?: string;
+  timestamp_last_reply?: string;
   /** Custom variables & SuperSearch data (camelCase keys) */
   payload?: Record<string, unknown> | null;
   timestamp_created?: string;
   timestamp_updated?: string;
+}
+
+/** Lead with mapped performance/engagement fields */
+export interface LeadWithPerformance {
+  id: string;
+  email: string;
+  openCount: number;
+  replyCount: number;
+  clickCount: number;
+  interestStatus: number | null;
+  lastOpenAt: string | null;
+  lastReplyAt: string | null;
 }
 
 /** Normalized lead for internal use (consistent field names) */
@@ -861,6 +875,7 @@ export async function updateLeadInterestStatus(
 
 export interface CampaignStep {
   subject?: string;
+  subjects?: string[];
   body: string;
   delay?: number;
 }
@@ -901,13 +916,19 @@ export async function createCampaign(
 ): Promise<InstantlyCampaign> {
   const sequences = [
     {
-      steps: params.steps.map((s, i) => ({
-        type: "email" as const,
-        delay: s.delay ?? (i === 0 ? 0 : 3),
-        delay_unit: "days" as const,
-        pre_delay_unit: "days" as const,
-        variants: [{ subject: s.subject ?? "", body: s.body }],
-      })),
+      steps: params.steps.map((s, i) => {
+        // Build variants: if multiple subjects provided, create one variant per subject
+        const subjects = s.subjects?.length ? s.subjects : [s.subject ?? ""];
+        const variants = subjects.map((subj) => ({ subject: subj, body: s.body }));
+
+        return {
+          type: "email" as const,
+          delay: s.delay ?? (i === 0 ? 0 : 3),
+          delay_unit: "days" as const,
+          pre_delay_unit: "days" as const,
+          variants,
+        };
+      }),
     },
   ];
 
@@ -1052,6 +1073,68 @@ export async function getCampaignAnalytics(
   return match;
 }
 
+export interface CampaignStepAnalytics {
+  step: number;
+  sent: number;
+  opened: number;
+  replied: number;
+  bounced: number;
+}
+
+export async function getCampaignStepAnalytics(
+  apiKey: string,
+  campaignId: string,
+): Promise<{ steps: CampaignStepAnalytics[] }> {
+  const query = new URLSearchParams({ campaign_id: campaignId });
+  const res = await instantlyFetch<Record<string, unknown>>(
+    apiKey,
+    "GET",
+    `/campaigns/analytics/steps?${query.toString()}`,
+  );
+
+  // Handle both { steps: [...] } and raw [...] shapes
+  const rawSteps: unknown[] = Array.isArray(res) ? res : (Array.isArray(res.steps) ? res.steps : []);
+
+  const steps: CampaignStepAnalytics[] = rawSteps.map((s: unknown) => {
+    const item = s as Record<string, unknown>;
+    return {
+      step: (item.step ?? item.step_number ?? 0) as number,
+      sent: (item.sent ?? item.emails_sent ?? 0) as number,
+      opened: (item.opened ?? item.emails_read ?? item.emails_opened ?? 0) as number,
+      replied: (item.replied ?? item.replies ?? 0) as number,
+      bounced: (item.bounced ?? item.bounces ?? 0) as number,
+    };
+  });
+
+  return { steps };
+}
+
+export async function getLeadsWithPerformance(
+  apiKey: string,
+  campaignId: string,
+  limit?: number,
+  startingAfter?: string,
+): Promise<{ items: LeadWithPerformance[]; nextStartingAfter?: string }> {
+  const { items, nextStartingAfter } = await listLeads(apiKey, {
+    campaignId,
+    limit: limit ?? 100,
+    startingAfter,
+  });
+
+  const mapped: LeadWithPerformance[] = items.map((lead) => ({
+    id: lead.id,
+    email: lead.email,
+    openCount: lead.email_open_count ?? 0,
+    replyCount: lead.email_reply_count ?? 0,
+    clickCount: lead.email_click_count ?? 0,
+    interestStatus: lead.lt_interest_status ?? null,
+    lastOpenAt: lead.timestamp_last_open ?? null,
+    lastReplyAt: lead.timestamp_last_reply ?? null,
+  }));
+
+  return { items: mapped, nextStartingAfter };
+}
+
 export async function getEmails(
   apiKey: string,
   params: {
@@ -1148,7 +1231,9 @@ export async function getInstantlyClient(workspaceId: string) {
     getCampaignSendingStatus: (campaignId: string) => getCampaignSendingStatus(apiKey, campaignId),
     pauseCampaign: (campaignId: string) => pauseCampaign(apiKey, campaignId),
     getCampaignAnalytics: (campaignId: string) => getCampaignAnalytics(apiKey, campaignId),
+    getCampaignStepAnalytics: (campaignId: string) => getCampaignStepAnalytics(apiKey, campaignId),
     getEmails: (params: Parameters<typeof getEmails>[1]) => getEmails(apiKey, params),
+    getLeadsWithPerformance: (campaignId: string, limit?: number, startingAfter?: string) => getLeadsWithPerformance(apiKey, campaignId, limit, startingAfter),
     // Accounts
     listAccounts: () => listAccounts(apiKey),
   };

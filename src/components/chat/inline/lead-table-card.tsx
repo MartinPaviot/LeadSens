@@ -17,6 +17,10 @@ interface LeadRow {
   linkedinUrl?: string | null;
   icpScore?: number | null;
   status: string;
+  enrichmentContext?: string | null;
+  enrichmentLinkedin?: string | null;
+  enrichmentSignals?: string | null;
+  enrichmentDiagnostic?: string | null;
 }
 
 interface LeadTableCardProps {
@@ -27,9 +31,9 @@ interface LeadTableCardProps {
 
 function ScoreBadge({ score }: { score: number | null | undefined }) {
   if (score == null) return null;
-  if (score >= 8) return <Badge className="bg-green-600/20 text-green-400 border-green-600/30">{score}</Badge>;
-  if (score >= 5) return <Badge className="bg-yellow-600/20 text-yellow-400 border-yellow-600/30">{score}</Badge>;
-  return <Badge className="bg-red-600/20 text-red-400 border-red-600/30">{score}</Badge>;
+  if (score >= 8) return <Badge className="bg-green-600/20 text-green-400 border-green-600/30 text-[10px] py-0">{score}</Badge>;
+  if (score >= 5) return <Badge className="bg-yellow-600/20 text-yellow-400 border-yellow-600/30 text-[10px] py-0">{score}</Badge>;
+  return <Badge className="bg-red-600/20 text-red-400 border-red-600/30 text-[10px] py-0">{score}</Badge>;
 }
 
 /** Detect which columns have at least one non-empty value */
@@ -41,12 +45,18 @@ function useVisibleColumns(leads: LeadRow[]) {
     const hasTitle = leads.some((l) => l.jobTitle);
     const hasLinkedin = leads.some((l) => l.linkedinUrl);
     const hasScore = leads.some((l) => l.icpScore != null);
-    return { hasName, hasEmail, hasCompany, hasTitle, hasLinkedin, hasScore };
+    const hasEnrichment = leads.some(
+      (l) => l.enrichmentContext || l.enrichmentLinkedin || l.enrichmentSignals || l.enrichmentDiagnostic,
+    );
+    return { hasName, hasEmail, hasCompany, hasTitle, hasLinkedin, hasScore, hasEnrichment };
   }, [leads]);
 }
 
 function buildLeadCsv(leads: LeadRow[]): string {
-  const headers = ["Name", "Email", "Company", "Job Title", "LinkedIn URL", "ICP Score", "Status"];
+  const headers = [
+    "Name", "Email", "Company", "Job Title", "LinkedIn URL", "ICP Score", "Status",
+    "Context", "LinkedIn Summary", "Signals", "Diagnostic",
+  ];
   const rows = leads.map((l) =>
     [
       [l.firstName, l.lastName].filter(Boolean).join(" "),
@@ -56,6 +66,10 @@ function buildLeadCsv(leads: LeadRow[]): string {
       l.linkedinUrl || "",
       l.icpScore != null ? String(l.icpScore) : "",
       l.status,
+      l.enrichmentContext || "",
+      l.enrichmentLinkedin || "",
+      l.enrichmentSignals || "",
+      l.enrichmentDiagnostic || "",
     ].map(escapeCsv),
   );
   return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -141,38 +155,46 @@ export function LeadTableCard({ title, leads, campaignId }: LeadTableCardProps) 
         </div>
       </div>
       <div className="max-h-[600px] overflow-y-auto">
-        <table className="w-full text-xs table-fixed">
+        <table className="w-full text-[10px] table-fixed">
           <colgroup>
             <col className="w-5" />
-            {cols.hasName && <col className="w-[20%]" />}
+            {cols.hasName && <col className={cols.hasEnrichment ? "w-[10%]" : "w-[20%]"} />}
             {cols.hasLinkedin && <col className="w-7" />}
-            {cols.hasEmail && <col />}
-            {cols.hasCompany && <col className="w-[24%]" />}
-            {cols.hasTitle && <col className="w-[28%]" />}
+            {cols.hasEmail && <col className={cols.hasEnrichment ? "w-[14%]" : undefined} />}
+            {cols.hasCompany && <col className={cols.hasEnrichment ? "w-[10%]" : "w-[24%]"} />}
+            {cols.hasTitle && <col className={cols.hasEnrichment ? "w-[10%]" : "w-[28%]"} />}
             {cols.hasScore && <col className="w-9" />}
+            {cols.hasEnrichment && <col className="w-[12%]" />}
+            {cols.hasEnrichment && <col className="w-[12%]" />}
+            {cols.hasEnrichment && <col className="w-[10%]" />}
+            {cols.hasEnrichment && <col className="w-[12%]" />}
           </colgroup>
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-border/40">
-              <th className="pl-2 pr-0.5 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">#</th>
-              {cols.hasName && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Name</th>}
-              {cols.hasLinkedin && <th className="px-1 py-2 text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">LI</th>}
-              {cols.hasEmail && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Email</th>}
-              {cols.hasCompany && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Co.</th>}
-              {cols.hasTitle && <th className="px-2 py-2 text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Title</th>}
-              {cols.hasScore && <th className="px-1 py-2 text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">ICP</th>}
+              <th className="pl-2 pr-0.5 py-2 align-middle text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">#</th>
+              {cols.hasName && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Name</th>}
+              {cols.hasLinkedin && <th className="px-1 py-2 align-middle text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">LI</th>}
+              {cols.hasEmail && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Email</th>}
+              {cols.hasCompany && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Co.</th>}
+              {cols.hasTitle && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Title</th>}
+              {cols.hasScore && <th className="px-1 py-2 align-middle text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">ICP</th>}
+              {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground/70 bg-muted/40">Ctx</th>}
+              {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-blue-400/70 bg-muted/40">LI</th>}
+              {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-emerald-400/70 bg-muted/40">Sig</th>}
+              {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-amber-400/70 bg-muted/40">Diag</th>}
             </tr>
           </thead>
           <tbody>
             {leads.map((lead, idx) => (
               <tr key={lead.id} className="border-b border-border/20 last:border-0 hover:bg-muted/20 transition-colors">
-                <td className="pl-2 pr-0.5 py-1.5 text-muted-foreground/50 tabular-nums">{idx + 1}</td>
+                <td className="pl-2 pr-0.5 py-1.5 align-middle text-center text-muted-foreground/50 tabular-nums">{idx + 1}</td>
                 {cols.hasName && (
-                  <td className="px-2 py-1.5 font-medium truncate" title={[lead.firstName, lead.lastName].filter(Boolean).join(" ")}>
+                  <td className="px-2 py-1.5 align-middle font-medium truncate" title={[lead.firstName, lead.lastName].filter(Boolean).join(" ")}>
                     {[lead.firstName, lead.lastName].filter(Boolean).join(" ")}
                   </td>
                 )}
                 {cols.hasLinkedin && (
-                  <td className="px-1 py-1.5 text-center">
+                  <td className="px-1 py-1.5 align-middle text-center">
                     {lead.linkedinUrl ? (
                       <a
                         href={lead.linkedinUrl}
@@ -189,17 +211,37 @@ export function LeadTableCard({ title, leads, campaignId }: LeadTableCardProps) 
                   </td>
                 )}
                 {cols.hasEmail && (
-                  <td className="px-2 py-1.5 text-muted-foreground font-mono text-[10px] truncate" title={lead.email}>{lead.email}</td>
+                  <td className="px-2 py-1.5 align-middle text-muted-foreground truncate" title={lead.email}>{lead.email}</td>
                 )}
                 {cols.hasCompany && (
-                  <td className="px-2 py-1.5 truncate" title={lead.company ?? undefined}>{lead.company}</td>
+                  <td className="px-2 py-1.5 align-middle truncate" title={lead.company ?? undefined}>{lead.company}</td>
                 )}
                 {cols.hasTitle && (
-                  <td className="px-2 py-1.5 truncate text-muted-foreground" title={lead.jobTitle ?? undefined}>{lead.jobTitle}</td>
+                  <td className="px-2 py-1.5 align-middle truncate text-muted-foreground" title={lead.jobTitle ?? undefined}>{lead.jobTitle}</td>
                 )}
                 {cols.hasScore && (
-                  <td className="px-1 py-1.5 text-center">
+                  <td className="px-1 py-1.5 align-middle text-center">
                     <ScoreBadge score={lead.icpScore} />
+                  </td>
+                )}
+                {cols.hasEnrichment && (
+                  <td className="px-2 py-1.5 align-middle truncate text-muted-foreground" title={lead.enrichmentContext ?? undefined}>
+                    {lead.enrichmentContext ?? <span className="text-muted-foreground/30">—</span>}
+                  </td>
+                )}
+                {cols.hasEnrichment && (
+                  <td className="px-2 py-1.5 align-middle truncate text-blue-400/80" title={lead.enrichmentLinkedin ?? undefined}>
+                    {lead.enrichmentLinkedin ?? <span className="text-muted-foreground/30">—</span>}
+                  </td>
+                )}
+                {cols.hasEnrichment && (
+                  <td className="px-2 py-1.5 align-middle truncate text-emerald-400/80" title={lead.enrichmentSignals ?? undefined}>
+                    {lead.enrichmentSignals ?? <span className="text-muted-foreground/30">—</span>}
+                  </td>
+                )}
+                {cols.hasEnrichment && (
+                  <td className="px-2 py-1.5 align-middle truncate text-amber-400/80" title={lead.enrichmentDiagnostic ?? undefined}>
+                    {lead.enrichmentDiagnostic ?? <span className="text-muted-foreground/30">—</span>}
                   </td>
                 )}
               </tr>

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { draftEmail } from "@/server/lib/email/drafting";
+import { draftWithQualityGate } from "@/server/lib/email/quality-gate";
 import { getStyleSamples } from "@/server/lib/email/style-learner";
 import type { EnrichmentData } from "@/server/lib/enrichment/summarizer";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
@@ -34,25 +35,38 @@ export const emailDraftWorker = createWorker(
       ? (campaign.angle as unknown as CampaignAngle)
       : undefined;
 
-    const previousEmails: { step: number; subject: string }[] = [];
+    const previousEmails: { step: number; subject: string; body?: string }[] = [];
+    const leadName = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim();
 
-    for (let step = 0; step < 3; step++) {
-      const result = await draftEmail({
-        lead: {
-          firstName: lead.firstName,
-          lastName: lead.lastName,
-          jobTitle: lead.jobTitle,
-          company: lead.company,
-          companySize: lead.companySize,
-          enrichmentData: lead.enrichmentData as EnrichmentData | null,
+    for (let step = 0; step < 6; step++) {
+      const { subject, subjects, body, qualityScore } = await draftWithQualityGate({
+        draftFn: () =>
+          draftEmail({
+            lead: {
+              firstName: lead.firstName,
+              lastName: lead.lastName,
+              jobTitle: lead.jobTitle,
+              company: lead.company,
+              companySize: lead.companySize,
+              enrichmentData: lead.enrichmentData as EnrichmentData | null,
+            },
+            step,
+            companyDna,
+            campaignAngle,
+            workspaceId,
+            previousEmails,
+            styleSamples,
+          }),
+        context: {
+          leadName,
+          leadJobTitle: lead.jobTitle,
+          leadCompany: lead.company,
+          step,
         },
-        step,
-        companyDna,
-        campaignAngle,
         workspaceId,
-        previousEmails,
-        styleSamples,
       });
+
+      const altSubjects = subjects?.filter((s) => s !== subject) ?? [];
 
       await prisma.draftedEmail.upsert({
         where: {
@@ -62,18 +76,22 @@ export const emailDraftWorker = createWorker(
           leadId: lead.id,
           campaignId,
           step,
-          subject: result.subject,
-          body: result.body,
+          subject,
+          subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
+          body,
+          qualityScore: qualityScore.overall,
           model: "mistral-large-latest",
         },
         update: {
-          subject: result.subject,
-          body: result.body,
+          subject,
+          subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
+          body,
+          qualityScore: qualityScore.overall,
           model: "mistral-large-latest",
         },
       });
 
-      previousEmails.push({ step, subject: result.subject });
+      previousEmails.push({ step, subject, body });
     }
 
     await prisma.lead.update({

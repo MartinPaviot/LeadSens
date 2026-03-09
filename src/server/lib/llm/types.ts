@@ -56,6 +56,7 @@ export interface ChatStreamOptions {
   workspaceId: string;
   userId?: string;
   onStatus?: (label: string) => void;
+  signal?: AbortSignal;
 }
 
 export interface CompleteOptions {
@@ -95,6 +96,7 @@ export interface DraftEmailOptions {
 
 export interface DraftEmailResult {
   subject: string;
+  subjects?: string[];
   body: string;
 }
 

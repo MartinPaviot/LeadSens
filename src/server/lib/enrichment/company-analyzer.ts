@@ -30,6 +30,10 @@ export const companyDnaSchema = z.object({
         industry: z.string(),
         clients: z.array(z.string()),
         keyMetric: z.string().optional(),
+        vertical: z.string().optional(),
+        companySize: z.enum(["startup", "smb", "mid-market", "enterprise"]).optional(),
+        useCase: z.string().optional(),
+        testimonialQuote: z.string().optional(),
       }),
     )
     .default([]),
@@ -70,6 +74,21 @@ export const companyDnaSchema = z.object({
         timeline: z.string(),
         result: z.string(),
         context: z.string().optional(),
+        vertical: z.string().optional(),
+        companySize: z.enum(["startup", "smb", "mid-market", "enterprise"]).optional(),
+        productUsed: z.string().optional(),
+        quote: z.string().optional(),
+        beforeState: z.string().optional(),
+      }),
+    )
+    .default([]),
+
+  clientPortfolio: z
+    .array(
+      z.object({
+        name: z.string(),
+        industry: z.string().optional(),
+        vertical: z.string().optional(),
       }),
     )
     .default([]),
@@ -86,51 +105,77 @@ export const companyDnaSchema = z.object({
 
 export type CompanyDna = z.infer<typeof companyDnaSchema>;
 
+/**
+ * Safely parse raw DB value into CompanyDna | string | null.
+ * Returns null if the value is falsy, string if it's a plain string,
+ * or validated CompanyDna if it's a valid object.
+ * Throws if the value is an object but doesn't match the schema.
+ */
+export function parseCompanyDna(raw: unknown): CompanyDna | string | null {
+  if (!raw) return null;
+  if (typeof raw === "string") return raw;
+  const result = companyDnaSchema.safeParse(raw);
+  if (result.success) return result.data;
+  throw new Error(`Invalid CompanyDna in database: ${result.error.message}`);
+}
+
 // ─── System Prompt ───────────────────────────────────────
 
-const COMPANY_ANALYSIS_SYSTEM = `Tu analyses le contenu scrapé d'un site web d'entreprise pour comprendre PRÉCISÉMENT ce qu'elle vend, à qui, et pourquoi c'est utile. Ton analyse sera utilisée pour écrire des cold emails B2B de prospection — elle doit donc être orientée "selling points", pas description neutre.
+const COMPANY_ANALYSIS_SYSTEM = `You analyze scraped website content from a company to understand PRECISELY what it sells, to whom, and why it's useful. Your analysis will be used to write B2B cold prospecting emails — so it must be oriented toward "selling points", not neutral description.
 
-Tu DOIS retourner un objet JSON avec EXACTEMENT ces clés (camelCase, pas de snake_case) :
+You MUST return a JSON object with EXACTLY these keys (camelCase, no snake_case):
 
 {
-  "oneLiner": "UNE phrase. Format : '[Nom] aide [qui] à [faire quoi] grâce à [comment].'",
+  "oneLiner": "ONE sentence. Format: '[Name] helps [who] to [do what] through [how].'",
 
-  "problemsSolved": ["Les 2-4 problèmes concrets que le produit/service résout. Extrais-les du contenu (pain points clients, frustrations, inefficacités). Phrase courte commençant par un verbe ou un nom."],
+  "problemsSolved": ["The 2-4 concrete problems the product/service solves. Extract them from the content (client pain points, frustrations, inefficiencies). Short phrase starting with a verb or noun."],
 
-  "targetBuyers": [{"role": "Titre de poste (ex: VP Sales, Head of Growth, CTO)", "sellingAngle": "L'angle de vente qui résonne pour ce rôle — quel bénéfice spécifique lui importe"}],
+  "targetBuyers": [{"role": "Job title (e.g.: VP Sales, Head of Growth, CTO)", "sellingAngle": "The selling angle that resonates for this role — what specific benefit matters to them"}],
 
-  "socialProof": [{"industry": "Secteur d'activité (ex: SaaS, E-commerce, FinTech, Santé)", "clients": ["Nom du client 1", "Nom du client 2"], "keyMetric": "+45% de conversion chez Client 1 (optionnel, seulement si mentionné)"}],
+  "socialProof": [{"industry": "Industry sector (e.g.: SaaS, E-commerce, FinTech, Healthcare)", "clients": ["Client name 1", "Client name 2"], "keyMetric": "+45% conversion at Client 1 (optional, only if mentioned)", "vertical": "Sub-industry (e.g.: HR Tech under SaaS, InsurTech under FinTech) — optional", "companySize": "startup|smb|mid-market|enterprise — deduce from context if possible (Fortune 500 = enterprise, 'team of 50' = startup/smb)", "useCase": "What product/feature this client uses — optional", "testimonialQuote": "Verbatim quote from a testimonial if available — optional"}],
 
-  "keyResults": ["Chiffres, stats, métriques, résultats de case studies RÉELLEMENT mentionnés sur le site. Ex: '+45% de conversion', '500+ clients', '3x plus rapide'. Si AUCUN chiffre n'est mentionné, retourne []."],
+  "keyResults": ["Numbers, stats, metrics, case study results ACTUALLY mentioned on the site. E.g.: '+45% conversion', '500+ clients', '3x faster'. If NO numbers are mentioned, return []."],
 
-  "differentiators": ["2-3 points qui distinguent l'entreprise de la concurrence. Avantages uniques, techno propriétaire, approche différente."],
+  "differentiators": ["2-3 points that distinguish the company from competition. Unique advantages, proprietary tech, different approach."],
 
-  "toneOfVoice": {"register": "formal|conversational|casual", "traits": ["2-3 adjectifs décrivant le style d'écriture du site : direct, empathique, technique, data-driven, etc."], "avoidWords": []},
+  "toneOfVoice": {"register": "formal|conversational|casual", "traits": ["2-3 adjectives describing the site's writing style: direct, empathetic, technical, data-driven, etc."], "avoidWords": []},
 
-  "ctas": [{"label": "Le texte du CTA visible sur le site (ex: 'Démarrer gratuitement', 'Réserver une démo')", "commitment": "low|medium|high", "url": "URL du CTA si visible"}],
+  "ctas": [{"label": "The CTA text visible on the site (e.g.: 'Start for free', 'Book a demo')", "commitment": "low|medium|high", "url": "CTA URL if visible"}],
 
-  "pricingModel": "Le modèle tarifaire si visible (freemium, par siège, sur devis, essai gratuit, etc.). null si pas trouvé.",
+  "pricingModel": "The pricing model if visible (freemium, per seat, custom quote, free trial, etc.). null if not found.",
 
-  "caseStudies": [{"client": "Nom du client", "industry": "Secteur (SaaS, E-commerce, etc.)", "timeline": "En 90 jours / Après leur Série B / En 6 mois", "result": "+45% pipeline / 3x plus de demos / -60% de churn", "context": "Contexte optionnel : taille entreprise, situation avant, déclencheur"}],
+  "caseStudies": [{"client": "Client name", "industry": "Sector (SaaS, E-commerce, etc.)", "timeline": "In 90 days / After their Series B / In 6 months", "result": "+45% pipeline / 3x more demos / -60% churn", "context": "Optional context: company size, situation before, trigger", "vertical": "Sub-industry (e.g.: MarTech, EdTech) — optional", "companySize": "startup|smb|mid-market|enterprise — optional", "productUsed": "Which product/feature of the sender was used — optional", "quote": "Verbatim testimonial quote from the case study — optional", "beforeState": "Situation BEFORE using the product (for contrast) — optional"}],
+
+  "clientPortfolio": [{"name": "Client/company name", "industry": "Industry sector — optional", "vertical": "Sub-industry — optional"}],
 
   "senderIdentity": {"name": "", "role": "", "signatureHook": ""},
   "objections": []
 }
 
-RÈGLES STRICTES :
-- Base-toi EXCLUSIVEMENT sur le contenu fourni. N'invente RIEN. Ne complète JAMAIS avec tes connaissances.
-- CHAQUE champ doit être rempli à partir du contenu réel du site. Cherche activement dans toutes les pages fournies.
-- "problemsSolved" : Déduis les problèmes de la proposition de valeur, des sections "why us", des pain points mentionnés. C'est un champ CRITIQUE pour les cold emails.
-- "targetBuyers" : Déduis des cas d'usage, des témoignages, des intitulés de pages (ex: "pour les équipes sales", "pour les marketers").
-- "socialProof" : C'est LE champ le plus important pour les cold emails. Cherche ACTIVEMENT : sections "trusted by", "ils nous font confiance", logos clients, case studies, témoignages. GROUPE les clients par industrie/secteur. Si un résultat chiffré est associé à un client, mets-le dans keyMetric. Si tu ne connais pas l'industrie d'un client, utilise "General".
-- "keyResults" : UNIQUEMENT des chiffres/stats explicitement écrits sur le site. JAMAIS de chiffres inventés.
-- "toneOfVoice" : Analyse le style d'écriture du site. Formel = vouvoiement, corporate. Conversational = tutoiement, naturel. Casual = très familier, startup. Traits = 2-3 adjectifs. avoidWords = toujours [].
-- "ctas" : Extrais les CTAs visibles sur le site (boutons, liens d'action). Commitment : low = ressource gratuite, newsletter. medium = démo, call, audit. high = achat, abonnement.
-- "caseStudies" : Extrais les case studies avec TIMELINE. Pour chaque résultat chiffré trouvé dans les pages case studies, clients, ou témoignages, extrais : le client, son industrie, le TIMELINE (en combien de temps, après quel événement), et le résultat. Les résultats avec timeline sont 2.3x plus impactants en cold email. Si pas de timeline explicite, déduis-le du contexte ("après leur migration", "en Q1 2024"). Si vraiment impossible, mets "N/A". Cherche dans TOUTES les pages fournies.
-- "pricingModel" : Cherche dans la page pricing si elle est fournie.
-- "senderIdentity" et "objections" : Retourne TOUJOURS vide — ces infos ne sont pas sur le site, l'utilisateur les remplira.
-- Si une info est VRAIMENT absente du contenu → [] ou null. Mais cherche bien avant de conclure qu'elle est absente.
-- UTILISE EXACTEMENT les noms de clés ci-dessus (camelCase). PAS de snake_case.`;
+STRICT RULES:
+- Base yourself EXCLUSIVELY on the provided content. Do NOT invent anything. NEVER supplement with your own knowledge.
+- EACH field must be filled from the actual site content. Actively search through all provided pages.
+- "problemsSolved": Deduce problems from the value proposition, "why us" sections, mentioned pain points. This is a CRITICAL field for cold emails.
+- "targetBuyers": Deduce from use cases, testimonials, page titles (e.g.: "for sales teams", "for marketers").
+- "socialProof": This is THE most important field for cold emails. ACTIVELY search for: "trusted by" sections, client logos, case studies, testimonials, partner pages. GROUP clients by industry/sector. If a quantified result is associated with a client, put it in keyMetric. If you don't know a client's industry, use "General". For EACH entry, try to add:
+  - "vertical": the sub-industry (e.g. "HR Tech" under "SaaS", "InsurTech" under "FinTech")
+  - "companySize": deduce from context clues (Fortune 500 / enterprise mentions = "enterprise", "team of 50" / seed stage = "startup", etc.)
+  - "useCase": what specific product/feature this client uses
+  - "testimonialQuote": verbatim quote if a testimonial is present. Include the speaker's name/role if available.
+- "clientPortfolio": This is the COMPLETE list of ALL client/company names visible on the site — the "logo wall". Extract EVERY name from "trusted by", "our clients", logo sections, partner pages, integration pages, case study listings, and testimonial pages. Tag each with industry and vertical if deducible. This is DISTINCT from socialProof (which has metrics). clientPortfolio = exhaustive inventory.
+- LOGO WALLS: Actively search for sections labeled "trusted by", "nos clients", "they trust us", "our customers", logo grids. Extract EVERY company name.
+- TESTIMONIALS: Extract verbatim quotes with attribution (name, role, company). Put quotes in the relevant socialProof entry's "testimonialQuote" field.
+- VERTICALS: Tag each client with its sub-vertical (e.g.: "MarTech" under "SaaS", "PropTech" under "Real Estate"). Be specific.
+- INTEGRATIONS/PARTNERS: Integration partners = implicit social proof. Add them to clientPortfolio.
+- BEFORE STATE: For case studies, extract the situation BEFORE using the product. This creates powerful contrast in emails (Step 2: Social Proof).
+- "keyResults": ONLY numbers/stats explicitly written on the site. NEVER invent numbers.
+- "toneOfVoice": Analyze the site's writing style. Formal = corporate, distant. Conversational = natural, friendly. Casual = very informal, startup-like. Traits = 2-3 adjectives. avoidWords = always [].
+- "ctas": Extract visible CTAs from the site (buttons, action links). Commitment: low = free resource, newsletter. medium = demo, call, audit. high = purchase, subscription.
+- "caseStudies": Extract case studies with TIMELINE. For each quantified result found in case study, client, or testimonial pages, extract: the client, their industry, the TIMELINE (how long, after what event), and the result. Results with timelines are 2.3x more impactful in cold email. If no explicit timeline, deduce from context ("after their migration", "in Q1 2024"). If truly impossible, use "N/A". Also extract: vertical, companySize, productUsed, quote (testimonial), and beforeState (situation before). Search through ALL provided pages.
+- "pricingModel": Look in the pricing page if provided.
+- "senderIdentity" and "objections": ALWAYS return empty — this info is not on the site, the user will fill it in.
+- If info is TRULY absent from the content → [] or null. But search carefully before concluding it's absent.
+- USE EXACTLY the key names above (camelCase). NO snake_case.`;
 
 // ─── Scraping ────────────────────────────────────────────
 
@@ -154,22 +199,54 @@ const CASE_STUDY_PATHS = [
   "/results",
   "/roi",
 ];
+const TESTIMONIAL_PATHS = ["/testimonials", "/reviews", "/temoignages", "/avis"];
+const PARTNER_PATHS = ["/partners", "/integrations", "/partenaires", "/ecosystem"];
+
+const JINA_DELAY_MS = 3400; // ~18 req/min rate limit
+const SCRAPE_TIMEOUT_MS = 120_000; // 2 min global timeout
+const MAX_INDIVIDUAL_CASE_STUDIES = 3;
+const MAX_COMBINED_CHARS = 35_000;
 
 /** Extract markdown from Jina result, return null on failure. */
 function extractMarkdown(result: Awaited<ReturnType<typeof scrapeViaJina>>): string | null {
   return result.ok ? result.markdown : null;
 }
 
-/** Try primary path, then fallbacks. Returns first successful result. */
+/** Try primary path, then fallbacks. Returns first successful result. Respects Jina rate limit. */
 async function scrapeWithFallbacks(
   baseUrl: string,
   paths: string[],
 ): Promise<string | null> {
   for (const path of paths) {
+    await delay(JINA_DELAY_MS);
     const md = extractMarkdown(await scrapeViaJina(`${baseUrl}${path}`));
     if (md && md.length > 100) return md;
   }
   return null;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Extract individual case study URLs from a case study listing page markdown. */
+function extractCaseStudyUrls(markdown: string, baseUrl: string): string[] {
+  // Match markdown links that look like case study URLs
+  const linkPattern = /\[([^\]]*)\]\(([^)]+)\)/g;
+  const caseStudySegments = ["/case-study/", "/case-studies/", "/customer/", "/customers/", "/success-story/", "/success-stories/", "/cas-client/"];
+  const urls: string[] = [];
+
+  let match;
+  while ((match = linkPattern.exec(markdown)) !== null) {
+    const href = match[2];
+    if (caseStudySegments.some((seg) => href.includes(seg))) {
+      // Resolve relative URLs
+      const fullUrl = href.startsWith("http") ? href : `${baseUrl}${href.startsWith("/") ? "" : "/"}${href}`;
+      if (!urls.includes(fullUrl)) urls.push(fullUrl);
+    }
+  }
+
+  return urls.slice(0, MAX_INDIVIDUAL_CASE_STUDIES);
 }
 
 /** Retry a scrape once after a short delay (for transient Jina failures). */
@@ -178,7 +255,7 @@ async function scrapeWithRetry(
 ): Promise<string | null> {
   const first = await fn();
   if (first) return first;
-  await new Promise((r) => setTimeout(r, 1000));
+  await delay(1000);
   return fn();
 }
 
@@ -188,46 +265,89 @@ async function scrapeClientSite(
 ): Promise<string> {
   const baseUrl = normalizeUrl(url);
 
-  // Homepage is mandatory — fail fast with a clear error
-  onStatus?.("Scraping homepage...");
-  const homepageResult = await scrapeViaJina(baseUrl);
+  // Wrap all scraping in a global timeout
+  const scrapePromise = async (): Promise<string> => {
+    // Homepage is mandatory — fail fast with a clear error
+    onStatus?.("Scraping homepage...");
+    const homepageResult = await scrapeViaJina(baseUrl);
 
-  if (!homepageResult.ok) {
-    throw new Error(
-      `Impossible d'accéder à ${baseUrl} : ${homepageResult.message}. Vérifie que l'URL est correcte et que le site est accessible.`,
+    if (!homepageResult.ok) {
+      throw new Error(
+        `Could not access ${baseUrl}: ${homepageResult.message}. Check that the URL is correct and the site is accessible.`,
+      );
+    }
+
+    const homepage = homepageResult.markdown;
+
+    onStatus?.("Looking for about page...");
+    const about = await scrapeWithRetry(() =>
+      scrapeWithFallbacks(baseUrl, ABOUT_PATHS),
     );
-  }
 
-  const homepage = homepageResult.markdown;
+    onStatus?.("Looking for pricing page...");
+    const pricing = await scrapeWithRetry(() =>
+      scrapeWithFallbacks(baseUrl, PRICING_PATHS),
+    );
 
-  onStatus?.("Looking for about page...");
-  const about = await scrapeWithRetry(() =>
-    scrapeWithFallbacks(baseUrl, ABOUT_PATHS),
-  );
+    onStatus?.("Looking for case studies / clients page...");
+    const caseStudiesListing = await scrapeWithRetry(() =>
+      scrapeWithFallbacks(baseUrl, CASE_STUDY_PATHS),
+    );
 
-  onStatus?.("Looking for pricing page...");
-  const pricing = await scrapeWithRetry(() =>
-    scrapeWithFallbacks(baseUrl, PRICING_PATHS),
-  );
+    // Scrape individual case study pages (best-effort, up to 3)
+    const individualCaseStudies: string[] = [];
+    if (caseStudiesListing) {
+      const csUrls = extractCaseStudyUrls(caseStudiesListing, baseUrl);
+      if (csUrls.length > 0) {
+        onStatus?.(`Found ${csUrls.length} individual case study page(s)...`);
+        for (const csUrl of csUrls) {
+          await delay(JINA_DELAY_MS);
+          const md = extractMarkdown(await scrapeViaJina(csUrl));
+          if (md && md.length > 100) individualCaseStudies.push(md);
+        }
+      }
+    }
 
-  onStatus?.("Looking for case studies / clients page...");
-  const caseStudies = await scrapeWithRetry(() =>
-    scrapeWithFallbacks(baseUrl, CASE_STUDY_PATHS),
-  );
+    // Testimonials page (best-effort)
+    onStatus?.("Looking for testimonials page...");
+    const testimonials = await scrapeWithFallbacks(baseUrl, TESTIMONIAL_PATHS);
 
-  const pages = [
-    homepage ? "homepage" : null,
-    about ? "about" : null,
-    pricing ? "pricing" : null,
-    caseStudies ? "case studies" : null,
-  ].filter(Boolean);
-  onStatus?.(`Scraped ${pages.length} page(s): ${pages.join(", ")}`);
+    // Partners / integrations page (best-effort)
+    onStatus?.("Looking for partners / integrations page...");
+    const partners = await scrapeWithFallbacks(baseUrl, PARTNER_PATHS);
 
-  const combined = [homepage, about, pricing, caseStudies]
-    .filter(Boolean)
-    .join("\n\n---PAGE SUIVANTE---\n\n");
+    const sections: { label: string; content: string | null }[] = [
+      { label: "homepage", content: homepage },
+      { label: "about", content: about },
+      { label: "pricing", content: pricing },
+      { label: "case studies listing", content: caseStudiesListing },
+      ...individualCaseStudies.map((cs, i) => ({
+        label: `case study ${i + 1}`,
+        content: cs,
+      })),
+      { label: "testimonials", content: testimonials },
+      { label: "partners/integrations", content: partners },
+    ];
 
-  return combined.slice(0, 25000);
+    const found = sections.filter((s) => s.content);
+    onStatus?.(`Scraped ${found.length} page(s): ${found.map((s) => s.label).join(", ")}`);
+
+    const combined = found
+      .map((s) => `---${s.label.toUpperCase()}---\n\n${s.content}`)
+      .join("\n\n---NEXT PAGE---\n\n");
+
+    return combined.slice(0, MAX_COMBINED_CHARS);
+  };
+
+  // Global timeout: 120s. Late pages are best-effort.
+  const result = await Promise.race([
+    scrapePromise(),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Scraping timed out after 120s")), SCRAPE_TIMEOUT_MS),
+    ),
+  ]);
+
+  return result;
 }
 
 // ─── Key normalization (snake_case → camelCase) ──────────
@@ -266,7 +386,7 @@ export async function analyzeClientSite(
   const raw = await mistralClient.jsonRaw({
     model: "mistral-large-latest",
     system: COMPANY_ANALYSIS_SYSTEM,
-    prompt: `Analyse ce site web et extrais les informations commerciales :\n\n${markdown}`,
+    prompt: `Analyze this website and extract the commercial information:\n\n${markdown}`,
     workspaceId,
     action: "company-analysis",
     temperature: 0.3,

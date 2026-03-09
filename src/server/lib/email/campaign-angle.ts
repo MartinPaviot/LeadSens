@@ -20,6 +20,8 @@ export const campaignAngleSchema = z.object({
   suggestedCta: coerceString.optional(),
   timelineProof: coerceString.optional(),
   signalHooks: z.array(z.string()).optional(),
+  clientsInTargetIndustry: z.array(z.string()).optional(),
+  bestTestimonialQuote: z.string().optional(),
 });
 
 export type CampaignAngle = z.infer<typeof campaignAngleSchema>;
@@ -40,7 +42,9 @@ JSON uniquement :
   "socialProofMatch": "Le meilleur élément de social proof pour l'industrie/secteur de cette cible. Format: 'Clients [industrie] : [noms] ([métrique])'. Choisis dans le socialProof celui qui matche le mieux. Si aucun match, utilise le meilleur disponible.",
   "suggestedCta": "Le CTA le plus adapté à ce persona parmi ceux disponibles. Si aucun CTA n'est fourni, suggère-en un adapté au persona.",
   "timelineProof": "Le meilleur case study en format timeline. Format: 'En [durée], [Client similaire] a atteint [résultat]'. Choisis le case study le plus pertinent pour ce persona. Si aucun case study n'est disponible, utilise le meilleur keyResult avec un contexte temporel.",
-  "signalHooks": ["2-3 connexions signal→besoin→solution. Format: '[Signal] → [conséquence pour le prospect] → [comment ton offre aide]'. Ex: 'Recrutement massif → besoin d'onboarder rapidement → ta plateforme réduit le temps d'onboarding de 60%'"]
+  "signalHooks": ["2-3 connexions signal→besoin→solution. Format: '[Signal] → [conséquence pour le prospect] → [comment ton offre aide]'. Ex: 'Recrutement massif → besoin d'onboarder rapidement → ta plateforme réduit le temps d'onboarding de 60%'"],
+  "clientsInTargetIndustry": ["Noms de clients dans le même secteur/industrie que la cible. Cherche dans socialProof ET clientPortfolio. Si clientPortfolio contient des clients taggés dans l'industrie cible ou une industrie adjacente, liste-les ici (max 5)."],
+  "bestTestimonialQuote": "Le meilleur témoignage client pour CE persona. Cherche dans socialProof[].testimonialQuote et caseStudies[].quote. Choisis le plus pertinent par industrie/verticale. null si aucun disponible."
 }`;
 
 // ─── Generation ──────────────────────────────────────────

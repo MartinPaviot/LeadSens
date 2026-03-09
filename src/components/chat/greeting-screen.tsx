@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ThreadPrimitive } from "@assistant-ui/react";
-import Image from "next/image";
-import Markdown from "react-markdown";
-import { CheckCircle, CircleNotch } from "@phosphor-icons/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { ThreadPrimitive, useThreadRuntime } from "@assistant-ui/react";
+import { Check } from "@phosphor-icons/react";
+import { useSession } from "@/lib/auth-client";
+import { ICP_TAG_CATEGORIES } from "@/lib/icp-tag-colors";
 import { LeadSensComposer } from "./composer";
+
+// ─── Types ────────────────────────────────────────────────
 
 interface Integration {
   type: string;
@@ -17,40 +15,48 @@ interface Integration {
 }
 
 interface GreetingScreenProps {
-  greetingContent: string;
   isStreaming: boolean;
+  integrations: Integration[];
 }
 
+// ─── Constants ────────────────────────────────────────────
+
+const TOOL_META: Record<string, { name: string; logo: string }> = {
+  INSTANTLY:     { name: "Instantly",      logo: "/instantly.svg" },
+  SMARTLEAD:     { name: "Smartlead",      logo: "/smartlead.svg" },
+  LEMLIST:       { name: "Lemlist",        logo: "/lemlist.svg" },
+  HUBSPOT:       { name: "HubSpot",        logo: "/hubspot.svg" },
+  APOLLO:        { name: "Apollo",         logo: "/apollo.svg" },
+  ZEROBOUNCE:    { name: "ZeroBounce",     logo: "/zerobounce.svg" },
+  SALESFORCE:    { name: "Salesforce",      logo: "/salesforce.svg" },
+  GOOGLE_SHEETS: { name: "Google Sheets",   logo: "/globe.svg" },
+};
+
+const EXAMPLE_TEXT =
+  "VP Sales in B2B SaaS, US + UK, 50 to 500 employees, revenue > $10M";
+
+const PARSED_TAGS: Array<{
+  text: string;
+  category: keyof typeof ICP_TAG_CATEGORIES;
+}> = [
+  { text: "VP Sales", category: "role" },
+  { text: "B2B SaaS", category: "industry" },
+  { text: "US + UK", category: "geo" },
+  { text: "50 to 500 employees", category: "size" },
+  { text: "> $10M", category: "revenue" },
+];
+
+// ─── Component ────────────────────────────────────────────
+
 export function GreetingScreen({
-  greetingContent,
   isStreaming,
+  integrations,
 }: GreetingScreenProps) {
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Fetch integration statuses on mount
-  useEffect(() => {
-    fetch("/api/trpc/integration.list")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.result?.data) setIntegrations(data.result.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-
-  const isConnected = (type: string) =>
-    integrations.some((i) => i.type === type && i.status === "ACTIVE");
-
-  const handleInstantlyConnected = () => {
-    setIntegrations((prev) => [
-      ...prev.filter((i) => i.type !== "INSTANTLY"),
-      { type: "INSTANTLY", status: "ACTIVE" },
-    ]);
-  };
-
-  const showCards = !loading && !isConnected("INSTANTLY");
+  const { data: session } = useSession();
+  const runtime = useThreadRuntime();
+  const activeIntegrations = integrations.filter((i) => i.status === "ACTIVE");
+  const hasActiveTools = activeIntegrations.length > 0;
+  const firstName = session?.user?.name?.split(" ")[0] ?? "";
 
   return (
     <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
@@ -59,143 +65,114 @@ export function GreetingScreen({
         <div className="pointer-events-none absolute inset-0 bg-leadsens-mesh" />
 
         {/* Content column — same max-width as thread.tsx */}
-        <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 py-6 flex-1 relative">
+        <div className="max-w-[816px] mx-auto w-full px-4 md:pl-0 md:pr-12 py-6 flex-1">
           {/* Chat bubble — mirrors assistant-message.tsx layout */}
-          <div className="flex gap-3 items-start max-w-[85%] motion-safe:animate-[fade-in-up_0.3s_ease-out]">
-            {/* Avatar */}
-            <div className="relative shrink-0">
-              <div className="size-8 rounded-lg overflow-hidden">
-                <img src="/L.svg" alt="LeadSens" className="size-8" />
+          <div className="flex items-start w-full motion-safe:animate-[fade-in-up_0.3s_ease-out]">
+            <div className="w-12 shrink-0 flex justify-center pt-0.5">
+              <div className="size-8 rounded-lg overflow-hidden isolate" style={{ backgroundColor: '#fff' }}>
+                <img src="/L.svg" alt="LeadSens" className="size-8 block" />
               </div>
             </div>
+            <div className="flex-1 rounded-2xl bg-card/90 backdrop-blur-md border border-white/60 dark:border-white/[0.07] shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3 min-w-0">
+              {/* Layer 1: Tool pills */}
+              {hasActiveTools && (
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {activeIntegrations.map((integration) => {
+                    const meta = TOOL_META[integration.type];
+                    if (!meta) return null;
+                    return (
+                      <span
+                        key={integration.type}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1"
+                        style={{
+                          backgroundColor: "rgba(16,185,129,0.07)",
+                          border: "1px solid rgba(16,185,129,0.2)",
+                          color: "#047857",
+                        }}
+                      >
+                        <img src={meta.logo} alt="" className="size-3.5" />
+                        {meta.name}
+                        <Check weight="bold" className="size-3" />
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
 
-            {/* Bubble */}
-            <div className="rounded-[16px_16px_16px_4px] bg-secondary/90 backdrop-blur-sm px-4 py-2 min-w-0">
-              <div className="text-[13.5px] leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 prose-strong:font-semibold">
-                <Markdown>{greetingContent}</Markdown>
-                {isStreaming && (
-                  <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 align-middle rounded-sm animate-pulse" />
-                )}
+              {/* Layer 2: Greeting text */}
+              <div className="text-[13.5px] leading-relaxed text-foreground/80">
+                <p>
+                  Hello{firstName ? ` ${firstName}` : ""}
+                  {", "}
+                  {hasActiveTools
+                    ? "I've analyzed your offer and your tools are connected. Describe your target for this campaign: the more precise you are on role, industry, geo, company size and revenue, the more accurate sourcing will be."
+                    : "connect your tools in Settings > Integrations to get started."}
+                  {isStreaming && (
+                    <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 align-middle rounded-sm animate-pulse" />
+                  )}
+                </p>
+              </div>
+
+              {/* Layer 3: Example with parsing */}
+              <div className="mt-2.5 pt-2.5 border-t border-border/30">
+                <p className="text-xs text-muted-foreground mb-2">
+                  For example:
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => runtime.composer.setText(EXAMPLE_TEXT)}
+                  className="text-[13px] font-medium text-muted-foreground bg-background/50 rounded-lg px-3 py-2 border border-border/30 cursor-pointer hover:bg-background/80 transition-colors text-left w-full"
+                >
+                  &ldquo;{EXAMPLE_TEXT}&rdquo;
+                </button>
+
+                {/* Tags */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {PARSED_TAGS.map((tag) => {
+                    const cat = ICP_TAG_CATEGORIES[tag.category];
+                    return (
+                      <span
+                        key={tag.text}
+                        className="text-xs font-medium rounded-full px-2.5 py-1"
+                        style={{
+                          backgroundColor: cat.bg,
+                          border: `1px solid ${cat.border}`,
+                          color: cat.text,
+                        }}
+                      >
+                        {tag.text}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                  {Object.values(ICP_TAG_CATEGORIES).map((cat) => (
+                    <span
+                      key={cat.label}
+                      className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/60"
+                    >
+                      <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: cat.text }} />
+                      {cat.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Integration cards — indented to align with bubble content */}
-          {showCards && (
-            <div className="mt-6 ml-11 max-w-[85%] space-y-3 motion-safe:animate-[fade-in-up_0.4s_ease-out_400ms_both]">
-              <InstantlyCard
-                isConnected={isConnected("INSTANTLY")}
-                onConnected={handleInstantlyConnected}
-              />
-            </div>
-          )}
         </div>
 
-        {/* Sticky composer */}
-        <ThreadPrimitive.ViewportFooter className="sticky bottom-0">
-          <LeadSensComposer />
+        {/* Sticky composer — same 3-layer pattern as thread.tsx */}
+        <ThreadPrimitive.ViewportFooter className="sticky bottom-0 relative">
+          <div className="absolute inset-0 bg-background" />
+          <div className="absolute inset-0 bg-leadsens-mesh pointer-events-none" />
+          <div className="relative">
+            <LeadSensComposer />
+          </div>
         </ThreadPrimitive.ViewportFooter>
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
 }
-
-/* ─── Instantly Card ─── */
-
-function InstantlyCard({
-  isConnected,
-  onConnected,
-}: {
-  isConnected: boolean;
-  onConnected: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [connecting, setConnecting] = useState(false);
-
-  const connect = async () => {
-    if (!apiKey.trim()) return;
-    setConnecting(true);
-    try {
-      const res = await fetch("/api/integrations/instantly", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(`Instantly connected (${data.accounts} accounts)`);
-        onConnected();
-        setApiKey("");
-        setExpanded(false);
-      } else {
-        toast.error(data.error || "Connection failed");
-      }
-    } catch {
-      toast.error("Connexion echouee");
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  return (
-    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm p-4 transition-all">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="size-9 rounded-lg bg-blue-50 dark:bg-blue-950 flex items-center justify-center">
-            <Image src="/instantly.svg" alt="Instantly" width={20} height={20} />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Instantly</p>
-            <p className="text-xs text-muted-foreground">
-              Sourcing & email campaigns
-            </p>
-          </div>
-        </div>
-
-        {isConnected ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-600/20 border border-green-600/30 rounded-full px-2.5 py-1">
-            <CheckCircle weight="fill" className="size-3.5" />
-            Connected
-          </span>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setExpanded(!expanded)}
-          >
-            Connect
-          </Button>
-        )}
-      </div>
-
-      {/* Expanded: API key input */}
-      {expanded && !isConnected && (
-        <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
-          <Input
-            type="password"
-            placeholder="Instantly V2 API Key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && connect()}
-            className="flex-1 h-9 text-sm"
-            autoFocus
-          />
-          <Button
-            size="sm"
-            onClick={connect}
-            disabled={connecting || !apiKey.trim()}
-            className="h-9"
-          >
-            {connecting ? (
-              <CircleNotch className="size-4 animate-spin" />
-            ) : (
-              "Submit"
-            )}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-

@@ -11,6 +11,8 @@ import {
   ArrowsClockwise,
   Users,
   CursorClick,
+  Briefcase,
+  Quotes,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,29 @@ interface SocialProofEntry {
   industry: string;
   clients: string[];
   keyMetric?: string;
+  vertical?: string;
+  companySize?: "startup" | "smb" | "mid-market" | "enterprise";
+  useCase?: string;
+  testimonialQuote?: string;
+}
+
+interface CaseStudyEntry {
+  client: string;
+  industry: string;
+  timeline: string;
+  result: string;
+  context?: string;
+  vertical?: string;
+  companySize?: "startup" | "smb" | "mid-market" | "enterprise";
+  productUsed?: string;
+  quote?: string;
+  beforeState?: string;
+}
+
+interface ClientPortfolioEntry {
+  name: string;
+  industry?: string;
+  vertical?: string;
 }
 
 function arrayToLines(arr: string[]): string {
@@ -113,6 +138,8 @@ export default function CompanyDnaPage() {
   const [keyResults, setKeyResults] = useState("");
   const [differentiators, setDifferentiators] = useState("");
   const [socialProof, setSocialProof] = useState<SocialProofEntry[]>([]);
+  const [caseStudies, setCaseStudies] = useState<CaseStudyEntry[]>([]);
+  const [clientPortfolio, setClientPortfolio] = useState<ClientPortfolioEntry[]>([]);
   const [ctaLabel, setCtaLabel] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
   const [targetBuyers, setTargetBuyers] = useState<TargetBuyer[]>([]);
@@ -130,6 +157,16 @@ export default function CompanyDnaPage() {
     setSocialProof(
       Array.isArray(dna.socialProof) && dna.socialProof.length > 0
         ? (dna.socialProof as SocialProofEntry[])
+        : [],
+    );
+    setCaseStudies(
+      Array.isArray(dna.caseStudies) && dna.caseStudies.length > 0
+        ? (dna.caseStudies as CaseStudyEntry[])
+        : [],
+    );
+    setClientPortfolio(
+      Array.isArray(dna.clientPortfolio) && dna.clientPortfolio.length > 0
+        ? (dna.clientPortfolio as ClientPortfolioEntry[])
         : [],
     );
 
@@ -177,6 +214,8 @@ export default function CompanyDnaPage() {
       keyResults: linesToArray(keyResults),
       differentiators: linesToArray(differentiators),
       socialProof,
+      caseStudies,
+      clientPortfolio,
       targetBuyers,
       ctas: ctaLabel.trim()
         ? [{ label: ctaLabel.trim(), commitment: "medium" as const, ...(ctaUrl.trim() ? { url: ctaUrl.trim() } : {}) }]
@@ -210,6 +249,29 @@ export default function CompanyDnaPage() {
   const updateSocialProof = (idx: number, field: string, value: unknown) =>
     setSocialProof((prev) =>
       prev.map((sp, i) => (i === idx ? { ...sp, [field]: value } : sp)),
+    );
+
+  // Case studies
+  const addCaseStudy = () =>
+    setCaseStudies((prev) => [
+      ...prev,
+      { client: "", industry: "", timeline: "", result: "" },
+    ]);
+  const removeCaseStudy = (idx: number) =>
+    setCaseStudies((prev) => prev.filter((_, i) => i !== idx));
+  const updateCaseStudy = (idx: number, field: string, value: unknown) =>
+    setCaseStudies((prev) =>
+      prev.map((cs, i) => (i === idx ? { ...cs, [field]: value } : cs)),
+    );
+
+  // Client portfolio
+  const addPortfolioClient = () =>
+    setClientPortfolio((prev) => [...prev, { name: "" }]);
+  const removePortfolioClient = (idx: number) =>
+    setClientPortfolio((prev) => prev.filter((_, i) => i !== idx));
+  const updatePortfolioClient = (idx: number, field: string, value: string) =>
+    setClientPortfolio((prev) =>
+      prev.map((c, i) => (i === idx ? { ...c, [field]: value || undefined } : c)),
     );
 
   const hasDna = !!data?.companyDna;
@@ -355,7 +417,7 @@ export default function CompanyDnaPage() {
         <Section
           icon={<Users className="size-4" weight="duotone" />}
           title="Social Proof"
-          description="Clients grouped by industry. Used to cite relevant references to each prospect."
+          description="Clients grouped by industry with metrics and testimonials."
           action={
             <Button
               type="button"
@@ -377,12 +439,20 @@ export default function CompanyDnaPage() {
                   className="flex gap-2 items-start p-2.5 rounded-lg border bg-muted/30"
                 >
                   <div className="flex-1 space-y-1.5">
-                    <Input
-                      value={sp.industry}
-                      onChange={(e) => updateSocialProof(idx, "industry", e.target.value)}
-                      placeholder="Industry (e.g. SaaS, FinTech, E-commerce)"
-                      className="h-8 text-sm"
-                    />
+                    <div className="flex gap-1.5">
+                      <Input
+                        value={sp.industry}
+                        onChange={(e) => updateSocialProof(idx, "industry", e.target.value)}
+                        placeholder="Industry (e.g. SaaS)"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Input
+                        value={sp.vertical || ""}
+                        onChange={(e) => updateSocialProof(idx, "vertical", e.target.value || undefined)}
+                        placeholder="Vertical (e.g. HR Tech)"
+                        className="h-8 text-sm flex-1"
+                      />
+                    </div>
                     <Input
                       value={sp.clients.join(", ")}
                       onChange={(e) =>
@@ -395,12 +465,25 @@ export default function CompanyDnaPage() {
                       placeholder="Clients, comma-separated (e.g. Stripe, Notion)"
                       className="h-8 text-sm"
                     />
-                    <Input
-                      value={sp.keyMetric || ""}
-                      onChange={(e) => updateSocialProof(idx, "keyMetric", e.target.value || undefined)}
-                      placeholder="Result (e.g. +45% conversion) — optional"
-                      className="h-8 text-sm"
-                    />
+                    <div className="flex gap-1.5">
+                      <Input
+                        value={sp.keyMetric || ""}
+                        onChange={(e) => updateSocialProof(idx, "keyMetric", e.target.value || undefined)}
+                        placeholder="Result (e.g. +45% conversion)"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Input
+                        value={sp.useCase || ""}
+                        onChange={(e) => updateSocialProof(idx, "useCase", e.target.value || undefined)}
+                        placeholder="Use case"
+                        className="h-8 text-sm flex-1"
+                      />
+                    </div>
+                    {sp.testimonialQuote && (
+                      <div className="text-xs text-muted-foreground italic px-1">
+                        &ldquo;{sp.testimonialQuote}&rdquo;
+                      </div>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -418,6 +501,170 @@ export default function CompanyDnaPage() {
             <div className="rounded-lg border border-dashed p-4 text-center">
               <p className="text-xs text-muted-foreground">
                 No social proof yet. Add client references grouped by industry.
+              </p>
+            </div>
+          )}
+        </Section>
+
+        {/* ── 3b. Case Studies ── */}
+        <Section
+          icon={<Quotes className="size-4" weight="duotone" />}
+          title="Case Studies"
+          description="Detailed client success stories with timelines and results."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs shrink-0"
+              onClick={addCaseStudy}
+            >
+              <Plus className="size-3 mr-1" />
+              Add
+            </Button>
+          }
+        >
+          {caseStudies.length > 0 ? (
+            <div className="space-y-2">
+              {caseStudies.map((cs, idx) => (
+                <div
+                  key={idx}
+                  className="flex gap-2 items-start p-2.5 rounded-lg border bg-muted/30"
+                >
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex gap-1.5">
+                      <Input
+                        value={cs.client}
+                        onChange={(e) => updateCaseStudy(idx, "client", e.target.value)}
+                        placeholder="Client name"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Input
+                        value={cs.industry}
+                        onChange={(e) => updateCaseStudy(idx, "industry", e.target.value)}
+                        placeholder="Industry"
+                        className="h-8 text-sm flex-1"
+                      />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <Input
+                        value={cs.timeline}
+                        onChange={(e) => updateCaseStudy(idx, "timeline", e.target.value)}
+                        placeholder="Timeline (e.g. In 90 days)"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Input
+                        value={cs.result}
+                        onChange={(e) => updateCaseStudy(idx, "result", e.target.value)}
+                        placeholder="Result (e.g. +45% pipeline)"
+                        className="h-8 text-sm flex-1"
+                      />
+                    </div>
+                    <div className="flex gap-1.5">
+                      <Input
+                        value={cs.vertical || ""}
+                        onChange={(e) => updateCaseStudy(idx, "vertical", e.target.value || undefined)}
+                        placeholder="Vertical"
+                        className="h-8 text-sm flex-1"
+                      />
+                      <Input
+                        value={cs.productUsed || ""}
+                        onChange={(e) => updateCaseStudy(idx, "productUsed", e.target.value || undefined)}
+                        placeholder="Product used"
+                        className="h-8 text-sm flex-1"
+                      />
+                    </div>
+                    {cs.beforeState && (
+                      <div className="text-xs text-muted-foreground px-1">
+                        Before: {cs.beforeState}
+                      </div>
+                    )}
+                    {cs.quote && (
+                      <div className="text-xs text-muted-foreground italic px-1">
+                        &ldquo;{cs.quote}&rdquo;
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeCaseStudy(idx)}
+                  >
+                    <Trash className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                No case studies yet. Add success stories to strengthen your emails.
+              </p>
+            </div>
+          )}
+        </Section>
+
+        {/* ── 3c. Client Portfolio ── */}
+        <Section
+          icon={<Briefcase className="size-4" weight="duotone" />}
+          title="Client Portfolio"
+          description="All client names from your site (logo walls, partner pages). Auto-populated by analysis."
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs shrink-0"
+              onClick={addPortfolioClient}
+            >
+              <Plus className="size-3 mr-1" />
+              Add
+            </Button>
+          }
+        >
+          {clientPortfolio.length > 0 ? (
+            <div className="space-y-1.5">
+              {clientPortfolio.map((c, idx) => (
+                <div
+                  key={idx}
+                  className="flex gap-1.5 items-center p-2 rounded-lg border bg-muted/30"
+                >
+                  <Input
+                    value={c.name}
+                    onChange={(e) => updatePortfolioClient(idx, "name", e.target.value)}
+                    placeholder="Company name"
+                    className="h-7 text-sm flex-1"
+                  />
+                  <Input
+                    value={c.industry || ""}
+                    onChange={(e) => updatePortfolioClient(idx, "industry", e.target.value)}
+                    placeholder="Industry"
+                    className="h-7 text-sm w-28"
+                  />
+                  <Input
+                    value={c.vertical || ""}
+                    onChange={(e) => updatePortfolioClient(idx, "vertical", e.target.value)}
+                    placeholder="Vertical"
+                    className="h-7 text-sm w-28"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removePortfolioClient(idx)}
+                  >
+                    <Trash className="size-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed p-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                No client portfolio yet. Analyze your site to auto-populate, or add manually.
               </p>
             </div>
           )}

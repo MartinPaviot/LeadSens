@@ -1,0 +1,6 @@
+=== ITERATION 1 | 2026-03-09T20:52:57Z ===
+Error: Claude Code cannot be launched inside another Claude Code session.
+Nested sessions share runtime resources and will crash all active sessions.
+To bypass this check, unset the CLAUDECODE environment variable.
+=== ITERATION 1 | 2026-03-09T21:02:21Z ===
+[WARN] Fast mode is not available in the Agent SDK. Using Opus 4.6.

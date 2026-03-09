@@ -131,6 +131,100 @@ export function compressToolOutput(output: unknown): string {
   return JSON.stringify(cleaned);
 }
 
+// ─── In-Loop Compression (for chatStream tool loop) ──────
+//
+// Inside chatStream's while loop, messages grow unboundedly with each
+// tool-call round. compressLoopMessages() aggressively compresses older
+// messages to prevent payload size issues (411 Length Required) and
+// keep context within reasonable bounds.
+
+const LOOP_TOKEN_BUDGET = 32_000;
+
+/** ID-like keys worth preserving in aggressive compression. */
+const ID_KEYS = new Set([
+  "lead_ids", "campaign_id", "lead_id", "list_id",
+  "count", "total", "scored", "enriched", "drafted",
+  "skipped", "errors", "status", "error",
+]);
+
+/**
+ * Aggressively compress tool result content: keep only IDs, counts,
+ * status, and errors. Drop everything else (lead details, enrichment, etc.).
+ * For non-JSON content, truncate to 200 chars.
+ */
+export function extractIdsAndCounts(content: string): string {
+  if (content.length <= 200) return content;
+
+  try {
+    const parsed = JSON.parse(content);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return content.slice(0, 200) + "…";
+    }
+
+    const extracted: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (ID_KEYS.has(key) || key.endsWith("_id") || key.endsWith("_ids")) {
+        extracted[key] = value;
+      }
+    }
+
+    // Always return something useful
+    if (Object.keys(extracted).length === 0) {
+      return content.slice(0, 200) + "…";
+    }
+
+    return JSON.stringify(extracted);
+  } catch {
+    return content.slice(0, 200) + "…";
+  }
+}
+
+/**
+ * Compress messages in-place to prevent unbounded growth during the
+ * chatStream tool-calling loop.
+ *
+ * - Keeps system message (index 0) untouched
+ * - Keeps last 4 messages untouched (most recent tool round)
+ * - For older messages:
+ *   - role "tool" / user "[Tool result from X]" → extractIdsAndCounts()
+ *   - role "assistant" with toolCalls → clear content to "" (keep toolCalls)
+ */
+export function compressLoopMessages(
+  messages: Array<Record<string, unknown>>,
+): void {
+  // Estimate total tokens
+  let totalChars = 0;
+  for (const m of messages) {
+    if (typeof m.content === "string") totalChars += m.content.length;
+    if (m.toolCalls) totalChars += JSON.stringify(m.toolCalls).length;
+  }
+  const estimatedTokens = Math.ceil(totalChars / 3.7);
+
+  if (estimatedTokens <= LOOP_TOKEN_BUDGET) return;
+
+  console.log(
+    `[chatStream] In-loop compression triggered: ~${estimatedTokens} tokens (budget: ${LOOP_TOKEN_BUDGET})`,
+  );
+
+  // Keep system (index 0) and last 4 messages intact
+  const protectedEnd = Math.max(1, messages.length - 4);
+
+  for (let i = 1; i < protectedEnd; i++) {
+    const m = messages[i];
+    const role = m.role as string;
+    const content = (m.content as string) ?? "";
+
+    if (role === "tool") {
+      m.content = extractIdsAndCounts(content);
+    } else if (role === "user" && content.includes("[Tool result from")) {
+      m.content = extractIdsAndCounts(content);
+    } else if (role === "assistant" && m.toolCalls) {
+      // Keep toolCalls array for message pairing, clear verbose content
+      m.content = "";
+    }
+  }
+}
+
 // ─── Message Classification ──────────────────────────────
 //
 // Not all messages are equal. A message containing lead_ids is
