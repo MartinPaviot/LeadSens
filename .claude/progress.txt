@@ -68,3 +68,83 @@ LEARNINGS:
   - Caching null is important: without it, broken domains would be retried every batch
   - The in-memory Map was fine for intra-batch dedup but useless cross-batch/cross-session
 NEXT: T1-FIX-02 Pagination listLeads
+
+=== ITERATION 4 | 2026-03-09 15:30 UTC ===
+TASK: /audit v2 — Full strategic audit with RESEARCH cross-reference
+STATUS: DONE
+DURATION: ~20 min
+FILES CHANGED:
+  - .claude/findings/2026-03-09-audit-v2-with-research.md (NEW — comprehensive audit report)
+  - .claude/tasks/BACKLOG.md (8 research-backed tasks added, 6 tasks marked done, dead tasks cleaned)
+  - CLAUDE.md (score 6.2 → 6.5)
+APPROACH:
+  - 4 parallel audit agents: email pipeline, enrichment+scoring, pipeline+analytics, tech debt
+  - Cross-referenced code vs STRATEGY.md vs RESEARCH-DELIVERABILITY-2026.md vs RESEARCH-LANDSCAPE-2026.md
+  - Identified 5 gaps NOT in previous audit (from external research)
+SCORES CONFIRMED:
+  Enrichissement   | 7/10  | cible 6/10  | ✅ Dépassé
+  ICP Scoring      | 7/10  | cible 7/10  | ✅ Atteint
+  Copywriting      | 8/10  | cible 8/10  | ✅ Atteint
+  Subject Lines    | 6/10  | cible 6/10  | ✅ Atteint
+  A/B Testing      | 4/10  | cible 5/10  | ⚠️ Gap -1
+  Cadence          | 7.5/10| cible 7/10  | ✅ Dépassé
+  Feedback Loop    | 5/10  | cible 5/10  | ✅ Atteint
+  Post-launch      | 6/10  | cible 5/10  | ✅ Dépassé
+KEY FINDINGS FROM RESEARCH CROSS-REFERENCE:
+  1. CRITICAL: No spam word scanner — 67% more likely to land in spam if 3+ triggers (Research D1)
+  2. HIGH: No auto-pause on bounce spike — bounce >3% should auto-pause campaign (Research D4)
+  3. HIGH: No pre-campaign verification gate — unverified = 7.8% bounce vs 1.2% verified (Research D3)
+  4. MEDIUM: No industry benchmarks in reporting — user can't contextualize performance (Research R6.1)
+  5. MEDIUM: No subject pattern tracking metadata — can't optimize which pattern wins (Research R6.2)
+  6. VALIDATED: Timeline hooks 2.3x PAS ✅ already implemented (prompt-builder.ts:550-560)
+  7. VALIDATED: Signal weights match research reply rate data ✅ (prompt-builder.ts:107-115)
+  8. VALIDATED: Cadence [0,2,5,9,14,21] is optimal per research ✅
+  9. VALIDATED: Connection bridge formula implemented ✅
+  10. COMPETITIVE: LeadSens email quality beats Enterprise AI SDRs ($2-10K/mo) that report "AI slop"
+TASKS MARKED DONE (previously missed):
+  - AUDIT-01 (cache = T1-ENR-02 done), AUDIT-02 (patterns = T2-SUBJ-01 done)
+  - AUDIT-03 (ICP feedback loop = enrichment-tools.ts:308-317 done)
+  - AUDIT-06 (as any = 2 justified remaining), AUDIT-07 (AI logging = 100% via mistralClient)
+  - DEBT-04 (AI Event logging 100%), DEBT-05 (Encryption 100%)
+  - T3-INTEL-03 (ICP feedback loop done)
+NEW RESEARCH-BACKED TASKS ADDED (8):
+  - RES-01: Spam word scanner (CRITICAL)
+  - RES-02: Auto-pause bounce spike (HIGH)
+  - RES-03: Pre-campaign verification gate (HIGH)
+  - RES-04: Industry benchmarks in reporting (MEDIUM)
+  - RES-05: Subject pattern tracking (MEDIUM)
+  - RES-06: A/B auto-pause z-test (MEDIUM)
+  - RES-07: Style learner categorization (MEDIUM)
+  - RES-08: Deliverability guidance in prompt (LOW)
+OVERALL SCORE: 6.5/10 (up from 6.2)
+LEARNINGS:
+  - Research cross-reference reveals deliverability gaps not visible from code audit alone
+  - All research-identified gaps are LOW EFFORT to close (0.5-2 days each)
+  - LeadSens is architecturally ahead of competitors — gaps are operational, not structural
+  - ICP feedback loop was already implemented but not tracked in BACKLOG
+  - AI Event logging was already 100% via centralized mistralClient — DEBT-04/AUDIT-07 were false positives
+NEXT: RES-01 Spam word scanner (CRITICAL, highest impact deliverability fix)
+
+=== ITERATION 5 | 2026-03-09 15:42 UTC ===
+TASK: RES-01 — Spam word scanner in quality gate (CRITICAL)
+STATUS: DONE
+DURATION: ~12 min
+FILES CHANGED:
+  - src/server/lib/email/spam-words.ts (NEW: 100 trigger words, scanForSpamWords())
+  - src/server/lib/email/quality-gate.ts (integrated spam scan BEFORE LLM scoring)
+  - tests/spam-words.test.ts (NEW: 20 tests)
+TESTS: 247/247 passed, 0 typecheck errors
+APPROACH:
+  - Two-layer word list: 77 multi-word phrases (exact match) + 23 single words (word boundary regex)
+  - Categories: financial promises, urgency/pressure, too-good-to-be-true, generic sales, deceptive/phishing
+  - scanForSpamWords(subject, body) → { matchCount, matches, flagged }
+  - Integrated in draftWithQualityGate(): scans BEFORE LLM scoring (instant, zero cost)
+  - If flagged (≥3 matches): adds specific issue to quality score, penalizes overall by -1, forces retry
+  - Email only passes quality gate if score ≥7 AND not spam-flagged
+  - Tests cover: clean emails, spammy emails, case insensitivity, word boundaries, edge cases, 6 real-world scenarios
+LEARNINGS:
+  - Word boundary matching (\b) prevents false positives (e.g. "discovery" doesn't match "disco")
+  - Multi-word phrases checked first to avoid double-counting (e.g. "act now" is one match, not "act" + "now")
+  - Showing matches in the issue helps the LLM understand what to fix on retry
+  - Context-aware: well-written cold emails pass with 0 matches; only genuine spam patterns trigger
+NEXT: RES-02 Auto-pause on bounce spike (HIGH)

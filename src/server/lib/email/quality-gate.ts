@@ -1,4 +1,5 @@
 import { mistralClient } from "@/server/lib/llm/mistral-client";
+import { scanForSpamWords, SPAM_THRESHOLD } from "@/server/lib/email/spam-words";
 import { z } from "zod/v4";
 
 const qualityScoreSchema = z.object({
@@ -86,6 +87,10 @@ export async function draftWithQualityGate(params: {
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const draft = await params.draftFn();
+
+    // Spam word scan — instant, zero cost, runs BEFORE LLM scoring
+    const spamScan = scanForSpamWords(draft.subject, draft.body);
+
     const score = await scoreEmail({
       subject: draft.subject,
       body: draft.body,
@@ -93,11 +98,19 @@ export async function draftWithQualityGate(params: {
       workspaceId: params.workspaceId,
     });
 
+    // Merge spam issues into quality score
+    if (spamScan.flagged) {
+      const spamIssue = `Spam risk: ${spamScan.matchCount} trigger words detected (${spamScan.matches.slice(0, 5).join(", ")}). Threshold is ${SPAM_THRESHOLD}. Rephrase to avoid spam filters.`;
+      score.issues = [...(score.issues ?? []), spamIssue];
+      // Penalize overall score — spam risk is a deliverability problem
+      score.overall = Math.max(1, score.overall - 1);
+    }
+
     if (!bestResult || score.overall > bestResult.qualityScore.overall) {
       bestResult = { ...draft, qualityScore: score };
     }
 
-    if (score.overall >= MIN_QUALITY_SCORE) {
+    if (score.overall >= MIN_QUALITY_SCORE && !spamScan.flagged) {
       return bestResult;
     }
 

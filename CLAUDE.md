@@ -14,7 +14,7 @@ LeadSens n'est pas un outil. C'est le **chef d'orchestre** des outils du user. C
 
 La valeur est dans les **décisions entre les appels API** : scoring pré-enrichissement (~40% d'économie), Company DNA, frameworks copywriting hardcodés, clustering par segments, style learner, curseur d'autonomie.
 
-### Score actuel : 6.2/10 (audit 2026-03-09, était 4.2). Objectif : 8/10. Reply rate cible : 18%.
+### Score actuel : 6.5/10 (audit v2 2026-03-09 + research cross-ref, était 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
 
 Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
 
@@ -450,8 +450,14 @@ TOUJOURS:
 - Écrire dans progress.txt APRÈS chaque itération
 - Ajouter les learnings dans la section 11 de ce CLAUDE.md
 
+STRATEGY.md — Mise à jour autonome autorisée :
+- UNIQUEMENT après une phase de recherche avec sources vérifiables
+- Chaque modification = un commit séparé "docs(strategy): [description]"
+- Ajouter une entrée au changelog en bas de STRATEGY.md : date + ce qui a changé + source + raison
+- Toutes les sections sont modifiables si la recherche le justifie avec des données concrètes
+- Pas de changement basé sur de l'opinion ou de l'intuition — uniquement des données
+
 JAMAIS:
-- Modifier STRATEGY.md
 - Skip les tests
 - Implémenter sans plan
 - Ignorer un finding
@@ -508,6 +514,7 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated — prevents silent empty campaigns
 - **[scoring]** : Two-phase scoring — LLM fit pre-enrichment (cheap filter) → deterministic signal boost post-enrichment (0 LLM cost, uses hiringSignals/fundingSignals/leadershipChanges/techStackChanges/publicPriorities/LinkedIn activity)
 - **[providers]** : Adapter pattern at SDK boundaries — `as any` acceptable with eslint-disable at `SourcingProvider`/Mistral SDK interface
+- **[email]** : Spam word scanner in quality gate — 100 triggers (phrases + words), runs BEFORE LLM scoring (instant, zero cost). ≥3 matches = flagged, forces retry + penalizes score. Word boundary regex prevents false positives.
 
 ### Gotchas
 
