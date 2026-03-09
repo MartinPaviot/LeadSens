@@ -1,10 +1,12 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { scoreLead } from "@/server/lib/enrichment/icp-scorer";
-import { scrapeLeadCompany } from "@/server/lib/connectors/jina";
+import { scoreLead, computeSignalBoost } from "@/server/lib/enrichment/icp-scorer";
+import { getOrScrapeCompany, extractDomain as extractDomainFromUrl } from "@/server/lib/enrichment/company-cache";
 import { scrapeLinkedInViaApify, type LinkedInProfileData } from "@/server/lib/connectors/apify";
-import { summarizeCompanyContext } from "@/server/lib/enrichment/summarizer";
+import { enrichPerson, type ApolloPersonResult } from "@/server/lib/connectors/apollo";
+import { summarizeCompanyContext, enrichmentDataSchema, extractFlatEnrichmentFields, type LinkedInContext } from "@/server/lib/enrichment/summarizer";
+import { getApolloApiKey } from "@/server/lib/providers";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
 
@@ -26,6 +28,35 @@ function mergeLinkedInData(
     careerHistory: linkedin.careerHistory.length > 0
       ? linkedin.careerHistory
       : (base.careerHistory as string[] | undefined) ?? [],
+  };
+}
+
+/**
+ * Merges Apollo person enrichment data into the enrichment result.
+ * Apollo provides fresher email verification, phone numbers, and org data.
+ */
+function mergeApolloData(
+  enrichment: Record<string, unknown> | null,
+  apollo: ApolloPersonResult,
+): Record<string, unknown> {
+  const base = enrichment ?? {};
+  return {
+    ...base,
+    // Apollo-specific fields (don't overwrite existing non-null values)
+    apolloEmailStatus: apollo.emailStatus ?? (base.apolloEmailStatus as string | undefined) ?? null,
+    apolloHeadline: apollo.headline ?? (base.apolloHeadline as string | undefined) ?? null,
+    apolloSeniority: apollo.seniority ?? (base.apolloSeniority as string | undefined) ?? null,
+    apolloDepartments: apollo.departments ?? (base.apolloDepartments as string[] | undefined) ?? [],
+    // Organization data from Apollo (fills gaps if Jina didn't get it)
+    ...(apollo.organizationIndustry && !base.industry
+      ? { industry: apollo.organizationIndustry }
+      : {}),
+    ...(apollo.organizationEmployeeCount && !base.teamSize
+      ? { teamSize: apollo.organizationEmployeeCount }
+      : {}),
+    ...(apollo.organizationRevenue && !base.revenue
+      ? { revenue: apollo.organizationRevenue }
+      : {}),
   };
 }
 
@@ -64,8 +95,76 @@ function resolveLeadUrl(
   return null;
 }
 
-function extractDomain(url: string): string {
-  try { return new URL(url).hostname; } catch { return url; }
+// Re-use extractDomain from company-cache (aliased as extractDomainFromUrl above)
+const extractDomain = extractDomainFromUrl;
+
+/**
+ * Extracts LinkedIn context from enrichment for passing to the summarizer.
+ */
+function extractLinkedInContext(enrichment: Record<string, unknown> | null): LinkedInContext | null {
+  if (!enrichment) return null;
+  const headline = enrichment.linkedinHeadline as string | null;
+  const career = enrichment.careerHistory as string[] | null;
+  const posts = enrichment.recentLinkedInPosts as string[] | null;
+  if (!headline && !career?.length && !posts?.length) return null;
+  return { headline, career, posts };
+}
+
+/**
+ * Summarizes enrichment quality in a format that survives LLM compression.
+ * The agent sees this instead of raw enrichmentData (which is stripped).
+ */
+function summarizeEnrichmentQuality(enrichment: Record<string, unknown> | null): {
+  quality: "rich" | "partial" | "minimal" | "none";
+  has: string[];
+  missing: string[];
+} {
+  if (!enrichment) return { quality: "none", has: [], missing: ["all fields"] };
+
+  const has: string[] = [];
+  const missing: string[] = [];
+
+  if (enrichment.companySummary) has.push("companySummary");
+  else missing.push("companySummary");
+
+  const painPoints = Array.isArray(enrichment.painPoints) ? enrichment.painPoints : [];
+  if (painPoints.length > 0) has.push(`${painPoints.length} painPoints`);
+  else missing.push("painPoints");
+
+  const products = Array.isArray(enrichment.products) ? enrichment.products : [];
+  if (products.length > 0) has.push(`${products.length} products`);
+
+  if (enrichment.linkedinHeadline) has.push("linkedinHeadline");
+  else missing.push("linkedinHeadline");
+
+  const career = Array.isArray(enrichment.careerHistory) ? enrichment.careerHistory : [];
+  if (career.length > 0) has.push(`${career.length} careerHistory`);
+
+  const posts = Array.isArray(enrichment.recentLinkedInPosts) ? enrichment.recentLinkedInPosts : [];
+  if (posts.length > 0) has.push(`${posts.length} linkedInPosts`);
+
+  const signalTypes = ["hiringSignals", "fundingSignals", "productLaunches", "leadershipChanges", "publicPriorities", "techStackChanges"];
+  let signalCount = 0;
+  for (const st of signalTypes) {
+    const arr = Array.isArray(enrichment[st]) ? enrichment[st] as unknown[] : [];
+    signalCount += arr.length;
+  }
+  if (signalCount > 0) has.push(`${signalCount} signals`);
+  else missing.push("signals");
+
+  if (enrichment.industry) has.push(`industry:${enrichment.industry}`);
+
+  // Apollo-specific fields
+  if (enrichment.apolloEmailStatus) has.push(`apolloEmail:${enrichment.apolloEmailStatus}`);
+  if (enrichment.apolloSeniority) has.push(`seniority:${enrichment.apolloSeniority}`);
+
+  let quality: "rich" | "partial" | "minimal" | "none";
+  if (has.length >= 5) quality = "rich";
+  else if (has.length >= 3) quality = "partial";
+  else if (has.length >= 1) quality = "minimal";
+  else quality = "none";
+
+  return { quality, has, missing };
 }
 
 export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefinition> {
@@ -127,14 +226,25 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
       name: "score_leads_batch",
       description: "Score leads against the ICP using raw Instantly data. Leads scoring below 5 are skipped. Returns lead_ids of qualified leads for chaining to enrich_leads_batch.",
       parameters: z.object({
-        lead_ids: z.array(z.string()),
+        lead_ids: z.array(z.string()).optional().describe("Lead IDs if available; omit to auto-find all SOURCED leads in the campaign"),
         icp_description: z.string(),
-        campaign_id: z.string().optional().describe("Campaign ID to update stats on"),
+        campaign_id: z.string().optional().describe("Campaign ID; falls back to most recent"),
       }),
       async execute(args) {
-        const leads = await prisma.lead.findMany({
-          where: { id: { in: args.lead_ids }, workspaceId: ctx.workspaceId, status: "SOURCED" },
-        });
+        const campaignId = await resolveCampaignId(ctx, args.campaign_id);
+
+        let leads;
+        if (args.lead_ids?.length) {
+          leads = await prisma.lead.findMany({
+            where: { id: { in: args.lead_ids }, workspaceId: ctx.workspaceId, status: "SOURCED" },
+          });
+        } else {
+          if (!campaignId) return { error: "No campaign found" };
+          leads = await prisma.lead.findMany({
+            where: { campaignId, workspaceId: ctx.workspaceId, status: "SOURCED" },
+          });
+          if (leads.length === 0) return { error: "No SOURCED leads to score in this campaign" };
+        }
 
         let scored = 0;
         let skipped = 0;
@@ -170,16 +280,17 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         }
 
         // Update campaign stats (workspace-scoped)
-        if (args.campaign_id) {
+        if (campaignId) {
           await prisma.campaign.update({
-            where: { id: args.campaign_id, workspaceId: ctx.workspaceId },
+            where: { id: campaignId, workspaceId: ctx.workspaceId },
             data: { leadsScored: scored, leadsSkipped: skipped, status: "SCORING" },
           });
         }
 
         // Auto-render updated lead table with scores
+        const allLeadIds = args.lead_ids?.length ? args.lead_ids : leads.map((l) => l.id);
         const scoredLeads = await prisma.lead.findMany({
-          where: { id: { in: args.lead_ids }, workspaceId: ctx.workspaceId },
+          where: { id: { in: allLeadIds }, workspaceId: ctx.workspaceId },
           select: {
             id: true,
             firstName: true,
@@ -194,17 +305,29 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           orderBy: { icpScore: { sort: "desc", nulls: "last" } },
         });
 
+        // ICP feedback loop — alert agent if most leads are eliminated
+        const skipRate = leads.length > 0 ? skipped / leads.length : 0;
+        const icpWarning = skipRate >= 0.7 && leads.length >= 10
+          ? {
+              alert: "high_skip_rate",
+              message: `${Math.round(skipRate * 100)}% of leads scored below 5 and were skipped (${skipped}/${leads.length}). ` +
+                `This suggests the ICP criteria may be too narrow or the sourced leads don't match. ` +
+                `Consider: (1) broadening the ICP, (2) re-sourcing with different filters, or (3) lowering the scoring threshold.`,
+            }
+          : undefined;
+
         return {
           scored,
           skipped,
           errors,
           total: leads.length,
           lead_ids: qualifiedIds,
+          ...(icpWarning && { icp_warning: icpWarning }),
           __component: "lead-table",
           props: {
             title: `Scored Leads (${scored} qualified, ${skipped} skipped)`,
             leads: scoredLeads,
-            campaignId: args.campaign_id,
+            campaignId,
           },
         };
       },
@@ -257,17 +380,45 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         let enriched = 0;
         let scraped = 0;
         let scrapeFailed = 0;
+        let noUrl = 0;
+        let noLinkedin = 0;
+        let apolloEnriched = 0;
         const enrichedIds: string[] = [];
 
-        // Domain cache: avoid re-scraping the same company for multiple leads
-        const domainCache = new Map<string, string | null>();
+        // Check if Apollo is connected (optional enrichment step)
+        const apolloApiKey = await getApolloApiKey(ctx.workspaceId);
 
         for (let i = 0; i < leads.length; i++) {
           const lead = leads[i];
           ctx.onStatus?.(`Enriching lead ${i + 1}/${leads.length}...`);
           let enrichment: unknown = null;
 
-          // Step 1: LinkedIn via Apify FIRST — may provide company website for Jina
+          // Track data gaps
+          if (!lead.linkedinUrl) noLinkedin++;
+
+          // Step 0 (optional): Apollo person enrichment — fast, provides verified email + org data
+          if (apolloApiKey && lead.email) {
+            try {
+              const apolloData = await enrichPerson(apolloApiKey, {
+                email: lead.email,
+                firstName: lead.firstName ?? undefined,
+                lastName: lead.lastName ?? undefined,
+                domain: lead.companyDomain ?? undefined,
+                linkedinUrl: lead.linkedinUrl ?? undefined,
+              });
+              if (apolloData) {
+                enrichment = mergeApolloData(
+                  enrichment as Record<string, unknown> | null,
+                  apolloData,
+                );
+                apolloEnriched++;
+              }
+            } catch (err) {
+              console.warn(`[enrich] Apollo enrichment failed for ${lead.email}:`, err);
+            }
+          }
+
+          // Step 1: LinkedIn via Apify — may provide company website for Jina
           let linkedinCompanyUrl: string | null = null;
           if (lead.linkedinUrl) {
             const linkedinData = await scrapeLinkedInViaApify(
@@ -288,22 +439,19 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
 
           if (url) {
             const domain = extractDomain(url);
-            let markdown = domainCache.get(domain);
-
-            if (markdown === undefined) {
-              // First time seeing this domain — multi-page scrape
-              ctx.onStatus?.(`Scraping ${domain} (multi-page)...`);
-              markdown = await scrapeLeadCompany(url);
-              domainCache.set(domain, markdown);
-            } else if (markdown !== null) {
-              console.log(`[enrich] Cache hit for ${domain}`);
-            }
+            // Persistent cache: checks Prisma CompanyCache (TTL 7d), scrapes on miss
+            const markdown = await getOrScrapeCompany(
+              domain,
+              url,
+              (msg) => ctx.onStatus?.(msg),
+            );
 
             if (markdown) {
               try {
-                const companyData = await summarizeCompanyContext(markdown, ctx.workspaceId);
-                // Merge company data into existing enrichment (which may already have LinkedIn data)
-                enrichment = { ...(enrichment as Record<string, unknown> | null), ...(companyData as Record<string, unknown>) };
+                const linkedinCtx = extractLinkedInContext(enrichment as Record<string, unknown> | null);
+                const companyData = await summarizeCompanyContext(markdown, ctx.workspaceId, linkedinCtx);
+                // LinkedIn raw fields win over summarizer's null/[] defaults
+                enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
               } catch (err) {
                 console.warn(`[enrich] Summarization failed for ${lead.company ?? lead.email}:`, err);
               }
@@ -314,12 +462,36 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             }
           } else {
             console.warn(`[enrich] No URL for ${lead.company ?? lead.email} — skipping scrape`);
+            noUrl++;
             scrapeFailed++;
+          }
+
+          // LinkedIn-only: no website but we have LinkedIn data — still call summarizer for narrative fields
+          const linkedinOnly = extractLinkedInContext(enrichment as Record<string, unknown> | null);
+          if (linkedinOnly && !(enrichment && "companySummary" in (enrichment as Record<string, unknown>))) {
+            try {
+              const companyData = await summarizeCompanyContext("", ctx.workspaceId, linkedinOnly);
+              enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
+            } catch (err) {
+              console.warn(`[enrich] LinkedIn-only summarization failed for ${lead.company ?? lead.email}:`, err);
+            }
           }
 
           // Always advance to ENRICHED — even without scrape data,
           // the lead can still be drafted using basic Instantly data
           const enrichmentTyped = enrichment as Record<string, unknown> | null;
+          const parsed = enrichment ? enrichmentDataSchema.safeParse(enrichment) : null;
+          const flatFields = parsed?.success ? extractFlatEnrichmentFields(parsed.data) : {};
+
+          // Post-enrichment signal boost: upgrade fit-only score to multi-dimensional
+          const signalBoost = computeSignalBoost(lead.icpScore ?? 5, parsed?.success ? parsed.data : null);
+          const updatedBreakdown = {
+            ...(lead.icpBreakdown as Record<string, unknown> | null),
+            intentScore: signalBoost.intentScore,
+            timingScore: signalBoost.timingScore,
+            signals: signalBoost.signals,
+          };
+
           await prisma.lead.update({
             where: { id: lead.id },
             data: {
@@ -328,6 +500,9 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               } : {}),
               ...(enrichmentTyped?.industry ? { industry: enrichmentTyped.industry as string } : {}),
               ...(enrichmentTyped?.teamSize ? { companySize: enrichmentTyped.teamSize as string } : {}),
+              ...flatFields,
+              icpScore: signalBoost.combinedScore,
+              icpBreakdown: updatedBreakdown as unknown as Prisma.InputJsonValue,
               enrichedAt: new Date(),
               status: "ENRICHED",
             },
@@ -344,39 +519,66 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           });
         }
 
-        // Auto-render enrichment cards with scraped intel
+        // Auto-render lead table with enrichment data
         const enrichedLeads = await prisma.lead.findMany({
           where: { id: { in: enrichedIds }, workspaceId: ctx.workspaceId },
           select: {
+            id: true,
             firstName: true,
             lastName: true,
+            email: true,
             company: true,
             jobTitle: true,
+            linkedinUrl: true,
             icpScore: true,
+            status: true,
             enrichmentData: true,
           },
         });
 
-        const leadCards = enrichedLeads.map((l) => ({
-          name: [l.firstName, l.lastName].filter(Boolean).join(" ") || "—",
+        const enrichedRows = enrichedLeads.map((l) => ({
+          name: [l.firstName, l.lastName].filter(Boolean).join(" "),
           company: l.company,
           jobTitle: l.jobTitle,
           icpScore: l.icpScore,
-          scraped: l.enrichmentData != null,
+          scraped: !!(l.enrichmentData),
           enrichment: l.enrichmentData as Record<string, unknown> | null,
         }));
+
+        // Per-lead quality summaries (survives compression — agent sees this)
+        const enrichment_summary = enrichedLeads.map((l) => {
+          const ed = l.enrichmentData as Record<string, unknown> | null;
+          const q = summarizeEnrichmentQuality(ed);
+          return {
+            name: [l.firstName, l.lastName].filter(Boolean).join(" "),
+            company: l.company,
+            quality: q.quality,
+            has: q.has,
+            missing: q.missing,
+            industry: ed?.industry as string | undefined,
+          };
+        });
 
         return {
           enriched,
           scraped,
           scrape_failed: scrapeFailed,
+          apollo_enriched: apolloEnriched,
           total: leads.length,
           lead_ids: enrichedIds,
+          enrichment_summary,
+          data_gaps: {
+            no_website: noUrl,
+            no_linkedin: noLinkedin,
+            note: noUrl > 0 || noLinkedin > 0
+              ? "Leads without website/LinkedIn were advanced to ENRICHED but emails will rely on basic Instantly data only."
+              : undefined,
+          },
           __component: "enrichment",
           props: {
-            title: "Enrichment results",
-            leads: leadCards,
-            campaignId: campaignId,
+            title: `Enriched Leads (${enriched} enriched, ${scraped} scraped)`,
+            leads: enrichedRows,
+            campaignId,
           },
         };
       },
@@ -461,7 +663,29 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         let enrichment: unknown = null;
         let scrapeError: string | null = null;
 
-        // Step 1: LinkedIn via Apify FIRST — may provide company website for Jina
+        // Step 0 (optional): Apollo person enrichment
+        const apolloApiKey = await getApolloApiKey(ctx.workspaceId);
+        if (apolloApiKey && lead.email) {
+          try {
+            const apolloData = await enrichPerson(apolloApiKey, {
+              email: lead.email,
+              firstName: lead.firstName ?? undefined,
+              lastName: lead.lastName ?? undefined,
+              domain: lead.companyDomain ?? undefined,
+              linkedinUrl: lead.linkedinUrl ?? undefined,
+            });
+            if (apolloData) {
+              enrichment = mergeApolloData(
+                enrichment as Record<string, unknown> | null,
+                apolloData,
+              );
+            }
+          } catch (err) {
+            console.warn(`[enrich] Apollo enrichment failed for ${lead.email}:`, err);
+          }
+        }
+
+        // Step 1: LinkedIn via Apify — may provide company website for Jina
         let linkedinCompanyUrl: string | null = null;
         if (lead.linkedinUrl) {
           const linkedinData = await scrapeLinkedInViaApify(lead.linkedinUrl);
@@ -478,11 +702,15 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         const url = resolveLeadUrl(lead, linkedinCompanyUrl);
 
         if (url) {
-          const markdown = await scrapeLeadCompany(url);
+          const domain = extractDomain(url);
+          // Persistent cache: checks Prisma CompanyCache (TTL 7d), scrapes on miss
+          const markdown = await getOrScrapeCompany(domain, url);
           if (markdown) {
             try {
-              const companyData = await summarizeCompanyContext(markdown, ctx.workspaceId);
-              enrichment = { ...(enrichment as Record<string, unknown> | null), ...(companyData as Record<string, unknown>) };
+              const linkedinCtx = extractLinkedInContext(enrichment as Record<string, unknown> | null);
+              const companyData = await summarizeCompanyContext(markdown, ctx.workspaceId, linkedinCtx);
+              // LinkedIn raw fields win over summarizer's null/[] defaults
+              enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
             } catch (err) {
               scrapeError = `Summarization failed: ${err instanceof Error ? err.message : String(err)}`;
             }
@@ -494,8 +722,31 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           if (!enrichment) scrapeError = "No website URL available";
         }
 
+        // LinkedIn-only: no website but we have LinkedIn data — still call summarizer for narrative fields
+        const linkedinOnly = extractLinkedInContext(enrichment as Record<string, unknown> | null);
+        if (linkedinOnly && !(enrichment && "companySummary" in (enrichment as Record<string, unknown>))) {
+          try {
+            const companyData = await summarizeCompanyContext("", ctx.workspaceId, linkedinOnly);
+            enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
+          } catch (err) {
+            console.warn(`[enrich] LinkedIn-only summarization failed for ${lead.company ?? lead.email}:`, err);
+          }
+        }
+
         // Always advance to ENRICHED — even if summarization failed
         const enrichmentTyped = enrichment as Record<string, unknown> | null;
+        const parsed = enrichment ? enrichmentDataSchema.safeParse(enrichment) : null;
+        const flatFields = parsed?.success ? extractFlatEnrichmentFields(parsed.data) : {};
+
+        // Post-enrichment signal boost: upgrade fit-only score to multi-dimensional
+        const signalBoost = computeSignalBoost(lead.icpScore ?? 5, parsed?.success ? parsed.data : null);
+        const updatedBreakdown = {
+          ...(lead.icpBreakdown as Record<string, unknown> | null),
+          intentScore: signalBoost.intentScore,
+          timingScore: signalBoost.timingScore,
+          signals: signalBoost.signals,
+        };
+
         await prisma.lead.update({
           where: { id: lead.id },
           data: {
@@ -504,17 +755,35 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             } : {}),
             ...(enrichmentTyped?.industry ? { industry: enrichmentTyped.industry as string } : {}),
             ...(enrichmentTyped?.teamSize ? { companySize: enrichmentTyped.teamSize as string } : {}),
+            ...flatFields,
+            icpScore: signalBoost.combinedScore,
+            icpBreakdown: updatedBreakdown as unknown as Prisma.InputJsonValue,
             enrichedAt: new Date(),
             status: "ENRICHED",
           },
         });
+
+        const enrichment_summary = summarizeEnrichmentQuality(enrichment as Record<string, unknown> | null);
 
         return {
           enriched: true,
           scraped: !!enrichment,
           scrapeError,
           leadId: lead.id,
-          enrichment,
+          lead_ids: [lead.id],
+          enrichment_summary,
+          __component: "enrichment",
+          props: {
+            title: `Enrichment: ${[lead.firstName, lead.lastName].filter(Boolean).join(" ")}`,
+            leads: [{
+              name: [lead.firstName, lead.lastName].filter(Boolean).join(" "),
+              company: lead.company,
+              jobTitle: lead.jobTitle,
+              icpScore: lead.icpScore,
+              scraped: !!enrichment,
+              enrichment: enrichment as Record<string, unknown> | null,
+            }],
+          },
         };
       },
     },

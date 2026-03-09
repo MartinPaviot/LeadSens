@@ -1,0 +1,70 @@
+=== ITERATION 1 | 2026-03-09 13:00 UTC ===
+TASK: /audit — Full strategic audit codebase vs STRATEGY.md
+STATUS: DONE
+DURATION: ~30 min
+FILES CHANGED:
+  - src/server/lib/email/prompt-builder.ts (subject line pattern library — 5 formal patterns)
+  - src/server/lib/tools/enrichment-tools.ts (ICP scoring feedback loop — alert >70% skip rate)
+  - src/app/api/webhooks/instantly/route.ts (as any → LeadStatus type)
+  - src/server/lib/providers/index.ts (as any → IntegrationType, string → IntegrationType param)
+  - src/queue/analytics-sync-worker.ts (as any → Prisma.InputJsonValue)
+  - src/server/lib/tools/analytics-tools.ts (as any → Prisma.InputJsonValue)
+  - scripts/backfill-flat-enrichment.ts (null → Prisma.JsonNull)
+  - tests/industry-taxonomy.test.ts (null type fix)
+  - CLAUDE.md (scores 4.2→6.0, pipeline status updated, section 11 populated)
+  - .claude/tasks/BACKLOG.md (16/27 tasks marked done, 8 new tasks from audit)
+  - .claude/findings/2026-03-09-audit-full.md (full findings report)
+TESTS: 148/148 passed, 0 typecheck errors
+LEARNINGS:
+  - Score jumped from 4.2 to 6.0 — most Tier 1 + many Tier 2 already implemented
+  - Enrichment (7/10) and Copywriting (8/10) exceed targets
+  - Biggest remaining gap: ICP Scoring (5.5 vs 7 target) — fit-only, no intent/timing
+  - Subject pattern library was the easiest high-impact fix (prompt-only change)
+  - Prisma Json fields need Prisma.JsonNull/InputJsonValue, not null/as any
+NEXT: T3-SCORE-01 Scoring multi-dimensionnel (fit + intent + timing) — biggest gap remaining
+
+=== ITERATION 2 | 2026-03-09 13:35 UTC ===
+TASK: T3-SCORE-01 — Scoring multi-dimensionnel (fit + intent + timing)
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED:
+  - src/server/lib/enrichment/icp-scorer.ts (computeSignalBoost + CombinedScoreBreakdown)
+  - src/server/lib/tools/enrichment-tools.ts (2 call sites: batch + single lead)
+  - tests/signal-boost.test.ts (13 tests)
+TESTS: 161/161 passed, 0 typecheck errors
+APPROACH:
+  - Two-phase scoring: LLM fit (pre-enrichment) → deterministic signal boost (post-enrichment)
+  - Zero additional LLM calls — uses data already extracted by summarizer
+  - Weights: fit 40% + intent 35% (hiring, tech changes, LinkedIn, launches) + timing 25% (funding, leadership, priorities, news)
+  - Baseline 3 for no signals, each signal type adds points, capped at 10
+  - icpScore updated in-place, icpBreakdown extended with intentScore/timingScore/signals
+LEARNINGS:
+  - Deterministic signal boost is elegant: 0 cost, testable, composable
+  - Storing extended breakdown in Json field avoids migration
+  - ICP scoring now 7/10 (was 5.5), all component targets met or exceeded
+NEXT: T1-ENR-02 Cache persistant OU T2-INT-02 Multi-ESP routing
+
+=== ITERATION 3 | 2026-03-09 14:00 UTC ===
+TASK: T1-ENR-02 — Cache par domaine persistant (Prisma CompanyCache TTL 7j)
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED:
+  - prisma/schema.prisma (CompanyCache model: domain unique, markdown text, scrapedAt)
+  - prisma/migrations/20260309210530_add_company_cache/migration.sql
+  - src/server/lib/enrichment/company-cache.ts (NEW: getOrScrapeCompany + extractDomain)
+  - src/server/lib/tools/enrichment-tools.ts (replaced in-memory Map with persistent cache, both batch + single)
+  - tests/company-cache.test.ts (NEW: 11 tests)
+  - .claude/tasks/BACKLOG.md (T1-ENR-02 checked)
+  - .claude/tasks/DONE.md (entry added)
+TESTS: 172/172 passed (non-LLM suite), 0 typecheck errors
+APPROACH:
+  - CompanyCache Prisma model: domain (unique), markdown (nullable text for failed scrapes), scrapedAt (for TTL)
+  - getOrScrapeCompany(domain, url): check Prisma cache → if fresh (<7d) return cached → else scrape via Jina → upsert
+  - Null markdown cached too — prevents retrying domains that always fail within TTL
+  - enrich_leads_batch: removed `new Map<string, string | null>()`, calls getOrScrapeCompany per domain
+  - enrich_single_lead: added persistent cache (previously had no cache at all)
+LEARNINGS:
+  - Prisma generate fails on Windows when query_engine DLL is locked by running node processes — but types are still written successfully, so typecheck works
+  - Caching null is important: without it, broken domains would be retried every batch
+  - The in-memory Map was fine for intra-batch dedup but useless cross-batch/cross-session
+NEXT: T1-FIX-02 Pagination listLeads

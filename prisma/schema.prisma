@@ -83,6 +83,7 @@ model Workspace {
   conversations  Conversation[]
   integrations   Integration[]
   leads          Lead[]
+  replyThreads   ReplyThread[]
   users          User[]
 
   @@map("workspace")
@@ -164,7 +165,23 @@ model Lead {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   companyDomain   String?
+
+  // Flat enrichment columns (CSV-ready, derived from enrichmentData JSON)
+  companyPositioning String?
+  companyOneLiner    String?
+  companyDescription String?
+  painPointsFlat     String?
+  productsFlat       String?
+  valueProp          String?
+  targetCustomers    String?
+  buyingSignals      String?
+  techStackFlat      String?
+  linkedinHeadline   String?
+  careerHistory      String?
+  recentPosts        String?
   emails          DraftedEmail[]
+  performance     EmailPerformance[]
+  replyThreads    ReplyThread[]
   campaign        Campaign?      @relation(fields: [campaignId], references: [id])
   workspace       Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -193,31 +210,59 @@ model Campaign {
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   angle               Json?
+
+  // Analytics sync
+  lastSyncedAt        DateTime?
+  analyticsCache      Json?
+
   workspace           Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversation        Conversation?
   draftedEmails       DraftedEmail[]
   leads               Lead[]
+  performance         EmailPerformance[]
+  stepAnalytics       StepAnalytics[]
+  replyThreads        ReplyThread[]
 
   @@map("campaign")
 }
 
 model DraftedEmail {
-  id         String   @id @default(cuid())
-  leadId     String
-  campaignId String
-  step       Int
-  subject    String
-  body       String
-  model      String
-  tokensUsed Int?
-  approved   Boolean  @default(false)
-  userEdit   String?
-  createdAt  DateTime @default(now())
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  leadId          String
+  campaignId      String
+  step            Int
+  subject         String
+  subjectVariants Json?
+  body            String
+  model           String
+  tokensUsed      Int?
+  qualityScore    Int?
+  approved        Boolean  @default(false)
+  userEdit        String?
+  createdAt       DateTime @default(now())
+
+  // Metadata for correlation (Phase D feedback loop)
+  signalType      String?  // "leadership_change", "funding", "hiring", etc.
+  signalCount     Int      @default(0)
+  frameworkName   String?  // "PAS (Timeline Hook)", "Value-add", "Social Proof", etc.
+  enrichmentDepth String?  // "rich" | "partial" | "minimal" | "none"
+  bodyWordCount   Int?
+  leadIndustry    String?  // denormalized for fast queries
+
+  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@unique([leadId, step])
   @@map("drafted_email")
+}
+
+model CompanyCache {
+  id        String   @id @default(cuid())
+  domain    String   @unique
+  markdown  String?  @db.Text
+  scrapedAt DateTime @default(now())
+
+  @@map("company_cache")
 }
 
 model AgentMemory {
@@ -266,9 +311,119 @@ model AIEvent {
   @@map("ai_event")
 }
 
+model EmailPerformance {
+  id              String    @id @default(cuid())
+  leadId          String
+  campaignId      String
+  email           String
+
+  openCount       Int       @default(0)
+  replyCount      Int       @default(0)
+  clickCount      Int       @default(0)
+  bounced         Boolean   @default(false)
+  unsubscribed    Boolean   @default(false)
+  interestStatus  Int?
+
+  firstOpenAt     DateTime?
+  lastOpenAt      DateTime?
+  repliedAt       DateTime?
+  replyIsAutoReply Boolean  @default(false)
+  replyAiInterest Float?
+
+  syncedAt        DateTime  @default(now())
+
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, campaignId])
+  @@index([campaignId])
+  @@map("email_performance")
+}
+
+model StepAnalytics {
+  id          String   @id @default(cuid())
+  campaignId  String
+  step        Int
+
+  sent        Int      @default(0)
+  opened      Int      @default(0)
+  replied     Int      @default(0)
+  bounced     Int      @default(0)
+  openRate    Float?
+  replyRate   Float?
+
+  syncedAt    DateTime @default(now())
+
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, step])
+  @@map("step_analytics")
+}
+
+model ReplyThread {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  leadId          String
+  campaignId      String
+  instantlyThreadId String?
+  subject         String?
+  status          ReplyThreadStatus @default(OPEN)
+  interestScore   Float?
+  classifiedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  replies         Reply[]
+
+  @@unique([leadId, campaignId])
+  @@index([workspaceId, status])
+  @@map("reply_thread")
+}
+
+model Reply {
+  id          String      @id @default(cuid())
+  threadId    String
+  direction   ReplyDirection
+  fromEmail   String
+  toEmail     String
+  subject     String?
+  body        String
+  preview     String?
+  instantlyEmailId String?
+  isAutoReply Boolean     @default(false)
+  aiInterest  Float?
+  sentAt      DateTime
+  createdAt   DateTime    @default(now())
+
+  thread      ReplyThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, sentAt])
+  @@map("reply")
+}
+
+enum ReplyThreadStatus {
+  OPEN
+  INTERESTED
+  NOT_INTERESTED
+  MEETING_BOOKED
+  CLOSED
+}
+
+enum ReplyDirection {
+  INBOUND
+  OUTBOUND
+}
+
 enum IntegrationType {
   INSTANTLY
   HUBSPOT
+  APOLLO
+  ZEROBOUNCE
+  SMARTLEAD
+  LEMLIST
   SALESFORCE
   GOOGLE_SHEETS
 }
@@ -294,6 +449,14 @@ enum LeadStatus {
   DRAFTED
   PUSHED
   SKIPPED
+  // Post-launch statuses
+  SENT
+  REPLIED
+  INTERESTED
+  NOT_INTERESTED
+  MEETING_BOOKED
+  BOUNCED
+  UNSUBSCRIBED
 }
 
 enum CampaignStatus {
