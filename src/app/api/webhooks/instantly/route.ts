@@ -1,18 +1,28 @@
 /**
  * Instantly Webhook Endpoint
  *
- * Receives real-time events from Instantly:
- * - reply_received: A lead replied to a campaign email
- * - email_bounced: Email bounced
- * - lead_unsubscribed: Lead unsubscribed
- * - campaign_completed: Campaign finished sending
+ * Receives real-time events from Instantly (14+ event types):
  *
- * Events update lead status, EmailPerformance, and ReplyThread records.
+ * Lead engagement:
+ * - email_sent: Email was sent to a lead → PUSHED→SENT transition
+ * - email_opened: Lead opened the email → update openCount/timestamps
+ * - link_clicked: Lead clicked a link → update clickCount
+ * - reply_received: Lead replied → SENT→REPLIED transition
+ * - email_bounced: Email bounced → BOUNCED transition + bounce guard
+ * - lead_unsubscribed: Lead unsubscribed → UNSUBSCRIBED transition
+ *
+ * Lead status:
+ * - lead_interested: Marked interested in Instantly → INTERESTED transition
+ * - lead_not_interested: Marked not interested → NOT_INTERESTED transition
+ * - lead_meeting_booked: Meeting booked → MEETING_BOOKED transition
+ *
+ * Campaign lifecycle:
+ * - campaign_completed: Campaign finished sending
+ * - account_error: Sending account health issue → log warning
  *
  * A/B attribution: Instantly webhooks include `variant` (1-indexed) and
  * `step` fields. These are used for native variant attribution on
- * EmailPerformance.variantIndex, replacing the need for syncVariantAttribution()
- * polling for new events.
+ * EmailPerformance.variantIndex.
  *
  * Security: If INSTANTLY_WEBHOOK_SECRET is set, verifies HMAC-SHA256
  * signature in the x-instantly-signature header. Without it, all events
@@ -111,17 +121,79 @@ const unsubEventSchema = z.object({
   ...variantFields,
 });
 
+const emailSentSchema = z.object({
+  event_type: z.literal("email_sent"),
+  campaign_id: z.string(),
+  email: z.string(),
+  timestamp: z.string().optional(),
+  is_first: z.boolean().optional(), // true if first email (Step 0)
+  ...variantFields,
+});
+
+const emailOpenedSchema = z.object({
+  event_type: z.literal("email_opened"),
+  campaign_id: z.string(),
+  email: z.string(),
+  timestamp: z.string().optional(),
+  ...variantFields,
+});
+
+const linkClickedSchema = z.object({
+  event_type: z.literal("link_clicked"),
+  campaign_id: z.string(),
+  email: z.string(),
+  url: z.string().optional(),
+  timestamp: z.string().optional(),
+  ...variantFields,
+});
+
+const meetingBookedSchema = z.object({
+  event_type: z.literal("lead_meeting_booked"),
+  campaign_id: z.string(),
+  email: z.string(),
+  timestamp: z.string().optional(),
+});
+
+const leadInterestedSchema = z.object({
+  event_type: z.literal("lead_interested"),
+  campaign_id: z.string(),
+  email: z.string(),
+  timestamp: z.string().optional(),
+});
+
+const leadNotInterestedSchema = z.object({
+  event_type: z.literal("lead_not_interested"),
+  campaign_id: z.string(),
+  email: z.string(),
+  timestamp: z.string().optional(),
+});
+
 const campaignCompleteSchema = z.object({
   event_type: z.literal("campaign_completed"),
   campaign_id: z.string(),
   timestamp: z.string().optional(),
 });
 
-const webhookEventSchema = z.discriminatedUnion("event_type", [
+const accountErrorSchema = z.object({
+  event_type: z.literal("account_error"),
+  campaign_id: z.string().optional(),
+  account_email: z.string().optional(),
+  error_message: z.string().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const webhookEventSchema = z.discriminatedUnion("event_type", [
   replyEventSchema,
   bounceEventSchema,
   unsubEventSchema,
+  emailSentSchema,
+  emailOpenedSchema,
+  linkClickedSchema,
+  meetingBookedSchema,
+  leadInterestedSchema,
+  leadNotInterestedSchema,
   campaignCompleteSchema,
+  accountErrorSchema,
 ]);
 
 // ─── Helpers ────────────────────────────────────────────
@@ -323,6 +395,160 @@ export async function POST(req: Request) {
       break;
     }
 
+    case "email_sent": {
+      const match = await findLeadByCampaignEmail(event.campaign_id, event.email);
+      if (!match) break;
+
+      const { lead, campaign } = match;
+      const sentVariantIndex = webhookVariantToIndex(event.variant);
+      const sentAt = event.timestamp ? new Date(event.timestamp) : new Date();
+
+      await prisma.emailPerformance.upsert({
+        where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
+        create: {
+          leadId: lead.id,
+          campaignId: campaign.id,
+          email: lead.email,
+          sentAt,
+          ...(event.step != null ? { sentStep: event.step } : {}),
+          ...(sentVariantIndex != null ? { variantIndex: sentVariantIndex } : {}),
+        },
+        update: {
+          sentAt,
+          ...(event.step != null ? { sentStep: event.step } : {}),
+          // Only set variantIndex if not already attributed
+          ...(sentVariantIndex != null ? { variantIndex: sentVariantIndex } : {}),
+        },
+      });
+
+      // Transition PUSHED → SENT (resolves phantom SENT status — PIPE-SENT-01)
+      await safeTransition(lead.id, "SENT");
+      break;
+    }
+
+    case "email_opened": {
+      const match = await findLeadByCampaignEmail(event.campaign_id, event.email);
+      if (!match) break;
+
+      const { lead, campaign } = match;
+      const openVariantIndex = webhookVariantToIndex(event.variant);
+      const openedAt = event.timestamp ? new Date(event.timestamp) : new Date();
+
+      await prisma.emailPerformance.upsert({
+        where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
+        create: {
+          leadId: lead.id,
+          campaignId: campaign.id,
+          email: lead.email,
+          openCount: 1,
+          firstOpenAt: openedAt,
+          lastOpenAt: openedAt,
+          ...(openVariantIndex != null ? { variantIndex: openVariantIndex } : {}),
+        },
+        update: {
+          openCount: { increment: 1 },
+          // firstOpenAt only set on create, never overwritten
+          lastOpenAt: openedAt,
+          ...(openVariantIndex != null ? { variantIndex: openVariantIndex } : {}),
+        },
+      });
+      break;
+    }
+
+    case "link_clicked": {
+      const match = await findLeadByCampaignEmail(event.campaign_id, event.email);
+      if (!match) break;
+
+      const { lead, campaign } = match;
+      const clickVariantIndex = webhookVariantToIndex(event.variant);
+
+      await prisma.emailPerformance.upsert({
+        where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
+        create: {
+          leadId: lead.id,
+          campaignId: campaign.id,
+          email: lead.email,
+          clickCount: 1,
+          ...(clickVariantIndex != null ? { variantIndex: clickVariantIndex } : {}),
+        },
+        update: {
+          clickCount: { increment: 1 },
+          ...(clickVariantIndex != null ? { variantIndex: clickVariantIndex } : {}),
+        },
+      });
+      break;
+    }
+
+    case "lead_meeting_booked": {
+      const match = await findLeadByCampaignEmail(event.campaign_id, event.email);
+      if (!match) break;
+
+      const { lead, campaign } = match;
+
+      await prisma.emailPerformance.upsert({
+        where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
+        create: {
+          leadId: lead.id,
+          campaignId: campaign.id,
+          email: lead.email,
+          interestStatus: 2, // Meeting booked
+        },
+        update: {
+          interestStatus: 2,
+        },
+      });
+
+      // Transition to MEETING_BOOKED (works from REPLIED or INTERESTED)
+      await safeTransition(lead.id, "MEETING_BOOKED");
+      break;
+    }
+
+    case "lead_interested": {
+      const match = await findLeadByCampaignEmail(event.campaign_id, event.email);
+      if (!match) break;
+
+      const { lead, campaign } = match;
+
+      await prisma.emailPerformance.upsert({
+        where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
+        create: {
+          leadId: lead.id,
+          campaignId: campaign.id,
+          email: lead.email,
+          interestStatus: 1,
+        },
+        update: {
+          interestStatus: 1,
+        },
+      });
+
+      await safeTransition(lead.id, "INTERESTED");
+      break;
+    }
+
+    case "lead_not_interested": {
+      const match = await findLeadByCampaignEmail(event.campaign_id, event.email);
+      if (!match) break;
+
+      const { lead, campaign } = match;
+
+      await prisma.emailPerformance.upsert({
+        where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
+        create: {
+          leadId: lead.id,
+          campaignId: campaign.id,
+          email: lead.email,
+          interestStatus: -1,
+        },
+        update: {
+          interestStatus: -1,
+        },
+      });
+
+      await safeTransition(lead.id, "NOT_INTERESTED");
+      break;
+    }
+
     case "campaign_completed": {
       const campaign = await prisma.campaign.findFirst({
         where: { instantlyCampaignId: event.campaign_id },
@@ -333,6 +559,17 @@ export async function POST(req: Request) {
           data: { status: "ACTIVE" },
         });
       }
+      break;
+    }
+
+    case "account_error": {
+      // Log warning for account health issues — proactive monitoring
+      console.warn(
+        "[webhook/instantly] Account error:",
+        event.account_email ?? "unknown account",
+        event.error_message ?? "no message",
+        event.campaign_id ? `campaign=${event.campaign_id}` : "",
+      );
       break;
     }
   }

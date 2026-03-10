@@ -325,6 +325,7 @@ model EmailPerformance {
   unsubscribed    Boolean   @default(false)
   interestStatus  Int?
 
+  sentAt          DateTime?
   firstOpenAt     DateTime?
   lastOpenAt      DateTime?
   repliedAt       DateTime?
@@ -333,6 +334,7 @@ model EmailPerformance {
 
   // A/B variant attribution (synced from Instantly sent emails)
   variantIndex    Int?      // 0=primary subject, 1=variant2, 2=variant3; null=unknown
+  sentStep        Int?      // last step number that was sent (from webhook)
 
   syncedAt        DateTime  @default(now())
 
