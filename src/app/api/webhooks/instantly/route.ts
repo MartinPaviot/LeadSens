@@ -9,6 +9,11 @@
  *
  * Events update lead status, EmailPerformance, and ReplyThread records.
  *
+ * A/B attribution: Instantly webhooks include `variant` (1-indexed) and
+ * `step` fields. These are used for native variant attribution on
+ * EmailPerformance.variantIndex, replacing the need for syncVariantAttribution()
+ * polling for new events.
+ *
  * Security: If INSTANTLY_WEBHOOK_SECRET is set, verifies HMAC-SHA256
  * signature in the x-instantly-signature header. Without it, all events
  * are accepted (graceful degradation for dev/testing).
@@ -53,7 +58,27 @@ export function verifyWebhookSignature(
   return timingSafeEqual(sigBuffer, expectedBuffer);
 }
 
+// ─── A/B Variant Helper ─────────────────────────────────
+
+/**
+ * Convert Instantly webhook variant (1-indexed) to our variantIndex (0-indexed).
+ * Returns null if variant is absent or invalid.
+ *
+ * Instantly sends: variant=1 (primary), variant=2 (v2), variant=3 (v3)
+ * We store: variantIndex=0 (primary), variantIndex=1 (v2), variantIndex=2 (v3)
+ */
+export function webhookVariantToIndex(variant?: number | null): number | null {
+  if (variant == null || !Number.isInteger(variant) || variant < 1) return null;
+  return variant - 1;
+}
+
 // ─── Event Schemas ──────────────────────────────────────
+
+// Common fields for A/B attribution (Instantly Mar 2026)
+const variantFields = {
+  variant: z.number().int().optional(), // 1-indexed variant number
+  step: z.number().int().optional(),    // step number (0-indexed)
+};
 
 const replyEventSchema = z.object({
   event_type: z.literal("reply_received"),
@@ -66,6 +91,7 @@ const replyEventSchema = z.object({
   is_auto_reply: z.boolean().optional(),
   ai_interest_value: z.number().optional(),
   timestamp: z.string().optional(),
+  ...variantFields,
 });
 
 const bounceEventSchema = z.object({
@@ -74,6 +100,7 @@ const bounceEventSchema = z.object({
   email: z.string(),
   bounce_type: z.string().optional(),
   timestamp: z.string().optional(),
+  ...variantFields,
 });
 
 const unsubEventSchema = z.object({
@@ -81,6 +108,7 @@ const unsubEventSchema = z.object({
   campaign_id: z.string(),
   email: z.string(),
   timestamp: z.string().optional(),
+  ...variantFields,
 });
 
 const campaignCompleteSchema = z.object({
@@ -168,6 +196,9 @@ export async function POST(req: Request) {
 
       const { lead, campaign } = match;
 
+      // Native A/B attribution from webhook variant field (WEBHOOK-VAR-01)
+      const replyVariantIndex = webhookVariantToIndex(event.variant);
+
       // Update EmailPerformance
       await prisma.emailPerformance.upsert({
         where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
@@ -179,12 +210,15 @@ export async function POST(req: Request) {
           repliedAt: event.timestamp ? new Date(event.timestamp) : new Date(),
           replyIsAutoReply: event.is_auto_reply ?? false,
           replyAiInterest: event.ai_interest_value ?? null,
+          ...(replyVariantIndex != null ? { variantIndex: replyVariantIndex } : {}),
         },
         update: {
           replyCount: { increment: 1 },
           repliedAt: event.timestamp ? new Date(event.timestamp) : new Date(),
           replyIsAutoReply: event.is_auto_reply ?? false,
           replyAiInterest: event.ai_interest_value ?? null,
+          // Only set variantIndex if not already attributed (don't overwrite)
+          ...(replyVariantIndex != null ? { variantIndex: replyVariantIndex } : {}),
         },
       });
 
@@ -236,6 +270,9 @@ export async function POST(req: Request) {
 
       const { lead, campaign } = match;
 
+      // Native A/B attribution from webhook variant field (WEBHOOK-VAR-01)
+      const bounceVariantIndex = webhookVariantToIndex(event.variant);
+
       await prisma.emailPerformance.upsert({
         where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
         create: {
@@ -243,9 +280,11 @@ export async function POST(req: Request) {
           campaignId: campaign.id,
           email: lead.email,
           bounced: true,
+          ...(bounceVariantIndex != null ? { variantIndex: bounceVariantIndex } : {}),
         },
         update: {
           bounced: true,
+          ...(bounceVariantIndex != null ? { variantIndex: bounceVariantIndex } : {}),
         },
       });
 
@@ -262,6 +301,9 @@ export async function POST(req: Request) {
 
       const { lead, campaign } = match;
 
+      // Native A/B attribution from webhook variant field (WEBHOOK-VAR-01)
+      const unsubVariantIndex = webhookVariantToIndex(event.variant);
+
       await prisma.emailPerformance.upsert({
         where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
         create: {
@@ -269,9 +311,11 @@ export async function POST(req: Request) {
           campaignId: campaign.id,
           email: lead.email,
           unsubscribed: true,
+          ...(unsubVariantIndex != null ? { variantIndex: unsubVariantIndex } : {}),
         },
         update: {
           unsubscribed: true,
+          ...(unsubVariantIndex != null ? { variantIndex: unsubVariantIndex } : {}),
         },
       });
 
