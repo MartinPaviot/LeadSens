@@ -495,7 +495,7 @@
 > Score: 6/10 (target 5/10 ✅ dépassé). Security and data integrity gaps prevent production-readiness.
 > PIPE-SEC-01 is CRITICAL — production blocker. PIPE-SEQ-01 is the most damaging UX gap.
 
-- [ ] **PIPE-SEC-01** Webhook HMAC authentication **(CRITICAL — 1h)**
+- [x] **PIPE-SEC-01** Webhook HMAC authentication ✅ *2026-03-09: HMAC-SHA256 with timing-safe comparison, graceful degradation when no secret, 14 tests in webhook-auth.test.ts*
   **Fichiers:** `src/app/api/webhooks/instantly/route.ts`
   **Réf:** audit-pipeline-post-launch.md ISSUE 1
   **Impact:** Unauthenticated webhook = anyone can pause campaigns (fake bounces), pollute reply data, or transition leads. Production blocker.
@@ -507,7 +507,7 @@
   - Test: valid signature passes, invalid returns 401, missing secret accepts all
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **PIPE-SEQ-01** Remove lead from Instantly sequence on INTERESTED/NOT_INTERESTED/MEETING_BOOKED **(HIGH — 1h)**
+- [x] **PIPE-SEQ-01** Remove lead from Instantly sequence on INTERESTED/NOT_INTERESTED/MEETING_BOOKED ✅ *2026-03-09: removeFromInstantlySequence() in pipeline-tools.ts — calls updateLeadInterestStatus after classify_reply transitions. Maps INTERESTED→1, NOT_INTERESTED→-1, MEETING_BOOKED→2 (Instantly API §4.2). Best-effort, non-blocking. 11 tests in sequence-removal.test.ts.*
   **Fichiers:** `src/server/lib/tools/pipeline-tools.ts`, `src/server/lib/connectors/instantly.ts`
   **Réf:** STRATEGY §11.2 ("retrait de la séquence"), audit-pipeline-post-launch.md ISSUE 3
   **Impact:** Interested leads continue receiving follow-up emails. Loses deals. Single most damaging UX gap.

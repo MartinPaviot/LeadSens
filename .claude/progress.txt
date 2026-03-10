@@ -429,3 +429,49 @@ LEARNINGS:
   - Extracting pure functions from tool execute() handlers makes them testable without mocking Prisma/API calls
   - The `subjectVariants` field on DraftedEmail is typed as Prisma Json — needs `as string[] | null` cast at usage
 NEXT: SUBJ-FIX-02 (HIGH — draft_single_email drops subjects) or PIPE-SEC-01 (CRITICAL — webhook auth)
+
+=== ITERATION 13 | 2026-03-09 18:35 UTC ===
+TASK: PIPE-SEC-01 — Webhook HMAC-SHA256 Authentication (CRITICAL)
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED:
+  - src/app/api/webhooks/instantly/route.ts (HMAC verification + raw body parsing)
+  - tests/webhook-auth.test.ts (NEW: 14 tests)
+  - .env.example (INSTANTLY_WEBHOOK_SECRET added — not tracked by git)
+TESTS: 290/290 passed (non-LLM suite), 0 typecheck errors
+COMMIT: feat(webhook): add HMAC-SHA256 signature verification (PIPE-SEC-01)
+APPROACH:
+  - Pure exported function `verifyWebhookSignature(rawBody, signature, secret)` → boolean
+  - HMAC-SHA256 with `timingSafeEqual` to prevent timing attacks
+  - Raw body read via `req.text()` BEFORE JSON parsing (critical for HMAC correctness)
+  - Graceful degradation: no secret configured → accept all events + console.warn
+  - Secret configured + invalid/missing signature → 401 Unauthorized
+  - Tests cover: valid sig, invalid sig, empty sig, wrong secret, tampered body, unicode, large payload, case sensitivity, whitespace, DoS prevention, replay attack
+LEARNINGS:
+  - HMAC requires the raw body bytes — must read with req.text() before JSON.parse(), not req.json()
+  - timingSafeEqual requires buffers of equal length — must check length first to avoid throwing
+  - .env.example is gitignored in this project — documented the env var in code comments instead
+  - Pure function extraction pattern (same as bounce-guard, lead-custom-vars) makes security code fully testable without mocking HTTP
+NEXT: SUBJ-FIX-02 (HIGH — draft_single_email drops subjects) or PIPE-SEQ-01 (HIGH — sequence removal on interested)
+
+=== ITERATION 14 | 2026-03-09 19:00 UTC ===
+TASK: PIPE-SEQ-01 — Remove lead from Instantly sequence on INTERESTED/NOT_INTERESTED/MEETING_BOOKED
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED:
+  - src/server/lib/tools/pipeline-tools.ts (mapToInstantlyInterestStatus + removeFromInstantlySequence + classify_reply integration)
+  - tests/sequence-removal.test.ts (NEW: 11 tests)
+TESTS: 361/361 passed (non-LLM suite), 0 typecheck errors
+APPROACH:
+  - Pure exported function `mapToInstantlyInterestStatus()` maps LeadSens status → Instantly API §4.2 enum
+  - `removeFromInstantlySequence()` async helper: gets API key, calls `updateLeadInterestStatus`, best-effort try/catch
+  - Mapping: INTERESTED→1, NOT_INTERESTED→-1, MEETING_BOOKED→2
+  - Called from classify_reply after each terminal transition (3 call sites)
+  - Returns `{ removed: boolean, error?: string }` — surfaced in classify_reply return as `sequence_removed`
+  - Graceful degradation: no instantlyLeadId → skip, no API key → skip, API error → log & continue
+LEARNINGS:
+  - Instantly's `updateLeadInterestStatus` is the correct API for stopping sequences — lead `status` (Active/Completed) is read-only
+  - The existing `updateLeadInterestStatus` connector was already implemented but never called from the pipeline
+  - classify_reply has a stale `lead.status` issue: transitions within one call don't chain (PUSHED→REPLIED then REPLIED→INTERESTED fails in same call because lead.status is still PUSHED). This is mitigated by webhook setting REPLIED first, but worth fixing later
+  - Pure function extraction pattern continues to work well for testability
+NEXT: SUBJ-FIX-02 (HIGH — draft_single_email drops subjects), CAD-REPLY-01 (HIGH — reply-style Step 1), or ENR-BUG-01 (HIGH — Apollo domain fix)

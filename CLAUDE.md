@@ -173,6 +173,7 @@ NON IMPLÉMENTÉ (post-launch) :
 13. **Pas de `console.log`** — Utiliser le logger structuré.
 14. **Commits** — Conventional Commits (feat:, fix:, refactor:, perf:).
 15. **Tests** — `pnpm typecheck && pnpm test` AVANT chaque commit. Non négociable.
+16. **Jamais commit sur main** — En mode autonome, toujours vérifier la branche avant de commit. Si on est sur main, créer une branche auto/improve-{date} d'abord. Commande : git checkout -b auto/improve-$(date +%Y%m%d) avant le premier commit.
 
 ---
 
@@ -457,6 +458,14 @@ STRATEGY.md — Mise à jour autonome autorisée :
 - Toutes les sections sont modifiables si la recherche le justifie avec des données concrètes
 - Pas de changement basé sur de l'opinion ou de l'intuition — uniquement des données
 
+RECHERCHE — Règles de validation :
+- Chaque nouveau insight doit être CROISÉ avec les findings précédents dans .claude/findings/
+- Si un nouveau résultat contredit un finding précédent → ne pas remplacer, documenter les deux sources et noter la contradiction dans le finding
+- Pour modifier STRATEGY.md, il faut AU MINIMUM 2 sources indépendantes qui convergent
+- Les benchmarks chiffrés (reply rates, pricing) ne sont mis à jour que si la nouvelle source est plus fiable (étude > blog > tweet) ou plus récente
+- Conserver l'historique : ne jamais supprimer un ancien finding, ajouter des updates dessus
+- En cas de doute, garder la valeur conservative (la plus basse pour les reply rates, la plus haute pour les coûts)
+
 JAMAIS:
 - Skip les tests
 - Implémenter sans plan
@@ -514,7 +523,6 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated — prevents silent empty campaigns
 - **[scoring]** : Two-phase scoring — LLM fit pre-enrichment (cheap filter) → deterministic signal boost post-enrichment (0 LLM cost, uses hiringSignals/fundingSignals/leadershipChanges/techStackChanges/publicPriorities/LinkedIn activity)
 - **[providers]** : Adapter pattern at SDK boundaries — `as any` acceptable with eslint-disable at `SourcingProvider`/Mistral SDK interface
-- **[email]** : Spam word scanner in quality gate — 100 triggers (phrases + words), runs BEFORE LLM scoring (instant, zero cost). ≥3 matches = flagged, forces retry + penalizes score. Word boundary regex prevents false positives.
 
 ### Gotchas
 
@@ -522,8 +530,12 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[Prisma Json]** : Storing arbitrary objects in `Json` fields requires `as unknown as Prisma.InputJsonValue` (not `as any`)
 - **[webhook]** : `safeTransition()` must accept `LeadStatus` type, not `string` — import from `@prisma/client`
 - **[providers]** : `getActiveIntegration()` parameter should be `IntegrationType` not `string` — callers use `as const` arrays
+- **[webhook]** : HMAC verification needs `req.text()` BEFORE `JSON.parse()` — `req.json()` consumes the body stream, can't read raw bytes after
+- **[webhook]** : `timingSafeEqual` requires equal-length buffers — check `.length` before calling to avoid throwing
 
 ### Conventions émergentes
 
 - **[type safety]** : At SDK/provider boundaries, use explicit eslint-disable + comment explaining why. Everywhere else, zero `as any`
 - **[scoring]** : Threshold alerts on tool outputs (not just raw counts) — agent gets structured warnings it can act on
+- **[pipeline]** : `classify_reply` has stale `lead.status` — transitions within one call don't chain (PUSHED→REPLIED then REPLIED→INTERESTED fails). Mitigated by webhook setting REPLIED first, but sequence removal only fires when lead is already at REPLIED
+- **[instantly]** : Lead `status` (Active/Completed/Bounced) is read-only in Instantly API. Use `updateLeadInterestStatus` to signal interest level — Instantly stops the sequence for leads with interest status set

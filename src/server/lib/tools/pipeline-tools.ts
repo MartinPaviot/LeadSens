@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
+import { updateLeadInterestStatus } from "@/server/lib/connectors/instantly";
 import type { ToolDefinition, ToolContext } from "./types";
 
 // ─── Helpers ────────────────────────────────────────────
@@ -31,6 +32,54 @@ async function resolveCampaign(workspaceId: string, campaignId?: string) {
     where: { workspaceId, status: { in: ["PUSHED", "ACTIVE"] } },
     orderBy: { updatedAt: "desc" },
   });
+}
+
+// ─── Instantly Sequence Removal ─────────────────────────
+
+/**
+ * Map LeadSens terminal status to Instantly interest status number.
+ * See docs/INSTANTLY-API.md §4.2 for enum values.
+ */
+export function mapToInstantlyInterestStatus(
+  status: "INTERESTED" | "NOT_INTERESTED" | "MEETING_BOOKED",
+): number {
+  const map: Record<string, number> = {
+    INTERESTED: 1,
+    NOT_INTERESTED: -1,
+    MEETING_BOOKED: 2,
+  };
+  return map[status];
+}
+
+/**
+ * Remove lead from Instantly sequence by setting interest status.
+ * Best-effort: failure doesn't block LeadSens status transition.
+ */
+async function removeFromInstantlySequence(
+  workspaceId: string,
+  lead: { instantlyLeadId: string | null },
+  targetStatus: "INTERESTED" | "NOT_INTERESTED" | "MEETING_BOOKED",
+): Promise<{ removed: boolean; error?: string }> {
+  if (!lead.instantlyLeadId) {
+    return { removed: false, error: "No Instantly lead ID" };
+  }
+
+  const apiKey = await getInstantlyApiKey(workspaceId);
+  if (!apiKey) {
+    return { removed: false, error: "Instantly not connected" };
+  }
+
+  try {
+    await updateLeadInterestStatus(apiKey, {
+      leadId: lead.instantlyLeadId,
+      interestStatus: mapToInstantlyInterestStatus(targetStatus),
+    });
+    return { removed: true };
+  } catch (err) {
+    // Best-effort: log but don't block
+    const message = err instanceof Error ? err.message : String(err);
+    return { removed: false, error: message };
+  }
 }
 
 // ─── Reply Classification Schema ────────────────────────
@@ -207,18 +256,25 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
         }
 
         // Transition lead status based on classification
+        let sequenceRemoved = false;
         try {
           if (lead.status === "SENT" || lead.status === "PUSHED") {
             await transitionLeadStatus(lead.id, "REPLIED");
           }
           if (result.interest_level === "interested" && lead.status === "REPLIED") {
             await transitionLeadStatus(lead.id, "INTERESTED");
+            const removal = await removeFromInstantlySequence(ctx.workspaceId, lead, "INTERESTED");
+            sequenceRemoved = removal.removed;
           }
           if (result.interest_level === "not_interested" && lead.status === "REPLIED") {
             await transitionLeadStatus(lead.id, "NOT_INTERESTED");
+            const removal = await removeFromInstantlySequence(ctx.workspaceId, lead, "NOT_INTERESTED");
+            sequenceRemoved = removal.removed;
           }
           if (result.meeting_intent && lead.status === "INTERESTED") {
             await transitionLeadStatus(lead.id, "MEETING_BOOKED");
+            const removal = await removeFromInstantlySequence(ctx.workspaceId, lead, "MEETING_BOOKED");
+            sequenceRemoved = removal.removed;
           }
         } catch {
           // Transition may fail if status already advanced — non-blocking
@@ -229,6 +285,7 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
           lead_name: `${lead.firstName} ${lead.lastName}`,
           company: lead.company,
           classification: result,
+          sequence_removed: sequenceRemoved,
         };
       },
     },
