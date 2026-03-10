@@ -19,6 +19,7 @@ import type { LeadStatus } from "@prisma/client";
 import { z } from "zod/v4";
 import { createHmac, timingSafeEqual } from "crypto";
 import { checkAndPauseCampaign } from "@/server/lib/analytics/bounce-guard";
+import { checkAndPauseOnNegativeReplies, NEGATIVE_REPLY_AI_INTEREST_MAX } from "@/server/lib/analytics/reply-guard";
 
 // ─── Webhook Signature Verification ────────────────────
 
@@ -221,6 +222,11 @@ export async function POST(req: Request) {
 
       // Transition lead: PUSHED/SENT → REPLIED
       await safeTransition(lead.id, "REPLIED");
+
+      // Check for negative reply spike — auto-pause if too many complaints
+      if (event.ai_interest_value != null && event.ai_interest_value < NEGATIVE_REPLY_AI_INTEREST_MAX) {
+        await checkAndPauseOnNegativeReplies(campaign.id);
+      }
       break;
     }
 

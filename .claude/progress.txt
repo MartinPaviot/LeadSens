@@ -1,3 +1,18 @@
+=== ITERATION 10 | 2026-03-09 20:44 UTC ===
+TASK: FL-GUARD-01 — Negative reply spike auto-pause
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: src/server/lib/analytics/reply-guard.ts (NEW), src/app/api/webhooks/instantly/route.ts, tests/reply-guard.test.ts (NEW)
+TESTS: 374/374 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(analytics): negative reply spike auto-pause guard (FL-GUARD-01)
+LEARNINGS:
+- Exact same pattern as bounce-guard.ts works well: pure function + DB/API integration + notification
+- Reply guard uses absolute count (≥3) rather than rate — negative replies are low-frequency, even 3 in 24h from 1000 sends is suspicious
+- Uses Reply table (has per-reply aiInterest) via ReplyThread join (has campaignId) — cleaner than querying EmailPerformance
+- Webhook trigger is narrow: only checks when ai_interest_value present AND < 3. No wasted DB queries for positive replies
+- MIN_SENDS_FOR_REPLY_CHECK = 20 (lower than bounce's 50) because reply complaints are more actionable earlier
+NEXT: CAD-THRESH-01 (Step 0 quality threshold 8/10) or SUBJ-VALID-01 (subject line length validation)
+
 === ITERATION 9 | 2026-03-09 20:36 UTC ===
 TASK: FL-METRIC-01 — Correlator uses positive reply rate instead of raw reply count
 STATUS: DONE

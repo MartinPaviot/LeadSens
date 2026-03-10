@@ -432,7 +432,7 @@
   - Test unitaire: dataset with positive + negative replies returns only positive in reply rate calculation
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **FL-GUARD-01** Negative reply spike auto-pause **(HIGH — 2h)**
+- [x] **FL-GUARD-01** Negative reply spike auto-pause ✅ *2026-03-09: reply-guard.ts — pure function shouldPauseOnNegativeReplies() + checkAndPauseOnNegativeReplies() called from webhook handler. ≥3 negative replies (aiInterest < 3) in 24h AND ≥20 sends → auto-pause via Instantly API + chat notification. Same pattern as bounce-guard.ts. 21 tests in reply-guard.test.ts.*
   **Fichiers:** `src/server/lib/analytics/reply-guard.ts` (NEW), `src/app/api/webhooks/instantly/route.ts`
   **Réf:** RESEARCH-FEEDBACK-LOOPS §FL-3, Enginy AI: "stop immediately if complaints spike", audit-feedback-loop.md ISSUE 2
   **Impact:** Protects domain reputation from spam complaint cascades. Complements existing bounce-guard.
