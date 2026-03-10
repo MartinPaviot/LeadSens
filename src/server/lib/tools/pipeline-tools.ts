@@ -245,7 +245,7 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
               threadId: thread.id,
               direction: "INBOUND",
               fromEmail: args.reply_from ?? lead.email,
-              toEmail: "",
+              toEmail: lead.email,
               body: args.reply_content,
               preview: args.reply_content.slice(0, 200),
               instantlyEmailId: null,
@@ -406,6 +406,10 @@ Draft a reply (plain text, no subject needed):`,
 
         // Track outbound reply in thread
         if (args.lead_id) {
+          const lead = await prisma.lead.findFirst({
+            where: { id: args.lead_id, workspaceId: ctx.workspaceId },
+            select: { email: true },
+          });
           const campaign = await resolveCampaign(ctx.workspaceId, args.campaign_id);
           if (campaign) {
             const thread = await prisma.replyThread.findUnique({
@@ -416,8 +420,8 @@ Draft a reply (plain text, no subject needed):`,
                 data: {
                   threadId: thread.id,
                   direction: "OUTBOUND",
-                  fromEmail: "",
-                  toEmail: "",
+                  fromEmail: "", // TODO: resolve sending account email from Instantly
+                  toEmail: lead?.email ?? "",
                   body: args.body,
                   preview: args.body.slice(0, 200),
                   instantlyEmailId: data.id ?? null,
