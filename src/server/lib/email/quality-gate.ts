@@ -1,5 +1,6 @@
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 import { scanForSpamWords, SPAM_THRESHOLD } from "@/server/lib/email/spam-words";
+import { scanForFillerPhrases } from "@/server/lib/email/filler-phrases";
 import { getFramework } from "@/server/lib/email/prompt-builder";
 import { z } from "zod/v4";
 
@@ -147,6 +148,9 @@ export async function draftWithQualityGate(params: {
     // Deterministic subject line length check — prompt says 2-4 words, research says <50 chars
     const subjectViolation = checkSubjectLength(draft.subject, draft.subjects);
 
+    // Filler phrase scan — generic openers kill reply rates (threshold = 1)
+    const fillerScan = scanForFillerPhrases(draft.body);
+
     const score = await scoreEmail({
       subject: draft.subject,
       body: draft.body,
@@ -175,6 +179,13 @@ export async function draftWithQualityGate(params: {
       score.overall = Math.max(1, score.overall - 1);
     }
 
+    // Merge filler phrase violation into quality score
+    if (fillerScan.flagged) {
+      const fillerIssue = `Filler opener detected: "${fillerScan.matches[0]}". Generic openers signal mass template — use a specific signal, pain point, or trigger event instead.`;
+      score.issues = [...(score.issues ?? []), fillerIssue];
+      score.overall = Math.max(1, score.overall - 1);
+    }
+
     if (!bestResult || score.overall > bestResult.qualityScore.overall) {
       bestResult = { ...draft, qualityScore: score };
     }
@@ -183,7 +194,8 @@ export async function draftWithQualityGate(params: {
       score.overall >= minScore &&
       !spamScan.flagged &&
       !wordCountExceeded &&
-      !subjectViolation
+      !subjectViolation &&
+      !fillerScan.flagged
     ) {
       // Return current clean result, not bestResult — bestResult may have violations
       return { ...draft, qualityScore: score };
