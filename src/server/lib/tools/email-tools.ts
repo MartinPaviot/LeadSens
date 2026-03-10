@@ -354,7 +354,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
 
         const leadName = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim();
 
-        const { subject, body, qualityScore } = await draftWithQualityGate({
+        const { subject, subjects, body, qualityScore } = await draftWithQualityGate({
           draftFn: () =>
             draftEmail({
               lead: {
@@ -387,6 +387,9 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           workspaceId: ctx.workspaceId,
         });
 
+        // Filter out primary subject from variants (same as batch)
+        const altSubjects = subjects?.filter((s) => s !== subject) ?? [];
+
         // Persist the draft
         const singleMeta = buildDraftMetadata(lead, args.step, body);
 
@@ -399,6 +402,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
             campaignId: lead.campaignId ?? "",
             step: args.step,
             subject,
+            subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
             body,
             qualityScore: qualityScore.overall,
             model: "mistral-large-latest",
@@ -406,6 +410,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           },
           update: {
             subject,
+            subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
             body,
             qualityScore: qualityScore.overall,
             model: "mistral-large-latest",

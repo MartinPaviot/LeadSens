@@ -1,3 +1,16 @@
+=== ITERATION 8 | 2026-03-09 19:45 UTC ===
+TASK: SUBJ-FIX-02 — Fix draft_single_email dropping subjects array
+STATUS: DONE
+DURATION: ~5 min
+FILES CHANGED: src/server/lib/tools/email-tools.ts
+TESTS: 332/332 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: fix(email): persist subjectVariants in draft_single_email (SUBJ-FIX-02)
+LEARNINGS:
+- draft_single_email was missing `subjects` destructuring from draftWithQualityGate() — exact same pattern as batch (line 120) but was omitted
+- Without this fix, single-drafted emails pushed to Instantly had only 1 subject instead of 3 A/B variants
+- The downstream custom var builder (buildLeadCustomVars) already handles null subjectVariants gracefully (SUBJ-FIX-01), so this was safe even without variants, but wasted the LLM effort of generating them
+NEXT: CAD-THRESH-01 or FL-METRIC-01
+
 === ITERATION 1 | 2026-03-09 13:00 UTC ===
 TASK: /audit — Full strategic audit codebase vs STRATEGY.md
 STATUS: DONE

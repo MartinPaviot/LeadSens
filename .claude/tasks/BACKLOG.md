@@ -281,7 +281,7 @@
 
 - [x] **SUBJ-FIX-01** Fix variant placeholder fallback bug ✅ *2026-03-09: buildLeadCustomVars() always sets v2/v3 — falls back to primary subject. 10 tests in lead-custom-vars.test.ts.*
 
-- [ ] **SUBJ-FIX-02** Fix draft_single_email dropping subjects array **(HIGH — 15 min)**
+- [x] **SUBJ-FIX-02** Fix draft_single_email dropping subjects array ✅ *2026-03-09: Added `subjects` destructuring + `subjectVariants` storage in upsert (create+update). Matches batch pattern exactly. email-tools.ts:357,391,405,413.*
   **Fichiers:** `src/server/lib/tools/email-tools.ts`
   **Réf:** audit-subject-lines.md ISSUE 2
   **Impact:** Single-drafted emails lose A/B variants → pushed to Instantly with 1 subject instead of 3.
