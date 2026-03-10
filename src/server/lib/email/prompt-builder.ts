@@ -129,23 +129,27 @@ export function prioritizeSignals(ed: EnrichmentData, weights?: Record<string, n
     });
   }
 
-  // 2. Funding signals (12-20% reply rate)
+  // 2. Funding signals (12-20% reply rate) — now structured with dates
   for (const f of ed.fundingSignals ?? []) {
+    const detail = typeof f === "string" ? f : f.detail + (f.date ? ` (${f.date})` : "");
+    const dateStr = typeof f === "string" ? null : f.date;
     signals.push({
       type: "funding",
       label: "Funding",
-      detail: f,
-      recency: "unknown",
+      detail,
+      recency: classifyRecency(dateStr),
     });
   }
 
-  // 3. Hiring signals (10-18% reply rate)
+  // 3. Hiring signals (10-18% reply rate) — now structured with dates
   for (const h of ed.hiringSignals ?? []) {
+    const detail = typeof h === "string" ? h : h.detail + (h.date ? ` (${h.date})` : "");
+    const dateStr = typeof h === "string" ? null : h.date;
     signals.push({
       type: "hiring",
       label: "Hiring",
-      detail: h,
-      recency: "unknown",
+      detail,
+      recency: classifyRecency(dateStr),
     });
   }
 

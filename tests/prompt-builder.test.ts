@@ -16,8 +16,8 @@ const baseEnrichment: EnrichmentData = {
   techStack: ["AWS", "Kubernetes", "Python"],
   teamSize: "120",
   signals: [],
-  hiringSignals: ["3 ML engineer openings"],
-  fundingSignals: ["Series B $25M (2025-11)"],
+  hiringSignals: [{ detail: "3 ML engineer openings", date: "2026-02", source: "careers" }],
+  fundingSignals: [{ detail: "Series B $25M", date: "2025-11", source: "press release" }],
   productLaunches: [],
   leadershipChanges: [{ event: "New CTO hired from Amazon Robotics", date: "2026-01-15", source: "LinkedIn" }],
   publicPriorities: [{ statement: "AI-first logistics by 2027", source: "CEO interview", date: "2026-02-01" }],
@@ -133,19 +133,32 @@ describe("prioritizeSignals", () => {
     const ed: EnrichmentData = {
       ...baseEnrichment,
       leadershipChanges: [{ event: "New CTO", date: "2026-02-01", source: null }],
-      fundingSignals: ["Old round"],
+      fundingSignals: [{ detail: "Old round", date: "2024-01", source: null }],
     };
     const result = prioritizeSignals(ed);
     expect(result[0]!.type).toBe("leadership_change");
     expect(result[0]!.recency).toBe("recent");
   });
 
+  it("classifies funding signal recency from date field", () => {
+    const ed: EnrichmentData = {
+      ...baseEnrichment,
+      leadershipChanges: [],
+      fundingSignals: [{ detail: "Series A $5M", date: "2026-02-01", source: "press" }],
+      hiringSignals: [],
+    };
+    const result = prioritizeSignals(ed);
+    const funding = result.find((s) => s.type === "funding");
+    expect(funding!.recency).toBe("recent");
+    expect(funding!.detail).toContain("Series A $5M");
+  });
+
   it("uses custom weights when provided", () => {
     const ed: EnrichmentData = {
       ...baseEnrichment,
       leadershipChanges: [],
-      hiringSignals: ["ML engineers"],
-      fundingSignals: ["Series A"],
+      hiringSignals: [{ detail: "ML engineers", date: null, source: null }],
+      fundingSignals: [{ detail: "Series A", date: null, source: null }],
     };
     const weights = { hiring: 10, funding: 1 };
     const result = prioritizeSignals(ed, weights);

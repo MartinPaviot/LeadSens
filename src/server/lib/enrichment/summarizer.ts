@@ -1,6 +1,28 @@
 import { z } from "zod/v4";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 
+/** Structured signal with optional date/source for recency weighting */
+export const structuredSignalSchema = z.object({
+  detail: z.string(),
+  date: z.string().nullable(),
+  source: z.string().nullable(),
+});
+
+export type StructuredSignal = z.infer<typeof structuredSignalSchema>;
+
+/**
+ * Backward-compatible schema: accepts both plain strings (legacy) and structured objects.
+ * Plain strings are auto-converted to { detail: string, date: null, source: null }.
+ */
+const backwardCompatSignalArray = z
+  .array(
+    z.union([
+      structuredSignalSchema,
+      z.string().transform((s) => ({ detail: s, date: null, source: null })),
+    ]),
+  )
+  .default([]);
+
 export const enrichmentDataSchema = z.object({
   companySummary: z.string().nullable(),
   products: z.array(z.string()),
@@ -11,8 +33,8 @@ export const enrichmentDataSchema = z.object({
   techStack: z.array(z.string()),
   teamSize: z.string().nullable(),
   signals: z.array(z.string()),
-  hiringSignals: z.array(z.string()).default([]),
-  fundingSignals: z.array(z.string()).default([]),
+  hiringSignals: backwardCompatSignalArray,
+  fundingSignals: backwardCompatSignalArray,
   productLaunches: z.array(z.string()).default([]),
   leadershipChanges: z
     .array(
@@ -78,8 +100,8 @@ export function extractFlatEnrichmentFields(data: EnrichmentData) {
 function buildBuyingSignals(data: EnrichmentData): string | null {
   const parts: string[] = [
     ...data.signals,
-    ...data.hiringSignals,
-    ...data.fundingSignals,
+    ...data.hiringSignals.map((s) => s.detail + (s.date ? ` (${s.date})` : "")),
+    ...data.fundingSignals.map((s) => s.detail + (s.date ? ` (${s.date})` : "")),
     ...data.productLaunches,
     ...data.leadershipChanges.map((lc) => lc.event),
     ...data.publicPriorities.map((pp) => pp.statement),
@@ -99,8 +121,8 @@ const SUMMARIZER_SYSTEM = `Extract structured info from the provided data (compa
   "techStack": [],
   "teamSize": "estimate or null",
   "signals": ["other buying signals not covered below"],
-  "hiringSignals": ["e.g. Recruiting 10 engineers", "New VP Sales hired"],
-  "fundingSignals": ["e.g. Series B $15M", "Revenue milestone"],
+  "hiringSignals": [{"detail": "Recruiting 10 engineers", "date": "2026-02", "source": "careers page"}, {"detail": "New VP Sales hired", "date": "2026-01", "source": "LinkedIn"}],
+  "fundingSignals": [{"detail": "Series B $15M", "date": "2025-11", "source": "press release"}, {"detail": "Revenue milestone $10M ARR", "date": null, "source": "blog"}],
   "productLaunches": ["e.g. Launched v2.0", "New market entry"],
   "leadershipChanges": [{"event": "New VP Sales: Jane Doe", "date": "2026-02", "source": "press release / blog / careers page"}],
   "publicPriorities": [{"statement": "CEO stated: 'Our #1 priority for 2026 is expanding into APAC'", "date": "2026-01", "source": "blog post / interview"}],
@@ -115,8 +137,11 @@ If not found → null or []. NEVER hallucinate.
 enrichmentDiagnostic must be evidence-based — no generic statements. Connect person-level insights (role, career, posts) with company-level data (product, market, challenges).
 For hiringSignals, fundingSignals, productLaunches: extract from news, blog, careers, and press pages. Be specific (include numbers, names, dates when available).
 
-STRUCTURED SIGNALS (leadershipChanges, publicPriorities, techStackChanges):
+STRUCTURED SIGNALS (hiringSignals, fundingSignals, leadershipChanges, publicPriorities, techStackChanges):
+- ALL structured signals use {"detail": "...", "date": "YYYY-MM" or null, "source": "..." or null}.
 - ALWAYS include dates when available. Signals < 6 months old are 3-5x more valuable for cold email.
+- hiringSignals: active job postings, team expansions, new hires. Include role titles and team size if mentioned.
+- fundingSignals: funding rounds, revenue milestones, IPO plans. Include amounts when available.
 - leadershipChanges: new hires, promotions, departures at VP+ level. Include the person's name and new role.
 - publicPriorities: CEO/exec quotes about company direction, stated goals, strategic initiatives from blog posts, interviews, press.
 - techStackChanges: tool migrations, new tech adoptions, infrastructure changes mentioned on the site.

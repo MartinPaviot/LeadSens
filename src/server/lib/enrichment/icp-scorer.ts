@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
-import type { EnrichmentData } from "./summarizer";
+import type { EnrichmentData, StructuredSignal } from "./summarizer";
 
 // ─── Schema ──────────────────────────────────────────────
 
@@ -144,6 +144,29 @@ JSON: {"score": N, "breakdown": {"jobTitleFit": N, "companyFit": N, "industryRel
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
 /**
+ * Returns a recency multiplier for a signal based on its date.
+ * <3 months = 1.0 (full weight), 3-6 months = 0.7, 6-12 months = 0.3, >12 months = 0.1
+ * null/unparseable date = 0.5 (conservative default — better than stale, worse than fresh)
+ */
+export function signalAge(dateStr: string | null | undefined, now?: Date): number {
+  if (!dateStr) return 0.5;
+  const ref = now ?? new Date();
+  const parsed = new Date(dateStr);
+  if (isNaN(parsed.getTime())) return 0.5;
+  const monthsAgo = (ref.getFullYear() - parsed.getFullYear()) * 12 + (ref.getMonth() - parsed.getMonth());
+  if (monthsAgo < 3) return 1.0;
+  if (monthsAgo < 6) return 0.7;
+  if (monthsAgo < 12) return 0.3;
+  return 0.1;
+}
+
+/** Compute weighted signal count factoring recency */
+function weightedSignalCount(signals: StructuredSignal[]): number {
+  if (signals.length === 0) return 0;
+  return signals.reduce((sum, s) => sum + signalAge(s.date), 0);
+}
+
+/**
  * Computes intent + timing scores from enrichment data.
  * Called after enrichment to upgrade the pre-enrichment fit-only score
  * into a multi-dimensional combined score.
@@ -176,10 +199,13 @@ export function computeSignalBoost(
 
   // ── Intent signals (hiring, tech changes, engagement) ──
 
-  const hiringCount = ed.hiringSignals?.length ?? 0;
-  if (hiringCount > 0) {
-    intent += clamp(hiringCount * 2, 1, 4); // 1 signal → +2, 2+ → +4 cap
-    signals.push(`hiring×${hiringCount}`);
+  const hiringSignals = ed.hiringSignals ?? [];
+  const hiringWeight = weightedSignalCount(hiringSignals);
+  if (hiringSignals.length > 0) {
+    // Recency-weighted: recent signals contribute full weight, stale signals contribute less
+    const hiringBoost = Math.max(1, clamp(Math.round(hiringWeight * 2), 0, 4));
+    intent += hiringBoost;
+    signals.push(`hiring×${hiringSignals.length}`);
   }
 
   const techChanges = ed.techStackChanges?.length ?? 0;
@@ -203,10 +229,13 @@ export function computeSignalBoost(
 
   // ── Timing signals (funding, leadership, priorities) ──
 
-  const fundingCount = ed.fundingSignals?.length ?? 0;
-  if (fundingCount > 0) {
-    timing += clamp(fundingCount * 3, 2, 5); // funding is strongest timing signal
-    signals.push(`funding×${fundingCount}`);
+  const fundingSignals = ed.fundingSignals ?? [];
+  const fundingWeight = weightedSignalCount(fundingSignals);
+  if (fundingSignals.length > 0) {
+    // Recency-weighted: recent funding contributes most, stale funding contributes less
+    const fundingBoost = Math.max(1, clamp(Math.round(fundingWeight * 3), 0, 5));
+    timing += fundingBoost;
+    signals.push(`funding×${fundingSignals.length}`);
   }
 
   const leadershipCount = ed.leadershipChanges?.length ?? 0;
