@@ -534,10 +534,14 @@ ${signalsSection}
 Do NOT LIST the prospect's pain points separately.
 Choose THE SINGLE pain point that resonates most with your solution (section "WHO YOU ARE").
 Build the ENTIRE email around this unique bridge:
-  1. Specific signal or problem from the prospect
-  2. → Specific capability of your solution that solves THIS problem
-  3. → Proof with TIMELINE (client case, metric, duration) that demonstrates the result
-If no pain point matches → use the most recent buying signal.
+  1. A signal or observation about the prospect's business
+  2. → WHY this signal implies a specific pain they likely have (the REASONING step — this is what separates great emails from mediocre ones)
+  3. → Your specific capability that solves THIS pain, with TIMELINE proof (client case, metric, duration)
+Do NOT just mention a signal — EXPLAIN what it means for their business.
+  BAD: "Saw you're hiring SDRs."
+  GOOD: "Hiring 3 SDRs usually means pipeline gen isn't keeping up — that's exactly the gap we close."
+The difference: BAD shows you can read LinkedIn. GOOD shows you understand their business.
+If no pain point matches → use the most recent buying signal with inferred pain.
 
 ## Framework — Step ${params.step}: ${fw.name}
 ${fw.instructions}
