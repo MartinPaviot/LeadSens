@@ -101,7 +101,7 @@ describe("getOrScrapeCompany", () => {
     );
   });
 
-  it("re-scrapes on expired cache (>7 days)", async () => {
+  it("re-scrapes on expired cache (>7 days) for successful scrapes", async () => {
     const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
     mockFindUnique.mockResolvedValue({
       markdown: "old content",
@@ -116,7 +116,7 @@ describe("getOrScrapeCompany", () => {
     expect(mockUpsert).toHaveBeenCalled();
   });
 
-  it("does NOT re-scrape within TTL even if content is stale", async () => {
+  it("does NOT re-scrape successful cache within 7-day TTL", async () => {
     const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
     mockFindUnique.mockResolvedValue({
       markdown: "slightly old content",
@@ -127,6 +127,71 @@ describe("getOrScrapeCompany", () => {
 
     expect(result).toBe("slightly old content");
     expect(mockScrapeLeadCompany).not.toHaveBeenCalled();
+  });
+
+  it("re-scrapes failed cache (null markdown) after 1 hour", async () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    mockFindUnique.mockResolvedValue({
+      markdown: null,
+      scrapedAt: twoHoursAgo,
+    });
+    mockScrapeLeadCompany.mockResolvedValue(cachedMarkdown);
+
+    const result = await getOrScrapeCompany(domain, url);
+
+    expect(result).toBe(cachedMarkdown);
+    expect(mockScrapeLeadCompany).toHaveBeenCalledWith(url);
+    expect(mockUpsert).toHaveBeenCalled();
+  });
+
+  it("does NOT re-scrape failed cache within 1-hour TTL", async () => {
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+    mockFindUnique.mockResolvedValue({
+      markdown: null,
+      scrapedAt: thirtyMinAgo,
+    });
+
+    const result = await getOrScrapeCompany(domain, url);
+
+    expect(result).toBeNull();
+    expect(mockScrapeLeadCompany).not.toHaveBeenCalled();
+  });
+
+  it("re-scrapes failed cache and stores new success", async () => {
+    const ninetyMinAgo = new Date(Date.now() - 90 * 60 * 1000);
+    mockFindUnique.mockResolvedValue({
+      markdown: null,
+      scrapedAt: ninetyMinAgo,
+    });
+    mockScrapeLeadCompany.mockResolvedValue("# Fresh content");
+
+    const result = await getOrScrapeCompany(domain, url);
+
+    expect(result).toBe("# Fresh content");
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ markdown: "# Fresh content" }),
+      }),
+    );
+  });
+
+  it("re-scrapes failed cache but scrape fails again — caches null with fresh timestamp", async () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    mockFindUnique.mockResolvedValue({
+      markdown: null,
+      scrapedAt: twoHoursAgo,
+    });
+    mockScrapeLeadCompany.mockResolvedValue(null);
+
+    const result = await getOrScrapeCompany(domain, url);
+
+    expect(result).toBeNull();
+    expect(mockScrapeLeadCompany).toHaveBeenCalledWith(url);
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ markdown: null }),
+      }),
+    );
   });
 
   it("calls onStatus callback when scraping", async () => {

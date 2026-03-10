@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { scrapeLeadCompany } from "@/server/lib/connectors/jina";
 
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days for successful scrapes
+const CACHE_FAILED_TTL_MS = 1 * 60 * 60 * 1000; // 1 hour for failed scrapes (null markdown)
 
 /**
  * Extracts the hostname from a URL for use as the cache key.
@@ -35,7 +36,8 @@ export async function getOrScrapeCompany(
 
   if (cached) {
     const age = Date.now() - cached.scrapedAt.getTime();
-    if (age < CACHE_TTL_MS) {
+    const ttl = cached.markdown === null ? CACHE_FAILED_TTL_MS : CACHE_TTL_MS;
+    if (age < ttl) {
       return cached.markdown;
     }
     // Expired — will re-scrape below
