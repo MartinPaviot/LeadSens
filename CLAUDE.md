@@ -523,6 +523,7 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated — prevents silent empty campaigns
 - **[scoring]** : Two-phase scoring — LLM fit pre-enrichment (cheap filter) → deterministic signal boost post-enrichment (0 LLM cost, uses hiringSignals/fundingSignals/leadershipChanges/techStackChanges/publicPriorities/LinkedIn activity)
 - **[providers]** : Adapter pattern at SDK boundaries — `as any` acceptable with eslint-disable at `SourcingProvider`/Mistral SDK interface
+- **[enrichment]** : Dual TTL cache — null markdown (failed scrape) = 1h TTL, successful scrape = 7d TTL. No schema change needed, just check `cached.markdown === null` to select TTL.
 
 ### Gotchas
 
@@ -541,3 +542,11 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[instantly]** : Lead `status` (Active/Completed/Bounced) is read-only in Instantly API. Use `updateLeadInterestStatus` to signal interest level — Instantly stops the sequence for leads with interest status set
 - **[analytics]** : All reply-based metrics use `isPositiveReply()` / `POSITIVE_REPLY_SQL` — never raw `replyCount > 0`. Threshold: `replyAiInterest >= 5` (positive/neutral). NULL = positive (backward compat for unclassified replies).
 - **[analytics]** : Reply guard + bounce guard = dual protection. Bounce guard: >3% after 50+ sends. Reply guard: ≥3 negative replies (aiInterest < 3) in 24h after 20+ sends. Both use same pattern: pure function → DB check → Instantly pause → chat notification.
+- **[quality-gate]** : Step-aware threshold via `getMinQualityScore(step)` — Step 0 = 8/10, others = 7/10. LLM scorer prompt also step-aware ("be strict for Step 0"). `context.step` already available from all callers.
+- **[quality-gate]** : Deterministic word count enforcement at 130% of `maxWords`. Uses `getFramework(step)` inside the retry loop. On violation: score penalized -1, issue added, forces retry. Returns the first clean passing result, NOT bestResult (which may have violations).
+- **[quality-gate]** : Subject line length validation via `checkSubjectLength()` — max 5 words, max 50 chars. Checks primary subject + all variants. Same penalty pattern as word count and spam checks (score -1, issue, block clean pass). Runs before LLM scoring (zero cost).
+- **[email]** : maxWords per step: [85, 65, 70, 65, 50, 45] — compromises between STRATEGY targets and framework needs. Research consensus: <80 words = highest reply rates.
+- **[analytics]** : Variant attribution via `syncVariantAttribution()` — fetches sent emails (ue_type=1) from Instantly, matches subject to DraftedEmail variants via `matchVariantIndex()`. Stores `variantIndex` (0=primary, 1/2=variants) on EmailPerformance. Only sets when null (idempotent). Step 0 attribution prioritized (earliest sent email per lead).
+- **[instantly]** : `getEmails()` supports `starting_after` pagination. Response field is `lead` (not `lead_email`) — handle both. `email_type: "1"` filters for campaign-sent emails.
+- **[analytics]** : `getReplyRateBySubjectVariant()` separates SQL aggregation (EmailPerformance grouped by variantIndex) from subject text resolution (DraftedEmail.findFirst). Cleaner than JSON field JOIN in SQL. Pure helpers `getSubjectForVariant()` + `toVariantPerformanceRows()` are fully testable.
+- **[analytics]** : CampaignReport.variantBreakdown is always `VariantPerformanceRow[]` (empty if no data). Frontend safe — no null checks needed.

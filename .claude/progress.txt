@@ -1,3 +1,94 @@
+=== ITERATION 16 | 2026-03-09 21:40 UTC ===
+TASK: AB-CORR-01 — Correlator query for subject variant performance
+STATUS: DONE
+DURATION: ~8 min
+FILES CHANGED: correlator.ts, insights.ts, analytics-tools.ts, correlator.test.ts
+TESTS: 351/351 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(analytics): A/B variant performance correlation query (AB-CORR-01)
+LEARNINGS:
+- VariantPerformanceRow is richer than CorrelationRow — includes variantIndex + actual subject text
+- Pure helper getSubjectForVariant() handles all edge cases (null primary, missing variants, out-of-bounds index)
+- toVariantPerformanceRows() reuses same 5-sent threshold as toCorrelationRows for consistency
+- The query uses EmailPerformance.variantIndex (from AB-ATTR-01) directly — no JOIN to DraftedEmail in SQL, just a separate findFirst for subject text. Cleaner than a JSON field JOIN
+- CampaignReport.variantBreakdown is always an array (empty if no attribution data) — safe for frontend
+- subject_variant insight dimension auto-generates recommendation text like "Subject X gets Y% reply rate vs Z"
+UNBLOCKED: AB-REPORT-01 (variant breakdown visualization), RES-06 (z-test auto-pause), AUDIT-04 (winner propagation)
+NEXT: AB-REPORT-01 (variant report visualization), or PIPE-DATA-01 (quick 15min fix)
+
+=== ITERATION 15 | 2026-03-09 21:25 UTC ===
+TASK: AB-ATTR-01 — Variant-to-lead attribution via Instantly email sync
+STATUS: DONE
+DURATION: ~12 min
+FILES CHANGED: prisma/schema.prisma, migration.sql, variant-attribution.ts (NEW), analytics-sync-worker.ts, instantly.ts, analytics-tools.ts, variant-attribution.test.ts (NEW)
+TESTS: 433/433 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(analytics): A/B variant-to-lead attribution via Instantly email sync (AB-ATTR-01)
+LEARNINGS:
+- Instantly email API has `lead` field (not `lead_email`) — handled both for safety
+- Subject matching must be normalized: case-insensitive + Re:/Fwd: prefix stripping + whitespace trim
+- Step 0 variant attribution is most valuable (58-79% of replies) — store on EmailPerformance per lead
+- getEmails connector needed `starting_after` param for pagination — was missing
+- Pure function matchVariantIndex() makes this testable without any mocks
+- variantIndex only set when null (idempotent — won't overwrite on re-sync)
+UNBLOCKED: AB-CORR-01, AB-REPORT-01, RES-06, AUDIT-04 — entire A/B optimization chain
+NEXT: AB-CORR-01 (correlator query for subject variant performance, 1h) or PIPE-DATA-01 (quick fix, 15 min)
+
+=== ITERATION 14 | 2026-03-09 21:12 UTC ===
+TASK: ENR-CACHE-01 — Short TTL for failed scrapes
+STATUS: DONE
+DURATION: ~5 min
+FILES CHANGED: src/server/lib/enrichment/company-cache.ts, tests/company-cache.test.ts
+TESTS: 411/411 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(enrichment): short TTL for failed scrapes — 1h instead of 7d (ENR-CACHE-01)
+LEARNINGS:
+- Dual TTL pattern: check `cached.markdown === null` to select TTL (1h vs 7d) — clean, no schema change needed
+- Failed scrapes still get cached (not skipped) — prevents hammering Jina during a prolonged outage
+- The 1h window is a good balance: short enough to retry transient errors, long enough to avoid abuse on consistently unreachable domains
+NEXT: PIPE-DATA-01 (fix empty email fields in Reply records, 15 min) or SUBJ-NUM-01 (numbers in subjects, 15 min) or ENR-TRUNC-01 (per-section char budget, 1h)
+
+=== ITERATION 13 | 2026-03-09 21:07 UTC ===
+TASK: SUBJ-VALID-01 — Subject line length validation in quality gate
+STATUS: DONE
+DURATION: ~8 min
+FILES CHANGED: src/server/lib/email/quality-gate.ts, tests/quality-gate.test.ts
+TESTS: 407/407 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(email): deterministic subject line length validation in quality gate (SUBJ-VALID-01)
+LEARNINGS:
+- checkSubjectLength() is a pure function — easy to test, validates primary + all variants in one pass
+- Word count check (>5) takes precedence over char count (>50) via else-if — avoids double-flagging
+- Same penalty pattern as spam scan and word count: penalize -1, add issue, block clean pass → forces retry
+- Subject validation runs BEFORE LLM scoring (zero cost) alongside spam scan and word count check
+- The allSubjects array uses filter(Boolean) to handle edge cases with undefined/empty variants
+NEXT: SUBJ-NUM-01 (numbers guidance in subjects) or ENR-CACHE-01 (short TTL for failed scrapes) or PIPE-DATA-01 (fix empty email fields)
+
+=== ITERATION 12 | 2026-03-09 21:00 UTC ===
+TASK: CAD-WORDS-01 — Align word counts to STRATEGY + add deterministic enforcement
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: src/server/lib/email/prompt-builder.ts, src/server/lib/email/quality-gate.ts, tests/quality-gate.test.ts
+TESTS: 392/392 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(email): align word counts to STRATEGY + deterministic enforcement (CAD-WORDS-01)
+LEARNINGS:
+- maxWords alignment: Step 0: 90→85, Step 1: 70→65, Step 2: 80→70, Step 5: 50→45. Step 3 (65) and Step 4 (50) already on target
+- 130% threshold (body.split(/\s+/).filter(w=>w.length>0).length > maxWords * 1.3) is the right tolerance — catches 100-word Step 4 emails (target 50) while allowing minor LLM overruns
+- Important fix: when quality gate finds a passing result, return it directly instead of bestResult — bestResult could be a penalized violation with a tied score
+- Word count enforcement piggybacks on existing retry loop — no extra LLM cost unless violation detected
+- getFramework() is called inside the quality gate loop (once per attempt) — acceptable since it's a pure function (switch statement)
+NEXT: SUBJ-VALID-01 (subject line length validation) or SUBJ-NUM-01 (numbers guidance) or ENR-CACHE-01 (short TTL for failed scrapes)
+
+=== ITERATION 11 | 2026-03-09 20:50 UTC ===
+TASK: CAD-THRESH-01 — Differentiated quality gate threshold for Step 0
+STATUS: DONE
+DURATION: ~8 min
+FILES CHANGED: src/server/lib/email/quality-gate.ts, tests/quality-gate.test.ts (NEW)
+TESTS: 387/387 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(email): differentiated quality gate threshold — Step 0 = 8/10 (CAD-THRESH-01)
+LEARNINGS:
+- getMinQualityScore(step) is a pure function — easy to test, no side effects
+- The LLM scorer prompt also needs to be step-aware — telling the scorer "be strict for Step 0" helps it calibrate its scoring
+- Log message now shows score/threshold (e.g., "7/8") instead of just score, making debugging clearer
+- The context.step was already available in QualityGateContext from all 3 callers (batch, single, worker) — no caller changes needed
+NEXT: SUBJ-VALID-01 (subject line length validation) or CAD-WORDS-01 (word count alignment + enforcement)
+
 === ITERATION 10 | 2026-03-09 20:44 UTC ===
 TASK: FL-GUARD-01 — Negative reply spike auto-pause
 STATUS: DONE

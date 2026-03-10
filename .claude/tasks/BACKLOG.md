@@ -213,7 +213,7 @@
   - Tests unitaires pour signalAge + signal boost pondéré
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **ENR-CACHE-01** Short TTL for failed scrapes **(MEDIUM — 30 min)**
+- [x] **ENR-CACHE-01** Short TTL for failed scrapes ✅ *2026-03-09: Dual TTL — null markdown uses 1h TTL, successful scrapes keep 7d. 15 tests in company-cache.test.ts.*
   **Fichiers:** `src/server/lib/enrichment/company-cache.ts`
   **Réf:** audit-enrichment.md ISSUE 3
   **Impact:** Échec Jina transitoire (429, timeout) bloque le domaine pendant 7 jours au lieu de réessayer.
@@ -290,7 +290,7 @@
   - `subjectVariants` is written in the `prisma.draftedEmail.upsert()` call (both create and update)
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **SUBJ-VALID-01** Subject line length validation in quality gate **(MEDIUM — 30 min)**
+- [x] **SUBJ-VALID-01** Subject line length validation in quality gate ✅ *2026-03-09: checkSubjectLength() validates primary + variants — max 5 words, max 50 chars. Penalizes score -1 + triggers retry. 15 tests in quality-gate.test.ts.*
   **Fichiers:** `src/server/lib/email/quality-gate.ts`
   **Réf:** audit-subject-lines.md ISSUE 4, RESEARCH-DELIVERABILITY §7.4
   **Impact:** LLM may generate 6+ word or 50+ char subjects that violate constraints. No deterministic enforcement.
@@ -322,32 +322,9 @@
 > AB-ATTR-01 is the #1 blocker: without variant-to-lead attribution, all downstream A/B optimization is impossible.
 > Dependency chain: AB-ATTR-01 → AB-CORR-01 → AB-REPORT-01 + RES-06 + AUDIT-04
 
-- [ ] **AB-ATTR-01** Variant-to-lead attribution via email sync **(CRITICAL — 3-4h)**
-  **Fichiers:** `src/queue/analytics-sync-worker.ts`, `src/server/lib/connectors/instantly.ts`, `prisma/schema.prisma`
-  **Réf:** audit-ab-testing.md ISSUE 1 + 2
-  **Impact:** Unblocks ALL A/B optimization. Without this, variant generation is wasted effort. This is the single blocker for RES-06, AUDIT-04, AB-CORR-01, AB-REPORT-01.
-  **PASS IF:**
-  - Analytics sync worker fetches sent emails per campaign (via Instantly `GET /emails` with `ue_type=1`)
-  - For each sent email, extracts `subject` and matches against `DraftedEmail.subject` + `subjectVariants`
-  - Stores `variantIndex` (0=primary, 1=v2, 2=v3) on `EmailPerformance` (new nullable `Int?` field)
-  - Handles the case where subject doesn't match any stored variant (fallback to null)
-  - Rate limited to avoid Instantly API throttling (500ms between pages)
-  - Test unitaire: given 3 variants + a sent email subject, correctly identifies variantIndex
-  - Prisma migration adds `variantIndex Int?` to EmailPerformance
-  - `pnpm typecheck && pnpm test` passent
+- [x] **AB-ATTR-01** Variant-to-lead attribution via email sync ✅ *2026-03-09: variant-attribution.ts — matchVariantIndex() pure function + syncVariantAttribution(). Fetches sent emails (ue_type=1), matches subject to DraftedEmail variants (normalized: case-insensitive, Re:/Fwd: stripping). variantIndex Int? on EmailPerformance. Integrated in sync worker + tool. 22 tests.*
 
-- [ ] **AB-CORR-01** Correlator query for subject variant performance **(HIGH — 1h)**
-  **Fichiers:** `src/server/lib/analytics/correlator.ts`, `src/server/lib/analytics/insights.ts`
-  **Réf:** audit-ab-testing.md ISSUE 6 + 7
-  **Dépend de:** AB-ATTR-01
-  **Impact:** Enables "which variant won?" analysis per step. First step toward data-driven A/B.
-  **PASS IF:**
-  - `getReplyRateBySubjectVariant(workspaceId, campaignId, step)` query in correlator.ts
-  - Groups by `ep."variantIndex"`, returns sent/opened/replied/openRate/replyRate per variant
-  - Minimum 5 sent per variant to include (consistent with toCorrelationRows threshold)
-  - Joins with DraftedEmail to include actual subject text per variant
-  - Test unitaire vérifie la query avec des données mock
-  - `pnpm typecheck && pnpm test` passent
+- [x] **AB-CORR-01** Correlator query for subject variant performance ✅ *2026-03-09: getReplyRateBySubjectVariant() in correlator.ts — groups by variantIndex, joins DraftedEmail for subject text. Pure helpers: getSubjectForVariant() + toVariantPerformanceRows(). CampaignReport.variantBreakdown added to insights.ts. subject_variant dimension in insights + analytics tools. 15 new tests in correlator.test.ts (36 total).*
 
 - [ ] **AB-REPORT-01** Variant performance in campaign report **(MEDIUM — 1h)**
   **Fichiers:** `src/server/lib/analytics/insights.ts`, `src/server/lib/tools/analytics-tools.ts`
@@ -374,7 +351,7 @@
   **Fichiers:** `src/server/lib/email/prompt-builder.ts`
   **Réf:** RESEARCH-COLD-EMAIL-SCIENCE §3 (Step 2 "reply-style" = +30% lift), audit-cadence-sequence.md ISSUE 1
 
-- [ ] **CAD-THRESH-01** Differentiated quality gate threshold for Step 0 **(MEDIUM — 15 min)**
+- [x] **CAD-THRESH-01** Differentiated quality gate threshold for Step 0 ✅ *2026-03-09: getMinQualityScore(step) returns 8 for step 0, 7 for others. LLM scorer prompt stricter for Step 0. 13 tests in quality-gate.test.ts.*
   **Fichiers:** `src/server/lib/email/quality-gate.ts`
   **Réf:** RESEARCH-COLD-EMAIL-SCIENCE §2 (58-79% replies from Step 0), audit-cadence-sequence.md ISSUE 3
   **Impact:** Step 0 generates 58-79% of all replies. Uniform 7/10 threshold means mediocre first touches pass. Raising to 8/10 filters below-average first emails at ~$0.002/lead.
@@ -385,7 +362,7 @@
   - Test unitaire vérifie que Step 0 rejects score 7, Step 1+ accepts score 7
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **CAD-WORDS-01** Align word counts to STRATEGY + add deterministic enforcement **(MEDIUM — 30 min)**
+- [x] **CAD-WORDS-01** Align word counts to STRATEGY + add deterministic enforcement ✅ *2026-03-09: maxWords aligned [85,65,70,65,50,45], deterministic enforcement in draftWithQualityGate() at 130% threshold. 5 new tests in quality-gate.test.ts.*
   **Fichiers:** `src/server/lib/email/prompt-builder.ts`, `src/server/lib/email/quality-gate.ts`
   **Réf:** STRATEGY §7.2.2 (target word counts), RESEARCH consensus (<80 words), audit-cadence-sequence.md ISSUE 2 + 4
   **Impact:** Steps 2 (80 vs target 60) and 5 (50 vs target 40) significantly exceed targets. No runtime enforcement — LLM can generate 120-word emails without detection.

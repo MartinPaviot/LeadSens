@@ -166,6 +166,7 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
             campaignName: campaign.name,
             overview: report.overview,
             stepBreakdown: report.stepBreakdown,
+            variantBreakdown: report.variantBreakdown,
             topLeads: report.topLeads,
             insights: report.insights,
           },
@@ -177,7 +178,7 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
       name: "performance_insights",
       description: "Analyze cross-campaign performance patterns: which signals, frameworks, enrichment depths, industries, and word counts drive the best reply rates.",
       parameters: z.object({
-        dimension: z.enum(["signal_type", "framework", "quality_score", "enrichment_depth", "industry", "word_count"])
+        dimension: z.enum(["signal_type", "framework", "quality_score", "enrichment_depth", "industry", "word_count", "subject_variant"])
           .optional()
           .describe("Focus on a specific dimension, or omit for all insights."),
       }),

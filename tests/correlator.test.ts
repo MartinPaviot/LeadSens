@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   isPositiveReply,
   toCorrelationRows,
+  toVariantPerformanceRows,
+  getSubjectForVariant,
   POSITIVE_REPLY_INTEREST_THRESHOLD,
   type RawRow,
+  type RawVariantRow,
 } from "@/server/lib/analytics/correlator";
 
 /** Helper to create RawRow with BigInt values */
@@ -202,5 +205,138 @@ describe("positive reply filtering — real-world scenarios", () => {
     ).length;
 
     expect(positiveCount).toBe(3);
+  });
+});
+
+// ─── getSubjectForVariant (pure logic) ──────────────────
+
+/** Helper to create RawVariantRow with BigInt values */
+function variantRow(variantIndex: number, sent: number, opened: number, replied: number): RawVariantRow {
+  return { variantIndex, sent: BigInt(sent), opened: BigInt(opened), replied: BigInt(replied) };
+}
+
+describe("getSubjectForVariant", () => {
+  it("returns primary subject for index 0", () => {
+    expect(getSubjectForVariant(0, "Hey {{name}}", ["Alt 1", "Alt 2"])).toBe("Hey {{name}}");
+  });
+
+  it("returns variant subject for index 1", () => {
+    expect(getSubjectForVariant(1, "Primary", ["Variant A", "Variant B"])).toBe("Variant A");
+  });
+
+  it("returns variant subject for index 2", () => {
+    expect(getSubjectForVariant(2, "Primary", ["Variant A", "Variant B"])).toBe("Variant B");
+  });
+
+  it("falls back to 'Primary' when primarySubject is null and index is 0", () => {
+    expect(getSubjectForVariant(0, null, null)).toBe("Primary");
+  });
+
+  it("falls back to 'Variant N' when variants array is null", () => {
+    expect(getSubjectForVariant(1, "Primary", null)).toBe("Variant 2");
+    expect(getSubjectForVariant(2, "Primary", null)).toBe("Variant 3");
+  });
+
+  it("falls back to 'Variant N' when index exceeds variants array", () => {
+    expect(getSubjectForVariant(3, "Primary", ["A", "B"])).toBe("Variant 4");
+  });
+
+  it("falls back to 'Variant N' when variants is empty array", () => {
+    expect(getSubjectForVariant(1, "Primary", [])).toBe("Variant 2");
+  });
+});
+
+// ─── toVariantPerformanceRows (pure logic) ──────────────
+
+describe("toVariantPerformanceRows", () => {
+  const primarySubject = "Quick question about {{company}}";
+  const variants = ["Thought about {{company}}", "3 ideas for {{company}}"];
+
+  it("converts raw rows to VariantPerformanceRow with correct rates", () => {
+    const rows: RawVariantRow[] = [
+      variantRow(0, 100, 30, 5),
+      variantRow(1, 80, 20, 3),
+      variantRow(2, 90, 40, 8),
+    ];
+    const result = toVariantPerformanceRows(rows, primarySubject, variants);
+    expect(result).toHaveLength(3);
+
+    expect(result[0].variantIndex).toBe(0);
+    expect(result[0].subject).toBe(primarySubject);
+    expect(result[0].sent).toBe(100);
+    expect(result[0].openRate).toBe(30);
+    expect(result[0].replyRate).toBe(5);
+
+    expect(result[1].variantIndex).toBe(1);
+    expect(result[1].subject).toBe("Thought about {{company}}");
+
+    expect(result[2].variantIndex).toBe(2);
+    expect(result[2].subject).toBe("3 ideas for {{company}}");
+    expect(result[2].openRate).toBe(44.44);
+    expect(result[2].replyRate).toBe(8.89);
+  });
+
+  it("filters out variants with < 5 sent", () => {
+    const rows: RawVariantRow[] = [
+      variantRow(0, 50, 15, 3),
+      variantRow(1, 4, 2, 1),  // below threshold
+      variantRow(2, 5, 2, 0),  // exactly at threshold
+    ];
+    const result = toVariantPerformanceRows(rows, primarySubject, variants);
+    expect(result).toHaveLength(2);
+    expect(result[0].variantIndex).toBe(0);
+    expect(result[1].variantIndex).toBe(2);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(toVariantPerformanceRows([], primarySubject, variants)).toEqual([]);
+  });
+
+  it("returns empty array when all rows below threshold", () => {
+    const rows: RawVariantRow[] = [
+      variantRow(0, 3, 1, 0),
+      variantRow(1, 4, 2, 1),
+    ];
+    expect(toVariantPerformanceRows(rows, primarySubject, variants)).toEqual([]);
+  });
+
+  it("handles null primary subject and variants gracefully", () => {
+    const rows: RawVariantRow[] = [
+      variantRow(0, 20, 5, 1),
+      variantRow(1, 15, 3, 0),
+    ];
+    const result = toVariantPerformanceRows(rows, null, null);
+    expect(result[0].subject).toBe("Primary");
+    expect(result[1].subject).toBe("Variant 2");
+  });
+
+  it("handles single variant correctly", () => {
+    const rows: RawVariantRow[] = [variantRow(0, 200, 60, 12)];
+    const result = toVariantPerformanceRows(rows, "Test subject", null);
+    expect(result).toHaveLength(1);
+    expect(result[0].subject).toBe("Test subject");
+    expect(result[0].openRate).toBe(30);
+    expect(result[0].replyRate).toBe(6);
+  });
+
+  it("computes rates with correct 2-decimal precision", () => {
+    const rows: RawVariantRow[] = [variantRow(0, 7, 3, 1)];
+    const result = toVariantPerformanceRows(rows, "Subj", []);
+    // 3/7 = 42.857...% → 42.86
+    expect(result[0].openRate).toBe(42.86);
+    // 1/7 = 14.285...% → 14.29
+    expect(result[0].replyRate).toBe(14.29);
+  });
+
+  it("identifies winner variant by reply rate", () => {
+    const rows: RawVariantRow[] = [
+      variantRow(0, 100, 20, 2),   // 2% reply
+      variantRow(1, 100, 35, 8),   // 8% reply — winner
+      variantRow(2, 100, 25, 4),   // 4% reply
+    ];
+    const result = toVariantPerformanceRows(rows, "Primary", ["Winner Q", "Mid Q"]);
+    const sorted = [...result].sort((a, b) => b.replyRate - a.replyRate);
+    expect(sorted[0].subject).toBe("Winner Q");
+    expect(sorted[0].replyRate).toBe(8);
   });
 });

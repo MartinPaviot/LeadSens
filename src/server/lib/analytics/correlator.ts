@@ -10,6 +10,16 @@ export interface CorrelationRow {
   replyRate: number;
 }
 
+export interface VariantPerformanceRow {
+  variantIndex: number;
+  subject: string;
+  sent: number;
+  opened: number;
+  replied: number;
+  openRate: number;
+  replyRate: number;
+}
+
 // ---------------------------------------------------------------------------
 // Positive reply filtering
 // ---------------------------------------------------------------------------
@@ -234,4 +244,104 @@ export async function getReplyRateByWordCount(
       END
   `;
   return toCorrelationRows(rows);
+}
+
+// ---------------------------------------------------------------------------
+// Subject variant correlation (A/B testing)
+// ---------------------------------------------------------------------------
+
+export interface RawVariantRow {
+  variantIndex: number;
+  sent: bigint;
+  opened: bigint;
+  replied: bigint;
+}
+
+/**
+ * Resolve the subject text for a given variant index.
+ * 0 = primary subject, 1+ = subjectVariants[index-1].
+ * Falls back to "Variant N" label if text unavailable.
+ */
+export function getSubjectForVariant(
+  variantIndex: number,
+  primarySubject: string | null,
+  variants: string[] | null,
+): string {
+  if (variantIndex === 0) return primarySubject ?? "Primary";
+  if (variants && typeof variants[variantIndex - 1] === "string") {
+    return variants[variantIndex - 1];
+  }
+  return `Variant ${variantIndex + 1}`;
+}
+
+/**
+ * Convert raw variant rows into VariantPerformanceRow[] with rates and subject text.
+ * Filters out variants with < 5 sent (consistent with toCorrelationRows threshold).
+ */
+export function toVariantPerformanceRows(
+  rows: RawVariantRow[],
+  primarySubject: string | null,
+  variants: string[] | null,
+): VariantPerformanceRow[] {
+  return rows
+    .filter((r) => Number(r.sent) >= 5)
+    .map((r) => {
+      const sent = Number(r.sent);
+      const opened = Number(r.opened);
+      const replied = Number(r.replied);
+      const vi = Number(r.variantIndex);
+      return {
+        variantIndex: vi,
+        subject: getSubjectForVariant(vi, primarySubject, variants),
+        sent,
+        opened,
+        replied,
+        openRate: Math.round((opened / sent) * 10000) / 100,
+        replyRate: Math.round((replied / sent) * 10000) / 100,
+      };
+    });
+}
+
+/**
+ * Get reply rate breakdown by A/B subject variant for a campaign.
+ * Requires variant attribution data (AB-ATTR-01) to be synced first.
+ *
+ * @param step - Step to get subject texts from (default 0, since attribution is step-0 based)
+ */
+export async function getReplyRateBySubjectVariant(
+  workspaceId: string,
+  campaignId: string,
+  step: number = 0,
+): Promise<VariantPerformanceRow[]> {
+  // 1. Raw counts grouped by variantIndex
+  const rows = await prisma.$queryRaw<RawVariantRow[]>`
+    SELECT
+      ep."variantIndex"                                       AS "variantIndex",
+      COUNT(*)                                                AS sent,
+      SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
+      SUM(CASE WHEN
+        ep."replyCount" > 0
+        AND (ep."replyAiInterest" IS NULL OR ep."replyAiInterest" >= ${POSITIVE_REPLY_INTEREST_THRESHOLD})
+      THEN 1 ELSE 0 END)                                     AS replied
+    FROM "email_performance" ep
+    JOIN "lead" l ON ep."leadId" = l.id
+    WHERE l."workspaceId" = ${workspaceId}
+      AND ep."campaignId" = ${campaignId}
+      AND ep."variantIndex" IS NOT NULL
+    GROUP BY ep."variantIndex"
+    ORDER BY ep."variantIndex"
+  `;
+
+  // 2. Get subject texts from a representative DraftedEmail for this step
+  const drafted = await prisma.draftedEmail.findFirst({
+    where: { campaignId, step },
+    select: { subject: true, subjectVariants: true },
+  });
+
+  // 3. Map to enriched rows with subject text
+  return toVariantPerformanceRows(
+    rows,
+    drafted?.subject ?? null,
+    drafted?.subjectVariants as string[] | null,
+  );
 }

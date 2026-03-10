@@ -5,12 +5,14 @@ import {
   getReplyRateByEnrichmentDepth,
   getReplyRateByIndustry,
   getReplyRateByWordCount,
+  getReplyRateBySubjectVariant,
   type CorrelationRow,
+  type VariantPerformanceRow,
 } from "./correlator";
 import { prisma } from "@/lib/prisma";
 
 export interface PerformanceInsight {
-  dimension: "signal_type" | "framework" | "quality_score" | "enrichment_depth" | "industry" | "word_count";
+  dimension: "signal_type" | "framework" | "quality_score" | "enrichment_depth" | "industry" | "word_count" | "subject_variant";
   topPerformer: { label: string; replyRate: number; sampleSize: number };
   bottomPerformer: { label: string; replyRate: number; sampleSize: number };
   recommendation: string;
@@ -45,6 +47,7 @@ function buildInsight(
     enrichment_depth: (t, b) => `"${t.dimension}" enrichment yields ${t.replyRate.toFixed(1)}% reply rate vs ${b.replyRate.toFixed(1)}% for "${b.dimension}". Invest in deeper enrichment.`,
     industry: (t, b) => `"${t.dimension}" industry responds best (${t.replyRate.toFixed(1)}% reply rate). "${b.dimension}" is weakest (${b.replyRate.toFixed(1)}%).`,
     word_count: (t, b) => `Emails in the ${t.dimension} word range get ${t.replyRate.toFixed(1)}% reply rate. ${b.dimension} words underperforms at ${b.replyRate.toFixed(1)}%.`,
+    subject_variant: (t, b) => `Subject "${t.dimension}" gets ${t.replyRate.toFixed(1)}% reply rate vs "${b.dimension}" at ${b.replyRate.toFixed(1)}%. Consider using this pattern for future campaigns.`,
   };
 
   return {
@@ -103,6 +106,7 @@ export interface CampaignReport {
     openRate: number;
     replyRate: number;
   }>;
+  variantBreakdown: VariantPerformanceRow[];
   topLeads: Array<{
     name: string;
     company: string | null;
@@ -160,10 +164,11 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
     },
   });
 
-  // Campaign-specific insights
-  const [signalType, step] = await Promise.all([
+  // Campaign-specific insights + variant breakdown
+  const [signalType, step, variantBreakdown] = await Promise.all([
     getReplyRateBySignalType(workspaceId, campaignId),
     getReplyRateByStep(workspaceId, campaignId),
+    getReplyRateBySubjectVariant(workspaceId, campaignId),
   ]);
 
   const insights: PerformanceInsight[] = [];
@@ -172,9 +177,24 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
   const stepInsight = buildInsight("framework", step);
   if (stepInsight) insights.push(stepInsight);
 
+  // Build variant insight if we have enough data
+  if (variantBreakdown.length >= 2) {
+    const variantCorrelationRows: CorrelationRow[] = variantBreakdown.map((v) => ({
+      dimension: v.subject,
+      sent: v.sent,
+      opened: v.opened,
+      replied: v.replied,
+      openRate: v.openRate,
+      replyRate: v.replyRate,
+    }));
+    const variantInsight = buildInsight("subject_variant" as PerformanceInsight["dimension"], variantCorrelationRows);
+    if (variantInsight) insights.push(variantInsight);
+  }
+
   return {
     overview: { ...overview, openRate, replyRate, bounceRate },
     stepBreakdown,
+    variantBreakdown,
     topLeads: topLeads.map((p) => ({
       name: [p.lead.firstName, p.lead.lastName].filter(Boolean).join(" "),
       company: p.lead.company,
