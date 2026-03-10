@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getMinQualityScore } from "@/server/lib/email/quality-gate";
+import { getMinQualityScore, type QualityScore } from "@/server/lib/email/quality-gate";
 
 // Mock mistralClient BEFORE importing draftWithQualityGate
 vi.mock("@/server/lib/llm/mistral-client", () => ({
@@ -189,5 +189,137 @@ describe("draftWithQualityGate — step-aware threshold", () => {
 
     expect(draftFn).toHaveBeenCalledTimes(1);
     expect(result.qualityScore.overall).toBe(9);
+  });
+});
+
+describe("draftWithQualityGate — word count enforcement", () => {
+  const baseContext = {
+    leadName: "John Doe",
+    leadJobTitle: "CTO",
+    leadCompany: "Acme Corp",
+  };
+
+  const makeScore = (overall: number): QualityScore => ({
+    relevance: overall,
+    specificity: overall,
+    formatting: overall,
+    coherence: overall,
+    overall,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("step 4: 150-word body triggers word count violation (maxWords=50, limit=65)", async () => {
+    const longBody = Array(150).fill("word").join(" ");
+    const draftFn = vi
+      .fn()
+      .mockResolvedValueOnce({ subject: "test", body: longBody })
+      .mockResolvedValueOnce({ subject: "test", body: longBody })
+      .mockResolvedValueOnce({ subject: "test", body: longBody });
+
+    vi.mocked(mistralClient.json)
+      .mockResolvedValueOnce(makeScore(9))
+      .mockResolvedValueOnce(makeScore(9))
+      .mockResolvedValueOnce(makeScore(9));
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 4 },
+      workspaceId: "ws-1",
+    });
+
+    // All 3 attempts made because word count always exceeds limit
+    expect(draftFn).toHaveBeenCalledTimes(3);
+    // Score penalized by 1
+    expect(result.qualityScore.overall).toBe(8);
+    expect(result.qualityScore.issues).toEqual(
+      expect.arrayContaining([expect.stringContaining("Word count violation")])
+    );
+  });
+
+  it("step 5: 40-word body passes (maxWords=45, limit=58)", async () => {
+    const shortBody = Array(40).fill("word").join(" ");
+    const draftFn = vi.fn().mockResolvedValueOnce({ subject: "test", body: shortBody });
+
+    vi.mocked(mistralClient.json).mockResolvedValueOnce(makeScore(8));
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 5 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(1);
+    expect(result.qualityScore.overall).toBe(8);
+    expect(result.qualityScore.issues).toBeUndefined();
+  });
+
+  it("step 0: body at exactly 130% of maxWords (110 words for maxWords=85) triggers violation", async () => {
+    // 85 * 1.3 = 110.5, so 111 words should trigger
+    const body = Array(111).fill("word").join(" ");
+    const draftFn = vi
+      .fn()
+      .mockResolvedValueOnce({ subject: "sub", body })
+      .mockResolvedValueOnce({ subject: "sub", body })
+      .mockResolvedValueOnce({ subject: "sub", body });
+
+    vi.mocked(mistralClient.json)
+      .mockResolvedValueOnce(makeScore(9))
+      .mockResolvedValueOnce(makeScore(9))
+      .mockResolvedValueOnce(makeScore(9));
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 0 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(3);
+    expect(result.qualityScore.issues).toEqual(
+      expect.arrayContaining([expect.stringContaining("Word count violation")])
+    );
+  });
+
+  it("step 0: body at 110 words (just under 130% of 85) passes", async () => {
+    // 85 * 1.3 = 110.5, so 110 words should pass
+    const body = Array(110).fill("word").join(" ");
+    const draftFn = vi.fn().mockResolvedValueOnce({ subject: "sub", body });
+
+    vi.mocked(mistralClient.json).mockResolvedValueOnce(makeScore(8));
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 0 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(1);
+    expect(result.qualityScore.overall).toBe(8);
+  });
+
+  it("word count violation retries then returns best result", async () => {
+    const longBody = Array(100).fill("word").join(" "); // 100 > 50*1.3=65 for step 4
+    const shortBody = Array(45).fill("word").join(" "); // 45 < 65 for step 4
+
+    const draftFn = vi
+      .fn()
+      .mockResolvedValueOnce({ subject: "long", body: longBody })
+      .mockResolvedValueOnce({ subject: "short", body: shortBody });
+
+    vi.mocked(mistralClient.json)
+      .mockResolvedValueOnce(makeScore(8)) // long body — penalized to 7
+      .mockResolvedValueOnce(makeScore(7)); // short body — passes at 7
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 4 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(2);
+    expect(result.subject).toBe("short");
+    expect(result.qualityScore.overall).toBe(7);
   });
 });

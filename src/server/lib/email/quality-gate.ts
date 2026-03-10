@@ -1,5 +1,6 @@
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 import { scanForSpamWords, SPAM_THRESHOLD } from "@/server/lib/email/spam-words";
+import { getFramework } from "@/server/lib/email/prompt-builder";
 import { z } from "zod/v4";
 
 const qualityScoreSchema = z.object({
@@ -102,6 +103,11 @@ export async function draftWithQualityGate(params: {
     // Spam word scan — instant, zero cost, runs BEFORE LLM scoring
     const spamScan = scanForSpamWords(draft.subject, draft.body);
 
+    // Deterministic word count check — research consensus: <80 words = highest reply rates
+    const fw = getFramework(params.context.step);
+    const wordCount = draft.body.split(/\s+/).filter((w) => w.length > 0).length;
+    const wordCountExceeded = wordCount > fw.maxWords * 1.3;
+
     const score = await scoreEmail({
       subject: draft.subject,
       body: draft.body,
@@ -117,12 +123,20 @@ export async function draftWithQualityGate(params: {
       score.overall = Math.max(1, score.overall - 1);
     }
 
+    // Merge word count violation into quality score
+    if (wordCountExceeded) {
+      const wordCountIssue = `Word count violation: ${wordCount} words exceeds limit of ${fw.maxWords} (max allowed: ${Math.round(fw.maxWords * 1.3)}). Shorten the email.`;
+      score.issues = [...(score.issues ?? []), wordCountIssue];
+      score.overall = Math.max(1, score.overall - 1);
+    }
+
     if (!bestResult || score.overall > bestResult.qualityScore.overall) {
       bestResult = { ...draft, qualityScore: score };
     }
 
-    if (score.overall >= minScore && !spamScan.flagged) {
-      return bestResult;
+    if (score.overall >= minScore && !spamScan.flagged && !wordCountExceeded) {
+      // Return current clean result, not bestResult — bestResult may have violations
+      return { ...draft, qualityScore: score };
     }
 
     console.log(

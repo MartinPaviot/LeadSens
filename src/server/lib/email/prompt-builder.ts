@@ -23,7 +23,7 @@ export function getFramework(step: number): Framework {
           "3) Present your solution in 1 sentence with timeline proof if available. " +
           "CTA: open-ended question oriented toward exchange (medium commitment). E.g.: 'Worth a 10-min call?'",
         objective: "Trigger curiosity via a concrete signal. The prospect should think 'they know what's going on at our company'.",
-        maxWords: 90,
+        maxWords: 85,
       };
     case 1:
       return {
@@ -36,7 +36,7 @@ export function getFramework(step: number): Framework {
           "Use a DIFFERENT signal from step 0. If signal stacking is possible (2+ signals), combine them. " +
           "CTA: low commitment (resource, insight). E.g.: 'Want me to send the benchmark?'",
         objective: "Position yourself as a peer who brings value. Reply-style format (+30% lift) + case study + timeline = credibility.",
-        maxWords: 70,
+        maxWords: 65,
       };
     case 2:
       return {
@@ -48,7 +48,7 @@ export function getFramework(step: number): Framework {
           "If no same-industry case study, use the best available case study with projection. " +
           "CTA: medium commitment (demo, call).",
         objective: "Make the prospect project themselves into the result. Narrative > feature listing.",
-        maxWords: 80,
+        maxWords: 70,
       };
     case 3:
       return {
@@ -81,7 +81,7 @@ export function getFramework(step: number): Framework {
           "Leave the door open without pressure. " +
           "CTA: low commitment. E.g.: 'If timing's better later, let me know when.'",
         objective: "Close the loop cleanly. Low-pressure, high-respect. Recall the best argument.",
-        maxWords: 50,
+        maxWords: 45,
       };
     default:
       return getFramework(0);
