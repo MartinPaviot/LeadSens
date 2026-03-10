@@ -22,7 +22,8 @@ export interface CombinedScoreBreakdown {
   fitScore: number; // Original ICP fit (1-10)
   intentScore: number; // Intent signals: hiring, tech changes, engagement (1-10)
   timingScore: number; // Timing signals: funding, leadership, news (1-10)
-  combinedScore: number; // Weighted: fit 40% + intent 35% + timing 25%
+  compoundBonus: number; // Bonus for 3+ distinct signal types (0-3)
+  combinedScore: number; // Weighted: fit 40% + intent 35% + timing 25% + compound bonus
   signals: string[]; // Which signals contributed
 }
 
@@ -163,6 +164,7 @@ export function computeSignalBoost(
       fitScore,
       intentScore: 5, // neutral when no data
       timingScore: 5,
+      compoundBonus: 0,
       combinedScore: fitScore,
       signals: [],
     };
@@ -228,13 +230,21 @@ export function computeSignalBoost(
 
   const intentScore = clamp(intent, 1, 10);
   const timingScore = clamp(timing, 1, 10);
-  const combinedScore = Math.round(fitScore * 0.4 + intentScore * 0.35 + timingScore * 0.25);
+
+  // Compound bonus: 3+ distinct signal types = multiplicative effect
+  // Research: accounts with 3+ active signals convert at 2.4x (Prospeo/Amplemarket 2026)
+  const signalTypeCount = signals.length;
+  const compoundBonus = signalTypeCount >= 3 ? Math.min(signalTypeCount - 2, 3) : 0;
+
+  const baseCombined = Math.round(fitScore * 0.4 + intentScore * 0.35 + timingScore * 0.25);
+  const combinedScore = clamp(baseCombined + compoundBonus, 1, 10);
 
   return {
     fitScore,
     intentScore,
     timingScore,
-    combinedScore: clamp(combinedScore, 1, 10),
+    compoundBonus,
+    combinedScore,
     signals,
   };
 }

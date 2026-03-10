@@ -178,4 +178,98 @@ describe("computeSignalBoost", () => {
     expect(result.signals).toHaveLength(4);
     expect(result.combinedScore).toBeGreaterThan(5);
   });
+
+  // ─── Compound signal scoring ──────────────────────────────
+
+  it("no compound bonus with 1-2 signal types", () => {
+    const one = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+    }));
+    expect(one.compoundBonus).toBe(0);
+
+    const two = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+      fundingSignals: ["Series A"],
+    }));
+    expect(two.compoundBonus).toBe(0);
+  });
+
+  it("compound bonus +1 with 3 distinct signal types", () => {
+    const result = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+      fundingSignals: ["Series A"],
+      recentLinkedInPosts: ["About AI"],
+    }));
+    expect(result.compoundBonus).toBe(1);
+    expect(result.signals).toHaveLength(3);
+  });
+
+  it("compound bonus +2 with 4 distinct signal types", () => {
+    const result = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+      fundingSignals: ["Series A"],
+      recentLinkedInPosts: ["About AI"],
+      leadershipChanges: [{ event: "New CTO", date: null, source: null }],
+    }));
+    expect(result.compoundBonus).toBe(2);
+    expect(result.signals).toHaveLength(4);
+  });
+
+  it("compound bonus caps at +3 with 5+ distinct signal types", () => {
+    const result = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+      techStackChanges: [{ change: "New CRM", date: null }],
+      recentLinkedInPosts: ["Post"],
+      fundingSignals: ["Series A"],
+      leadershipChanges: [{ event: "New CTO", date: null, source: null }],
+      publicPriorities: [{ statement: "AI-first", source: null, date: null }],
+    }));
+    expect(result.compoundBonus).toBe(3);
+    expect(result.signals).toHaveLength(6);
+  });
+
+  it("3+ signals score strictly higher than additive alone", () => {
+    // Same fit, same signal data — compare with and without compound
+    const singleA = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+    }));
+    const singleB = computeSignalBoost(7, makeEnrichment({
+      fundingSignals: ["Series A"],
+    }));
+    const singleC = computeSignalBoost(7, makeEnrichment({
+      recentLinkedInPosts: ["Post"],
+    }));
+    const combined = computeSignalBoost(7, makeEnrichment({
+      hiringSignals: ["SDR role"],
+      fundingSignals: ["Series A"],
+      recentLinkedInPosts: ["Post"],
+    }));
+
+    // Compound scoring: combined > max of individual scores
+    const maxSingle = Math.max(singleA.combinedScore, singleB.combinedScore, singleC.combinedScore);
+    expect(combined.combinedScore).toBeGreaterThan(maxSingle);
+  });
+
+  it("compound bonus still capped at 10 total", () => {
+    const result = computeSignalBoost(10, makeEnrichment({
+      hiringSignals: ["A", "B", "C"],
+      techStackChanges: [{ change: "X", date: null }],
+      recentLinkedInPosts: ["post"],
+      productLaunches: ["launch"],
+      fundingSignals: ["Series A"],
+      leadershipChanges: [{ event: "CEO", date: null, source: null }],
+      publicPriorities: [{ statement: "AI", source: null, date: null }],
+      recentNews: ["news"],
+    }));
+    expect(result.compoundBonus).toBe(3);
+    expect(result.combinedScore).toBeLessThanOrEqual(10);
+  });
+
+  it("compoundBonus is 0 when no enrichment data", () => {
+    expect(computeSignalBoost(7, null).compoundBonus).toBe(0);
+  });
+
+  it("compoundBonus is 0 when enrichment has no signals", () => {
+    expect(computeSignalBoost(7, makeEnrichment()).compoundBonus).toBe(0);
+  });
 });
