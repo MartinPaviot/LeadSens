@@ -29,11 +29,13 @@ export function getFramework(step: number): Framework {
       return {
         name: "Value-add",
         instructions:
-          "Deliver concrete value: a data-backed insight, an industry benchmark, or a case study with TIMELINE (e.g.: 'In 90 days, [client] achieved [result]'). " +
-          "NO 'following up on my last email'. The prospect must learn something. " +
+          "FORMAT: Write this as a CASUAL REPLY to your previous email — NOT a formal new touchpoint. " +
+          "Start with a reply-style opener like: 'Quick follow-up on my note — thought this might be relevant:' or 'One more thing I forgot to mention:' or 'Circling back with something useful:'. " +
+          "CONTENT: Deliver concrete value — a data-backed insight, an industry benchmark, or a case study with TIMELINE (e.g.: 'In 90 days, [client] achieved [result]'). " +
+          "The prospect must learn something. NO formal 'just following up' or 'checking in' or 'I wanted to follow up on my last email'. " +
           "Use a DIFFERENT signal from step 0. If signal stacking is possible (2+ signals), combine them. " +
           "CTA: low commitment (resource, insight). E.g.: 'Want me to send the benchmark?'",
-        objective: "Position yourself as a peer who brings value. Case study + timeline = credibility.",
+        objective: "Position yourself as a peer who brings value. Reply-style format (+30% lift) + case study + timeline = credibility.",
         maxWords: 70,
       };
     case 2:

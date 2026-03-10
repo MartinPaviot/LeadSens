@@ -817,3 +817,18 @@ LEARNINGS:
   - Test file covers enrichPerson (7), enrichOrganization (5), testApolloConnection (4) = 16 tests total
   - vi.fn() mock state leaks between tests — always call mockReset() in beforeEach
 NEXT: CAD-REPLY-01 (reply-style format for Step 1, 15 min) or SUBJ-FIX-02 (draft_single_email subjects, 15 min)
+
+=== ITERATION 17 | 2026-03-09 20:25 UTC ===
+TASK: CAD-REPLY-01 — Reply-style format for Step 1 Value-add
+STATUS: DONE
+DURATION: ~5 min
+FILES CHANGED:
+  - src/server/lib/email/prompt-builder.ts (Step 1 Value-add framework: reply-style opener guidance)
+TESTS: 332/332 passed (non-LLM), 0 typecheck errors
+COMMIT: feat(email): add reply-style casual opener to Step 1 Value-add framework
+LEARNINGS:
+  - Reply-style format is a prompt-only change — zero code, pure instruction refinement
+  - Key nuance: "NO following up on my last email" was about formal phrases. Updated to block specific formal patterns ("just following up", "checking in") while encouraging casual reply-style openers
+  - 3 example openers from research: "Quick follow-up on my note —", "One more thing I forgot to mention:", "Circling back with something useful:"
+  - Research source: Instantly Benchmark 2026 — 30% lift on first follow-up when formatted as casual reply
+NEXT: SUBJ-FIX-02 (draft_single_email dropping subjects, 15 min) or CAD-THRESH-01 (Step 0 quality gate 8/10, 15 min)

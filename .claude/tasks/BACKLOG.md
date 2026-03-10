@@ -370,17 +370,9 @@
 > Source: `.claude/findings/audit-cadence-sequence.md`
 > Score: 7.5/10 (target 7/10 ✅ dépassé). Gaps: reply-style format, Step 0 threshold, word count alignment, test coverage.
 
-- [ ] **CAD-REPLY-01** Reply-style format for Step 1 Value-add **(HIGH — 15 min)**
+- [x] **CAD-REPLY-01** Reply-style format for Step 1 Value-add ✅ *2026-03-09: Added reply-style casual opener guidance to Value-add (Step 1) framework. 3 example openers provided. Core content unchanged. Research: +30% lift on first follow-up (Instantly Benchmark 2026). prompt-builder.ts:28-40.*
   **Fichiers:** `src/server/lib/email/prompt-builder.ts`
   **Réf:** RESEARCH-COLD-EMAIL-SCIENCE §3 (Step 2 "reply-style" = +30% lift), audit-cadence-sequence.md ISSUE 1
-  **Impact:** Research shows casual reply-style follow-ups outperform formal follow-ups by ~30% on Step 1 (first follow-up). This is the single highest-ROI prompt change for the cadence component.
-  **PASS IF:**
-  - Value-add (Step 1) framework instructions include reply-style opener guidance
-  - Instructions tell LLM: "Format as a casual reply to your previous email — NOT a formal new touchpoint"
-  - Example openers provided: "Quick follow-up on my note — thought this might be relevant:", "One more thing I forgot to mention:"
-  - Does NOT change the core Value-add content (insight/resource/case study) — only the framing
-  - Snapshot test updated if exists
-  - `pnpm typecheck && pnpm test` passent
 
 - [ ] **CAD-THRESH-01** Differentiated quality gate threshold for Step 0 **(MEDIUM — 15 min)**
   **Fichiers:** `src/server/lib/email/quality-gate.ts`
