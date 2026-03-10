@@ -161,6 +161,7 @@ model Lead {
   icpBreakdown    Json?
   campaignId      String?
   crmContactId    String?
+  verificationStatus String?    // null=unverified, valid/invalid/catch_all/unknown/spamtrap/abuse/disposable
   status          LeadStatus     @default(SOURCED)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

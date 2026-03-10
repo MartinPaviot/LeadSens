@@ -5,6 +5,7 @@ import { getInstantlyClient, normalizePreviewLead, normalizeStoredLead } from "@
 import { parseICPv2, buildFilterSummary } from "./icp-parser";
 import type { ToolDefinition, ToolContext } from "./types";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
+import { getEmailVerifier } from "@/server/lib/providers";
 
 /**
  * Build custom variables for a lead's emails to push to Instantly.
@@ -28,6 +29,52 @@ export function buildLeadCustomVars(
     customVars[`email_step_${email.step}_subject_v3`] = email.subjectVariants?.[1] ?? primarySubject;
   }
   return customVars;
+}
+
+/**
+ * Pre-push verification gate — checks if leads have been email-verified.
+ * Exported for testing. Returns blocking/warning info.
+ *
+ * Rules:
+ * - No verifier connected → pass through (graceful degradation)
+ * - Verifier connected + unverified leads → warning
+ * - >5% of pushable leads are invalid → block
+ */
+const INVALID_STATUSES = new Set(["invalid", "spamtrap", "abuse", "disposable"]);
+
+export function checkVerificationGate(
+  leads: { verificationStatus: string | null }[],
+  hasVerifier: boolean,
+): { canPush: boolean; warning?: string; unverifiedCount: number; invalidCount: number } {
+  if (!hasVerifier || leads.length === 0) {
+    return { canPush: true, unverifiedCount: 0, invalidCount: 0 };
+  }
+
+  const unverifiedCount = leads.filter((l) => l.verificationStatus === null).length;
+  const invalidCount = leads.filter((l) => l.verificationStatus !== null && INVALID_STATUSES.has(l.verificationStatus)).length;
+  const invalidRate = leads.length > 0 ? invalidCount / leads.length : 0;
+
+  // Block if >5% invalid
+  if (invalidRate > 0.05) {
+    return {
+      canPush: false,
+      warning: `🚫 ${invalidCount}/${leads.length} leads (${Math.round(invalidRate * 100)}%) have invalid emails. Run verify_emails first and remove invalid leads to prevent bounces and protect your domain reputation.`,
+      unverifiedCount,
+      invalidCount,
+    };
+  }
+
+  // Warn if unverified
+  if (unverifiedCount > 0) {
+    return {
+      canPush: true,
+      warning: `⚠️ ${unverifiedCount}/${leads.length} leads not verified. Run verify_emails first to prevent bounces. Unverified lists average 7.8% bounce rate vs 1.2% for verified lists.`,
+      unverifiedCount,
+      invalidCount,
+    };
+  }
+
+  return { canPush: true, unverifiedCount: 0, invalidCount };
 }
 
 // Lightweight schema for tool parameters — Mistral only needs to know
@@ -535,6 +582,22 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
           };
         }
 
+        // ── Pre-push verification gate ──
+        const verifier = await getEmailVerifier(ctx.workspaceId);
+        const gate = checkVerificationGate(
+          safeToPush.map((l) => ({ verificationStatus: l.verificationStatus })),
+          verifier !== null,
+        );
+        if (!gate.canPush) {
+          return {
+            added: 0,
+            blocked: true,
+            verification_gate: gate.warning,
+            invalid_count: gate.invalidCount,
+            unverified_count: gate.unverifiedCount,
+          };
+        }
+
         let added = 0;
         for (const lead of safeToPush) {
           const customVars = buildLeadCustomVars(
@@ -563,6 +626,7 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
         return {
           added,
           ...(alreadyPushed.length > 0 ? { skipped_already_pushed: alreadyPushed.length } : {}),
+          ...(gate.warning ? { verification_warning: gate.warning } : {}),
         };
       },
     },
