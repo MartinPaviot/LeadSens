@@ -8,6 +8,7 @@ import {
   getLeadsWithPerformance,
 } from "@/server/lib/connectors/instantly";
 import { getWorkspaceInsights, getCampaignReport } from "@/server/lib/analytics/insights";
+import { syncVariantAttribution } from "@/server/lib/analytics/variant-attribution";
 import type { ToolDefinition, ToolContext } from "./types";
 
 export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefinition> {
@@ -108,6 +109,13 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
           if (startingAfter) await new Promise((r) => setTimeout(r, 500));
         } while (startingAfter);
 
+        // 4. Variant attribution — match sent email subjects to A/B variants
+        const variantResult = await syncVariantAttribution(
+          apiKey,
+          campaign.id,
+          campaign.instantlyCampaignId,
+        );
+
         return {
           synced: true,
           campaignId: campaign.id,
@@ -119,6 +127,7 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
             replied: analytics.replied,
             bounced: analytics.bounced,
             leadssynced: syncedLeads,
+            variantsAttributed: variantResult.attributed,
           },
         };
       },

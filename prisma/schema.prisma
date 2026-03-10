@@ -331,6 +331,9 @@ model EmailPerformance {
   replyIsAutoReply Boolean  @default(false)
   replyAiInterest Float?
 
+  // A/B variant attribution (synced from Instantly sent emails)
+  variantIndex    Int?      // 0=primary subject, 1=variant2, 2=variant3; null=unknown
+
   syncedAt        DateTime  @default(now())
 
   lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)

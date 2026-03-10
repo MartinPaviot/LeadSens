@@ -1036,7 +1036,8 @@ export interface InstantlyEmail {
   is_auto_reply?: number; // 0 or 1
   ai_interest_value?: number | null;
   i_status?: string;
-  lead_email?: string;
+  lead?: string; // lead email address (API field name)
+  lead_email?: string; // alias — some endpoints use this
 }
 
 export async function getCampaignSendingStatus(
@@ -1143,6 +1144,7 @@ export async function getEmails(
     is_unread?: boolean;
     lead?: string;
     limit?: number;
+    starting_after?: string;
   },
 ): Promise<{ items: InstantlyEmail[]; next_starting_after?: string }> {
   const query = new URLSearchParams();
@@ -1150,6 +1152,7 @@ export async function getEmails(
   if (params.email_type) query.set("email_type", params.email_type);
   if (params.is_unread !== undefined) query.set("is_unread", params.is_unread ? "1" : "0");
   if (params.lead) query.set("lead", params.lead);
+  if (params.starting_after) query.set("starting_after", params.starting_after);
   query.set("limit", String(params.limit ?? 25));
 
   return instantlyFetch<{ items: InstantlyEmail[]; next_starting_after?: string }>(

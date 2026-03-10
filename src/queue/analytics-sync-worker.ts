@@ -6,6 +6,7 @@ import {
   getCampaignStepAnalytics,
   getLeadsWithPerformance,
 } from "@/server/lib/connectors/instantly";
+import { syncVariantAttribution } from "@/server/lib/analytics/variant-attribution";
 import { createWorker } from "./factory";
 
 interface AnalyticsSyncJobData {
@@ -112,6 +113,9 @@ export const analyticsSyncWorker = createWorker(
         await new Promise((r) => setTimeout(r, 500));
       }
     } while (startingAfter);
+
+    // 4. Variant attribution — match sent email subjects to A/B variants
+    await syncVariantAttribution(apiKey, campaignId, instantlyCampaignId);
   },
   { concurrency: 2 },
 );
