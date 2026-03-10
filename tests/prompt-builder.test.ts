@@ -313,11 +313,12 @@ describe("buildEmailPrompt", () => {
         | Pattern | Best for | Examples |
         |---------|----------|---------|
         | **Question** | Step 0, 4 — sparks curiosity | "quick question, {{firstName}}" · "thoughts on {{painPoint}}?" · "{{company}}'s approach to {{topic}}?" |
-        | **Observation** | Step 0, 1 — shows research | "noticed your {{signal}}" · "saw {{company}} is {{action}}" · "your {{recentMove}}" |
-        | **Curiosity gap** | Step 1, 3 — teases insight | "idea for {{painPoint}}" · "{{industry}} trend you'll want to see" · "what {{similarCompany}} changed" |
+        | **Observation** | Step 0, 1 — shows research | "noticed your {{signal}}" · "saw {{company}} is {{action}}" · "{{number}} {{industry}} teams shifting" |
+        | **Curiosity gap** | Step 1, 3 — teases insight | "idea for {{painPoint}}" · "{{number}}% of {{industry}} leaders..." · "what {{similarCompany}} changed" |
         | **Direct** | Step 2, 5 — cuts to the point | "{{solution}} for {{company}}" · "{{result}} in {{timeline}}" · "{{company}} + {{senderCompany}}" |
         | **Personalized** | Any step with strong signal | "re: {{specific_trigger}}" · "congrats on {{achievement}}" · "following {{event}}" |
 
+        Include a concrete number when available (stat, %, count) — numbers in subjects boost open rates by +45%.
         Each variant in "subjects" MUST use a DIFFERENT pattern from this table. Never repeat the same pattern across variants."
       `);
     });
