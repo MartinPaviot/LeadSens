@@ -148,3 +148,284 @@ LEARNINGS:
   - Showing matches in the issue helps the LLM understand what to fix on retry
   - Context-aware: well-written cold emails pass with 0 matches; only genuine spam patterns trigger
 NEXT: RES-02 Auto-pause on bounce spike (HIGH)
+
+=== ITERATION 6 | 2026-03-09 17:30 UTC ===
+TASK: Deep audit — Enrichissement Prospect component
+STATUS: DONE
+DURATION: ~20 min
+FILES CHANGED:
+  - .claude/findings/audit-enrichment.md (NEW — detailed component audit)
+  - .claude/tasks/BACKLOG.md (7 new tasks added: ENR-BUG-01, ENR-RECENCY-01, ENR-CACHE-01, ENR-TEST-01, ENR-TEST-02, ENR-TRUNC-01, ENR-COMPL-01)
+APPROACH:
+  - Read all 7 source files (jina.ts, summarizer.ts, company-cache.ts, apify.ts, apollo.ts, enrichment-tools.ts, icp-scorer.ts)
+  - Cross-referenced vs STRATEGY §6.2/§7.1.1, RESEARCH-LEAD-ENRICHMENT-2026, previous audits
+  - Compared against Clay/Apollo enrichment waterfall from research
+  - Assessed test coverage (18 + 13 tests for extraction/scoring, 0 for scraping/caching/merging)
+SCORE CONFIRMED: 7/10 (target 6/10 — EXCEEDED)
+KEY FINDINGS (9 issues):
+  1. HIGH: Apollo connector sends domain as `organization_name` instead of `domain` (apollo.ts:178) — 1-line fix
+  2. HIGH: Signal recency weighting absent — hiringSignals/fundingSignals are string[] without dates, stale triggers hurt credibility (3-5x reply rate impact)
+  3. MEDIUM: Failed scrape cached for 7 days — transient Jina failures lock out domains (company-cache.ts:46-53)
+  4. MEDIUM: Zero tests for Jina scraper, summarizer, Apify connector, Apollo connector, merge functions, URL resolution
+  5. MEDIUM: 15K char truncation is naive — signal-rich pages (careers, press) are first to be cut
+  6. MEDIUM: No enrichment completeness score stored on lead — quality gate can't detect thin data
+  7. LOW: Homepage scrape failure = total failure, no retry
+  8. LOW: Apify connector uses console.log/warn (5 instances)
+  9. LOW: Summarizer doesn't receive ICP context for signal prioritization
+ARCHITECTURAL VERDICT:
+  - Pipeline is architecturally strong — 3-layer waterfall, persistent cache, structured output, non-blocking
+  - LeadSens is AHEAD of Clay/Apollo on intelligence depth (company context, person context, business signals, connection bridge)
+  - Gaps are refinement-level, not architectural
+  - Path to 8/10: fix Apollo bug, add signal recency, improve cache failure handling, add tests
+LEARNINGS:
+  - Apollo API has separate `domain` field vs `organization_name` — using wrong field degrades match rate
+  - 15K truncation without per-section budgets disproportionately cuts signal-rich pages
+  - Caching null results is useful for permanent failures but harmful for transient ones — need 2-tier TTL
+  - Test coverage is biased toward data extraction, not integration layer (scraping, caching, merging)
+NEXT: ENR-BUG-01 Apollo domain fix (HIGH, 10 min) or RES-02 Auto-pause bounce (HIGH)
+
+=== ITERATION 7 | 2026-03-09 17:50 UTC ===
+TASK: Deep audit — Subject Lines component
+STATUS: DONE
+DURATION: ~15 min
+FILES AUDITED:
+  - src/server/lib/email/prompt-builder.ts (pattern library, constraints)
+  - src/server/lib/email/drafting.ts (system prompt, variant instructions)
+  - src/server/lib/email/quality-gate.ts (formatting axis, spam scan)
+  - src/server/lib/email/spam-words.ts (subject + body scan)
+  - src/server/lib/tools/email-tools.ts (variant persistence)
+  - src/server/lib/tools/instantly-tools.ts (variant push to Instantly)
+  - src/server/lib/connectors/instantly.ts (native variants[] API)
+  - src/server/lib/llm/mistral-client.ts (subjects[] schema)
+  - src/server/lib/analytics/correlator.ts (6 queries, no subject pattern)
+  - prisma/schema.prisma (DraftedEmail model)
+  - tests/prompt-builder.test.ts (25 tests including snapshot)
+SCORE CONFIRMED: 6/10 (target 6/10 — ATTEINT but fragile)
+KEY FINDINGS (7 issues):
+  1. HIGH: No `subjectPattern` metadata on DraftedEmail — blocks pattern optimization feedback loop
+  2. HIGH: draft_single_email drops `subjects` array — single-drafted emails lose A/B variants
+  3. HIGH: Variant placeholder fallback bug — if no subjectVariants, Instantly shows raw {{template}} text to prospects
+  4. MEDIUM: No subject length enforcement at runtime — only LLM prompt, no deterministic check
+  5. MEDIUM: FirstName banned in subjects but research shows 43.41% reply rate — contradiction
+  6. LOW: No numbers guidance in pattern library (+45% open rate from research)
+  7. LOW: No correlator query for subject pattern (blocked by issue 1)
+CRITICAL BUG FOUND:
+  - SUBJ-FIX-01: Raw `{{email_step_N_subject_v2}}` rendered as subject line for variant 2/3 when lead has no subjectVariants
+  - This is user-visible and must be fixed BEFORE launching campaigns
+  - Root cause: instantly-tools.ts:461-467 declares 3 subjects/step, but L525-530 only sets v2/v3 if variants exist
+TASKS ADDED TO BACKLOG (4 new):
+  - SUBJ-FIX-01: Fix variant placeholder fallback (CRITICAL, 30 min)
+  - SUBJ-FIX-02: Fix draft_single_email dropping subjects (HIGH, 15 min)
+  - SUBJ-VALID-01: Subject length validation (MEDIUM, 30 min)
+  - SUBJ-NUM-01: Numbers guidance in patterns (LOW, 15 min)
+  - RES-05 already in backlog: subject pattern tracking (HIGH)
+LEARNINGS:
+  - Pattern generation works well but the optimization loop is completely broken (no tracking)
+  - The variant push mechanism is clever (custom vars → template substitution) but has a critical fallback gap
+  - draft_single_email is a copy-paste of draft_emails_batch with variant handling omitted — DRY violation
+  - Research shows actionable contradictions with current rules (firstName ban, no numbers) — need A/B testing
+NEXT: SUBJ-FIX-01 (CRITICAL — fix before any campaign push)
+
+=== ITERATION 8 | 2026-03-09 17:30 UTC ===
+TASK: /audit A/B Testing component vs STRATEGY §6.2, §7.2.1, §7.3.2
+STATUS: DONE
+DURATION: ~20 min
+FILES CHANGED:
+  - .claude/findings/audit-ab-testing.md (NEW — comprehensive A/B audit)
+  - .claude/tasks/BACKLOG.md (3 new tasks added)
+AUDIT RESULT: 4/10 (target 5/10) — ⚠️ GAP -1
+KEY FINDINGS:
+  - A/B testing is WRITE-ONLY: 3 variants generated + pushed to Instantly, but ZERO data flows back
+  - The system runs A/B tests it can never learn from
+  - No per-variant performance tracking (Instantly step analytics are aggregate, not per-variant)
+  - No variant-to-lead attribution (don't know which variant each lead received)
+  - No auto-pause of losers (Instantly API supports v_disabled: true — never called)
+  - No winner propagation (winning patterns ignore subject variants entirely)
+  - No z-test or statistical significance check
+  - 9 issues found: 2 CRITICAL, 3 HIGH, 2 MEDIUM, 2 LOW
+  - Generation half averages 7/10, optimization half averages 0/10
+CRITICAL BLOCKER:
+  - AB-ATTR-01: Variant-to-lead attribution via email sync is the #1 blocker
+  - Without it, all downstream A/B features (correlator, z-test, auto-pause, propagation) are impossible
+  - Approach: fetch sent emails via GET /emails, match subject to stored variants, store variantIndex on EmailPerformance
+TASKS ADDED TO BACKLOG (3 new):
+  - AB-ATTR-01: Variant attribution via email sync (CRITICAL, 3-4h) — blocks everything
+  - AB-CORR-01: Correlator query for variant performance (HIGH, 1h) — depends on AB-ATTR-01
+  - AB-REPORT-01: Variant perf in campaign reports (MEDIUM, 1h) — depends on AB-CORR-01
+  - RES-06 already in backlog: z-test auto-pause (MEDIUM) — depends on AB-ATTR-01
+  - AUDIT-04 already in backlog: winner propagation (MEDIUM) — depends on AB-CORR-01
+DEPENDENCY CHAIN: AB-ATTR-01 → AB-CORR-01 → (AB-REPORT-01 + RES-06 + AUDIT-04)
+LEARNINGS:
+  - Instantly step analytics API returns aggregate per-step, NOT per-variant — must fetch individual sent emails to get variant attribution
+  - Instantly GET /emails with ue_type=1 returns sent emails with subject field — can match back to stored variants
+  - Instantly supports v_disabled per variant + auto_variant_select on campaign — both unused
+  - The hardest part (quality variant generation) is DONE — the missing piece is pure data plumbing
+  - Cross-reference: SUBJ-FIX-01/02 from subject lines audit are prerequisites (broken push = broken tracking)
+NEXT: SUBJ-FIX-01 (CRITICAL — fix variant placeholder bug) then AB-ATTR-01 (CRITICAL — unblock A/B optimization)
+
+=== ITERATION 9 | 2026-03-09 18:15 UTC ===
+TASK: Deep audit — Cadence & Sequence component
+STATUS: DONE
+DURATION: ~20 min
+FILES AUDITED:
+  - src/server/lib/email/prompt-builder.ts (framework definitions L14-87, CTA selection L260-271, previous emails L379-391)
+  - src/server/lib/email/drafting.ts (system prompt, 6-step sequence, cross-email narrative L44-82)
+  - src/server/lib/tools/email-tools.ts (batch drafting loop L116, step annotation L118, follow-up threading L113-183)
+  - src/server/lib/tools/instantly-tools.ts (campaign creation L461-467, delays L459)
+  - src/server/lib/email/quality-gate.ts (uniform threshold L68, per-step scoring L36-39)
+  - src/server/lib/connectors/instantly.ts (createCampaign with delay mapping L919-931)
+SCORE CONFIRMED: 7.5/10 (target 7/10 — EXCEEDED)
+KEY FINDINGS (7 issues):
+  1. HIGH: Step 1 Value-add lacks reply-style format — Research shows +30% lift from casual reply-style follow-ups (Instantly 2026 benchmark). Prompt change only, 15 min. (prompt-builder.ts:29-37)
+  2. MEDIUM: Word counts deviate from STRATEGY targets — Step 2 (80 vs 60, +33%), Step 5 (50 vs 40, +25%), Step 0 (90 vs 80, +12.5%). No deterministic word count enforcement. (prompt-builder.ts:27,37,49,82)
+  3. MEDIUM: Quality gate uniform 7/10 for all steps — Step 0 generates 58-79% of replies (two sources), should be 8/10. (quality-gate.ts:68)
+  4. MEDIUM: No deterministic word count enforcement — maxWords is prompt-only, LLM can exceed without detection. (quality-gate.ts entire file)
+  5. LOW: No engagement-based conditional delays — STRATEGY §6.2 listed as gap. Platform limitation: Instantly sets delays at creation time. (instantly-tools.ts:459)
+  6. LOW: No weekly cadence alignment — Research suggests Mon=launch, Wed=follow-ups. (instantly.ts:879-905)
+  7. LOW: Previous emails truncated at 500 chars — may cut signal-stacked Step 0 emails. (prompt-builder.ts:386)
+ARCHITECTURAL VERDICT:
+  - Component is architecturally excellent — 6 distinct frameworks, variable expanding delays, full-body follow-up context
+  - LeadSens is ahead of ALL named competitors on sequence intelligence
+  - Remaining gaps are optimization-level refinements, not structural issues
+  - No competitor has engagement-based delays or reply-style follow-ups either — implementing them = competitive moat
+TEST COVERAGE:
+  - ZERO unit tests for: getFramework(), buildPreviousEmailsSection(), selectCta(), buildStepAnnotation(), delay logic
+  - Framework regression would go undetected
+TASKS ADDED TO BACKLOG (4 new):
+  - CAD-REPLY-01: Reply-style format for Step 1 (HIGH, 15 min)
+  - CAD-THRESH-01: Step 0 quality threshold 8/10 (MEDIUM, 15 min)
+  - CAD-WORDS-01: Align word counts + deterministic enforcement (MEDIUM, 30 min)
+  - CAD-TEST-01: Unit tests for frameworks, delays, CTA (MEDIUM, 1.5h)
+LEARNINGS:
+  - Research "reply-style" finding is the highest ROI change: 30% lift, 15 min effort, prompt-only
+  - Word count deviations from STRATEGY are mostly defensible (Social Proof needs narrative room) but Breakup at 50 vs 40 is unjustified
+  - Engagement-based delays are a nice-to-have, not a gap — platform limitation, not LeadSens oversight
+  - Quality gate threshold differentiation is simple but impactful for first-touch quality
+NEXT: CAD-REPLY-01 (HIGH — reply-style Step 1, 15 min) or SUBJ-FIX-01 (CRITICAL — variant placeholder bug)
+
+=== ITERATION 10 | 2026-03-09 19:00 UTC ===
+TASK: Deep audit — Feedback Loop component vs STRATEGY §6.2, §7.3.2, §7.3.4, §11.5
+STATUS: DONE
+DURATION: ~25 min
+FILES AUDITED:
+  - src/server/lib/email/style-learner.ts (114 lines — style corrections + winning patterns)
+  - src/server/lib/analytics/correlator.ts (200 lines — 6 GROUP BY queries)
+  - src/server/lib/analytics/insights.ts (187 lines — workspace + campaign reports)
+  - src/server/lib/analytics/adaptive.ts (58 lines — data-driven weights + step annotations)
+  - src/queue/analytics-sync-worker.ts (117 lines — BullMQ sync every 30min)
+  - src/server/lib/tools/analytics-tools.ts (194 lines — 3 agent tools)
+  - src/server/lib/analytics/bounce-guard.ts (172 lines — auto-pause on bounce spike)
+  - src/app/api/webhooks/instantly/route.ts (237 lines — 4 event types)
+  - src/server/lib/email/prompt-builder.ts (586 lines — adaptive param injection)
+  - src/server/lib/tools/email-tools.ts (batch + single draft adaptive loading)
+  - docs/RESEARCH-FEEDBACK-LOOPS-2026.md (273 lines — MAB, SPRT, decision rules)
+  - prisma/schema.prisma (EmailPerformance, StepAnalytics, DraftedEmail, AgentFeedback)
+SCORE CONFIRMED: 5/10 (target 5/10 — ATTEINT but fragile)
+KEY FINDINGS (10 issues):
+  1. HIGH: Correlator uses raw replyCount > 0, not positive reply rate — pollutes ALL data-driven decisions
+     (correlator.ts:75,94,116,141,157,183 — all 6 queries affected)
+     LeadSens already classifies replies into 6 interest levels (replyAiInterest on EmailPerformance) but NEVER feeds this back
+  2. HIGH: No negative reply spike guard — bounce guard exists but no protection from spam complaint cascades
+     (Research FL-3, Enginy AI: "stop immediately if complaints spike even if KPI goes up")
+  3. MEDIUM: Style learner captures but doesn't categorize corrections (style-learner.ts:7-22)
+  4. MEDIUM: Winning patterns ignore subject variant/pattern (style-learner.ts:92-97) — blocked by RES-05
+  5. LOW: Analytics sync code duplicated between worker and tool (117+124 lines, identical logic)
+  6. MEDIUM: Zero tests for 870 lines of feedback loop code (only bounce-guard.test.ts exists)
+  7. LOW: getDataDrivenWeights threshold (≥20/signal, ≥2 types) may delay early campaign activation
+  8. LOW: CampaignAngle never updated from performance data
+  9. LOW: No ICP refinement from reply data
+  10. LOW: Industry benchmarks missing (already RES-04 in backlog)
+ARCHITECTURE VERDICT:
+  - Architecture is EXCELLENT — 4-layer design (sync → correlate → insights → adaptive) is genuinely unique
+  - LeadSens has the most transparent feedback loop at this price ($49-149 vs $900-5K competitors)
+  - Gaps are DATA QUALITY (wrong metric), COVERAGE (missing dimensions), and REFINEMENT (no categorization)
+  - No architectural changes needed — just fix the foundation metric and add missing guards
+RESEARCH CROSS-REFERENCE:
+  - FL-1 (positive reply rate): CONFIRMED gap, HIGH impact — fixes the FOUNDATION
+  - FL-2 (variant attribution): Already AB-ATTR-01 in backlog, CRITICAL
+  - FL-3 (negative reply guard): CONFIRMED gap, HIGH impact — new task FL-GUARD-01
+  - FL-4 (Thompson Sampling): Future — MAB is better than z-test for cold email volumes
+  - FL-5 (style categorization): Already RES-07 in backlog
+  - FL-6 (industry benchmarks): Already RES-04 in backlog
+  - FL-7 (low-volume decision rules): Not yet tasked — low priority
+TASKS ADDED TO BACKLOG (4 new):
+  - FL-METRIC-01: Correlator positive reply rate (HIGH, 2h) — fixes the primary metric
+  - FL-GUARD-01: Negative reply spike auto-pause (HIGH, 2h) — complements bounce-guard
+  - FL-DRY-01: Extract shared analytics sync logic (LOW, 1h) — DRY refactor
+  - FL-TEST-01: Unit tests for feedback loop (MEDIUM, 3h) — 870 lines untested
+LEARNINGS:
+  - The most impactful fix is FL-METRIC-01 (positive reply metric) — it's a small change that fixes ALL downstream data
+  - LeadSens already HAS the reply classification data (replyAiInterest on EmailPerformance) — it's just never used in correlation
+  - Research strongly recommends Thompson Sampling over z-test for cold email A/B testing (low base rates make frequentist methods impractical)
+  - Winning patterns could be much more powerful if they included subject pattern information (Question vs Direct vs Personalized)
+  - The analytics sync duplication is a ticking time bomb — a fix in one path will inevitably miss the other
+NEXT: FL-METRIC-01 (HIGH — foundational fix) or SUBJ-FIX-01 (CRITICAL — variant placeholder bug)
+
+=== ITERATION (audit) | 2026-03-09 ===
+TASK: Audit pipeline post-launch (STRATEGY §11, §12)
+STATUS: DONE
+DURATION: ~20 min
+FILES READ:
+  - src/app/api/webhooks/instantly/route.ts (238 lines)
+  - src/server/lib/tools/pipeline-tools.ts (637 lines)
+  - src/server/lib/tools/crm-tools.ts (179 lines)
+  - src/server/lib/lead-status.ts (84 lines)
+  - prisma/schema.prisma (LeadStatus enum, ReplyThread, Reply models)
+  - src/server/lib/analytics/bounce-guard.ts (172 lines)
+  - src/app/api/agents/chat/route.ts (PHASE_ACTIVE prompt)
+  - src/server/lib/tools/index.ts (phase filtering)
+  - src/server/lib/tools/instantly-tools.ts (instantly_get_replies)
+FILES CHANGED:
+  - .claude/findings/audit-pipeline-post-launch.md (NEW — comprehensive finding)
+  - .claude/tasks/BACKLOG.md (7 new tasks, 2 tasks marked done: T2-INT-01, RES-02)
+SCORE: 6/10 (target 5/10 ✅ dépassé)
+ISSUES FOUND (9):
+  1. CRITICAL: Webhook has zero authentication — anyone can POST fake events
+  2. HIGH: SENT status is phantom — defined but never triggered
+  3. HIGH: No sequence removal on INTERESTED/NOT_INTERESTED — leads keep getting emails
+  4. MEDIUM: classify_reply missing isSideEffect + race condition with webhook
+  5. MEDIUM: Reply records have empty fromEmail/toEmail
+  6. MEDIUM: CRM contact missing enrichment data (only 5 basic fields)
+  7. LOW: CSV parser breaks on quoted fields with delimiters
+  8. LOW: campaign_completed doesn't transition leads to SENT
+  9. HIGH: Zero tests for 1138 lines of pipeline code
+TASKS ADDED TO BACKLOG (7 new):
+  - PIPE-SEC-01: Webhook HMAC auth (CRITICAL, 1h) — production blocker
+  - PIPE-SEQ-01: Sequence removal on interested (HIGH, 1h) — most damaging UX gap
+  - PIPE-SIDE-01: isSideEffect + dedup classify_reply (MEDIUM, 30min)
+  - PIPE-DATA-01: Fix empty fromEmail/toEmail (MEDIUM, 15min)
+  - PIPE-SENT-01: Resolve phantom SENT status (MEDIUM, 30min)
+  - PIPE-CRM-01: Enrich CRM contact (MEDIUM, 1h)
+  - PIPE-TEST-01: Unit tests pipeline (HIGH, 3h)
+TASKS CONFIRMED DONE (2):
+  - T2-INT-01: Import CSV — implemented in pipeline-tools.ts (minor quoted-field gap)
+  - RES-02: Bounce auto-pause — fully implemented in bounce-guard.ts
+LEARNINGS:
+  - Webhook security is non-negotiable before production — fake bounce events can DoS campaigns via auto-pause
+  - The SENT status is orphaned: state machine allows PUSHED→SENT but no code path triggers it. All leads jump PUSHED→REPLIED
+  - Sequence removal is the #1 UX gap: interested leads keep getting follow-ups, which is worse than no pipeline
+  - classify_reply and webhook both transition PUSHED→REPLIED, creating race conditions and duplicate Reply records
+  - CRM push only sends 5 basic fields — all enrichment intelligence (pain points, tech stack, ICP score) is lost
+  - The pipeline went from 0/10 to 6/10 in ~48 hours — impressive velocity, now needs hardening
+NEXT: PIPE-SEC-01 (CRITICAL — webhook auth) then PIPE-SEQ-01 (HIGH — sequence removal)
+
+=== ITERATION 12 | 2026-03-09 18:05 UTC ===
+TASK: SUBJ-FIX-01 — Fix variant placeholder fallback bug (CRITICAL)
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED:
+  - src/server/lib/tools/instantly-tools.ts (extracted buildLeadCustomVars(), always set v2/v3 with fallback)
+  - tests/lead-custom-vars.test.ts (NEW: 10 tests)
+  - .claude/tasks/BACKLOG.md (SUBJ-FIX-01 checked)
+TESTS: 264/264 passed (non-LLM suite), 0 typecheck errors
+APPROACH:
+  - Extracted custom var building logic into pure exported function `buildLeadCustomVars()`
+  - v2/v3 now always set: uses variant[0]/variant[1] if available, else falls back to primary subject
+  - Prevents raw {{email_step_N_subject_v2}} from ever reaching Instantly as a subject line
+  - Test coverage: null variants, undefined variants, empty array, partial variants (1 only), full variants, all 6 steps, body handling, userEdit priority
+LEARNINGS:
+  - The old code used conditional `if (variants?.length)` which silently skipped setting v2/v3 when no variants existed
+  - Instantly renders unset custom variables as raw placeholder text — they do NOT fall back to empty string
+  - Extracting pure functions from tool execute() handlers makes them testable without mocking Prisma/API calls
+  - The `subjectVariants` field on DraftedEmail is typed as Prisma Json — needs `as string[] | null` cast at usage
+NEXT: SUBJ-FIX-02 (HIGH — draft_single_email drops subjects) or PIPE-SEC-01 (CRITICAL — webhook auth)

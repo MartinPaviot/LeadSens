@@ -56,7 +56,7 @@
 
 ### Intégrations Tier A bloquantes (STRATEGY §4.2)
 
-- [ ] **T2-INT-01** Import CSV *Audit 2026-03-09: import_leads_csv existe dans pipeline-tools.ts mais non vérifié en détail*
+- [x] **T2-INT-01** Import CSV ✅ *Audit 2026-03-09: import_leads_csv in pipeline-tools.ts:382-491. Multi-format (comma/semicolon/tab), field mapping FR+EN, dedup against existing leads, campaign assignment. Minor gap: quoted fields with embedded delimiters break.*
 - [ ] **T2-INT-02** Multi-ESP routing — RESTE À FAIRE
 - [x] **T2-INT-03** CRM push complet HubSpot ✅ *Audit 2026-03-09: crm_create_contact + crm_create_deal dans crm-tools.ts*
 
@@ -125,16 +125,7 @@
   - Test unitaire vérifie la détection de 3+ trigger words
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **RES-02** Auto-pause campagne sur bounce spike **(HIGH — Research D4)**
-  **Fichiers:** `src/app/api/webhooks/instantly/route.ts`, `src/server/lib/connectors/instantly.ts`
-  **Réf:** RESEARCH-DELIVERABILITY §8.6 D4, §8.1
-  **Impact:** Protège la réputation du domaine (bounce >2% détruit la campagne)
-  **PASS IF:**
-  - Webhook handler compte les bounces par campagne (compteur in-DB ou cache)
-  - Si bounce rate >3% après 50+ sends → auto-pause via Instantly API
-  - Notification agent dans le chat ("Campaign X auto-paused: 4.2% bounce rate")
-  - Test unitaire vérifie le threshold
-  - `pnpm typecheck && pnpm test` passent
+- [x] **RES-02** Auto-pause campagne sur bounce spike ✅ *Audit 2026-03-09: bounce-guard.ts — pure function shouldPauseCampaign() + checkAndPauseCampaign() called from webhook handler. 3% threshold after 50+ sends. Auto-pause via Instantly API + chat notification. Tests in bounce-guard.test.ts.*
 
 - [ ] **RES-03** Pre-campaign email verification gate **(HIGH — Research D3)**
   **Fichiers:** `src/server/lib/tools/instantly-tools.ts`
@@ -197,4 +188,382 @@
   - PHASE_ACTIVE/PHASE_PUSHING inclut 3-4 lignes de deliverability guidance
   - Agent conseille custom tracking domain + warmup status
   - Pas de token inflation (< 50 tokens ajoutés)
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT ENRICHMENT 2026-03-09 -->
+
+### Tâches ajoutées par audit enrichment 2026-03-09
+
+> Source: `.claude/findings/audit-enrichment.md`
+> Classées par impact + effort.
+
+- [ ] **ENR-BUG-01** Fix Apollo domain parameter bug **(HIGH — 10 min)**
+  **Fichiers:** `src/server/lib/connectors/apollo.ts`
+  **Réf:** audit-enrichment.md ISSUE 1
+  **Impact:** Apollo people/match envoie le domaine comme `organization_name` au lieu de `domain`. Résultats dégradés pour les users Apollo.
+  **PASS IF:**
+  - `apollo.ts:178` utilise `body.domain = params.domain` (pas `body.organization_name`)
+  - Test unitaire vérifie le body envoyé à l'API Apollo
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ENR-RECENCY-01** Signal recency weighting **(HIGH — 1 jour)**
+  **Fichiers:** `src/server/lib/enrichment/summarizer.ts`, `src/server/lib/enrichment/icp-scorer.ts`, `src/server/lib/email/prompt-builder.ts`
+  **Réf:** RESEARCH-LEAD-ENRICHMENT E3.1, audit-enrichment.md ISSUE 2
+  **Impact:** Triggers périmés dans les openers email nuisent à la crédibilité. Triggers récents (<3 mois) = 3-5x plus de replies.
+  **PASS IF:**
+  - `hiringSignals` et `fundingSignals` migrent de `string[]` vers `{detail: string, date: string|null, source: string|null}[]` (comme `leadershipChanges`)
+  - Fonction `signalAge(date: string|null): number` — <3mo=1.0, 3-6mo=0.7, 6-12mo=0.3, >12mo=0.1
+  - `computeSignalBoost()` pondère chaque signal par son recency score
+  - Schema Zod mis à jour avec backward-compat parsing (string → {detail: string, date: null, source: null})
+  - Tests unitaires pour signalAge + signal boost pondéré
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ENR-CACHE-01** Short TTL for failed scrapes **(MEDIUM — 30 min)**
+  **Fichiers:** `src/server/lib/enrichment/company-cache.ts`
+  **Réf:** audit-enrichment.md ISSUE 3
+  **Impact:** Échec Jina transitoire (429, timeout) bloque le domaine pendant 7 jours au lieu de réessayer.
+  **PASS IF:**
+  - Si `markdown` est null, TTL cache = 1 heure (pas 7 jours)
+  - Si `markdown` est non-null, TTL reste 7 jours
+  - `getOrScrapeCompany()` re-scrape les null expirés (>1h)
+  - Test unitaire vérifie les 2 TTL
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ENR-TEST-01** Tests unitaires scraper Jina **(MEDIUM — 2h)**
+  **Fichiers:** `tests/jina-scraper.test.ts` (NEW)
+  **Réf:** audit-enrichment.md ISSUE 4
+  **Impact:** Scraping multi-page (critical path) = 0 tests. Régressions invisibles.
+  **PASS IF:**
+  - Mock Jina responses (success, 404, 429, timeout, empty)
+  - Test `scrapeViaJina()` — 5 error types retournent le bon reason
+  - Test `scrapeWithFallbacks()` — retourne le premier succès, skip les fails
+  - Test `scrapeLeadCompany()` — combine homepage + sub-pages, truncation
+  - Minimum 10 tests
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ENR-TEST-02** Tests unitaires merge + resolveLeadUrl + cache **(MEDIUM — 1.5h)**
+  **Fichiers:** `tests/enrichment-merge.test.ts` (NEW)
+  **Réf:** audit-enrichment.md ISSUE 4
+  **Impact:** Merge logic (LinkedIn + Apollo + company data) et URL resolution = 0 tests.
+  **PASS IF:**
+  - Test `mergeLinkedInData()` — LinkedIn fields override nulls, preserve existing
+  - Test `mergeApolloData()` — Apollo fills gaps, doesn't overwrite
+  - Test `resolveLeadUrl()` — priority order (domain > website > LinkedIn), https prefix
+  - Test `summarizeEnrichmentQuality()` — thresholds rich/partial/minimal/none
+  - Minimum 12 tests
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ENR-TRUNC-01** Per-section char budget in multi-page scraper **(MEDIUM — 1h)**
+  **Fichiers:** `src/server/lib/connectors/jina.ts`
+  **Réf:** audit-enrichment.md ISSUE 5
+  **Impact:** Truncation naive à 15K coupe les pages les plus riches en signaux (careers, press) si homepage est longue.
+  **PASS IF:**
+  - Budget par section: homepage 4K, about 3K, blog 3K, careers 2.5K, press 2.5K = 15K total
+  - Chaque section tronquée indépendamment AVANT concaténation
+  - Test unitaire vérifie qu'aucune section ne déborde et que careers/press ne sont pas perdus
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ENR-COMPL-01** Enrichment completeness score stored on lead **(MEDIUM — 2h)**
+  **Fichiers:** `src/server/lib/enrichment/summarizer.ts`, `src/server/lib/tools/enrichment-tools.ts`, `prisma/schema.prisma`
+  **Réf:** RESEARCH-LEAD-ENRICHMENT E3.3, audit-enrichment.md ISSUE 6
+  **Impact:** Quality gate ne peut pas détecter les emails rédigés avec des données minces. Leads avec 3/18 champs = emails génériques.
+  **PASS IF:**
+  - `computeEnrichmentCompleteness(data: EnrichmentData): number` — count non-null/non-empty fields, return 0-1
+  - Score stocké sur Lead (nouveau champ `enrichmentCompleteness Float?`)
+  - Calculé et écrit dans batch + single enrichment
+  - Quality gate affiche warning si completeness < 0.4
+  - Test unitaire vérifie les seuils (0 fields = 0, all fields = 1.0)
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT SUBJECT LINES 2026-03-09 -->
+
+### Tâches ajoutées par audit subject lines 2026-03-09
+
+> Source: `.claude/findings/audit-subject-lines.md`
+> Classées par impact. SUBJ-FIX-01 is CRITICAL — prevents raw template text reaching prospects.
+
+- [x] **SUBJ-FIX-01** Fix variant placeholder fallback bug ✅ *2026-03-09: buildLeadCustomVars() always sets v2/v3 — falls back to primary subject. 10 tests in lead-custom-vars.test.ts.*
+
+- [ ] **SUBJ-FIX-02** Fix draft_single_email dropping subjects array **(HIGH — 15 min)**
+  **Fichiers:** `src/server/lib/tools/email-tools.ts`
+  **Réf:** audit-subject-lines.md ISSUE 2
+  **Impact:** Single-drafted emails lose A/B variants → pushed to Instantly with 1 subject instead of 3.
+  **PASS IF:**
+  - `draft_single_email` destructures `subjects` from `draftWithQualityGate()` return
+  - `subjectVariants` is written in the `prisma.draftedEmail.upsert()` call (both create and update)
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **SUBJ-VALID-01** Subject line length validation in quality gate **(MEDIUM — 30 min)**
+  **Fichiers:** `src/server/lib/email/quality-gate.ts`
+  **Réf:** audit-subject-lines.md ISSUE 4, RESEARCH-DELIVERABILITY §7.4
+  **Impact:** LLM may generate 6+ word or 50+ char subjects that violate constraints. No deterministic enforcement.
+  **PASS IF:**
+  - `draftWithQualityGate()` checks subject word count (>5 words) and char count (>50 chars) deterministically
+  - If violated, adds issue to quality score and triggers regeneration
+  - Does NOT auto-truncate (unsafe)
+  - Test unitaire vérifie la détection de long subjects
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **SUBJ-NUM-01** Add numbers guidance to subject patterns **(LOW — 15 min)**
+  **Fichiers:** `src/server/lib/email/prompt-builder.ts`
+  **Réf:** audit-subject-lines.md ISSUE 6, RESEARCH-DELIVERABILITY §7.4 (+45% open rate), RESEARCH-LANDSCAPE §R2.3 (+113% lift)
+  **Impact:** Research shows numbers in subjects significantly boost open rates.
+  **PASS IF:**
+  - Curiosity gap and Observation pattern examples include number variants (e.g., "3 SaaS teams switching to...", "47% of {{industry}} leaders...")
+  - A brief note added: "Include a concrete number when available — numbers boost open rates by +45%."
+  - Snapshot test updated
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT A/B TESTING 2026-03-09 -->
+
+### Tâches ajoutées par audit A/B testing 2026-03-09
+
+> Source: `.claude/findings/audit-ab-testing.md`
+> The A/B component is **write-only** — variants go out, zero data comes back.
+> AB-ATTR-01 is the #1 blocker: without variant-to-lead attribution, all downstream A/B optimization is impossible.
+> Dependency chain: AB-ATTR-01 → AB-CORR-01 → AB-REPORT-01 + RES-06 + AUDIT-04
+
+- [ ] **AB-ATTR-01** Variant-to-lead attribution via email sync **(CRITICAL — 3-4h)**
+  **Fichiers:** `src/queue/analytics-sync-worker.ts`, `src/server/lib/connectors/instantly.ts`, `prisma/schema.prisma`
+  **Réf:** audit-ab-testing.md ISSUE 1 + 2
+  **Impact:** Unblocks ALL A/B optimization. Without this, variant generation is wasted effort. This is the single blocker for RES-06, AUDIT-04, AB-CORR-01, AB-REPORT-01.
+  **PASS IF:**
+  - Analytics sync worker fetches sent emails per campaign (via Instantly `GET /emails` with `ue_type=1`)
+  - For each sent email, extracts `subject` and matches against `DraftedEmail.subject` + `subjectVariants`
+  - Stores `variantIndex` (0=primary, 1=v2, 2=v3) on `EmailPerformance` (new nullable `Int?` field)
+  - Handles the case where subject doesn't match any stored variant (fallback to null)
+  - Rate limited to avoid Instantly API throttling (500ms between pages)
+  - Test unitaire: given 3 variants + a sent email subject, correctly identifies variantIndex
+  - Prisma migration adds `variantIndex Int?` to EmailPerformance
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **AB-CORR-01** Correlator query for subject variant performance **(HIGH — 1h)**
+  **Fichiers:** `src/server/lib/analytics/correlator.ts`, `src/server/lib/analytics/insights.ts`
+  **Réf:** audit-ab-testing.md ISSUE 6 + 7
+  **Dépend de:** AB-ATTR-01
+  **Impact:** Enables "which variant won?" analysis per step. First step toward data-driven A/B.
+  **PASS IF:**
+  - `getReplyRateBySubjectVariant(workspaceId, campaignId, step)` query in correlator.ts
+  - Groups by `ep."variantIndex"`, returns sent/opened/replied/openRate/replyRate per variant
+  - Minimum 5 sent per variant to include (consistent with toCorrelationRows threshold)
+  - Joins with DraftedEmail to include actual subject text per variant
+  - Test unitaire vérifie la query avec des données mock
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **AB-REPORT-01** Variant performance in campaign report **(MEDIUM — 1h)**
+  **Fichiers:** `src/server/lib/analytics/insights.ts`, `src/server/lib/tools/analytics-tools.ts`
+  **Réf:** audit-ab-testing.md ISSUE 9
+  **Dépend de:** AB-CORR-01
+  **Impact:** Users see "Variant A: 22% open, Variant B: 15% open" in performance reports. Transparency on A/B results.
+  **PASS IF:**
+  - `getCampaignReport()` includes `variantBreakdown` section: per-step, per-variant (subject, sent, opened, replied, rates)
+  - Variants labeled with their actual subject text (not just "Variant 0/1/2")
+  - `campaign_performance_report` tool surfaces variant data to the agent
+  - Agent can recommend "Variant B outperforms A — consider using this pattern for future campaigns"
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT CADENCE & SEQUENCE 2026-03-09 -->
+
+### Tâches ajoutées par audit cadence & sequence 2026-03-09
+
+> Source: `.claude/findings/audit-cadence-sequence.md`
+> Score: 7.5/10 (target 7/10 ✅ dépassé). Gaps: reply-style format, Step 0 threshold, word count alignment, test coverage.
+
+- [ ] **CAD-REPLY-01** Reply-style format for Step 1 Value-add **(HIGH — 15 min)**
+  **Fichiers:** `src/server/lib/email/prompt-builder.ts`
+  **Réf:** RESEARCH-COLD-EMAIL-SCIENCE §3 (Step 2 "reply-style" = +30% lift), audit-cadence-sequence.md ISSUE 1
+  **Impact:** Research shows casual reply-style follow-ups outperform formal follow-ups by ~30% on Step 1 (first follow-up). This is the single highest-ROI prompt change for the cadence component.
+  **PASS IF:**
+  - Value-add (Step 1) framework instructions include reply-style opener guidance
+  - Instructions tell LLM: "Format as a casual reply to your previous email — NOT a formal new touchpoint"
+  - Example openers provided: "Quick follow-up on my note — thought this might be relevant:", "One more thing I forgot to mention:"
+  - Does NOT change the core Value-add content (insight/resource/case study) — only the framing
+  - Snapshot test updated if exists
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **CAD-THRESH-01** Differentiated quality gate threshold for Step 0 **(MEDIUM — 15 min)**
+  **Fichiers:** `src/server/lib/email/quality-gate.ts`
+  **Réf:** RESEARCH-COLD-EMAIL-SCIENCE §2 (58-79% replies from Step 0), audit-cadence-sequence.md ISSUE 3
+  **Impact:** Step 0 generates 58-79% of all replies. Uniform 7/10 threshold means mediocre first touches pass. Raising to 8/10 filters below-average first emails at ~$0.002/lead.
+  **PASS IF:**
+  - `draftWithQualityGate()` accepts `step` parameter (already available in `context`)
+  - Step 0 threshold = 8/10, all other steps = 7/10 (or configurable)
+  - MAX_RETRIES remains 2 (no extra cost for most emails)
+  - Test unitaire vérifie que Step 0 rejects score 7, Step 1+ accepts score 7
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **CAD-WORDS-01** Align word counts to STRATEGY + add deterministic enforcement **(MEDIUM — 30 min)**
+  **Fichiers:** `src/server/lib/email/prompt-builder.ts`, `src/server/lib/email/quality-gate.ts`
+  **Réf:** STRATEGY §7.2.2 (target word counts), RESEARCH consensus (<80 words), audit-cadence-sequence.md ISSUE 2 + 4
+  **Impact:** Steps 2 (80 vs target 60) and 5 (50 vs target 40) significantly exceed targets. No runtime enforcement — LLM can generate 120-word emails without detection.
+  **PASS IF:**
+  - maxWords in `getFramework()` aligned closer to STRATEGY: Step 0=85, Step 1=65, Step 2=70, Step 3=65, Step 4=50, Step 5=45 (compromise between STRATEGY targets and framework needs)
+  - `draftWithQualityGate()` adds deterministic word count check: `body.split(/\s+/).length > maxWords * 1.3` → adds issue to qualityScore + triggers regeneration
+  - `getFramework()` exported (already is) so quality gate can access maxWords for the step
+  - Test unitaire: 150-word body at Step 4 (maxWords=50) triggers word count violation
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **CAD-TEST-01** Unit tests for framework definitions, delays, CTA selection **(MEDIUM — 1.5h)**
+  **Fichiers:** `tests/cadence-sequence.test.ts` (NEW)
+  **Réf:** audit-cadence-sequence.md Test Coverage Assessment
+  **Impact:** Zero unit tests for framework definitions, delay logic, CTA selection, step annotations. A framework regression would go undetected.
+  **PASS IF:**
+  - Test `getFramework(0..5)` returns correct name, maxWords, non-empty instructions for each step
+  - Test `getFramework()` default case returns step 0 framework
+  - Snapshot test for all 6 framework names + maxWords (regression guard)
+  - Test `selectCta()` returns medium commitment for steps 0,2 and low commitment for steps 1,3,4,5
+  - Test `buildPreviousEmailsSection()` with 0, 1, 3 previous emails + truncation behavior
+  - Test `buildStepAnnotation()` with sufficient/insufficient sample sizes
+  - Test default delays [0,2,5,9,14,21] are used when not overridden
+  - Minimum 15 tests
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT FEEDBACK LOOP 2026-03-09 -->
+
+### Tâches ajoutées par audit feedback loop 2026-03-09
+
+> Source: `.claude/findings/audit-feedback-loop.md`
+> Score: 5/10 (target 5/10 ✅ atteint but fragile). Architecture excellent, data quality and coverage are the gaps.
+> Priority: FL-METRIC-01 and FL-GUARD-01 are the highest-impact fixes — they fix the FOUNDATION of the feedback loop.
+
+- [ ] **FL-METRIC-01** Correlator uses positive reply rate instead of raw reply count **(HIGH — 2h)**
+  **Fichiers:** `src/server/lib/analytics/correlator.ts`, `src/server/lib/email/style-learner.ts`
+  **Réf:** RESEARCH-FEEDBACK-LOOPS §FL-1, audit-feedback-loop.md ISSUE 1
+  **Impact:** Fixes the primary metric of the entire feedback loop. All 6 correlator queries, adaptive weights, winning patterns, and insights are currently polluted by negative replies ("stop emailing me" counted as positive signal). LeadSens already classifies replies into 6 interest levels — this data is NEVER used in correlation.
+  **PASS IF:**
+  - All 6 correlator queries replace `ep."replyCount" > 0` with a condition that considers `ep."replyAiInterest"` — only count as reply if `replyAiInterest IS NULL OR replyAiInterest >= 5` (positive or unclassified)
+  - `getWinningEmailPatterns()` also uses positive-only filter (join EmailPerformance.replyAiInterest)
+  - Backward compatible: leads with no reply classification (replyAiInterest IS NULL) still count as replies (graceful degradation for campaigns without classification)
+  - Test unitaire: dataset with positive + negative replies returns only positive in reply rate calculation
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **FL-GUARD-01** Negative reply spike auto-pause **(HIGH — 2h)**
+  **Fichiers:** `src/server/lib/analytics/reply-guard.ts` (NEW), `src/app/api/webhooks/instantly/route.ts`
+  **Réf:** RESEARCH-FEEDBACK-LOOPS §FL-3, Enginy AI: "stop immediately if complaints spike", audit-feedback-loop.md ISSUE 2
+  **Impact:** Protects domain reputation from spam complaint cascades. Complements existing bounce-guard.
+  **PASS IF:**
+  - Pure function: `shouldPauseOnNegativeReplies(totalSends, negativeReplyCount24h) → { shouldPause, rate }`
+  - Threshold: ≥3 negative replies (replyAiInterest < 3) within 24h AND ≥20 total sends
+  - `checkAndPauseOnReplies(campaignId)` — counts negative replies in last 24h from Reply table, auto-pauses via Instantly API
+  - Called from webhook handler after reply_received event IF `ai_interest_value` present and < 3
+  - Stores notification in conversation (same pattern as bounce-guard.ts)
+  - Test unitaire for pure function (below threshold, at threshold, above threshold)
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **FL-DRY-01** Extract shared analytics sync logic **(LOW — 1h)**
+  **Fichiers:** `src/server/lib/analytics/sync.ts` (NEW), `src/queue/analytics-sync-worker.ts`, `src/server/lib/tools/analytics-tools.ts`
+  **Réf:** audit-feedback-loop.md ISSUE 5
+  **Impact:** Eliminates copy-paste between worker (117 lines) and tool (124 lines). Bug fixes apply to both paths automatically.
+  **PASS IF:**
+  - `syncCampaignAnalytics(apiKey, campaignId, instantlyCampaignId)` extracted to `analytics/sync.ts`
+  - Function handles: (1) fetch+upsert overall analytics, (2) fetch+upsert step analytics, (3) paginate+upsert lead performance
+  - Both `analytics-sync-worker.ts` and `analytics-tools.ts:sync_campaign_analytics` call the shared function
+  - No logic duplication between the two callers
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **FL-TEST-01** Unit tests for feedback loop components **(MEDIUM — 3h)**
+  **Fichiers:** `tests/feedback-loop.test.ts` (NEW)
+  **Réf:** audit-feedback-loop.md ISSUE 6
+  **Impact:** 870 lines of untested feedback loop code. SQL query correctness, rate calculations, normalization, confidence thresholds, and pattern extraction are all unguarded.
+  **PASS IF:**
+  - Test `toCorrelationRows()` — filters rows with < 5 sent, computes correct openRate/replyRate
+  - Test `buildInsight()` — minimum 2 rows + 20 total sent required, correct top/bottom identification, correct confidence levels
+  - Test `getDataDrivenWeights()` — normalization to 0-10 scale, null if < 2 significant signal types, zero maxRate handling
+  - Test `getStepAnnotation()` — null if < 50 sent, correct isTop boolean
+  - Test `getWinningEmailPatterns()` — correct pattern key construction, frequency sorting, top 3 limit
+  - Test `captureStyleCorrection()` + `getStyleSamples()` — roundtrip with mock DB
+  - Minimum 20 tests
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT PIPELINE POST-LAUNCH 2026-03-09 -->
+
+### Tâches ajoutées par audit pipeline post-launch 2026-03-09
+
+> Source: `.claude/findings/audit-pipeline-post-launch.md`
+> Score: 6/10 (target 5/10 ✅ dépassé). Security and data integrity gaps prevent production-readiness.
+> PIPE-SEC-01 is CRITICAL — production blocker. PIPE-SEQ-01 is the most damaging UX gap.
+
+- [ ] **PIPE-SEC-01** Webhook HMAC authentication **(CRITICAL — 1h)**
+  **Fichiers:** `src/app/api/webhooks/instantly/route.ts`
+  **Réf:** audit-pipeline-post-launch.md ISSUE 1
+  **Impact:** Unauthenticated webhook = anyone can pause campaigns (fake bounces), pollute reply data, or transition leads. Production blocker.
+  **PASS IF:**
+  - `INSTANTLY_WEBHOOK_SECRET` env var added to `.env.example`
+  - If secret configured: verify HMAC-SHA256 of request body against signature header
+  - Invalid signature → 401 Unauthorized
+  - No secret configured → accept all events with console.warn (graceful degradation)
+  - Test: valid signature passes, invalid returns 401, missing secret accepts all
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PIPE-SEQ-01** Remove lead from Instantly sequence on INTERESTED/NOT_INTERESTED/MEETING_BOOKED **(HIGH — 1h)**
+  **Fichiers:** `src/server/lib/tools/pipeline-tools.ts`, `src/server/lib/connectors/instantly.ts`
+  **Réf:** STRATEGY §11.2 ("retrait de la séquence"), audit-pipeline-post-launch.md ISSUE 3
+  **Impact:** Interested leads continue receiving follow-up emails. Loses deals. Single most damaging UX gap.
+  **PASS IF:**
+  - After transitioning to INTERESTED, NOT_INTERESTED, or MEETING_BOOKED, calls Instantly API to remove lead from campaign
+  - Uses `POST /api/v2/leads/status` or equivalent to mark lead as "completed" in Instantly
+  - Best-effort: failure to remove from Instantly doesn't block the status transition
+  - Test: mock Instantly API call, verify it's called after INTERESTED transition
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PIPE-SIDE-01** Add isSideEffect to classify_reply + prevent duplicate Replies **(MEDIUM — 30 min)**
+  **Fichiers:** `src/server/lib/tools/pipeline-tools.ts`
+  **Réf:** audit-pipeline-post-launch.md ISSUE 4
+  **Impact:** classify_reply changes lead state without user confirmation. Duplicate Reply records from webhook + classify_reply race condition.
+  **PASS IF:**
+  - `classify_reply` has `isSideEffect: true`
+  - Before creating Reply record, check if a Reply with matching body (first 100 chars) exists in the thread within last 5 minutes — skip if duplicate
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PIPE-DATA-01** Fix empty fromEmail/toEmail in Reply records **(MEDIUM — 15 min)**
+  **Fichiers:** `src/server/lib/tools/pipeline-tools.ts`
+  **Réf:** audit-pipeline-post-launch.md ISSUE 5
+  **Impact:** Data integrity — Reply records from classify_reply and reply_to_email have empty email fields.
+  **PASS IF:**
+  - `classify_reply` line 199: `toEmail` set to `lead.email`
+  - `reply_to_email` line 365: `toEmail` set to lead's email (fetch from DB)
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PIPE-SENT-01** Resolve phantom SENT status **(MEDIUM — 30 min)**
+  **Fichiers:** `src/server/lib/lead-status.ts`, `src/queue/analytics-sync-worker.ts`
+  **Réf:** audit-pipeline-post-launch.md ISSUE 2
+  **Impact:** SENT status is defined in state machine but never triggered by any code path. Phantom state.
+  **PASS IF:**
+  - Option A: analytics-sync-worker transitions PUSHED→SENT when first EmailPerformance is created
+  - OR Option B: remove SENT, add PUSHED→REPLIED as valid transition
+  - No phantom states remain
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PIPE-CRM-01** Enrich CRM contact with pipeline data **(MEDIUM — 1h)**
+  **Fichiers:** `src/server/lib/tools/crm-tools.ts`
+  **Réf:** STRATEGY §11.3 Phase 6 ("toutes les données enrichies"), audit-pipeline-post-launch.md ISSUE 6
+  **Impact:** Sales team receives enrichment intelligence with the CRM contact.
+  **PASS IF:**
+  - `crm_create_contact` sends additional fields: industry, company website, LinkedIn URL, ICP score
+  - Enrichment notes (pain points, recent news) serialized into a notes property
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PIPE-TEST-01** Unit tests for lead-status state machine + webhook + CSV parser **(HIGH — 3h)**
+  **Fichiers:** `tests/pipeline-post-launch.test.ts` (NEW)
+  **Réf:** audit-pipeline-post-launch.md ISSUE 9
+  **Impact:** 1138 lines of zero-tested pipeline code controlling lead data integrity.
+  **PASS IF:**
+  - Test all valid transitions from VALID_TRANSITIONS (10+ cases)
+  - Test all invalid transitions throw (SOURCED→PUSHED, DRAFTED→REPLIED, etc.)
+  - Test batch transition with mixed valid/invalid leads
+  - Test CSV parser: comma/semicolon/tab detection, field mapping, dedup, empty rows, missing email
+  - Test `buildInsightSuggestions()`: bounce >5%, reply <5%, high performer
+  - Minimum 25 tests
   - `pnpm typecheck && pnpm test` passent

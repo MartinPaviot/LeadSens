@@ -6,6 +6,30 @@ import { parseICPv2, buildFilterSummary } from "./icp-parser";
 import type { ToolDefinition, ToolContext } from "./types";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
 
+/**
+ * Build custom variables for a lead's emails to push to Instantly.
+ * Exported for testing. Always sets v2/v3 subject vars to prevent
+ * raw {{placeholder}} text from being sent to prospects.
+ */
+export function buildLeadCustomVars(
+  emails: { step: number; subject: string; body: string; userEdit?: string | null; subjectVariants?: string[] | null }[],
+): Record<string, string> {
+  const customVars: Record<string, string> = {};
+  for (const email of emails) {
+    const rawBody = email.userEdit ?? email.body;
+    const htmlBody = rawBody.replace(/\n/g, "<br>");
+    customVars[`email_step_${email.step}_subject`] = email.subject;
+    customVars[`email_step_${email.step}_body`] = htmlBody;
+
+    // Always set v2/v3 custom vars — if no variants exist, fall back to primary subject
+    // to prevent Instantly rendering raw {{email_step_N_subject_v2}} placeholder text
+    const primarySubject = email.subject;
+    customVars[`email_step_${email.step}_subject_v2`] = email.subjectVariants?.[0] ?? primarySubject;
+    customVars[`email_step_${email.step}_subject_v3`] = email.subjectVariants?.[1] ?? primarySubject;
+  }
+  return customVars;
+}
+
 // Lightweight schema for tool parameters — Mistral only needs to know
 // "pass the search_filters object from parse_icp". The full searchFiltersSchema
 // validation happens inside parse_icp, not at the tool-call level.
@@ -513,22 +537,15 @@ export function createInstantlyTools(ctx: ToolContext): Record<string, ToolDefin
 
         let added = 0;
         for (const lead of safeToPush) {
-          const customVars: Record<string, string> = {};
-          for (const email of lead.emails) {
-            const rawBody = email.userEdit ?? email.body;
-            // Convert \n to <br> for Instantly HTML rendering
-            const htmlBody = rawBody.replace(/\n/g, "<br>");
-            customVars[`email_step_${email.step}_subject`] = email.subject;
-            customVars[`email_step_${email.step}_body`] = htmlBody;
-
-            // Subject variants for A/B testing
-            const variants = (email as Record<string, unknown>).subjectVariants as string[] | null;
-            if (variants?.length) {
-              variants.forEach((v, idx) => {
-                customVars[`email_step_${email.step}_subject_v${idx + 2}`] = v;
-              });
-            }
-          }
+          const customVars = buildLeadCustomVars(
+            lead.emails.map((e) => ({
+              step: e.step,
+              subject: e.subject,
+              body: e.body,
+              userEdit: e.userEdit,
+              subjectVariants: e.subjectVariants as string[] | null,
+            })),
+          );
 
           await client.createLead({
             email: lead.email,
