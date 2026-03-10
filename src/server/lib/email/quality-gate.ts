@@ -22,6 +22,42 @@ interface QualityGateContext {
   icpDescription?: string;
 }
 
+const SUBJECT_MAX_WORDS = 5;
+const SUBJECT_MAX_CHARS = 50;
+
+/**
+ * Check all subjects (primary + variants) for length violations.
+ * Prompt says "2-4 words, lowercase" — we allow up to 5 words with tolerance.
+ * Research recommends <50 chars for optimal open rates.
+ * Returns an issue string if violated, null if OK.
+ */
+export function checkSubjectLength(
+  primarySubject: string,
+  variants?: string[],
+): string | null {
+  const allSubjects = [primarySubject, ...(variants ?? [])].filter(Boolean);
+
+  const violations: string[] = [];
+  for (const subj of allSubjects) {
+    const words = subj
+      .split(/\s+/)
+      .filter((w) => w.length > 0).length;
+    const chars = subj.length;
+
+    if (words > SUBJECT_MAX_WORDS) {
+      violations.push(`"${subj}" has ${words} words (max ${SUBJECT_MAX_WORDS})`);
+    } else if (chars > SUBJECT_MAX_CHARS) {
+      violations.push(
+        `"${subj}" has ${chars} chars (max ${SUBJECT_MAX_CHARS})`,
+      );
+    }
+  }
+
+  if (violations.length === 0) return null;
+
+  return `Subject line too long: ${violations.join("; ")}. Subjects should be 2-4 words and under ${SUBJECT_MAX_CHARS} characters.`;
+}
+
 /**
  * Score a drafted email on 4 axes using Mistral Small.
  * Returns a structured score — caller decides what to do with it.
@@ -108,6 +144,9 @@ export async function draftWithQualityGate(params: {
     const wordCount = draft.body.split(/\s+/).filter((w) => w.length > 0).length;
     const wordCountExceeded = wordCount > fw.maxWords * 1.3;
 
+    // Deterministic subject line length check — prompt says 2-4 words, research says <50 chars
+    const subjectViolation = checkSubjectLength(draft.subject, draft.subjects);
+
     const score = await scoreEmail({
       subject: draft.subject,
       body: draft.body,
@@ -130,11 +169,22 @@ export async function draftWithQualityGate(params: {
       score.overall = Math.max(1, score.overall - 1);
     }
 
+    // Merge subject length violation into quality score
+    if (subjectViolation) {
+      score.issues = [...(score.issues ?? []), subjectViolation];
+      score.overall = Math.max(1, score.overall - 1);
+    }
+
     if (!bestResult || score.overall > bestResult.qualityScore.overall) {
       bestResult = { ...draft, qualityScore: score };
     }
 
-    if (score.overall >= minScore && !spamScan.flagged && !wordCountExceeded) {
+    if (
+      score.overall >= minScore &&
+      !spamScan.flagged &&
+      !wordCountExceeded &&
+      !subjectViolation
+    ) {
       // Return current clean result, not bestResult — bestResult may have violations
       return { ...draft, qualityScore: score };
     }

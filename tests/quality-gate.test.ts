@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getMinQualityScore, type QualityScore } from "@/server/lib/email/quality-gate";
+import {
+  getMinQualityScore,
+  checkSubjectLength,
+  type QualityScore,
+} from "@/server/lib/email/quality-gate";
 
 // Mock mistralClient BEFORE importing draftWithQualityGate
 vi.mock("@/server/lib/llm/mistral-client", () => ({
@@ -321,5 +325,171 @@ describe("draftWithQualityGate — word count enforcement", () => {
     expect(draftFn).toHaveBeenCalledTimes(2);
     expect(result.subject).toBe("short");
     expect(result.qualityScore.overall).toBe(7);
+  });
+});
+
+describe("checkSubjectLength", () => {
+  it("returns null for a valid 3-word subject", () => {
+    expect(checkSubjectLength("quick question here")).toBeNull();
+  });
+
+  it("returns null for a valid 2-word subject", () => {
+    expect(checkSubjectLength("your approach")).toBeNull();
+  });
+
+  it("returns null for exactly 5 words (max allowed)", () => {
+    expect(checkSubjectLength("a b c d e")).toBeNull();
+  });
+
+  it("flags a 6-word subject", () => {
+    const result = checkSubjectLength("this is way too many words");
+    expect(result).not.toBeNull();
+    expect(result).toContain("6 words");
+    expect(result).toContain("max 5");
+  });
+
+  it("flags a 10-word subject", () => {
+    const result = checkSubjectLength(
+      "i wanted to reach out and ask you about this"
+    );
+    expect(result).not.toBeNull();
+    expect(result).toContain("10 words");
+  });
+
+  it("returns null for subject under 50 chars and 5 words", () => {
+    // 5 words, 49 chars
+    expect(checkSubjectLength("abcdefghij abcdefghij abcdefghij abcdefghij abcd")).toBeNull();
+  });
+
+  it("flags a subject over 50 chars even if word count is OK", () => {
+    // 4 words but >50 chars
+    const longSubject = "abcdefghijklm abcdefghijklm abcdefghijklm abcdefghijklm";
+    expect(longSubject.length).toBeGreaterThan(50);
+    const result = checkSubjectLength(longSubject);
+    expect(result).not.toBeNull();
+    expect(result).toContain("chars");
+    expect(result).toContain("max 50");
+  });
+
+  it("checks all variants and flags any violation", () => {
+    const result = checkSubjectLength("good sub", [
+      "also ok",
+      "this one is way too long and wordy for a subject line",
+    ]);
+    expect(result).not.toBeNull();
+    expect(result).toContain("too long and wordy");
+  });
+
+  it("returns null when all variants are valid", () => {
+    expect(
+      checkSubjectLength("main sub", ["variant two", "variant three"])
+    ).toBeNull();
+  });
+
+  it("flags multiple violations across primary and variants", () => {
+    const result = checkSubjectLength(
+      "this is a really long subject line here",
+      ["another really long subject line here too"]
+    );
+    expect(result).not.toBeNull();
+    // Both violations should be mentioned
+    expect(result).toContain(";");
+  });
+
+  it("handles empty variants array", () => {
+    expect(checkSubjectLength("ok sub", [])).toBeNull();
+  });
+
+  it("handles undefined variants", () => {
+    expect(checkSubjectLength("ok sub")).toBeNull();
+  });
+});
+
+describe("draftWithQualityGate — subject length enforcement", () => {
+  const baseContext = {
+    leadName: "John Doe",
+    leadJobTitle: "CTO",
+    leadCompany: "Acme Corp",
+  };
+
+  const makeScore = (overall: number): QualityScore => ({
+    relevance: overall,
+    specificity: overall,
+    formatting: overall,
+    coherence: overall,
+    overall,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("6-word subject triggers retry even with high LLM score", async () => {
+    const longSubject = "this is way too many words";
+    const shortSubject = "quick idea";
+
+    const draftFn = vi
+      .fn()
+      .mockResolvedValueOnce({ subject: longSubject, body: "short body" })
+      .mockResolvedValueOnce({ subject: shortSubject, body: "short body" });
+
+    vi.mocked(mistralClient.json)
+      .mockResolvedValueOnce(makeScore(9)) // penalized to 8
+      .mockResolvedValueOnce(makeScore(8)); // passes
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 1 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(2);
+    expect(result.subject).toBe(shortSubject);
+    expect(result.qualityScore.overall).toBe(8);
+  });
+
+  it("long variant triggers retry", async () => {
+    const draftFn = vi
+      .fn()
+      .mockResolvedValueOnce({
+        subject: "ok",
+        subjects: ["ok", "also fine", "this one is way too long for a subject"],
+        body: "body",
+      })
+      .mockResolvedValueOnce({
+        subject: "ok",
+        subjects: ["ok", "fine", "good"],
+        body: "body",
+      });
+
+    vi.mocked(mistralClient.json)
+      .mockResolvedValueOnce(makeScore(9))
+      .mockResolvedValueOnce(makeScore(8));
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 2 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(2);
+    expect(result.qualityScore.overall).toBe(8);
+  });
+
+  it("valid 4-word subject passes without retry", async () => {
+    const draftFn = vi
+      .fn()
+      .mockResolvedValueOnce({ subject: "your team hiring", body: "body" });
+
+    vi.mocked(mistralClient.json).mockResolvedValueOnce(makeScore(8));
+
+    const result = await draftWithQualityGate({
+      draftFn,
+      context: { ...baseContext, step: 0 },
+      workspaceId: "ws-1",
+    });
+
+    expect(draftFn).toHaveBeenCalledTimes(1);
+    expect(result.qualityScore.overall).toBe(8);
   });
 });
