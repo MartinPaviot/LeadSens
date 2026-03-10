@@ -50,7 +50,7 @@ AXES:
 
 OVERALL: weighted average (relevance 35%, specificity 30%, formatting 15%, coherence 20%).
 
-If overall < 7, list the specific issues in "issues" array.
+If overall < ${context.step === 0 ? 8 : 7}, list the specific issues in "issues" array. ${context.step === 0 ? "Step 0 is the first touch — it generates 60-80% of all replies. Be strict." : ""}
 
 JSON only: {"relevance":N,"specificity":N,"formatting":N,"coherence":N,"overall":N,"issues":["..."]}`,
     prompt: `PROSPECT: ${context.leadName} — ${context.leadJobTitle ?? "unknown role"} at ${context.leadCompany ?? "unknown company"}
@@ -65,8 +65,17 @@ ${body}`,
   });
 }
 
-const MIN_QUALITY_SCORE = 7;
+/**
+ * Step 0 generates 58-79% of all replies (Instantly + Sales.co data).
+ * A higher threshold filters mediocre first touches at ~$0.002/lead extra cost.
+ */
+const STEP_0_QUALITY_SCORE = 8;
+const DEFAULT_QUALITY_SCORE = 7;
 const MAX_RETRIES = 2;
+
+export function getMinQualityScore(step: number): number {
+  return step === 0 ? STEP_0_QUALITY_SCORE : DEFAULT_QUALITY_SCORE;
+}
 
 interface DraftResult {
   subject: string;
@@ -75,7 +84,8 @@ interface DraftResult {
 }
 
 /**
- * Draft an email with quality gate: if score < 7, regenerate up to MAX_RETRIES times.
+ * Draft an email with quality gate: if score < threshold, regenerate up to MAX_RETRIES times.
+ * Step 0 threshold = 8/10 (first touch dominance), all others = 7/10.
  * Returns the best result (highest overall score).
  */
 export async function draftWithQualityGate(params: {
@@ -83,6 +93,7 @@ export async function draftWithQualityGate(params: {
   context: QualityGateContext;
   workspaceId: string;
 }): Promise<DraftResult & { qualityScore: QualityScore }> {
+  const minScore = getMinQualityScore(params.context.step);
   let bestResult: (DraftResult & { qualityScore: QualityScore }) | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -110,12 +121,12 @@ export async function draftWithQualityGate(params: {
       bestResult = { ...draft, qualityScore: score };
     }
 
-    if (score.overall >= MIN_QUALITY_SCORE && !spamScan.flagged) {
+    if (score.overall >= minScore && !spamScan.flagged) {
       return bestResult;
     }
 
     console.log(
-      `[quality-gate] ${params.context.leadName} step ${params.context.step}: score ${score.overall}/10 (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
+      `[quality-gate] ${params.context.leadName} step ${params.context.step}: score ${score.overall}/${minScore} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
       score.issues?.join(", ") ?? "",
     );
   }
