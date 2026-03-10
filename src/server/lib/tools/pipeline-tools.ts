@@ -12,6 +12,37 @@ import { transitionLeadStatus } from "@/server/lib/lead-status";
 import { updateLeadInterestStatus } from "@/server/lib/connectors/instantly";
 import type { ToolDefinition, ToolContext } from "./types";
 
+// ─── Reply Dedup ────────────────────────────────────────
+
+/** Window in ms to consider a Reply as duplicate (5 minutes). */
+export const REPLY_DEDUP_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Check if a Reply with matching body already exists in a thread within the dedup window.
+ * Compares the first 100 characters of the body to handle minor trailing whitespace differences.
+ */
+export async function isDuplicateReply(
+  threadId: string,
+  body: string,
+  direction: "INBOUND" | "OUTBOUND",
+): Promise<boolean> {
+  const bodyPrefix = body.slice(0, 100);
+  const windowStart = new Date(Date.now() - REPLY_DEDUP_WINDOW_MS);
+
+  const existing = await prisma.reply.findFirst({
+    where: {
+      threadId,
+      direction,
+      sentAt: { gte: windowStart },
+    },
+    select: { body: true },
+    orderBy: { sentAt: "desc" },
+  });
+
+  if (!existing) return false;
+  return existing.body.slice(0, 100) === bodyPrefix;
+}
+
 // ─── Helpers ────────────────────────────────────────────
 
 async function getInstantlyApiKey(workspaceId: string): Promise<string | null> {
@@ -166,6 +197,7 @@ export function createPipelineTools(ctx: ToolContext): Record<string, ToolDefini
     classify_reply: {
       name: "classify_reply",
       description: "Classify a reply email to determine interest level and suggested next action. Updates lead status automatically.",
+      isSideEffect: true,
       parameters: z.object({
         lead_id: z.string().describe("Lead ID"),
         campaign_id: z.string().optional().describe("Campaign ID"),
@@ -239,20 +271,23 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
             },
           });
 
-          // Store the reply
-          await prisma.reply.create({
-            data: {
-              threadId: thread.id,
-              direction: "INBOUND",
-              fromEmail: args.reply_from ?? lead.email,
-              toEmail: lead.email,
-              body: args.reply_content,
-              preview: args.reply_content.slice(0, 200),
-              instantlyEmailId: null,
-              aiInterest: result.interest_score,
-              sentAt: new Date(),
-            },
-          });
+          // Store the reply (skip if duplicate from webhook race condition)
+          const duplicate = await isDuplicateReply(thread.id, args.reply_content, "INBOUND");
+          if (!duplicate) {
+            await prisma.reply.create({
+              data: {
+                threadId: thread.id,
+                direction: "INBOUND",
+                fromEmail: args.reply_from ?? lead.email,
+                toEmail: lead.email,
+                body: args.reply_content,
+                preview: args.reply_content.slice(0, 200),
+                instantlyEmailId: null,
+                aiInterest: result.interest_score,
+                sentAt: new Date(),
+              },
+            });
+          }
         }
 
         // Transition lead status based on classification
