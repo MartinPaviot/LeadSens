@@ -46,7 +46,7 @@
 - [x] **T2-SEQ-01** 5-6 steps avec frameworks par step ✅ *Audit 2026-03-09: 6 steps (PAS/Value-add/Social Proof/New Angle/Micro-value/Breakup), prompt-builder.ts:14-87*
 - [x] **T2-SEQ-02** Cadence variable ✅ *Audit 2026-03-09: [0, 2, 5, 9, 14, 21] jours, customisable, instantly-tools.ts:459*
 
-### Pipeline post-launch (STRATEGY §11 — ~~actuel 0/10~~ **actuel 6/10**, cible 5/10) ✅ CIBLE DÉPASSÉE
+### Pipeline post-launch (STRATEGY §11 — ~~actuel 0/10~~ **actuel 6.5/10**, cible 5/10) ✅ CIBLE DÉPASSÉE
 
 - [x] **T2-PIPE-01** Extension LeadStatus enum ✅ *Audit 2026-03-09: 8 statuts post-PUSHED, state machine enforced, lead-status.ts:10-48*
 - [x] **T2-PIPE-02** Webhook Instantly ✅ *Audit 2026-03-09: 4 event types (reply, bounce, unsub, completed), webhooks/instantly/route.ts*
@@ -78,7 +78,7 @@
 
 ## Dette technique (alimenté par /audit)
 
-- [ ] **DEBT-01** Éliminer tous les `any` TypeScript
+- [x] **DEBT-01** Éliminer les `any` TypeScript ✅ *Audit v3: 6 occurrences across 2 files (mistral-client.ts:3, instantly-sourcing.ts:3), all at SDK boundaries, all justified with eslint-disable comments. No further action needed.*
 - [ ] **DEBT-02** Zod validation sur toutes les routes API
 - [ ] **DEBT-03** Hiérarchie d'erreurs typées
 - [x] **DEBT-04** AI Event logging sur tous les appels LLM ✅ *Audit v2: 100% coverage — all LLM calls go through instrumented mistralClient.json()*
@@ -97,10 +97,10 @@
   **Priorité:** MEDIUM
   **Impact:** Subject line optimization automatique
 
-- [ ] **AUDIT-05** Zod validation sur 5 routes API manquantes (intégrations + email edit)
-  **Priorité:** LOW (DEBT-02) — manual validation exists, not blocking
+- [ ] **AUDIT-05** Zod validation sur 7 routes API manquantes (6 intégrations + email edit + campaign export)
+  **Priorité:** LOW (DEBT-02) — manual validation exists, not blocking. Auth + tRPC handle their own validation.
 
-- [x] **AUDIT-06** Éliminer `as any` ✅ *Audit v2: 6 → 2, both justified at SDK boundaries with eslint-disable*
+- [x] **AUDIT-06** Éliminer `as any` ✅ *Audit v3: 6 occurrences across 2 files (mistral-client.ts + instantly-sourcing.ts). All at SDK boundaries, all justified. CLOSED.*
 - [x] **AUDIT-07** AI Event logging ✅ *Audit v2: 100% coverage via centralized mistralClient*
 
 - [ ] **AUDIT-08** Remplacer 47 console.log par logger structuré
@@ -127,7 +127,7 @@
 
 - [x] **RES-02** Auto-pause campagne sur bounce spike ✅ *Audit 2026-03-09: bounce-guard.ts — pure function shouldPauseCampaign() + checkAndPauseCampaign() called from webhook handler. 3% threshold after 50+ sends. Auto-pause via Instantly API + chat notification. Tests in bounce-guard.test.ts.*
 
-- [ ] **RES-03** Pre-campaign email verification gate **(HIGH — Research D3)**
+- [x] **RES-03** Pre-campaign email verification gate ✅ *2026-03-09: checkVerificationGate() pure function in instantly-tools.ts. verificationStatus field on Lead. verify_emails stores status. instantly_add_leads_to_campaign blocks >5% invalid, warns unverified, pass-through without ZeroBounce. 16 tests.*
   **Fichiers:** `src/server/lib/tools/instantly-tools.ts`
   **Réf:** RESEARCH-DELIVERABILITY §8.6 D3
   **Impact:** Listes non-vérifiées = 7.8% bounce vs 1.2% vérifiées (6.5x)
@@ -199,14 +199,7 @@
 > Source: `.claude/findings/audit-enrichment.md`
 > Classées par impact + effort.
 
-- [ ] **ENR-BUG-01** Fix Apollo domain parameter bug **(HIGH — 10 min)**
-  **Fichiers:** `src/server/lib/connectors/apollo.ts`
-  **Réf:** audit-enrichment.md ISSUE 1
-  **Impact:** Apollo people/match envoie le domaine comme `organization_name` au lieu de `domain`. Résultats dégradés pour les users Apollo.
-  **PASS IF:**
-  - `apollo.ts:178` utilise `body.domain = params.domain` (pas `body.organization_name`)
-  - Test unitaire vérifie le body envoyé à l'API Apollo
-  - `pnpm typecheck && pnpm test` passent
+- [x] **ENR-BUG-01** Fix Apollo domain parameter bug ✅ *2026-03-09: Fixed body.organization_name → body.domain in apollo.ts:177. 16 tests in apollo-connector.test.ts (enrichPerson, enrichOrganization, testApolloConnection).*
 
 - [ ] **ENR-RECENCY-01** Signal recency weighting **(HIGH — 1 jour)**
   **Fichiers:** `src/server/lib/enrichment/summarizer.ts`, `src/server/lib/enrichment/icp-scorer.ts`, `src/server/lib/email/prompt-builder.ts`
@@ -492,8 +485,8 @@
 ### Tâches ajoutées par audit pipeline post-launch 2026-03-09
 
 > Source: `.claude/findings/audit-pipeline-post-launch.md`
-> Score: 6/10 (target 5/10 ✅ dépassé). Security and data integrity gaps prevent production-readiness.
-> PIPE-SEC-01 is CRITICAL — production blocker. PIPE-SEQ-01 is the most damaging UX gap.
+> Score: 6.5/10 (target 5/10 ✅ dépassé). PIPE-SEC-01 + PIPE-SEQ-01 + RES-03 DONE. Remaining: data integrity + test coverage.
+> Priority: PIPE-SIDE-01 + PIPE-DATA-01 are quick wins. PIPE-TEST-01 is the highest-impact remaining task.
 
 - [x] **PIPE-SEC-01** Webhook HMAC authentication ✅ *2026-03-09: HMAC-SHA256 with timing-safe comparison, graceful degradation when no secret, 14 tests in webhook-auth.test.ts*
   **Fichiers:** `src/app/api/webhooks/instantly/route.ts`

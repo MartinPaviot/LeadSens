@@ -174,7 +174,7 @@ export async function enrichPerson(
     if (params.email) body.email = params.email;
     if (params.firstName) body.first_name = params.firstName;
     if (params.lastName) body.last_name = params.lastName;
-    if (params.domain) body.organization_name = params.domain;
+    if (params.domain) body.domain = params.domain;
     if (params.linkedinUrl) body.linkedin_url = params.linkedinUrl;
 
     const raw = await apolloFetch(apiKey, "/v1/people/match", "POST", body);

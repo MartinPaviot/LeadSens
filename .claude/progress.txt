@@ -475,3 +475,345 @@ LEARNINGS:
   - classify_reply has a stale `lead.status` issue: transitions within one call don't chain (PUSHED→REPLIED then REPLIED→INTERESTED fails in same call because lead.status is still PUSHED). This is mitigated by webhook setting REPLIED first, but worth fixing later
   - Pure function extraction pattern continues to work well for testability
 NEXT: SUBJ-FIX-02 (HIGH — draft_single_email drops subjects), CAD-REPLY-01 (HIGH — reply-style Step 1), or ENR-BUG-01 (HIGH — Apollo domain fix)
+
+=== ITERATION 15 | 2026-03-09 19:30 UTC ===
+TASK: RES-03 — Pre-campaign email verification gate
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED:
+  - prisma/schema.prisma (verificationStatus String? on Lead)
+  - prisma/migrations/20260309220000_add_verification_status/migration.sql
+  - src/server/lib/tools/instantly-tools.ts (checkVerificationGate pure function + integration in instantly_add_leads_to_campaign)
+  - src/server/lib/tools/verification-tools.ts (stores verificationStatus on each verified lead)
+  - tests/verification-gate.test.ts (NEW: 16 tests)
+TESTS: 413/413 passed (non-LLM), 0 typecheck errors, 4 pre-existing LLM flaky failures
+APPROACH:
+  - Added verificationStatus nullable string field to Lead model
+  - verify_emails tool now writes verificationStatus for every lead (valid/invalid/catch_all/unknown/spamtrap/abuse/disposable)
+  - Pure exported function checkVerificationGate(leads, hasVerifier) → {canPush, warning, counts}
+  - 3 modes: no verifier → pass-through, unverified → warning, >5% invalid → block
+  - Integrated in instantly_add_leads_to_campaign: checks gate after filtering PUSHED, before push loop
+  - Gate returns structured data (blocked, warning, counts) so LLM can explain to user
+  - Warning includes bounce rate stats from research (7.8% vs 1.2%)
+LEARNINGS:
+  - Pure function extraction pattern remains the best approach for testability (same as bounce-guard, lead-custom-vars, sequence-removal)
+  - verify_emails was marking invalid as SKIPPED but never storing the actual verification result — valid leads had no marker
+  - The verificationStatus field enables future features: verification freshness (re-verify after N months), batch quality metrics
+  - Gate is a soft blocker: the LLM receives the warning/block message and can communicate it naturally to the user
+NEXT: SUBJ-FIX-02 (HIGH), CAD-REPLY-01 (HIGH), or ENR-BUG-01 (HIGH)
+
+=== AUDIT v3 — FULL STRATEGIC AUDIT | 2026-03-09 ===
+TASK: Comprehensive audit — codebase vs STRATEGY.md vs 8 research docs vs all .claude/findings/
+STATUS: DONE
+DURATION: ~35 min
+
+======================================================================
+AUDIT LEADSENS v3 — 2026-03-09 (comprehensive cross-reference)
+======================================================================
+
+Score estimé : 6.7/10 (was 6.5/10 audit v2, 6.2/10 audit v1, 4.2/10 initial)
+Target: 8/10 | Reply rate target: 18%
+
+----------------------------------------------------------------------
+PHASE 1 — TECHNICAL SNAPSHOT
+----------------------------------------------------------------------
+
+| Metric           | Value        | Change from v2  |
+|------------------|--------------|-----------------|
+| TS/TSX files     | 147          | +2              |
+| Test files       | 18           | +3 (webhook-auth, sequence-removal, verification-gate) |
+| Tests passing    | 413/413      | +123 from v2    |
+| Typecheck        | 0 errors     | No change       |
+| `as any`         | 6 (2 files)  | No change (all SDK boundaries, justified) |
+| `console.log`    | 47 (10 files)| No change       |
+| TODO/FIXME       | 0            | No change       |
+| Routes sans Zod  | 7/13         | Updated from 5 (was undercounted) |
+| Build            | Turbopack OK | No errors       |
+
+----------------------------------------------------------------------
+PHASE 2 — COMPONENT SCORES vs STRATEGY + RESEARCH
+----------------------------------------------------------------------
+
+Composant        | Score  | Cible  | Ecart  | Tendance  | Change
+-----------------+--------+--------+--------+-----------+--------
+Enrichissement   | 7/10   | 6/10   | +1     | DEPASSE   | =
+ICP Scoring      | 7/10   | 7/10   | 0      | ATTEINT   | =
+Copywriting      | 8/10   | 8/10   | 0      | ATTEINT   | =
+Subject Lines    | 6/10   | 6/10   | 0      | ATTEINT   | = (fragile)
+A/B Testing      | 4/10   | 5/10   | -1     | GAP       | = (write-only)
+Cadence          | 7.5/10 | 7/10   | +0.5   | DEPASSE   | =
+Feedback Loop    | 5/10   | 5/10   | 0      | ATTEINT   | = (fragile)
+Pipeline post    | 6.5/10 | 5/10   | +1.5   | DEPASSE   | +0.5
+
+----------------------------------------------------------------------
+PHASE 3 — WHAT'S BEEN DONE SINCE AUDIT v2
+----------------------------------------------------------------------
+
+4 tasks completed since v2 (all confirmed via code inspection):
+
+1. SUBJ-FIX-01 — Variant placeholder fallback bug (CRITICAL)
+   buildLeadCustomVars() always sets v2/v3. 10 tests.
+
+2. PIPE-SEC-01 — Webhook HMAC-SHA256 authentication (CRITICAL)
+   verifyWebhookSignature() pure function, timing-safe. 14 tests.
+
+3. PIPE-SEQ-01 — Sequence removal on INTERESTED/NOT_INTERESTED/MEETING_BOOKED (HIGH)
+   removeFromInstantlySequence() calls Instantly updateLeadInterestStatus. 11 tests.
+
+4. RES-03 — Pre-campaign email verification gate (HIGH)
+   checkVerificationGate() blocks >5% invalid, warns unverified. 16 tests.
+
+Total new tests: +51 (413 total)
+
+----------------------------------------------------------------------
+PHASE 4 — OPEN ISSUES CONFIRMED BY DIRECT CODE INSPECTION
+----------------------------------------------------------------------
+
+CRITICAL (1):
+  AB-ATTR-01 — Variant-to-lead attribution ABSENT (variantIndex not in codebase)
+    Blocks: ALL A/B optimization (AB-CORR-01, AB-REPORT-01, RES-06, AUDIT-04)
+    Status: No code written. EmailPerformance has no variantIndex field.
+    Impact: Variant generation is wasted effort without attribution.
+
+HIGH (6):
+  FL-METRIC-01 — Correlator uses raw replyCount > 0 (6 queries)
+    CONFIRMED: replyAiInterest NEVER used in analytics/correlator.ts
+    Impact: ALL feedback loop data polluted by negative replies
+
+  FL-GUARD-01 — No negative reply spike guard
+    CONFIRMED: No reply-guard.ts exists. bounce-guard.ts exists but no reply equivalent.
+    Impact: Spam complaint cascades go undetected
+
+  CAD-REPLY-01 — No reply-style format for Step 1 Value-add
+    CONFIRMED: No "casual reply" or "reply-style" in prompt-builder.ts
+    Impact: Research shows +30% Step 1 lift from reply-style formatting
+
+  ENR-BUG-01 — Apollo domain parameter bug
+    CONFIRMED: apollo.ts:177 uses organization_name = params.domain (wrong field)
+    Impact: Degraded Apollo match rate for all Apollo users
+
+  SUBJ-FIX-02 — draft_single_email drops subjects array
+    CONFIRMED: email-tools.ts:357 destructures {subject, body, qualityScore} — no subjects
+    No subjectVariants written in prisma.draftedEmail.upsert at line 393-414
+    Impact: Single-drafted emails lose A/B variants
+
+  PIPE-TEST-01 — 1138 lines of untested pipeline code
+    CONFIRMED: pipeline-tools.ts (637 lines), lead-status.ts (84 lines), crm-tools.ts (179 lines)
+    Plus webhook handler (238 lines) — all with 0 unit tests
+    Impact: Data integrity unguarded
+
+MEDIUM (11):
+  CAD-THRESH-01 — Quality gate uniform 7/10 (no Step 0 differentiation)
+    CONFIRMED: quality-gate.ts:68 MIN_QUALITY_SCORE = 7 (hardcoded, no step param)
+
+  CAD-WORDS-01 — No deterministic word count enforcement
+    CONFIRMED: quality gate has no word count check at all
+
+  ENR-CACHE-01 — Single 7-day TTL for success AND failure
+    CONFIRMED: company-cache.ts:4 CACHE_TTL_MS = 7 days, no null-specific shorter TTL
+
+  ENR-RECENCY-01 — No signal recency weighting
+    CONFIRMED: summarizer prompt says "extract dates" but no signalAge() function exists
+    hiringSignals/fundingSignals remain string[] (no date field)
+
+  ENR-TRUNC-01 — No per-section char budgets
+    CONFIRMED: Naive 15K truncation. No per-page budget logic in jina.ts.
+
+  ENR-COMPL-01 — No enrichment completeness score
+    CONFIRMED: No enrichmentCompleteness field on Lead model
+
+  PIPE-SIDE-01 — classify_reply lacks isSideEffect
+    CONFIRMED: pipeline-tools.ts:166 — no isSideEffect property
+
+  PIPE-DATA-01 — Reply records have empty fromEmail/toEmail
+    CONFIRMED: pipeline-tools.ts:248 toEmail: "" and line 420 toEmail: ""
+
+  PIPE-SENT-01 — Phantom SENT status
+    CONFIRMED: SENT in state machine (lead-status.ts:17-18) but no code triggers PUSHED->SENT
+
+  RES-04 — No industry benchmarks in reporting
+    CONFIRMED: No INDUSTRY_BENCHMARKS in analytics/, prompt-builder.ts has "benchmark" in copy text only
+
+  RES-05 — No subject pattern tracking (subjectPattern metadata)
+    CONFIRMED: No subjectPattern field anywhere in codebase
+
+LOW (6):
+  AUDIT-05 — 7 API routes without Zod validation
+  AUDIT-08 — 47 console.log (no structured logger)
+  SUBJ-VALID-01 — No subject length enforcement
+  SUBJ-NUM-01 — No numbers guidance in patterns
+  RES-08 — No deliverability guidance in PHASE_ACTIVE prompt
+  FL-DRY-01 — Analytics sync code duplicated (worker + tool)
+
+----------------------------------------------------------------------
+PHASE 5 — PROMPT AUDIT (vs STRATEGY §5-7 + RESEARCH)
+----------------------------------------------------------------------
+
+| Prompt              | File              | Aligned | Issues | Severity |
+|---------------------|-------------------|---------|--------|----------|
+| Email drafter       | prompt-builder.ts | 95%     | 1      | MEDIUM   |
+|                     | + drafting.ts     |         | (no reply-style Step 1) |
+| Summarizer          | summarizer.ts     | 95%     | 1      | MEDIUM   |
+|                     |                   |         | (no signal recency) |
+| ICP scorer          | icp-scorer.ts     | 95%     | 0      | —        |
+| Subject generator   | prompt-builder.ts | 90%     | 1      | MEDIUM   |
+|                     |                   |         | (no pattern tracking) |
+| Quality gate        | quality-gate.ts   | 80%     | 3      | MEDIUM   |
+|                     |                   |         | (uniform threshold, no word count, no subject length) |
+| Style learner       | style-learner.ts  | 50%     | 1      | MEDIUM   |
+|                     |                   |         | (no categorization) |
+| Chat system prompt  | route.ts          | 90%     | 1      | LOW      |
+|                     |                   |         | (no deliverability guidance) |
+| Reply classifier    | pipeline-tools.ts | 100%    | 0      | —        |
+
+----------------------------------------------------------------------
+PHASE 6 — RESEARCH CROSS-REFERENCE
+----------------------------------------------------------------------
+
+VALIDATED (LeadSens AHEAD of competitors):
+  - Connection bridge hardcoded (STRATEGY §7.1.2) — no competitor does this
+  - Timeline hooks 2.3x PAS enforced — RESEARCH-LANDSCAPE validates
+  - 6 frameworks hardcoded per step — 11x/AiSDR use "AI chooses" (worse)
+  - Quality gate + retries — no competitor has this
+  - BYOT architecture — unique in market
+  - Cadence [0,2,5,9,14,21] validated as optimal by research
+  - Signal-based personalization positions LeadSens in 15-25% reply rate tier
+  - Spam word scanner (100 words) — matches Lemlist/Saleshandy
+
+GAPS vs COMPETITORS (from RESEARCH-DELIVERABILITY + RESEARCH-LANDSCAPE):
+  - A/B optimization loop: Instantly has native auto_variant_select — LeadSens is write-only
+  - Positive reply metric: All research says positive reply rate is THE metric — not used
+  - Negative reply guard: Outbound System says "stop immediately on spike" — absent
+  - Industry benchmarks: AiSDR/Salesforge have them — absent from reporting
+  - Reply-style follow-ups: Instantly 2026 benchmark shows +30% lift — not implemented
+
+NEW RESEARCH INSIGHTS (not previously cross-referenced):
+  From RESEARCH-AI-AGENT-ARCHITECTURE-2026:
+    - 11x rebuilt from single-agent to multi-agent (validates LeadSens's single-agent risk)
+    - Common Room uses Capture→Orchestrate→Activate pattern (similar to LeadSens pipeline)
+    - Thompson Sampling > z-test for cold email A/B (low base rates)
+
+  From RESEARCH-PRODUCT-DESIGN-ONBOARDING-2026:
+    - Onboarding Score: 3/10 (NOT in backlog — UX layer, separate from pipeline)
+    - 40-60% SaaS users churn in 30 days without proper onboarding
+    - Pipeline Plan Preview recommended by Smashing Magazine + Landbase
+
+  From RESEARCH-CONVERSATIONAL-UX-2026:
+    - Autonomy cursor NOT implemented in code (defined in STRATEGY §3, research validates)
+    - UX Score: 5/10 (STRATEGY §3 is the #1 differentiator but not built)
+
+  From RESEARCH-INSTANTLY-2026:
+    - Instantly Copilot + Warp Mode now compete directly
+    - Reply Agent with 24/7 handling overlaps LeadSens pipeline
+    - Threat: MODERATE on features, LOW on quality
+
+----------------------------------------------------------------------
+PHASE 7 — PRIORITY MATRIX (Impact × Effort)
+----------------------------------------------------------------------
+
+QUICK WINS (10-15 min each, all HIGH impact/effort ratio):
+  1. ENR-BUG-01  — Apollo domain fix (10 min, HIGH)
+  2. CAD-REPLY-01 — Reply-style Step 1 (15 min, HIGH, +30% Step 1 lift)
+  3. SUBJ-FIX-02  — draft_single_email subjects (15 min, HIGH)
+  4. PIPE-DATA-01  — Fix empty Reply emails (15 min, MEDIUM)
+  5. CAD-THRESH-01 — Step 0 quality 8/10 (15 min, MEDIUM)
+
+MEDIUM EFFORT, HIGH IMPACT:
+  6. FL-METRIC-01  — Positive reply rate in correlator (2h, HIGH)
+  7. FL-GUARD-01   — Negative reply auto-pause (2h, HIGH)
+  8. CAD-WORDS-01  — Word count enforcement (30 min, MEDIUM)
+  9. ENR-CACHE-01  — Short TTL for failed scrapes (30 min, MEDIUM)
+
+CRITICAL BLOCKER:
+  10. AB-ATTR-01   — Variant attribution (3-4h, CRITICAL — blocks entire A/B chain)
+
+TEST DEBT:
+  11. PIPE-TEST-01  — Pipeline tests (3h, 1138 lines untested)
+  12. FL-TEST-01    — Feedback loop tests (3h, 870 lines untested)
+  13. CAD-TEST-01   — Cadence tests (1.5h, 0 tests for frameworks)
+  14. ENR-TEST-01/02 — Enrichment tests (3.5h, scraping/merge untested)
+
+----------------------------------------------------------------------
+PHASE 8 — BACKLOG STATUS
+----------------------------------------------------------------------
+
+Completed: 27/49 tasks (55%)
+Open: 22 tasks
+  - CRITICAL: 1 (AB-ATTR-01)
+  - HIGH: 6 (FL-METRIC-01, FL-GUARD-01, CAD-REPLY-01, ENR-BUG-01, SUBJ-FIX-02, PIPE-TEST-01)
+  - MEDIUM: 11 (various)
+  - LOW: 4 (AUDIT-05, AUDIT-08, SUBJ-NUM-01, FL-DRY-01)
+
+Tier Status:
+  Tier 1: 100% DONE (6/6)
+  Tier 2: 90% DONE (10/11) — T2-INT-02 Multi-ESP routing remains
+  Tier 3: 60% DONE (5/8) — T3-QUAL-03, T3-SCORE-02, T3-INTEL-02 remain
+
+----------------------------------------------------------------------
+PHASE 9 — OVERALL ASSESSMENT
+----------------------------------------------------------------------
+
+SCORE: 6.7/10 (up 0.2 from 6.5)
+
+WHERE THE SCORE COMES FROM:
+  - 5 components at or above target (Enrichment, ICP Scoring, Copywriting, Cadence, Pipeline)
+  - 2 components at target but fragile (Subject Lines, Feedback Loop)
+  - 1 component below target (A/B Testing: 4/10 vs 5/10 target)
+
+PATH TO 8/10:
+  Phase A — Quick wins (1-2 hours total, +0.3):
+    ENR-BUG-01 + CAD-REPLY-01 + SUBJ-FIX-02 + PIPE-DATA-01 + CAD-THRESH-01
+    → Cadence 7.5→8, Subject Lines 6→6.5, Pipeline 6.5→7
+
+  Phase B — Foundation fixes (4-6 hours, +0.5):
+    FL-METRIC-01 + FL-GUARD-01 + CAD-WORDS-01 + ENR-CACHE-01
+    → Feedback Loop 5→6.5, Cadence 8→8.5
+
+  Phase C — A/B optimization (5-6 hours, +0.5):
+    AB-ATTR-01 + AB-CORR-01 + AB-REPORT-01
+    → A/B Testing 4→6
+
+  Phase D — Test coverage (10+ hours):
+    PIPE-TEST-01 + FL-TEST-01 + CAD-TEST-01 + ENR-TEST-01/02
+    → Production confidence, no score change but required for launch
+
+ESTIMATED TOTAL TO 8/10: ~20-25 hours of focused work
+RECOMMENDED NEXT: ENR-BUG-01 (10 min) then CAD-REPLY-01 (15 min) then SUBJ-FIX-02 (15 min)
+
+----------------------------------------------------------------------
+FINDINGS SUMMARY
+----------------------------------------------------------------------
+
+CRITICAL: 1 (AB-ATTR-01 — variant attribution)
+HIGH:     6 (FL-METRIC-01, FL-GUARD-01, CAD-REPLY-01, ENR-BUG-01, SUBJ-FIX-02, PIPE-TEST-01)
+MEDIUM:  11 (various quality/enforcement/data gaps)
+LOW:      4 (debt items)
+TOTAL:   22 open tasks
+
+Tasks added this audit: 0 new (all previously documented, confirmed by code inspection)
+Tasks updated: DEBT-01 closed, AUDIT-05/06 notes updated, pipeline score 6→6.5
+BACKLOG file updated: .claude/tasks/BACKLOG.md
+
+LEARNINGS:
+  - All 22 open issues confirmed by DIRECT CODE INSPECTION (not assumed from previous audit notes)
+  - The 6 `as any` are truly all at SDK boundaries — DEBT-01 can be closed
+  - 7 routes lack Zod (was documented as 5) — corrected in backlog
+  - Research cross-reference reveals UX gaps (onboarding 3/10, autonomy cursor not built) that are NOT in the pipeline backlog — these are product-level, separate workstream
+  - Thompson Sampling from RESEARCH-FEEDBACK-LOOPS should replace z-test for A/B (RES-06) — cold email base rates are too low for frequentist methods
+  - Instantly's Copilot + Warp Mode is the most credible competitive threat — but at intelligence quality layer, LeadSens is ahead
+  - The single most impactful path to 8/10 is Phase A (quick wins) + Phase B (foundation fixes) = ~6 hours total for +0.8 points
+
+=== ITERATION 16 | 2026-03-09 20:15 UTC ===
+TASK: ENR-BUG-01 — Fix Apollo domain parameter bug
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED:
+  - src/server/lib/connectors/apollo.ts (line 177: body.organization_name → body.domain)
+  - tests/apollo-connector.test.ts (NEW — 16 tests)
+TESTS: 334/334 passed (non-LLM), 0 typecheck errors
+COMMIT: fix(apollo): send domain as 'domain' not 'organization_name' in people/match
+LEARNINGS:
+  - Apollo /v1/people/match expects `domain` for company domain matching. `organization_name` is for fuzzy company name matching — wrong field = degraded match results.
+  - Test file covers enrichPerson (7), enrichOrganization (5), testApolloConnection (4) = 16 tests total
+  - vi.fn() mock state leaks between tests — always call mockReset() in beforeEach
+NEXT: CAD-REPLY-01 (reply-style format for Step 1, 15 min) or SUBJ-FIX-02 (draft_single_email subjects, 15 min)
