@@ -14,7 +14,7 @@ LeadSens n'est pas un outil. C'est le **chef d'orchestre** des outils du user. C
 
 La valeur est dans les **décisions entre les appels API** : scoring pré-enrichissement (~40% d'économie), Company DNA, frameworks copywriting hardcodés, clustering par segments, style learner, curseur d'autonomie.
 
-### Score actuel : 6.5/10 (audit v2 2026-03-09 + research cross-ref, était 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
+### Score actuel : 6.7/10 (audit v3 2026-03-09, était 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
 
 Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
 
@@ -121,8 +121,8 @@ NON IMPLÉMENTÉ (post-launch) :
 | Subject Lines | **6/10** | 6/10 | §7.2.1 |
 | A/B Testing | **4/10** | 5/10 | §7.2.1 |
 | Cadence & Séquence | **7.5/10** | 7/10 | §7.2.2-2.4 |
-| Feedback Loop | **5/10** | 5/10 | §7.3.2 |
-| Pipeline post-launch | **6/10** | 5/10 | §11 |
+| Feedback Loop | **5.5/10** | 5/10 | §7.3.2 |
+| Pipeline post-launch | **6.5/10** | 5/10 | §11 |
 
 ### 3.3 Bugs connus
 
@@ -539,3 +539,4 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[scoring]** : Threshold alerts on tool outputs (not just raw counts) — agent gets structured warnings it can act on
 - **[pipeline]** : `classify_reply` has stale `lead.status` — transitions within one call don't chain (PUSHED→REPLIED then REPLIED→INTERESTED fails). Mitigated by webhook setting REPLIED first, but sequence removal only fires when lead is already at REPLIED
 - **[instantly]** : Lead `status` (Active/Completed/Bounced) is read-only in Instantly API. Use `updateLeadInterestStatus` to signal interest level — Instantly stops the sequence for leads with interest status set
+- **[analytics]** : All reply-based metrics use `isPositiveReply()` / `POSITIVE_REPLY_SQL` — never raw `replyCount > 0`. Threshold: `replyAiInterest >= 5` (positive/neutral). NULL = positive (backward compat for unclassified replies).

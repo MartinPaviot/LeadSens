@@ -421,7 +421,7 @@
 > Score: 5/10 (target 5/10 ✅ atteint but fragile). Architecture excellent, data quality and coverage are the gaps.
 > Priority: FL-METRIC-01 and FL-GUARD-01 are the highest-impact fixes — they fix the FOUNDATION of the feedback loop.
 
-- [ ] **FL-METRIC-01** Correlator uses positive reply rate instead of raw reply count **(HIGH — 2h)**
+- [x] **FL-METRIC-01** Correlator uses positive reply rate instead of raw reply count ✅ *2026-03-09: All 6 correlator queries + getWinningEmailPatterns() now filter for positive replies only (replyAiInterest IS NULL OR >= 5). Backward compat: unclassified replies still count. Pure function isPositiveReply() + POSITIVE_REPLY_INTEREST_THRESHOLD=5 exported. 21 tests in correlator.test.ts.*
   **Fichiers:** `src/server/lib/analytics/correlator.ts`, `src/server/lib/email/style-learner.ts`
   **Réf:** RESEARCH-FEEDBACK-LOOPS §FL-1, audit-feedback-loop.md ISSUE 1
   **Impact:** Fixes the primary metric of the entire feedback loop. All 6 correlator queries, adaptive weights, winning patterns, and insights are currently polluted by negative replies ("stop emailing me" counted as positive signal). LeadSens already classifies replies into 6 interest levels — this data is NEVER used in correlation.

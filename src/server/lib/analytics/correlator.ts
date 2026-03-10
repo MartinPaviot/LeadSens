@@ -11,6 +11,43 @@ export interface CorrelationRow {
 }
 
 // ---------------------------------------------------------------------------
+// Positive reply filtering
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimum AI interest score to count a reply as "positive".
+ * Scale: 1-10 where 1-2 = very negative, 3-4 = negative, 5-6 = neutral/lukewarm,
+ * 7-8 = interested, 9-10 = very interested.
+ * Replies with no classification (NULL) are counted as positive for backward compat.
+ */
+export const POSITIVE_REPLY_INTEREST_THRESHOLD = 5;
+
+/**
+ * Pure function: determines if a reply should be counted as positive.
+ * - No reply (replyCount = 0) → false
+ * - Reply with no AI classification (null) → true (backward compat)
+ * - Reply with interest >= threshold → true
+ * - Reply with interest < threshold → false (negative/"stop emailing me")
+ */
+export function isPositiveReply(
+  replyCount: number,
+  replyAiInterest: number | null,
+): boolean {
+  if (replyCount <= 0) return false;
+  if (replyAiInterest === null || replyAiInterest === undefined) return true;
+  return replyAiInterest >= POSITIVE_REPLY_INTEREST_THRESHOLD;
+}
+
+/**
+ * SQL fragment for counting only positive (or unclassified) replies.
+ * Replaces the old `ep."replyCount" > 0` condition.
+ */
+const POSITIVE_REPLY_SQL = Prisma.sql`
+  ep."replyCount" > 0
+  AND (ep."replyAiInterest" IS NULL OR ep."replyAiInterest" >= ${POSITIVE_REPLY_INTEREST_THRESHOLD})
+`;
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -34,7 +71,7 @@ function baseFrom(workspaceId: string, campaignId?: string): Prisma.Sql {
   `;
 }
 
-interface RawRow {
+export interface RawRow {
   dimension: string;
   sent: bigint;
   opened: bigint;
@@ -42,7 +79,7 @@ interface RawRow {
 }
 
 /** Convert raw DB rows (bigint counts) into CorrelationRow[] with rates. */
-function toCorrelationRows(rows: RawRow[]): CorrelationRow[] {
+export function toCorrelationRows(rows: RawRow[]): CorrelationRow[] {
   return rows
     .filter((r) => Number(r.sent) >= 5)
     .map((r) => {
@@ -73,7 +110,7 @@ export async function getReplyRateBySignalType(
       de."signalType"                                     AS dimension,
       COUNT(*)                                            AS sent,
       SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)  AS opened,
-      SUM(CASE WHEN ep."replyCount" > 0 THEN 1 ELSE 0 END) AS replied
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END) AS replied
     ${baseFrom(workspaceId, campaignId)}
       AND de."signalType" IS NOT NULL
     GROUP BY de."signalType"
@@ -91,7 +128,7 @@ export async function getReplyRateByStep(
       COALESCE(de."frameworkName", CONCAT('Step ', de.step)) AS dimension,
       COUNT(*)                                                AS sent,
       SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)      AS opened,
-      SUM(CASE WHEN ep."replyCount" > 0 THEN 1 ELSE 0 END)     AS replied
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)     AS replied
     ${baseFrom(workspaceId, campaignId)}
     GROUP BY de.step, de."frameworkName"
     ORDER BY de.step
@@ -113,7 +150,7 @@ export async function getReplyRateByQualityScore(
       END                                                   AS dimension,
       COUNT(*)                                              AS sent,
       SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
-      SUM(CASE WHEN ep."replyCount" > 0 THEN 1 ELSE 0 END)   AS replied
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)   AS replied
     ${baseFrom(workspaceId, campaignId)}
       AND de."qualityScore" IS NOT NULL
     GROUP BY
@@ -137,7 +174,7 @@ export async function getReplyRateByEnrichmentDepth(
       de."enrichmentDepth"                                  AS dimension,
       COUNT(*)                                              AS sent,
       SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
-      SUM(CASE WHEN ep."replyCount" > 0 THEN 1 ELSE 0 END)   AS replied
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)   AS replied
     ${baseFrom(workspaceId, campaignId)}
       AND de."enrichmentDepth" IS NOT NULL
     GROUP BY de."enrichmentDepth"
@@ -155,7 +192,7 @@ export async function getReplyRateByIndustry(
       de."leadIndustry"                                     AS dimension,
       COUNT(*)                                              AS sent,
       SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
-      SUM(CASE WHEN ep."replyCount" > 0 THEN 1 ELSE 0 END)   AS replied
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)   AS replied
     ${baseFrom(workspaceId, campaignId)}
       AND de."leadIndustry" IS NOT NULL
     GROUP BY de."leadIndustry"
@@ -178,7 +215,7 @@ export async function getReplyRateByWordCount(
       END                                                   AS dimension,
       COUNT(*)                                              AS sent,
       SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
-      SUM(CASE WHEN ep."replyCount" > 0 THEN 1 ELSE 0 END)   AS replied
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)   AS replied
     ${baseFrom(workspaceId, campaignId)}
       AND de."bodyWordCount" IS NOT NULL
     GROUP BY

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { WinningPattern } from "./prompt-builder";
+import { POSITIVE_REPLY_INTEREST_THRESHOLD } from "@/server/lib/analytics/correlator";
 
 /**
  * Captures a user's style correction for future email drafting.
@@ -62,7 +63,13 @@ export async function getWinningEmailPatterns(
       lead: {
         select: {
           performance: {
-            where: { replyCount: { gt: 0 } },
+            where: {
+              replyCount: { gt: 0 },
+              OR: [
+                { replyAiInterest: null },
+                { replyAiInterest: { gte: POSITIVE_REPLY_INTEREST_THRESHOLD } },
+              ],
+            },
             select: { replyCount: true },
           },
         },

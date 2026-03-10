@@ -1,3 +1,19 @@
+=== ITERATION 9 | 2026-03-09 20:36 UTC ===
+TASK: FL-METRIC-01 — Correlator uses positive reply rate instead of raw reply count
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: src/server/lib/analytics/correlator.ts, src/server/lib/email/style-learner.ts, tests/correlator.test.ts (NEW)
+TESTS: 353/353 passed (4 LLM test files skipped — no API key), 0 typecheck errors
+COMMIT: feat(analytics): use positive reply rate in correlator and winning patterns (FL-METRIC-01)
+LEARNINGS:
+- The POSITIVE_REPLY_SQL Prisma.sql fragment is interpolated into all 6 queries via template literal — single source of truth
+- `replyAiInterest` is already populated by the webhook handler (webhooks/instantly/route.ts:180,186) — no data pipeline changes needed
+- Backward compat is critical: NULL replyAiInterest (old campaigns without classification) defaults to counting as positive
+- isPositiveReply() pure function mirrors the SQL logic for testability — SQL uses IS NULL, TypeScript checks both null and undefined
+- The style-learner's Prisma query uses OR: [{replyAiInterest: null}, {replyAiInterest: {gte: 5}}] — Prisma handles the SQL translation
+- replace_all with whitespace-sensitive SQL strings requires manual per-query edits when indentation varies
+NEXT: FL-GUARD-01 (negative reply spike auto-pause) or CAD-THRESH-01 (Step 0 quality threshold)
+
 === ITERATION 8 | 2026-03-09 19:45 UTC ===
 TASK: SUBJ-FIX-02 — Fix draft_single_email dropping subjects array
 STATUS: DONE
