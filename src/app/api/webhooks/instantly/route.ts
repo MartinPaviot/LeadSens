@@ -8,11 +8,49 @@
  * - campaign_completed: Campaign finished sending
  *
  * Events update lead status, EmailPerformance, and ReplyThread records.
+ *
+ * Security: If INSTANTLY_WEBHOOK_SECRET is set, verifies HMAC-SHA256
+ * signature in the x-instantly-signature header. Without it, all events
+ * are accepted (graceful degradation for dev/testing).
  */
 
 import { prisma } from "@/lib/prisma";
 import type { LeadStatus } from "@prisma/client";
 import { z } from "zod/v4";
+import { createHmac, timingSafeEqual } from "crypto";
+import { checkAndPauseCampaign } from "@/server/lib/analytics/bounce-guard";
+
+// ─── Webhook Signature Verification ────────────────────
+
+const SIGNATURE_HEADER = "x-instantly-signature";
+
+/**
+ * Verify HMAC-SHA256 signature of the webhook payload.
+ * Pure function — no side effects.
+ *
+ * @param rawBody - The raw request body as a string
+ * @param signature - The signature from the request header
+ * @param secret - The shared webhook secret
+ * @returns true if signature is valid
+ */
+export function verifyWebhookSignature(
+  rawBody: string,
+  signature: string,
+  secret: string,
+): boolean {
+  if (!signature || !secret) return false;
+
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+
+  // Timing-safe comparison to prevent timing attacks
+  // Both must be the same length for timingSafeEqual
+  const sigBuffer = Buffer.from(signature, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+
+  if (sigBuffer.length !== expectedBuffer.length) return false;
+
+  return timingSafeEqual(sigBuffer, expectedBuffer);
+}
 
 // ─── Event Schemas ──────────────────────────────────────
 
@@ -86,9 +124,29 @@ async function safeTransition(leadId: string, to: LeadStatus) {
 // ─── Handler ────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  // Read raw body first (needed for HMAC verification before JSON parsing)
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+  } catch {
+    return new Response(JSON.stringify({ error: "Failed to read body" }), { status: 400 });
+  }
+
+  // Verify webhook signature if secret is configured
+  const webhookSecret = process.env.INSTANTLY_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const signature = req.headers.get(SIGNATURE_HEADER) ?? "";
+    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
+    }
+  } else {
+    console.warn("[webhook/instantly] INSTANTLY_WEBHOOK_SECRET not set — accepting all events without verification");
+  }
+
+  // Parse JSON from raw body
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
   }
@@ -186,6 +244,9 @@ export async function POST(req: Request) {
       });
 
       await safeTransition(lead.id, "BOUNCED");
+
+      // Check bounce rate and auto-pause if threshold exceeded (Research D4)
+      await checkAndPauseCampaign(campaign.id);
       break;
     }
 
