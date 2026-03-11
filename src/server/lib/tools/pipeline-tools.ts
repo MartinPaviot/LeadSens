@@ -99,7 +99,7 @@ async function removeFromESPSequence(
 
 // ─── Reply Classification Schema ────────────────────────
 
-const classifyResultSchema = z.object({
+export const classifyResultSchema = z.object({
   interest_level: z.enum(["interested", "not_interested", "question", "auto_reply", "out_of_office", "unsubscribe"]),
   interest_score: z.number().min(0).max(10),
   reasoning: z.string(),
@@ -109,7 +109,7 @@ const classifyResultSchema = z.object({
 
 // ─── CSV Parsing ────────────────────────────────────────
 
-const CSV_FIELD_MAP: Record<string, string> = {
+export const CSV_FIELD_MAP: Record<string, string> = {
   email: "email",
   "email address": "email",
   "e-mail": "email",
@@ -148,7 +148,7 @@ const CSV_FIELD_MAP: Record<string, string> = {
   company_size: "companySize",
 };
 
-function parseCSV(raw: string): Record<string, string>[] {
+export function parseCSV(raw: string): Record<string, string>[] {
   const lines = raw.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
 
@@ -675,7 +675,7 @@ Draft a reply (plain text, no subject needed):`,
   };
 }
 
-function buildInsightSuggestions(
+export function buildInsightSuggestions(
   topIndustries: Array<{ industry: string; replyRate: number; count: number }>,
   totalReplied: number,
   totalSent: number,

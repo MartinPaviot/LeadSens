@@ -107,7 +107,7 @@ IMPLÉMENTÉ (post-launch) :
 NON IMPLÉMENTÉ (post-launch) :
   ❌ A/B auto-pause variantes faibles
   ❌ Winner propagation automatique
-  ❌ Style learner catégorisé (subject vs tone vs CTA)
+  ✅ Style learner catégorisé (6 categories: subject/tone/cta/opener/length/general)
   ❌ Multi-ESP routing
 ```
 
@@ -578,6 +578,16 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[dedup]** : `@@unique([workspaceId, email])` prevents duplicate Lead records. Cross-campaign dedup must query EmailPerformance by email (not leadId) — perf records preserve historical campaign data even after lead reassignment.
 - **[dedup]** : `ALREADY_CONTACTED_STATUSES` (8 statuses) in tool-utils.ts — used by `add_leads_to_campaign` to filter out all post-push leads, not just PUSHED. Includes: PUSHED, SENT, REPLIED, INTERESTED, NOT_INTERESTED, MEETING_BOOKED, BOUNCED, UNSUBSCRIBED.
 - **[dedup]** : `analyzeCrossCampaignDedup()` is a pure function (no DB calls). The ESP tool handler does the EmailPerformance query then passes results to the pure function. `skip_dedup_check` parameter allows user-confirmed intentional overlap.
+- **[style-learner]** : `detectCategory()` uses 6 categories: subject|tone|cta|opener|length|general. Priority order matters: subject (≤8 words) checked first to avoid misclassifying short opener/CTA edits. Identity check (`original === edit`) must precede all heuristics — identical multi-sentence text falsely matches CTA heuristic (all slices equal). `getStyleSamples(category?)` accepts `StyleCategory | StyleCategory[]`. `BODY_STYLE_CATEGORIES` = all except subject. Callers (email-tools, draft-lead) fetch body + subject separately. Subject corrections injected near subject patterns in prompt (STYLE-WIRE-01 DONE).
+- **[testing]** : Zero-delay setTimeout stub for rate-limit bypass in tests: capture `realSetTimeout` before stubbing, replace global `setTimeout` with `realSetTimeout(fn, 0)`. More reliable than `vi.useFakeTimers({ shouldAdvanceTime: true })` which hangs with sequential awaited `setTimeout` in loops.
+- **[jina]** : `scrapeWithFallbacks()` has a 100-char content threshold, separate from `scrapeViaJina()`'s 50-char minimum. Content 50-99 chars passes Jina but gets rejected by fallbacks — tested in jina-scraper.test.ts.
+- **[deliverability]** : Bounce threshold must be consistent across all surfaces: bounce-guard.ts auto-pauses at 3% (after 50+ sends), PHASE_ACTIVE alerts at 3%, PHASE_PUSHING pre-flight checks warmup+auth+tracking domain+volume. All thresholds from RESEARCH-DELIVERABILITY-2026.md.
+- **[enrichment]** : `extractLinkedInContext()` casts `enrichment[key] as string | null` — if the key is absent, result is `undefined` not `null`. Test with `toBeUndefined()` not `toBeNull()` for missing fields.
+- **[enrichment]** : `summarizeEnrichmentQuality()` counts industry/apolloEmail/apolloSeniority as `has` entries (with value suffix like `industry:SaaS`) but does NOT track them in `missing`. Only 4 fields tracked in missing: companySummary, painPoints, linkedinHeadline, signals.
+- **[jina]** : Per-section char budget in `scrapeLeadCompany()` via `SECTION_BUDGETS`: homepage 4K, about 3K, blog 3K, careers 2.5K, press 2.5K. Each section truncated independently before concat. No final `.slice()` needed — budgets sum to 15K. Prevents homepage-heavy pages from starving signal-rich sections (careers=hiring, press=triggers).
+- **[csv]** : `parseCSV()` delimiter detection priority: tab > semicolon > comma. When tab present in header, everything between tabs is one column — mixed delimiters get consumed. French headers (prénom, entreprise, poste, pays) mapped to canonical fields. Rows without `email` silently skipped.
+- **[lead-status]** : `VALID_TRANSITIONS` has 8 source states. Terminal states (MEETING_BOOKED, NOT_INTERESTED, BOUNCED, UNSUBSCRIBED, SKIPPED) return `undefined` from the map — any transition from them is invalid. `isValidTransition(from, to)` = `VALID_TRANSITIONS[from]?.includes(to) ?? false`.
+- **[insights]** : `buildInsightSuggestions()` uses strict `>` for bounce threshold (not `>=`), so exactly 5% does NOT trigger. Industry threshold is `> overallRate * 1.5`. Low rate suggestion requires BOTH `< 5%` AND `>= 50` sent.
 
 ## 12. Playwright MCP — Utilisation maximale
 

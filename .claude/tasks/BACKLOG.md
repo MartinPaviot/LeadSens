@@ -66,7 +66,7 @@
 
 - [x] **T3-QUAL-01** Quality gate emails ✅ *Audit 2026-03-09: 7/10 threshold, 2 retries, 4 axes, quality-gate.ts:67-112*
 - [x] **T3-QUAL-02** Feedback loop stats Instantly ✅ *Audit 2026-03-09: analytics-sync-worker + correlator + insights + adaptive drafting*
-- [ ] **T3-QUAL-03** Style learner avancé — *Audit 2026-03-09: corrections capturées mais PAS catégorisées (subject/tone/CTA). Winning patterns = structural (signal+framework), pas correction-type.*
+- [x] **T3-QUAL-03** Style learner avancé ✅ *2026-03-11: RES-07 added 6-category detection (subject/tone/cta/opener/length/general). STYLE-WIRE-01 wired category filters to all callers. Subject corrections injected near subject patterns, body corrections in style guide section.*
 - [x] **T3-SCORE-01** Scoring multi-dimensionnel ✅ *2026-03-09: computeSignalBoost() in icp-scorer.ts — deterministic post-enrichment boost, fit 40% + intent 35% + timing 25%, 13 tests*
 - [ ] **T3-SCORE-02** Filtres broadening → scoring signals — RESTE À FAIRE
 - [ ] **T3-SCORE-03** Scraping page careers (signal hiring) — *Audit 2026-03-09: careers page IS scraped (jina.ts:85) mais hiringSignals extraction basic*
@@ -170,7 +170,7 @@
   - Test unitaire vérifie le calcul z-test
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **RES-07** Style learner catégorisé **(MEDIUM — Research R6.4)**
+- [x] **RES-07** Style learner catégorisé ✅ *2026-03-11: StyleCategory expanded to 6 categories (subject/tone/cta/opener/length/general). detectCategory() heuristics: identity→general, ≤8 words→subject, >30% word delta→length, first sentence changed→opener, last sentence changed→cta, same structure+similar length→tone, else→general. 23 tests in style-learner.test.ts.*
   **Fichiers:** `src/server/lib/email/style-learner.ts`
   **Réf:** STRATEGY §7.3.4, RESEARCH-LANDSCAPE §6
   **Impact:** Corrections plus précises (subject vs tone vs CTA)
@@ -180,7 +180,7 @@
   - Catégorisation via heuristique simple (longueur changée → length, subject changé → subject, etc.)
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **RES-08** Deliverability guidance dans PHASE_ACTIVE prompt **(LOW — Research D6)**
+- [x] **RES-08** Deliverability guidance dans PHASE_ACTIVE prompt ✅ *2026-03-11: 4 lines added to PHASE_PUSHING (tracking domain, warmup, SPF/DKIM/DMARC, volume limits). PHASE_ACTIVE bounce threshold tightened 5%→3% + tracking domain reminder. <50 tokens total. route.ts.*
   **Fichiers:** `src/app/api/agents/chat/route.ts`
   **Réf:** RESEARCH-DELIVERABILITY §5.4, §11.2 D6
   **Impact:** Agent informe sur warmup, custom tracking domain, volume limits
@@ -224,7 +224,7 @@
   - Test unitaire vérifie les 2 TTL
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **ENR-TEST-01** Tests unitaires scraper Jina **(MEDIUM — 2h)**
+- [x] **ENR-TEST-01** Tests unitaires scraper Jina ✅ *2026-03-11: 25 tests — scrapeViaJina (13: 5 error types + boundary + truncation) + scrapeLeadCompany (12: fallbacks, URL normalization, section labels, truncation, content threshold). Zero-delay setTimeout stub for rate-limit bypass. tests/jina-scraper.test.ts.*
   **Fichiers:** `tests/jina-scraper.test.ts` (NEW)
   **Réf:** audit-enrichment.md ISSUE 4
   **Impact:** Scraping multi-page (critical path) = 0 tests. Régressions invisibles.
@@ -236,7 +236,7 @@
   - Minimum 10 tests
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **ENR-TEST-02** Tests unitaires merge + resolveLeadUrl + cache **(MEDIUM — 1.5h)**
+- [x] **ENR-TEST-02** Tests unitaires merge + resolveLeadUrl + cache ✅ *2026-03-11: 66 tests — mergeLinkedInData (9), mergeApolloData (12), resolveLeadUrl (16), summarizeEnrichmentQuality (22), extractLinkedInContext (7). All pure functions exported from enrichment-tools.ts. tests/enrichment-merge.test.ts.*
   **Fichiers:** `tests/enrichment-merge.test.ts` (NEW)
   **Réf:** audit-enrichment.md ISSUE 4
   **Impact:** Merge logic (LinkedIn + Apollo + company data) et URL resolution = 0 tests.
@@ -248,7 +248,7 @@
   - Minimum 12 tests
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **ENR-TRUNC-01** Per-section char budget in multi-page scraper **(MEDIUM — 1h)**
+- [x] **ENR-TRUNC-01** Per-section char budget in multi-page scraper ✅ *2026-03-11: SECTION_BUDGETS exported constant — homepage 4K, about 3K, blog 3K, careers 2.5K, press 2.5K. Each section truncated independently before concat. 3 new tests verify budget enforcement, careers/press preservation, and no unnecessary truncation. jina.ts.*
   **Fichiers:** `src/server/lib/connectors/jina.ts`
   **Réf:** audit-enrichment.md ISSUE 5
   **Impact:** Truncation naive à 15K coupe les pages les plus riches en signaux (careers, press) si homepage est longue.
@@ -432,7 +432,7 @@
   - No logic duplication between the two callers
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **FL-TEST-01** Unit tests for feedback loop components **(MEDIUM — 3h)**
+- [x] **FL-TEST-01** Unit tests for feedback loop components ✅ *2026-03-11: 48 tests — getConfidence (3), buildInsight (16), getDataDrivenWeights (5), getStepAnnotation (6), buildPatternKey (8), rankPatterns (6). Exported buildInsight/getConfidence from insights.ts, extracted buildPatternKey/rankPatterns as pure functions from style-learner.ts. tests/feedback-loop.test.ts.*
   **Fichiers:** `tests/feedback-loop.test.ts` (NEW)
   **Réf:** audit-feedback-loop.md ISSUE 6
   **Impact:** 870 lines of untested feedback loop code. SQL query correctness, rate calculations, normalization, confidence thresholds, and pattern extraction are all unguarded.
@@ -508,7 +508,7 @@
   - Enrichment notes (pain points, recent news) serialized into a notes property
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **PIPE-TEST-01** Unit tests for lead-status state machine + webhook + CSV parser **(HIGH — 3h)**
+- [x] **PIPE-TEST-01** Unit tests for lead-status state machine + webhook + CSV parser ✅ *2026-03-11: 80 tests — VALID_TRANSITIONS (18 valid transitions + snapshot), CSV_FIELD_MAP (5), parseCSV (17: 3 delimiters, quotes, CRLF, French headers, missing emails, empty input, unmapped cols, all fields), classifyResultSchema (8: all enums, boundaries, required fields), buildInsightSuggestions (12: industry focus 1.5x, bounce >5%, low rate <5%/50+, high rate ≥15%, zero sent, multiple suggestions), transition validation (17: full pipeline paths, alternative paths, terminal states, backward rejects). tests/pipeline-post-launch.test.ts.*
   **Fichiers:** `tests/pipeline-post-launch.test.ts` (NEW)
   **Réf:** audit-pipeline-post-launch.md ISSUE 9
   **Impact:** 1138 lines of zero-tested pipeline code controlling lead data integrity.
@@ -645,7 +645,7 @@
   - enrich_leads_batch uses batched upsert
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **STYLE-WIRE-01** Wire style category filter to getStyleSamples callers **(MEDIUM — 30 min)**
+- [x] **STYLE-WIRE-01** Wire style category filter to getStyleSamples callers ✅ *2026-03-11: getStyleSamples() accepts StyleCategory[] with OR filter. BODY_STYLE_CATEGORIES excludes subject. email-tools.ts + draft-lead.ts fetch body (5 cats) + subject separately. subjectStyleSamples injected near subject patterns in prompt. 5 new tests.*
   **Fichiers:** `src/server/lib/tools/email-tools.ts`
   **Réf:** audit v5, RES-07
   **Impact:** detectCategory() works but callers ignore it. Subject corrections injected into body context.

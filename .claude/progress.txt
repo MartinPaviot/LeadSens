@@ -1,3 +1,185 @@
+=== ITERATION 32 | 2026-03-11 02:30 UTC ===
+TASK: PIPE-TEST-01 — Unit tests for lead-status state machine + CSV parser + insights
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: tests/pipeline-post-launch.test.ts (NEW), src/server/lib/lead-status.ts (export VALID_TRANSITIONS), src/server/lib/tools/pipeline-tools.ts (export parseCSV, CSV_FIELD_MAP, buildInsightSuggestions, classifyResultSchema)
+TESTS: 980/980 passed (41 test files, +80 net new tests)
+COMMIT: test(pipeline): unit tests for lead-status state machine, CSV parser, and insights (PIPE-TEST-01)
+CHANGES:
+- 18 tests VALID_TRANSITIONS: all 8 pre-launch/post-launch source states, terminal states (5 verified undefined), snapshot for regression
+- 5 tests CSV_FIELD_MAP: email/French/company/jobTitle variants, all 11 canonical fields coverage
+- 17 tests parseCSV: comma/semicolon/tab delimiter detection, quote stripping (single+double), CRLF, French headers (prénom/entreprise/poste/pays), missing email skip, empty input (3 cases), unmapped columns, all 11 fields in one row, whitespace trim, case-insensitive headers, multi-row, tab priority
+- 8 tests classifyResultSchema: valid result, all 6 interest_level enums, all 4 suggested_action enums, boundary scores (0/10), out-of-range rejection, missing fields, boolean type
+- 12 tests buildInsightSuggestions: industry focus 1.5x threshold, no suggestion below threshold, bounce >5%, bounce at exactly 5%, low rate <5% with 50+ sent, low rate with <50 sent, strong ≥15%, multiple simultaneous suggestions, zero sent, empty industries
+- 17 tests transition validation (pure): full pre-launch pipeline, full post-launch lifecycle, direct REPLIED→MEETING_BOOKED, bounce/unsub from PUSHED/SENT, SKIPPED from SOURCED/SCORED, skip pipeline stages rejects, backward rejects, terminal state rejects, unknown state
+- Exported 4 pure functions from pipeline-tools.ts + 1 const from lead-status.ts for testability
+LEARNINGS:
+- parseCSV delimiter detection priority: tab > semicolon > comma. When tab is present, everything after tab is one column — affects mixed-delimiter inputs.
+- buildInsightSuggestions uses strict `>` for bounce (not >=), so exactly 5% does NOT trigger the bounce suggestion. Industry threshold is `> overallRate * 1.5`.
+- VALID_TRANSITIONS has exactly 8 source states. Terminal states (MEETING_BOOKED, NOT_INTERESTED, BOUNCED, UNSUBSCRIBED, SKIPPED) return undefined from the map, meaning any transition from them is invalid.
+NEXT: PIPE-CRM-01 (enrich CRM contact) or ENR-COMPL-01 (enrichment completeness score) or PERF-N1-01 (batch DB writes)
+
+=== ITERATION 31 | 2026-03-11 02:15 UTC ===
+TASK: FL-TEST-01 — Unit tests for feedback loop components
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: tests/feedback-loop.test.ts (NEW), src/server/lib/analytics/insights.ts (export), src/server/lib/email/style-learner.ts (extract pure functions)
+TESTS: 900/900 passed (40 test files, +48 net new tests)
+COMMIT: test(analytics): unit tests for feedback loop components (FL-TEST-01)
+CHANGES:
+- 3 tests getConfidence: threshold boundaries (high >=50, medium >=20, low <20)
+- 16 tests buildInsight: null guards (< 2 rows, < 20 sent), top/bottom identification, confidence levels, all 8 dimension recommendation texts (signal_type, framework, quality_score, enrichment_depth, industry, word_count, subject_variant, subject_pattern), unknown dimension fallback, equal/zero rates
+- 5 tests getDataDrivenWeights: null guards (< 2 significant, maxRate=0), normalization to 0-10 scale, filtering <20 sent, single dominant signal
+- 6 tests getStepAnnotation: null guards (< 2 rows, step not found, < 50 sent), isTop boolean, non-top step, fallback Step N name, tied replyRates
+- 8 tests buildPatternKey: all field combos, null handling, enrichmentDepth "rich" only, 0 bodyWordCount = falsy
+- 6 tests rankPatterns: frequency sort, top-3 limit, average rate calc, empty map, single pattern, summary format
+- Exported buildInsight + getConfidence from insights.ts for direct testability
+- Extracted buildPatternKey + rankPatterns as pure functions from style-learner.ts (was inline in getWinningEmailPatterns)
+LEARNINGS:
+- buildInsight requires BOTH >= 2 rows AND >= 20 total sent. Many callers assume just row count matters.
+- getDataDrivenWeights filters at 20 sent (not the 5-sent threshold of toCorrelationRows). Different thresholds for different confidence levels.
+- getStepAnnotation uses FRAMEWORK_NAMES constant to match step index to dimension name — if correlator returns a different format, the lookup silently fails.
+- Extracting buildPatternKey/rankPatterns from getWinningEmailPatterns made both the original function simpler AND enabled pure-function testing without DB mocks.
+NEXT: PIPE-TEST-01 (pipeline state machine + webhook + CSV tests) or PIPE-CRM-01 (enrich CRM contact)
+
+=== ITERATION 30 | 2026-03-11 02:10 UTC ===
+TASK: ENR-TRUNC-01 — Per-section char budget in multi-page scraper
+STATUS: DONE
+DURATION: ~5 min
+FILES CHANGED: src/server/lib/connectors/jina.ts, tests/jina-scraper.test.ts
+TESTS: 852/852 passed (39 test files, +2 net new tests — replaced 1 test with 3 better ones)
+COMMIT: feat(enrichment): per-section char budget in multi-page scraper (ENR-TRUNC-01)
+CHANGES:
+- Added SECTION_BUDGETS exported constant: homepage 4K, about 3K, blog 3K, careers 2.5K, press 2.5K
+- Each section truncated independently BEFORE concatenation (was: naive .slice(0, 15000) after concat)
+- Removed final .slice(0, 15000) — per-section budgets sum to 15K, no need for post-concat cut
+- Replaced old "truncates combined output at 15000" test with 3 precise tests:
+  - Per-section budget enforcement (verifies each section stays within its limit)
+  - Careers/press preservation when homepage is large (the key regression this fixes)
+  - No unnecessary truncation for small sections
+LEARNINGS:
+- With naive truncation, a 10K homepage leaves only 5K for 4 other sections — careers and press (the strongest signal sources) were consistently cut. Per-section budgets guarantee each section gets representation.
+- SECTION_BUDGETS exported for test access — allows tests to verify against the actual budget values rather than hardcoded magic numbers.
+NEXT: PIPE-CRM-01 (enrich CRM contact with pipeline data) or FL-TEST-01 (feedback loop unit tests)
+
+=== ITERATION 29 | 2026-03-11 02:00 UTC ===
+TASK: ENR-TEST-02 — Unit tests for merge + resolveLeadUrl + summarizeEnrichmentQuality
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: tests/enrichment-merge.test.ts (NEW), src/server/lib/tools/enrichment-tools.ts (exports added)
+TESTS: 850/850 passed (39 test files, +66 new tests)
+COMMIT: test(enrichment): unit tests for merge, resolveLeadUrl, summarizeEnrichmentQuality (ENR-TEST-02)
+CHANGES:
+- 9 tests mergeLinkedInData: preserve existing data, skip empty arrays, non-LinkedIn fields
+- 12 tests mergeApolloData: fill gaps only (industry/teamSize/revenue), never overwrite, departments default
+- 16 tests resolveLeadUrl: 3-priority fallback (domain>website>LinkedIn), https:// prefix, whitespace trim, empty string skip
+- 22 tests summarizeEnrichmentQuality: none/minimal/partial/rich thresholds, signal aggregation across 6 types, missing field tracking
+- 7 tests extractLinkedInContext: null handling, empty arrays, partial extraction
+- Exported 5 pure functions from enrichment-tools.ts for testability
+LEARNINGS:
+- extractLinkedInContext returns undefined (not null) for missing fields when input object doesn't have them — `as string | null` cast on undefined produces undefined, not null. Tests should use toBeUndefined() not toBeNull().
+- summarizeEnrichmentQuality uses `has.length` for quality classification — industry/apolloEmail/apolloSeniority count as has entries even though they don't appear in missing.
+NEXT: ENR-TRUNC-01 (per-section char budget) or PIPE-CRM-01 (enrich CRM contact)
+
+=== ITERATION 28 | 2026-03-11 01:50 UTC ===
+TASK: RES-08 — Deliverability guidance in PHASE_PUSHING + PHASE_ACTIVE prompts
+STATUS: DONE
+DURATION: ~5 min
+FILES CHANGED: src/app/api/agents/chat/route.ts
+TESTS: 784/784 passed (38 test files, 0 new tests — prompt-only change)
+COMMIT: feat(prompt): deliverability pre-flight guidance in PHASE_PUSHING + PHASE_ACTIVE (RES-08)
+CHANGES:
+- PHASE_PUSHING: Added 4-line DELIVERABILITY PRE-FLIGHT section — custom tracking domain,
+  warmup (2+ weeks, 10→50/day ramp), SPF/DKIM/DMARC, volume limit (100/day per account)
+- PHASE_ACTIVE: Tightened bounce alert 5%→3% (matches bounce-guard auto-pause threshold),
+  added tracking domain reminder in PROACTIVE INSIGHTS
+- Total addition: ~45 tokens in PUSHING, ~5 net tokens in ACTIVE — within <50 token budget
+- Also marked T3-QUAL-03 as DONE (completed by RES-07 + STYLE-WIRE-01)
+LEARNINGS:
+- Bounce threshold was inconsistent: bounce-guard.ts auto-pauses at 3%, but PHASE_ACTIVE
+  alerted at 5%. Aligned to 3% for consistent agent behavior.
+- Deliverability guidance is most valuable in PHASE_PUSHING (pre-flight) vs PHASE_ACTIVE
+  (monitoring). Pre-flight prevents problems; monitoring catches them too late.
+NEXT: ENR-TEST-02 (merge + resolveLeadUrl tests) or ENR-TRUNC-01 (per-section char budget)
+
+=== ITERATION 27 | 2026-03-11 01:35 UTC ===
+TASK: ENR-TEST-01 — Unit tests for Jina multi-page scraper
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: tests/jina-scraper.test.ts (NEW)
+TESTS: 784/784 passed (38 test files, +25 new tests)
+COMMIT: test(enrichment): unit tests for Jina multi-page scraper (ENR-TEST-01)
+CHANGES:
+- 13 tests for scrapeViaJina(): all 5 error reasons (not_found/rate_limit/timeout/network/empty),
+  boundary tests (49 vs 50 chars), 15K truncation, non-Error throws, whitespace-only content
+- 12 tests for scrapeLeadCompany(): homepage failure → null, homepage-only fallback,
+  sub-page fallback paths (/about fails → /about-us succeeds), all 5 section labels,
+  combined truncation at 15K, URL normalization (https:// prefix, trailing slashes, http preserved),
+  content <100 chars skipped by scrapeWithFallbacks, empty homepage → null
+- Zero-delay setTimeout stub pattern: capture realSetTimeout before stubbing,
+  replace with 0ms delay — keeps async behavior but eliminates 3.4s rate-limit waits
+LEARNINGS:
+- vi.useFakeTimers({ shouldAdvanceTime: true }) hangs with sequential awaited setTimeout
+  in loops. Zero-delay stub pattern (capture real, stub with 0ms) is more reliable for
+  testing code with rate-limit delays.
+- scrapeWithFallbacks has a 100-char threshold (not 50) — separate from scrapeViaJina's
+  50-char minimum. Content 50-99 chars passes Jina but gets rejected by fallbacks.
+NEXT: ENR-TEST-02 (merge + resolveLeadUrl tests) or RES-08 (deliverability guidance)
+
+=== ITERATION 26 | 2026-03-11 01:25 UTC ===
+TASK: STYLE-WIRE-01 — Wire style category filter to getStyleSamples callers
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: style-learner.ts, email-tools.ts, draft-lead.ts, drafting.ts, prompt-builder.ts, style-learner.test.ts, prompt-builder.test.ts
+TESTS: 759/759 passed (37 test files, +5 new tests)
+COMMIT: feat(style-learner): wire category filter to getStyleSamples callers (STYLE-WIRE-01)
+CHANGES:
+- getStyleSamples() now accepts StyleCategory | StyleCategory[] — uses OR filter for arrays
+- BODY_STYLE_CATEGORIES constant: ["tone", "opener", "cta", "length", "general"] (excludes subject)
+- email-tools.ts (batch + single): fetches body corrections (5 categories) + subject corrections separately
+- draft-lead.ts (background): same split
+- drafting.ts + prompt-builder.ts: new subjectStyleSamples param
+- Subject corrections injected NEAR subject line patterns section ("Apply these preferences to ALL subject variants")
+- Body corrections stay in existing "Style guide" section — no cross-contamination
+- route.ts (agent system prompt): unchanged — shows ALL corrections as general context
+- 5 new tests: BODY_STYLE_CATEGORIES constant (2), subjectStyleSamples injection (3)
+LEARNINGS:
+- route.ts caller (system prompt) should remain unfiltered — it's for agent awareness, not drafting
+- Subject corrections near the subject patterns table gives LLM direct adjacency for application
+- Array category filter uses Prisma OR condition on JSON path (category field in metadata)
+NEXT: ENR-TEST-01 (Jina scraper tests) or RES-08 (deliverability guidance)
+
+=== ITERATION 25 | 2026-03-11 01:15 UTC ===
+TASK: RES-07 — Style learner categorized
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: src/server/lib/email/style-learner.ts, tests/style-learner.test.ts (NEW)
+TESTS: 754/754 passed (37 test files, +23 new tests)
+COMMIT: feat(style-learner): categorized style corrections with 6 categories (RES-07)
+CHANGES:
+- StyleCategory expanded from 5 to 6 categories: subject | tone | cta | opener | length | general
+  - Removed "structure" (too vague), added "opener" and "length" (more actionable)
+- detectCategory() heuristics rewritten with clear priority chain:
+  0. Identical text → "general" (not a real correction)
+  1. Both sides ≤8 words → "subject" (subject line edit)
+  2. Word count delta >30% → "length" (user wants shorter/longer)
+  3. First sentence changed, rest identical → "opener" (opening line edit)
+  4. Last sentence changed, rest identical → "cta" (call-to-action edit)
+  5. Same sentence count + similar word count + different content → "tone" (wording change)
+  6. Fallback → "general"
+- Extracted splitSentences() helper for shared sentence splitting logic
+- captureStyleCorrection() auto-detects and stores category in metadata (already worked, just upgraded)
+- getStyleSamples() already supports optional category filter (ready for STYLE-WIRE-01)
+- 23 new tests: subject (4), length (3), opener (3), cta (2), tone (3), general (2), edge cases (6)
+LEARNINGS:
+- Subject detection (≤8 words) must be checked FIRST — short opener/cta texts
+  would be misclassified if checked after opener/cta heuristics.
+- Identity check (original === edit) is needed as a guard — identical multi-sentence
+  text matches the "cta" heuristic (all slices equal including the last).
+- The 30% word count threshold for "length" is a good balance — catches
+  obvious shortening (80→30 words) without false positives on minor edits.
+NEXT: STYLE-WIRE-01 (Wire category filter to callers) or ENR-TEST-01 (Jina scraper tests)
+
 === ITERATION 24 | 2026-03-11 01:05 UTC ===
 TASK: DEDUP-CROSS-01 — Cross-campaign lead dedup before push
 STATUS: DONE

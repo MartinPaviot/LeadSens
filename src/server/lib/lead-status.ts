@@ -7,7 +7,7 @@ import type { LeadStatus } from "@prisma/client";
  * Post-launch: PUSHED → SENT → REPLIED → INTERESTED/NOT_INTERESTED → MEETING_BOOKED
  *              PUSHED/SENT → BOUNCED/UNSUBSCRIBED
  */
-const VALID_TRANSITIONS: Record<string, LeadStatus[]> = {
+export const VALID_TRANSITIONS: Record<string, LeadStatus[]> = {
   // Pre-launch pipeline
   SOURCED: ["SCORED", "SKIPPED"],
   SCORED: ["ENRICHED", "SKIPPED"],
