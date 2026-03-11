@@ -376,4 +376,170 @@ describe("buildEmailPrompt", () => {
       `);
     });
   });
+
+  // ─── Full Prompt Snapshots ───────────────────────────────
+  // These catch ANY unintended prompt change. If a snapshot breaks,
+  // it means the LLM will receive a different prompt — review carefully.
+
+  describe("snapshot — full prompt regression guards", () => {
+    it("step 0 with rich enrichment data", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna });
+      expect(prompt).toMatchSnapshot();
+    });
+
+    it("step 0 with minimal lead (no enrichment)", () => {
+      const prompt = buildEmailPrompt({ lead: minimalLead, step: 0, companyDna });
+      expect(prompt).toMatchSnapshot();
+    });
+
+    it("step 1 (Value-add) with previous emails", () => {
+      const prompt = buildEmailPrompt({
+        lead: baseLead,
+        step: 1,
+        companyDna,
+        previousEmails: [
+          { step: 0, subject: "shipping costs at ShipFast", body: "Sarah,\n\nSince your Series B in November, scaling logistics for 120+ stores likely means last-mile costs are climbing.\n\nRetailCo faced the same — our RouteOptimizer cut delivery costs 42% in 90 days.\n\nWorth a quick look?\n\nAlex" },
+        ],
+      });
+      expect(prompt).toMatchSnapshot();
+    });
+
+    it("step 5 (Breakup) — shortest framework", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 5, companyDna });
+      expect(prompt).toMatchSnapshot();
+    });
+
+    it("step 0 with all optional features (style, winning subjects, annotation, tier)", () => {
+      const prompt = buildEmailPrompt({
+        lead: baseLead,
+        step: 0,
+        companyDna,
+        styleSamples: [
+          'Original: "We help companies optimize..."\nCorrected: "42% cost cut in 90 days"',
+        ],
+        subjectStyleSamples: [
+          'Original: "quick question"\nCorrected: "shipping costs at ShipFast"',
+        ],
+        winningPatterns: [
+          { summary: "Used leadership_change signal, 62 words, question CTA", replyRate: 22.5 },
+          { summary: "Signal stacking (hiring + funding), 58 words, direct CTA", replyRate: 18.3 },
+        ],
+        winningSubjects: [
+          { subject: "scaling ops after series b", pattern: "Observation", step: 0, replies: 4 },
+          { subject: "quick q about route planning", pattern: "Question", step: 0, replies: 3 },
+        ],
+        stepAnnotation: { stepName: "PAS (Timeline Hook)", replyRate: 14.2, sampleSize: 150, isTop: true },
+        tier: 1,
+      });
+      expect(prompt).toMatchSnapshot();
+    });
+
+    it("step 2 (Social Proof) with Thompson-ranked pattern override", () => {
+      const prompt = buildEmailPrompt({
+        lead: baseLead,
+        step: 2,
+        companyDna,
+        previousEmails: [
+          { step: 0, subject: "shipping costs at ShipFast", body: "Sarah, since your Series B..." },
+          { step: 1, subject: "logistics benchmark", body: "Quick follow-up — thought this might be relevant..." },
+        ],
+        patternRanking: `## SUBJECT LINE PATTERNS (ranked by YOUR campaign data)
+| Rank | Pattern | Open Rate | Sample |
+|------|---------|-----------|--------|
+| 1 | **Question** | 52% | 84 |
+| 2 | **Observation** | 47% | 62 |
+| 3 | **Direct** | 41% | 55 |
+| 4 | **Curiosity gap** | 38% | 43 |
+| 5 | **Personalized** | 35% | 21 |`,
+      });
+      expect(prompt).toMatchSnapshot();
+    });
+  });
+
+  // ─── Section Isolation Snapshots ──────────────────────────
+  // These snapshot individual prompt sections for more targeted regression detection.
+
+  describe("snapshot — connection bridge section", () => {
+    it("matches expected connection bridge instructions", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna });
+      const start = prompt.indexOf("## CRITICAL INSTRUCTION");
+      const end = prompt.indexOf("## Framework");
+      const section = prompt.slice(start, end).trim();
+      expect(section).toMatchSnapshot();
+    });
+  });
+
+  describe("snapshot — constraints section", () => {
+    it("step 0 constraints", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna });
+      const start = prompt.indexOf("## Constraints");
+      const section = prompt.slice(start).trim();
+      expect(section).toMatchSnapshot();
+    });
+
+    it("step 5 constraints (shorter word limit)", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 5, companyDna });
+      const start = prompt.indexOf("## Constraints");
+      const section = prompt.slice(start).trim();
+      expect(section).toMatchSnapshot();
+    });
+  });
+
+  describe("snapshot — enrichment enforcement block", () => {
+    it("rich enrichment data — mandatory usage", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna });
+      const start = prompt.indexOf("## ENRICHMENT DATA USAGE");
+      const end = prompt.indexOf("## SUBJECT LINE PATTERNS");
+      const section = prompt.slice(start, end).trim();
+      expect(section).toMatchSnapshot();
+    });
+
+    it("no enrichment data — limited data fallback", () => {
+      const prompt = buildEmailPrompt({ lead: minimalLead, step: 0, companyDna });
+      const start = prompt.indexOf("## LIMITED PROSPECT DATA");
+      const end = prompt.indexOf("## SUBJECT LINE PATTERNS");
+      const section = prompt.slice(start, end).trim();
+      expect(section).toMatchSnapshot();
+    });
+  });
+
+  describe("snapshot — CTA sections per step", () => {
+    for (const step of [0, 1, 2, 3, 4, 5]) {
+      it(`step ${step} CTAs`, () => {
+        const prompt = buildEmailPrompt({ lead: baseLead, step, companyDna });
+        const start = prompt.indexOf("## PROVEN CTAs");
+        const end = prompt.indexOf("## Constraints");
+        const section = prompt.slice(start, end).trim();
+        expect(section).toMatchSnapshot();
+      });
+    }
+  });
+
+  describe("snapshot — tier tone instructions", () => {
+    it("tier 1 — aggressive tone", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna, tier: 1 });
+      expect(prompt).toContain("TIER 1 (high-fit, high-intent)");
+      const start = prompt.indexOf("## LEAD TIER");
+      const section = prompt.slice(start).trim();
+      expect(section).toMatchSnapshot();
+    });
+
+    it("tier 3 — nurture tone", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna, tier: 3 });
+      expect(prompt).toContain("TIER 3 (minimum viable fit)");
+      const start = prompt.indexOf("## LEAD TIER");
+      const section = prompt.slice(start).trim();
+      expect(section).toMatchSnapshot();
+    });
+  });
+
+  describe("snapshot — buying signals section", () => {
+    it("rich signals with stacking alert", () => {
+      const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna });
+      const start = prompt.indexOf("## BUYING SIGNALS");
+      const end = prompt.indexOf("## CRITICAL INSTRUCTION");
+      const section = prompt.slice(start, end).trim();
+      expect(section).toMatchSnapshot();
+    });
+  });
 });
