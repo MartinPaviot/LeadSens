@@ -357,7 +357,10 @@ JAMAIS:
 - **[enrichment]** : `extractLinkedInContext()` returns `undefined` (not `null`) for absent keys
 - **[testing]** : Zod `.default()` = REQUIRED in infer type — tests must include explicitly
 - **[testing]** : setTimeout stub for rate-limit: capture `realSetTimeout` before stubbing
-- **[types]** : `safeTransition()` needs `LeadStatus` type, `getActiveIntegration()` needs `IntegrationType`
+- **[types]** : `safeTransition()` needs `LeadStatus` type, `getActiveIntegration()` needs `string` (was `IntegrationType` enum, now plain string)
+- **[integrations]** : Registry-driven architecture (`src/server/lib/integrations/registry.ts`). Add new tools there, not per-tool API routes.
+- **[integrations]** : `IntegrationType` Prisma enum removed → `type` is now `String`. No migration needed per new tool.
+- **[integrations]** : Dynamic route `[tool]/route.ts` handles all API key connect/disconnect. HubSpot OAuth still uses `hubspot/auth/` and `hubspot/callback/`.
 - **[types]** : SDK boundaries → explicit eslint-disable + comment. Everywhere else, zero `as any`
 - **[csv]** : Delimiter priority: tab > semicolon > comma. French headers mapped. Missing email = skip
 

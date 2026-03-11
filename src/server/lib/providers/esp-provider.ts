@@ -146,7 +146,7 @@ export interface RemoveFromSequenceResult {
 // ─── Interface ───────────────────────────────────────────
 
 export interface ESPProvider {
-  readonly name: "instantly" | "smartlead" | "lemlist";
+  readonly name: string;
 
   // Accounts
   listAccounts(): Promise<ESPAccount[]>;

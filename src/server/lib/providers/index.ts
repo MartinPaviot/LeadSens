@@ -1,6 +1,9 @@
 /**
  * Provider Registry — Returns the right provider based on workspace integrations.
  *
+ * Registry-driven: connectors are looked up from the integration registry.
+ * Static connector maps ensure Next.js bundling works correctly.
+ *
  * ESP: Instantly, Smartlead, Lemlist
  * CRM: HubSpot
  * Sourcing: Instantly (SuperSearch)
@@ -14,31 +17,90 @@
 
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
-import type { IntegrationType } from "@prisma/client";
+import {
+  getConnectorsByCategory,
+  getConnectorConfig,
+} from "@/server/lib/integrations/registry";
 import type { ESPProvider } from "./esp-provider";
 import type { SourcingProvider } from "./sourcing-provider";
 import type { CRMProvider } from "./crm-provider";
 import type { EmailVerifier } from "./email-verifier";
 
-// ─── Integration types that map to providers ────────────
-// Only types that have a real implementation are listed here.
-// Extend these arrays when adding new connectors.
+// ─── Static connector maps (required for Next.js bundling) ──
 
-const ESP_TYPES = ["INSTANTLY", "SMARTLEAD", "LEMLIST"] as const;
-const CRM_TYPES = ["HUBSPOT"] as const;
-const SOURCING_TYPES = ["INSTANTLY"] as const;
-const VERIFIER_TYPES = ["ZEROBOUNCE"] as const;
+type ConnectorFactory<T> = (apiKey: string) => T | Promise<T>;
 
-type ESPType = (typeof ESP_TYPES)[number];
-type CRMType = (typeof CRM_TYPES)[number];
-type SourcingType = (typeof SOURCING_TYPES)[number];
-type VerifierType = (typeof VERIFIER_TYPES)[number];
+const ESP_CONNECTOR_MAP: Record<
+  string,
+  () => Promise<ConnectorFactory<ESPProvider>>
+> = {
+  INSTANTLY: () =>
+    import("@/server/lib/connectors/instantly-esp").then(
+      (m) => m.createInstantlyESP,
+    ),
+  SMARTLEAD: () =>
+    import("@/server/lib/connectors/smartlead").then(
+      (m) => m.createSmartleadESP,
+    ),
+  LEMLIST: () =>
+    import("@/server/lib/connectors/lemlist").then((m) => m.createLemlistESP),
+  WOODPECKER: () =>
+    import("@/server/lib/connectors/woodpecker").then((m) => m.createWoodpeckerESP),
+  MAILSHAKE: () =>
+    import("@/server/lib/connectors/mailshake").then((m) => m.createMailshakeESP),
+  REPLY_IO: () =>
+    import("@/server/lib/connectors/reply-io").then((m) => m.createReplyIoESP),
+};
+
+const SOURCING_CONNECTOR_MAP: Record<
+  string,
+  () => Promise<ConnectorFactory<SourcingProvider>>
+> = {
+  INSTANTLY: () =>
+    import("@/server/lib/connectors/instantly-sourcing").then(
+      (m) => m.createInstantlySourcing,
+    ),
+};
+
+const CRM_CONNECTOR_MAP: Record<
+  string,
+  (workspaceId: string) => Promise<CRMProvider>
+> = {
+  HUBSPOT: async (workspaceId: string) => {
+    const { createHubSpotCRM } = await import(
+      "@/server/lib/connectors/hubspot-crm"
+    );
+    return createHubSpotCRM(workspaceId);
+  },
+};
+
+const VERIFIER_CONNECTOR_MAP: Record<
+  string,
+  () => Promise<ConnectorFactory<EmailVerifier>>
+> = {
+  ZEROBOUNCE: () =>
+    import("@/server/lib/connectors/zerobounce").then(
+      (m) => m.createZeroBounceVerifier,
+    ),
+  NEVERBOUNCE: () =>
+    import("@/server/lib/connectors/neverbounce").then(
+      (m) => m.createNeverBounceVerifier,
+    ),
+  DEBOUNCE: () =>
+    import("@/server/lib/connectors/debounce").then(
+      (m) => m.createDeBounceVerifier,
+    ),
+  MILLIONVERIFIER: () =>
+    import("@/server/lib/connectors/millionverifier").then(
+      (m) => m.createMillionVerifierVerifier,
+    ),
+};
 
 // ─── Integration loader ─────────────────────────────────
 
 export async function getActiveIntegration(
   workspaceId: string,
-  type: IntegrationType,
+  type: string,
 ) {
   const integration = await prisma.integration.findUnique({
     where: { workspaceId_type: { workspaceId, type } },
@@ -47,110 +109,115 @@ export async function getActiveIntegration(
   return integration;
 }
 
-function decryptApiKey(integration: { apiKey: string | null; type: string }): string {
+function decryptApiKey(integration: {
+  apiKey: string | null;
+  type: string;
+}): string {
   if (!integration.apiKey) throw new Error(`No API key for ${integration.type}`);
   return decrypt(integration.apiKey);
 }
 
 // ─── ESP Provider Factory ────────────────────────────────
 
-export async function getESPProvider(workspaceId: string): Promise<ESPProvider | null> {
-  for (const type of ESP_TYPES) {
-    const integration = await getActiveIntegration(workspaceId, type);
+export async function getESPProvider(
+  workspaceId: string,
+): Promise<ESPProvider | null> {
+  const espConnectors = getConnectorsByCategory("esp");
+
+  for (const connector of espConnectors) {
+    const factory = ESP_CONNECTOR_MAP[connector.id];
+    if (!factory) continue;
+
+    const integration = await getActiveIntegration(workspaceId, connector.id);
     if (!integration) continue;
 
-    switch (type) {
-      case "INSTANTLY": {
-        const { createInstantlyESP } = await import("@/server/lib/connectors/instantly-esp");
-        return createInstantlyESP(decryptApiKey(integration));
-      }
-      case "SMARTLEAD": {
-        const { createSmartleadESP } = await import("@/server/lib/connectors/smartlead");
-        return createSmartleadESP(decryptApiKey(integration));
-      }
-      case "LEMLIST": {
-        const { createLemlistESP } = await import("@/server/lib/connectors/lemlist");
-        return createLemlistESP(decryptApiKey(integration));
-      }
-    }
+    const createFn = await factory();
+    return createFn(decryptApiKey(integration));
   }
   return null;
 }
 
 /** Get ESP provider name for a workspace (without initializing) */
-export async function getESPType(workspaceId: string): Promise<ESPType | null> {
-  for (const type of ESP_TYPES) {
-    const integration = await getActiveIntegration(workspaceId, type);
-    if (integration) return type;
+export async function getESPType(workspaceId: string): Promise<string | null> {
+  const espConnectors = getConnectorsByCategory("esp");
+
+  for (const connector of espConnectors) {
+    if (!ESP_CONNECTOR_MAP[connector.id]) continue;
+    const integration = await getActiveIntegration(workspaceId, connector.id);
+    if (integration) return connector.id;
   }
   return null;
 }
 
 // ─── Sourcing Provider Factory ───────────────────────────
 
-export async function getSourcingProvider(workspaceId: string): Promise<SourcingProvider | null> {
-  for (const type of SOURCING_TYPES) {
-    const integration = await getActiveIntegration(workspaceId, type);
-    if (!integration) continue;
+export async function getSourcingProvider(
+  workspaceId: string,
+): Promise<SourcingProvider | null> {
+  const config = getConnectorConfig("INSTANTLY");
+  if (!config) return null;
 
-    switch (type) {
-      case "INSTANTLY": {
-        const { createInstantlySourcing } = await import("@/server/lib/connectors/instantly-sourcing");
-        return createInstantlySourcing(decryptApiKey(integration));
-      }
-    }
-  }
-  return null;
+  const factory = SOURCING_CONNECTOR_MAP[config.id];
+  if (!factory) return null;
+
+  const integration = await getActiveIntegration(workspaceId, config.id);
+  if (!integration) return null;
+
+  const createFn = await factory();
+  return createFn(decryptApiKey(integration));
 }
 
 /** Get all active sourcing providers */
-export async function getAllSourcingProviders(workspaceId: string): Promise<SourcingProvider[]> {
+export async function getAllSourcingProviders(
+  workspaceId: string,
+): Promise<SourcingProvider[]> {
   const providers: SourcingProvider[] = [];
-  for (const type of SOURCING_TYPES) {
+  for (const [type, factory] of Object.entries(SOURCING_CONNECTOR_MAP)) {
     const integration = await getActiveIntegration(workspaceId, type);
     if (!integration) continue;
 
-    switch (type) {
-      case "INSTANTLY": {
-        const { createInstantlySourcing } = await import("@/server/lib/connectors/instantly-sourcing");
-        providers.push(createInstantlySourcing(decryptApiKey(integration)));
-        break;
-      }
-    }
+    const createFn = await factory();
+    const provider = await createFn(decryptApiKey(integration));
+    providers.push(provider);
   }
   return providers;
 }
 
 // ─── CRM Provider Factory ────────────────────────────────
 
-export async function getCRMProvider(workspaceId: string): Promise<CRMProvider | null> {
-  for (const type of CRM_TYPES) {
-    const integration = await getActiveIntegration(workspaceId, type);
+export async function getCRMProvider(
+  workspaceId: string,
+): Promise<CRMProvider | null> {
+  const crmConnectors = getConnectorsByCategory("crm");
+
+  for (const connector of crmConnectors) {
+    const factory = CRM_CONNECTOR_MAP[connector.id];
+    if (!factory) continue;
+
+    const integration = await getActiveIntegration(workspaceId, connector.id);
     if (!integration) continue;
 
-    switch (type) {
-      case "HUBSPOT": {
-        const { createHubSpotCRM } = await import("@/server/lib/connectors/hubspot-crm");
-        return createHubSpotCRM(workspaceId);
-      }
-    }
+    return factory(workspaceId);
   }
   return null;
 }
 
 // ─── Email Verifier Factory ──────────────────────────────
 
-export async function getEmailVerifier(workspaceId: string): Promise<EmailVerifier | null> {
-  for (const type of VERIFIER_TYPES) {
-    const integration = await getActiveIntegration(workspaceId, type);
+export async function getEmailVerifier(
+  workspaceId: string,
+): Promise<EmailVerifier | null> {
+  const verifierConnectors = getConnectorsByCategory("email_verification");
+
+  for (const connector of verifierConnectors) {
+    const factory = VERIFIER_CONNECTOR_MAP[connector.id];
+    if (!factory) continue;
+
+    const integration = await getActiveIntegration(workspaceId, connector.id);
     if (!integration) continue;
 
-    switch (type) {
-      case "ZEROBOUNCE": {
-        const { createZeroBounceVerifier } = await import("@/server/lib/connectors/zerobounce");
-        return createZeroBounceVerifier(decryptApiKey(integration));
-      }
-    }
+    const createFn = await factory();
+    return createFn(decryptApiKey(integration));
   }
   return null;
 }
@@ -158,7 +225,9 @@ export async function getEmailVerifier(workspaceId: string): Promise<EmailVerifi
 // ─── Apollo API Key ─────────────────────────────────────
 
 /** Get decrypted Apollo API key for enrichment (if connected) */
-export async function getApolloApiKey(workspaceId: string): Promise<string | null> {
+export async function getApolloApiKey(
+  workspaceId: string,
+): Promise<string | null> {
   const integration = await getActiveIntegration(workspaceId, "APOLLO");
   if (!integration) return null;
   try {
@@ -171,24 +240,31 @@ export async function getApolloApiKey(workspaceId: string): Promise<string | nul
 // ─── Workspace Integration Summary ───────────────────────
 
 export interface WorkspaceProviders {
-  esp: ESPType | null;
-  sourcing: SourcingType[];
-  crm: CRMType | null;
-  verifier: VerifierType | null;
+  esp: string | null;
+  sourcing: string[];
+  crm: string | null;
+  verifier: string | null;
 }
 
-export async function getWorkspaceProviders(workspaceId: string): Promise<WorkspaceProviders> {
+export async function getWorkspaceProviders(
+  workspaceId: string,
+): Promise<WorkspaceProviders> {
   const integrations = await prisma.integration.findMany({
     where: { workspaceId, status: "ACTIVE" },
     select: { type: true },
   });
 
-  const types = new Set(integrations.map((i) => i.type as string));
+  const types = new Set(integrations.map((i) => i.type));
+
+  const espConnectors = getConnectorsByCategory("esp");
+  const sourcingIds = Object.keys(SOURCING_CONNECTOR_MAP);
+  const crmConnectors = getConnectorsByCategory("crm");
+  const verifierConnectors = getConnectorsByCategory("email_verification");
 
   return {
-    esp: ESP_TYPES.find((t) => types.has(t)) ?? null,
-    sourcing: SOURCING_TYPES.filter((t) => types.has(t)) as SourcingType[],
-    crm: CRM_TYPES.find((t) => types.has(t)) ?? null,
-    verifier: VERIFIER_TYPES.find((t) => types.has(t)) ?? null,
+    esp: espConnectors.find((c) => ESP_CONNECTOR_MAP[c.id] && types.has(c.id))?.id ?? null,
+    sourcing: sourcingIds.filter((id) => types.has(id)),
+    crm: crmConnectors.find((c) => CRM_CONNECTOR_MAP[c.id] && types.has(c.id))?.id ?? null,
+    verifier: verifierConnectors.find((c) => VERIFIER_CONNECTOR_MAP[c.id] && types.has(c.id))?.id ?? null,
   };
 }

@@ -95,13 +95,14 @@ model Workspace {
 model Integration {
   id           String            @id @default(cuid())
   workspaceId  String
-  type         IntegrationType
+  type         String
   apiKey       String?
   accessToken  String?
   refreshToken String?
   expiresAt    DateTime?
   accountEmail String?
   accountName  String?
+  metadata     Json?
   status       IntegrationStatus @default(ACTIVE)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
@@ -431,17 +432,6 @@ enum ReplyThreadStatus {
 enum ReplyDirection {
   INBOUND
   OUTBOUND
-}
-
-enum IntegrationType {
-  INSTANTLY
-  HUBSPOT
-  APOLLO
-  ZEROBOUNCE
-  SMARTLEAD
-  LEMLIST
-  SALESFORCE
-  GOOGLE_SHEETS
 }
 
 enum IntegrationStatus {
