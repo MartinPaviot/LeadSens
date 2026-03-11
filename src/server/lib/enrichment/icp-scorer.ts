@@ -25,6 +25,7 @@ export interface CombinedScoreBreakdown {
   compoundBonus: number; // Bonus for 3+ distinct signal types (0-3)
   combinedScore: number; // Weighted: fit 40% + intent 35% + timing 25% + compound bonus
   signals: string[]; // Which signals contributed
+  tier: LeadTier; // Lead tier based on combined score
 }
 
 interface LeadForScoring {
@@ -139,6 +140,22 @@ JSON: {"score": N, "breakdown": {"jobTitleFit": N, "companyFit": N, "industryRel
   });
 }
 
+// ─── Lead Tiering ──────────────────────────────────────
+
+export type LeadTier = 1 | 2 | 3;
+
+/**
+ * Deterministic lead tier based on combined score.
+ * Tier 1: High-fit + high-intent (score >= 8)
+ * Tier 2: Good fit, moderate intent (score 6-7)
+ * Tier 3: Minimum viable (score < 6)
+ */
+export function computeLeadTier(combinedScore: number): LeadTier {
+  if (combinedScore >= 8) return 1;
+  if (combinedScore >= 6) return 2;
+  return 3;
+}
+
 // ─── Post-enrichment Signal Boost (deterministic, 0 LLM) ─
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -167,6 +184,58 @@ function weightedSignalCount(signals: StructuredSignal[]): number {
 }
 
 /**
+ * Maps broadened filter field names to enrichment data fields.
+ * When a filter was dropped during broadening, a lead whose enrichment
+ * data MATCHES the dropped criteria gets a bonus — they fit the original
+ * (narrower) ICP the user actually wanted.
+ *
+ * Conservative bonus: +1 per matching broadened field, max +2 total.
+ */
+export function computeBroadeningBonus(
+  ed: EnrichmentData | null | undefined,
+  broadenedFields: string[],
+): { bonus: number; matchedFields: string[] } {
+  if (!ed || broadenedFields.length === 0) return { bonus: 0, matchedFields: [] };
+
+  const matched: string[] = [];
+
+  for (const field of broadenedFields) {
+    switch (field) {
+      case "news":
+        if ((ed.recentNews?.length ?? 0) > 0) matched.push("news");
+        break;
+      case "funding_type":
+        if ((ed.fundingSignals?.length ?? 0) > 0) matched.push("funding_type");
+        break;
+      case "technologies":
+        if ((ed.techStackChanges?.length ?? 0) > 0 || (ed.techStack?.length ?? 0) > 0) matched.push("technologies");
+        break;
+      case "keyword_filter":
+        // keyword_filter maps to public priorities or pain points
+        if ((ed.publicPriorities?.length ?? 0) > 0 || (ed.painPoints?.length ?? 0) > 0) matched.push("keyword_filter");
+        break;
+      case "job_listing":
+        if ((ed.hiringSignals?.length ?? 0) > 0) matched.push("job_listing");
+        break;
+      case "industries":
+        if (ed.industry) matched.push("industries");
+        break;
+      case "job_titles":
+        // Can't verify title match from enrichment — skip
+        break;
+      case "employee_count":
+        if (ed.teamSize) matched.push("employee_count");
+        break;
+      // "revenue" filter: not tracked in EnrichmentData schema — skip
+    }
+  }
+
+  // Conservative: +1 per match, capped at +2
+  const bonus = Math.min(matched.length, 2);
+  return { bonus, matchedFields: matched };
+}
+
+/**
  * Computes intent + timing scores from enrichment data.
  * Called after enrichment to upgrade the pre-enrichment fit-only score
  * into a multi-dimensional combined score.
@@ -177,10 +246,14 @@ function weightedSignalCount(signals: StructuredSignal[]): number {
  *   Timing 25% (funding, leadership change, public priorities)
  *
  * Baseline = 3 (no signals). Each signal type adds points, capped at 10.
+ *
+ * Optional broadenedFields: when filters were dropped during sourcing broadening,
+ * leads matching those original criteria get a bonus (+1 per match, max +2).
  */
 export function computeSignalBoost(
   fitScore: number,
   ed: EnrichmentData | null | undefined,
+  broadenedFields?: string[],
 ): CombinedScoreBreakdown {
   if (!ed) {
     return {
@@ -190,6 +263,7 @@ export function computeSignalBoost(
       compoundBonus: 0,
       combinedScore: fitScore,
       signals: [],
+      tier: computeLeadTier(fitScore),
     };
   }
 
@@ -265,8 +339,17 @@ export function computeSignalBoost(
   const signalTypeCount = signals.length;
   const compoundBonus = signalTypeCount >= 3 ? Math.min(signalTypeCount - 2, 3) : 0;
 
+  // Broadening bonus: leads matching dropped filters get boosted
+  // These leads fit the user's ORIGINAL (narrower) ICP criteria
+  const broadening = computeBroadeningBonus(ed, broadenedFields ?? []);
+  if (broadening.matchedFields.length > 0) {
+    for (const f of broadening.matchedFields) {
+      signals.push(`broadened:${f}`);
+    }
+  }
+
   const baseCombined = Math.round(fitScore * 0.4 + intentScore * 0.35 + timingScore * 0.25);
-  const combinedScore = clamp(baseCombined + compoundBonus, 1, 10);
+  const combinedScore = clamp(baseCombined + compoundBonus + broadening.bonus, 1, 10);
 
   return {
     fitScore,
@@ -275,5 +358,6 @@ export function computeSignalBoost(
     compoundBonus,
     combinedScore,
     signals,
+    tier: computeLeadTier(combinedScore),
   };
 }

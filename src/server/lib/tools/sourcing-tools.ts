@@ -237,13 +237,14 @@ export function createSourcingTools(ctx: ToolContext): Record<string, ToolDefini
 
     source_leads: {
       name: "source_leads",
-      description: "Source leads via Instantly SuperSearch. This uses the client's credits. Returns lead_ids and campaign_id for chaining to score_leads_batch.",
+      description: "Source leads via Instantly SuperSearch. This uses the client's credits. Returns lead_ids and campaign_id for chaining to score_leads_batch. If count_leads returned broadened_fields, pass them here so scoring can boost leads matching original criteria.",
       parameters: z.object({
         search_filters: searchFiltersParam,
         limit: z.number().int().min(1).max(10000),
         search_name: z.string(),
         list_name: z.string(),
         icp_description: z.string().describe("The user's original ICP description in natural language"),
+        broadened_fields: z.array(z.string()).optional().describe("Filter fields that were removed during broadening (from count_leads). Pass as-is if present."),
       }),
       isSideEffect: true,
       async execute(args) {
@@ -406,6 +407,7 @@ export function createSourcingTools(ctx: ToolContext): Record<string, ToolDefini
             name: args.search_name,
             icpDescription: args.icp_description,
             icpFilters: args.search_filters as unknown as Prisma.InputJsonValue,
+            broadenedFields: args.broadened_fields ?? [],
             espListId: resourceId,
             espType: "INSTANTLY",
             leadsTotal: newLeadIds.length,

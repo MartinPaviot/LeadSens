@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeSignalBoost, signalAge, type CombinedScoreBreakdown } from "@/server/lib/enrichment/icp-scorer";
+import { computeSignalBoost, computeBroadeningBonus, signalAge, type CombinedScoreBreakdown } from "@/server/lib/enrichment/icp-scorer";
 import type { EnrichmentData, StructuredSignal } from "@/server/lib/enrichment/summarizer";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -395,5 +395,200 @@ describe("computeSignalBoost recency weighting", () => {
     // timing = 3 (base) + 3 = 6
     expect(result.timingScore).toBeGreaterThanOrEqual(5);
     expect(result.signals).toContain("funding×2");
+  });
+});
+
+// ─── computeBroadeningBonus tests ──────────────────────────
+
+describe("computeBroadeningBonus", () => {
+  it("returns 0 bonus with no broadened fields", () => {
+    const result = computeBroadeningBonus(makeEnrichment({ recentNews: ["news"] }), []);
+    expect(result.bonus).toBe(0);
+    expect(result.matchedFields).toHaveLength(0);
+  });
+
+  it("returns 0 bonus with null enrichment data", () => {
+    const result = computeBroadeningBonus(null, ["news", "funding_type"]);
+    expect(result.bonus).toBe(0);
+    expect(result.matchedFields).toHaveLength(0);
+  });
+
+  it("matches news when lead has recentNews", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ recentNews: ["Company in the news"] }),
+      ["news"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["news"]);
+  });
+
+  it("matches funding_type when lead has fundingSignals", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ fundingSignals: [{ detail: "Series A", date: null, source: null }] }),
+      ["funding_type"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["funding_type"]);
+  });
+
+  it("matches technologies when lead has techStackChanges", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ techStackChanges: [{ change: "Adopted Salesforce", date: null }] }),
+      ["technologies"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["technologies"]);
+  });
+
+  it("matches technologies when lead has techStack", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ techStack: ["React", "Node.js"] }),
+      ["technologies"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["technologies"]);
+  });
+
+  it("matches keyword_filter when lead has publicPriorities", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ publicPriorities: [{ statement: "AI-first strategy", source: null, date: null }] }),
+      ["keyword_filter"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["keyword_filter"]);
+  });
+
+  it("matches keyword_filter when lead has painPoints", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ painPoints: ["scaling challenges"] }),
+      ["keyword_filter"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["keyword_filter"]);
+  });
+
+  it("matches job_listing when lead has hiringSignals", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ hiringSignals: [{ detail: "Hiring SDRs", date: null, source: null }] }),
+      ["job_listing"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["job_listing"]);
+  });
+
+  it("matches industries when lead has industry", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ industry: "SaaS" }),
+      ["industries"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["industries"]);
+  });
+
+  it("matches employee_count when lead has teamSize", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ teamSize: "50-100" }),
+      ["employee_count"],
+    );
+    expect(result.bonus).toBe(1);
+    expect(result.matchedFields).toEqual(["employee_count"]);
+  });
+
+  it("skips revenue (not in EnrichmentData schema)", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment(),
+      ["revenue"],
+    );
+    expect(result.bonus).toBe(0);
+    expect(result.matchedFields).toHaveLength(0);
+  });
+
+  it("skips job_titles (cannot verify from enrichment)", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ industry: "SaaS" }),
+      ["job_titles"],
+    );
+    expect(result.bonus).toBe(0);
+    expect(result.matchedFields).toHaveLength(0);
+  });
+
+  it("caps bonus at 2 even with 3+ matches", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({
+        recentNews: ["news"],
+        fundingSignals: [{ detail: "Series A", date: null, source: null }],
+        hiringSignals: [{ detail: "Hiring", date: null, source: null }],
+      }),
+      ["news", "funding_type", "job_listing"],
+    );
+    expect(result.matchedFields).toHaveLength(3);
+    expect(result.bonus).toBe(2); // capped
+  });
+
+  it("does not match when enrichment data is empty for broadened field", () => {
+    const result = computeBroadeningBonus(
+      makeEnrichment({ recentNews: [], fundingSignals: [] }),
+      ["news", "funding_type"],
+    );
+    expect(result.bonus).toBe(0);
+    expect(result.matchedFields).toHaveLength(0);
+  });
+});
+
+// ─── computeSignalBoost with broadenedFields integration ────
+
+describe("computeSignalBoost with broadenedFields", () => {
+  it("boosts score when broadened field matches enrichment", () => {
+    const withoutBroadening = computeSignalBoost(6, makeEnrichment({
+      recentNews: ["Company raised $5M"],
+    }));
+    const withBroadening = computeSignalBoost(6, makeEnrichment({
+      recentNews: ["Company raised $5M"],
+    }), ["news"]);
+    expect(withBroadening.combinedScore).toBeGreaterThan(withoutBroadening.combinedScore);
+    expect(withBroadening.signals).toContain("broadened:news");
+  });
+
+  it("does not boost when broadened field has no matching data", () => {
+    const withoutBroadening = computeSignalBoost(6, makeEnrichment());
+    const withBroadening = computeSignalBoost(6, makeEnrichment(), ["news", "funding_type"]);
+    expect(withBroadening.combinedScore).toBe(withoutBroadening.combinedScore);
+  });
+
+  it("broadening bonus stacks with compound bonus", () => {
+    const ed = makeEnrichment({
+      hiringSignals: [{ detail: "SDR", date: "2026-02", source: null }],
+      fundingSignals: [{ detail: "Series A", date: "2026-01", source: null }],
+      recentLinkedInPosts: ["Post"],
+      recentNews: ["News"],
+    });
+    const withBroadening = computeSignalBoost(6, ed, ["news"]);
+    const withoutBroadening = computeSignalBoost(6, ed);
+    // Should have compound bonus + broadening bonus
+    expect(withBroadening.combinedScore).toBeGreaterThanOrEqual(withoutBroadening.combinedScore);
+    expect(withBroadening.signals).toContain("broadened:news");
+  });
+
+  it("total score still capped at 10 with broadening", () => {
+    const result = computeSignalBoost(10, makeEnrichment({
+      hiringSignals: [{ detail: "A", date: "2026-02", source: null }],
+      fundingSignals: [{ detail: "B", date: "2026-01", source: null }],
+      recentLinkedInPosts: ["post"],
+      recentNews: ["news"],
+      techStackChanges: [{ change: "X", date: null }],
+    }), ["news", "funding_type", "technologies"]);
+    expect(result.combinedScore).toBeLessThanOrEqual(10);
+  });
+
+  it("empty broadenedFields array has no effect", () => {
+    const result1 = computeSignalBoost(7, makeEnrichment());
+    const result2 = computeSignalBoost(7, makeEnrichment(), []);
+    expect(result1.combinedScore).toBe(result2.combinedScore);
+  });
+
+  it("undefined broadenedFields has no effect", () => {
+    const result1 = computeSignalBoost(7, makeEnrichment());
+    const result2 = computeSignalBoost(7, makeEnrichment(), undefined);
+    expect(result1.combinedScore).toBe(result2.combinedScore);
   });
 });

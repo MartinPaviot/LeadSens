@@ -446,6 +446,13 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         const campaignId = await resolveCampaignId(ctx, args.campaign_id);
         if (!campaignId) return { error: "No campaign found" };
 
+        // Fetch broadened fields for scoring boost
+        const campaign = await prisma.campaign.findUnique({
+          where: { id: campaignId },
+          select: { broadenedFields: true },
+        });
+        const broadenedFields = campaign?.broadenedFields ?? [];
+
         let leads;
         if (args.lead_ids?.length) {
           // Explicit mode: use provided IDs, allow both SCORED and failed ENRICHED (retry)
@@ -608,7 +615,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           const flatFields = parsed?.success ? extractFlatEnrichmentFields(parsed.data) : {};
 
           // Post-enrichment signal boost: upgrade fit-only score to multi-dimensional
-          const signalBoost = computeSignalBoost(lead.icpScore ?? 5, parsed?.success ? parsed.data : null);
+          const signalBoost = computeSignalBoost(lead.icpScore ?? 5, parsed?.success ? parsed.data : null, broadenedFields);
           const updatedBreakdown = {
             ...(lead.icpBreakdown as Record<string, unknown> | null),
             intentScore: signalBoost.intentScore,
@@ -798,6 +805,16 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           return { error: `Lead must be scored first (current status: ${lead.status}). Call score_leads_batch before enriching.` };
         }
 
+        // Fetch broadened fields for scoring boost
+        let singleBroadenedFields: string[] = [];
+        if (lead.campaignId) {
+          const campaignData = await prisma.campaign.findUnique({
+            where: { id: lead.campaignId },
+            select: { broadenedFields: true },
+          });
+          singleBroadenedFields = campaignData?.broadenedFields ?? [];
+        }
+
         let enrichment: unknown = null;
         let scrapeError: string | null = null;
 
@@ -877,7 +894,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         const flatFields = parsed?.success ? extractFlatEnrichmentFields(parsed.data) : {};
 
         // Post-enrichment signal boost: upgrade fit-only score to multi-dimensional
-        const signalBoost = computeSignalBoost(lead.icpScore ?? 5, parsed?.success ? parsed.data : null);
+        const signalBoost = computeSignalBoost(lead.icpScore ?? 5, parsed?.success ? parsed.data : null, singleBroadenedFields);
         const updatedBreakdown = {
           ...(lead.icpBreakdown as Record<string, unknown> | null),
           intentScore: signalBoost.intentScore,

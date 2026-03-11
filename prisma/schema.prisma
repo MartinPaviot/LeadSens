@@ -202,6 +202,7 @@ model Campaign {
   status              CampaignStatus @default(DRAFT)
   icpDescription      String
   icpFilters          Json
+  broadenedFields     String[]       @default([])
   tone                String?
   stepsCount          Int            @default(6)
   espCampaignId       String?
