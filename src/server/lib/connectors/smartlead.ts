@@ -354,5 +354,11 @@ export function createSmartleadESP(apiKey: string): ESPProvider {
         return { removed: false, error: err instanceof Error ? err.message : String(err) };
       }
     },
+
+    async disableVariant(_campaignId: string, _stepIndex: number, _variantIndex: number): Promise<boolean> {
+      // Smartlead does not support per-variant disabling via API.
+      // A/B testing is managed at the campaign level in their UI.
+      return false;
+    },
   };
 }

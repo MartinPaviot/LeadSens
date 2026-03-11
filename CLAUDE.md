@@ -93,7 +93,7 @@ NON IMPLÉMENTÉ (pre-launch) :
   ❌ Subject line pattern library FORMELLE avec tracking perf par pattern
   ❌ Scoring multi-dimensionnel (fit + intent + timing) — actuellement fit-only
   ❌ Import CSV — Tier A bloquant, STRATEGY §4.2
-  ❌ Multi-ESP routing (tools → ESPProvider) — abstractions prêtes, tools appellent Instantly directement
+  ✅ Multi-ESP routing (tools → ESPProvider) — DONE: ESPProvider interface + 3 implementations (Instantly/Smartlead/Lemlist), all tools route through provider
 
 IMPLÉMENTÉ (post-launch) :
   ✅ LeadStatus étendu (8 statuts post-PUSHED) + state machine
@@ -574,7 +574,8 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[analytics]** : `getReplyRateBySubjectPatternSQL()` = pure SQL aggregation (efficient, DB-level). `getReplyRateBySubjectPattern()` = JS-level with heuristic fallback (needed for Thompson Sampling on mixed old+new data). Both coexist.
 - **[ab-testing]** : A/B auto-pause via `ab-testing.ts` — pure z-test functions + Instantly v_disabled integration. `calculateZTest(n1,x1,n2,x2)` returns z-score + significance. `findLosingVariant()` pairwise comparison of VariantPerformanceRow[]. `checkAndPauseLosingVariant()` respects autonomy level (AUTO=pause, SUPERVISED/MANUAL=notify). Runs from inngest analytics cron after each sync. Thresholds: 100+ sends/variant, 5+ days, |z|>1.96.
 - **[ab-testing]** : Instantly variant disable via `v_disabled: true` in sequences PATCH. Must GET full campaign sequences first, modify specific variant, then PATCH with full sequences array. Step 0 variants targeted (primary A/B testing step).
-- **[providers]** : `getActiveIntegration()` exported from `providers/index.ts` — needed by ab-testing for direct Instantly API access (variant management not abstractable through ESPProvider).
+- **[providers]** : `getActiveIntegration()` exported from `providers/index.ts` — used by integration API routes for status checks. ab-testing.ts now uses `getESPProvider()` exclusively (T2-INT-02 complete).
+- **[providers]** : `ESPProvider.disableVariant(campaignId, stepIndex, variantIndex)` — Instantly sets `v_disabled: true` on variant, Smartlead/Lemlist return false (no API support). ab-testing.ts calls `esp.disableVariant()` through the provider abstraction. Zero direct connector imports outside connectors + sourcing (by design).
 - **[dedup]** : `@@unique([workspaceId, email])` prevents duplicate Lead records. Cross-campaign dedup must query EmailPerformance by email (not leadId) — perf records preserve historical campaign data even after lead reassignment.
 - **[dedup]** : `ALREADY_CONTACTED_STATUSES` (8 statuses) in tool-utils.ts — used by `add_leads_to_campaign` to filter out all post-push leads, not just PUSHED. Includes: PUSHED, SENT, REPLIED, INTERESTED, NOT_INTERESTED, MEETING_BOOKED, BOUNCED, UNSUBSCRIBED.
 - **[dedup]** : `analyzeCrossCampaignDedup()` is a pure function (no DB calls). The ESP tool handler does the EmailPerformance query then passes results to the pure function. `skip_dedup_check` parameter allows user-confirmed intentional overlap.

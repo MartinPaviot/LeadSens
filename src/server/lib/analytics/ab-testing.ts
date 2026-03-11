@@ -11,9 +11,7 @@
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { getReplyRateBySubjectVariant, type VariantPerformanceRow } from "./correlator";
-import { getCampaign, updateCampaign, type InstantlyCampaign } from "@/server/lib/connectors/instantly";
-import { getActiveIntegration } from "@/server/lib/providers";
-import { decrypt } from "@/lib/encryption";
+import { getESPProvider } from "@/server/lib/providers";
 
 // ─── Thresholds ────────────────────────────────────────
 
@@ -255,8 +253,10 @@ export async function checkAndPauseLosingVariant(
 }
 
 /**
- * Disable a variant in the ESP (Instantly) by setting v_disabled: true.
- * Gets current campaign sequences, modifies the variant, then PATCHes.
+ * Disable a variant via the ESP provider abstraction.
+ * Each ESP implements disableVariant() differently:
+ * - Instantly: sets v_disabled on the variant in campaign sequences
+ * - Smartlead/Lemlist: returns false (no API support for variant disabling)
  *
  * @param variantIndex - 0-indexed variant (0=primary, 1=v2, 2=v3)
  * @returns true if successfully disabled
@@ -267,32 +267,14 @@ async function disableVariantViaESP(
   variantIndex: number,
 ): Promise<boolean> {
   try {
-    const integration = await getActiveIntegration(workspaceId, "INSTANTLY");
-    if (!integration?.apiKey) return false;
-
-    const apiKey = decrypt(integration.apiKey);
-    const campaign = await getCampaign(apiKey, espCampaignId);
-
-    if (!campaign.sequences?.[0]?.steps) {
-      logger.warn("[ab-testing] Campaign has no sequences", { espCampaignId });
+    const esp = await getESPProvider(workspaceId);
+    if (!esp) {
+      logger.warn("[ab-testing] No ESP provider found", { workspaceId });
       return false;
     }
 
-    // Mark the variant as disabled in step 0 (primary A/B testing step)
-    const sequences = campaign.sequences.map((seq) => ({
-      ...seq,
-      steps: seq.steps.map((step, stepIdx) => ({
-        ...step,
-        variants: step.variants.map((variant, vIdx) => ({
-          ...variant,
-          // Disable the losing variant in step 0
-          v_disabled: stepIdx === 0 && vIdx === variantIndex ? true : (variant as InstantlyVariant).v_disabled ?? false,
-        })),
-      })),
-    }));
-
-    await updateCampaign(apiKey, espCampaignId, { sequences });
-    return true;
+    // Step 0 is the primary A/B testing step
+    return await esp.disableVariant(espCampaignId, 0, variantIndex);
   } catch (error) {
     logger.error("[ab-testing] Failed to disable variant", {
       espCampaignId,
@@ -301,13 +283,6 @@ async function disableVariantViaESP(
     });
     return false;
   }
-}
-
-/** Internal type for Instantly variant with v_disabled field */
-interface InstantlyVariant {
-  subject: string;
-  body: string;
-  v_disabled?: boolean;
 }
 
 /**

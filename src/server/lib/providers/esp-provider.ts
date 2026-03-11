@@ -169,4 +169,8 @@ export interface ESPProvider {
   // Reply management
   replyToEmail(params: ReplyToEmailParams): Promise<ReplyToEmailResult>;
   removeFromSequence(params: RemoveFromSequenceParams): Promise<RemoveFromSequenceResult>;
+
+  // A/B testing
+  /** Disable a variant in a campaign step. Returns true if successful. */
+  disableVariant(campaignId: string, stepIndex: number, variantIndex: number): Promise<boolean>;
 }

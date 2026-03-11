@@ -57,7 +57,7 @@
 ### Intégrations Tier A bloquantes (STRATEGY §4.2)
 
 - [x] **T2-INT-01** Import CSV ✅ *Audit 2026-03-09: import_leads_csv in pipeline-tools.ts:382-491. Multi-format (comma/semicolon/tab), field mapping FR+EN, dedup against existing leads, campaign assignment. Minor gap: quoted fields with embedded delimiters break.*
-- [ ] **T2-INT-02** Multi-ESP routing — RESTE À FAIRE
+- [x] **T2-INT-02** Multi-ESP routing ✅ *2026-03-11: Added disableVariant() to ESPProvider interface + all 3 implementations (Instantly/Smartlead/Lemlist). ab-testing.ts now uses getESPProvider() instead of direct Instantly imports. Zero direct Instantly imports outside connectors + sourcing (by design). 17 tests in multi-esp-routing.test.ts.*
 - [x] **T2-INT-03** CRM push complet HubSpot ✅ *Audit 2026-03-09: crm_create_contact + crm_create_deal dans crm-tools.ts*
 
 ---

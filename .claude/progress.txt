@@ -1,3 +1,30 @@
+=== ITERATION 40 | 2026-03-11 21:55 UTC ===
+TASK: T2-INT-02 — Multi-ESP routing (last Tier 2 task)
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: esp-provider.ts, instantly-esp.ts, smartlead.ts, lemlist.ts, ab-testing.ts, tests/multi-esp-routing.test.ts (NEW)
+TESTS: 1198/1198 passed (48 test files, +17 net new tests)
+COMMIT: feat(providers): complete multi-ESP routing — disableVariant() abstraction (T2-INT-02)
+CHANGES:
+- Added `disableVariant(campaignId, stepIndex, variantIndex): Promise<boolean>` to ESPProvider interface
+- Instantly implementation: fetches campaign sequences, sets v_disabled on target variant, PATCHes back
+- Smartlead/Lemlist: return false (no API support for per-variant disabling)
+- ab-testing.ts: replaced direct Instantly imports (getCampaign, updateCampaign) with getESPProvider()
+  - Removed: import of getCampaign, updateCampaign, InstantlyCampaign from connectors/instantly
+  - Removed: import of getActiveIntegration, decrypt
+  - Added: import of getESPProvider from providers
+  - disableVariantViaESP() now calls esp.disableVariant() — 3 lines vs 25 lines
+- 17 new tests: Instantly disable variant (7: normal, step targeting, no sequences, empty sequences,
+  API failure, preserve existing disabled, missing v_disabled field), Smartlead (2: returns false,
+  no API calls), Lemlist (2: returns false, no API calls), interface compliance (6: all 3 providers
+  implement disableVariant + name property)
+LEARNINGS:
+- ab-testing.ts was the ONLY non-connector file importing directly from connectors/instantly.ts
+- Remaining direct imports (sourcing-tools.ts, icp-parser.ts) are by design — SuperSearch is Instantly-exclusive
+- Smartlead/Lemlist don't expose variant management APIs — graceful false return is the right pattern
+- With T2-INT-02 done, ALL Tier 2 tasks are complete (100%). Remaining: 4 Tier 3 + 3 DEBT tasks.
+NEXT: T3-SCORE-02 (broadening filters → scoring signals) or DEBT-02 (Zod validation on API routes)
+
 === ITERATION 39 | 2026-03-11 15:40 UTC ===
 TASK: DEBT-07 — Snapshot tests for LLM email prompts
 STATUS: DONE

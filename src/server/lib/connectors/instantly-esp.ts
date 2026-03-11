@@ -4,6 +4,7 @@
  */
 
 import * as instantly from "./instantly";
+import { logger } from "@/lib/logger";
 import type {
   ESPProvider,
   ESPAccount,
@@ -197,5 +198,55 @@ export function createInstantlyESP(apiKey: string): ESPProvider {
         return { removed: false, error: err instanceof Error ? err.message : String(err) };
       }
     },
+
+    async disableVariant(campaignId: string, stepIndex: number, variantIndex: number): Promise<boolean> {
+      try {
+        const campaign = await instantly.getCampaign(apiKey, campaignId);
+
+        if (!campaign.sequences?.[0]?.steps) {
+          logger.warn("[instantly-esp] Campaign has no sequences", { campaignId });
+          return false;
+        }
+
+        const sequences = campaign.sequences.map((seq: InstantlySequence) => ({
+          ...seq,
+          steps: seq.steps.map((step: InstantlyStep, sIdx: number) => ({
+            ...step,
+            variants: step.variants.map((variant: InstantlyVariant, vIdx: number) => ({
+              ...variant,
+              v_disabled: sIdx === stepIndex && vIdx === variantIndex ? true : variant.v_disabled ?? false,
+            })),
+          })),
+        }));
+
+        await instantly.updateCampaign(apiKey, campaignId, { sequences });
+        return true;
+      } catch (error) {
+        logger.error("[instantly-esp] Failed to disable variant", {
+          campaignId,
+          stepIndex,
+          variantIndex,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+    },
   };
+}
+
+/** Internal types for Instantly campaign structure */
+interface InstantlyVariant {
+  subject: string;
+  body: string;
+  v_disabled?: boolean;
+}
+
+interface InstantlyStep {
+  variants: InstantlyVariant[];
+  [key: string]: unknown;
+}
+
+interface InstantlySequence {
+  steps: InstantlyStep[];
+  [key: string]: unknown;
 }
