@@ -22,13 +22,13 @@ export interface PerformanceInsight {
   confidence: "high" | "medium" | "low"; // high >= 50, medium >= 20, low < 20
 }
 
-function getConfidence(totalSent: number): "high" | "medium" | "low" {
+export function getConfidence(totalSent: number): "high" | "medium" | "low" {
   if (totalSent >= 50) return "high";
   if (totalSent >= 20) return "medium";
   return "low";
 }
 
-function buildInsight(
+export function buildInsight(
   dimension: PerformanceInsight["dimension"],
   rows: CorrelationRow[],
 ): PerformanceInsight | null {

@@ -128,6 +128,43 @@ export async function getStyleSamples(
   );
 }
 
+// ─── Winning Pattern Helpers ────────────────────────────
+
+export interface WinningEmailData {
+  signalType: string | null;
+  bodyWordCount: number | null;
+  frameworkName: string | null;
+  enrichmentDepth: string | null;
+}
+
+/**
+ * Build a human-readable pattern key from email metadata.
+ * Returns empty string if no meaningful metadata is present.
+ */
+export function buildPatternKey(data: WinningEmailData): string {
+  return [
+    data.signalType ? `${data.signalType} signal` : null,
+    data.bodyWordCount ? `${data.bodyWordCount} words` : null,
+    data.frameworkName ? data.frameworkName : null,
+    data.enrichmentDepth === "rich" ? "deep enrichment" : null,
+  ].filter(Boolean).join(", ");
+}
+
+/**
+ * Rank patterns by frequency and return top 3 as WinningPattern[].
+ */
+export function rankPatterns(
+  patternCounts: Map<string, { count: number; totalRate: number }>,
+): WinningPattern[] {
+  return [...patternCounts.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 3)
+    .map(([summary, data]) => ({
+      summary: `Winning email pattern (${data.count}x): ${summary}`,
+      replyRate: data.totalRate / data.count,
+    }));
+}
+
 /**
  * Extracts patterns from emails that got replies.
  * Returns max 3 winning pattern summaries for injection into drafting prompt.
@@ -184,13 +221,7 @@ export async function getWinningEmailPatterns(
   // Extract patterns from winning emails
   const patternCounts = new Map<string, { count: number; totalRate: number }>();
   for (const w of replied) {
-    const key = [
-      w.signalType ? `${w.signalType} signal` : null,
-      w.bodyWordCount ? `${w.bodyWordCount} words` : null,
-      w.frameworkName ? w.frameworkName : null,
-      w.enrichmentDepth === "rich" ? "deep enrichment" : null,
-    ].filter(Boolean).join(", ");
-
+    const key = buildPatternKey(w);
     if (!key) continue;
     const existing = patternCounts.get(key) ?? { count: 0, totalRate: 0 };
     existing.count++;
@@ -199,11 +230,5 @@ export async function getWinningEmailPatterns(
   }
 
   // Sort by frequency and return top 3
-  return [...patternCounts.entries()]
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 3)
-    .map(([summary, data]) => ({
-      summary: `Winning email pattern (${data.count}x): ${summary}`,
-      replyRate: data.totalRate / data.count,
-    }));
+  return rankPatterns(patternCounts);
 }
