@@ -1,9 +1,79 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import type { WinningPattern } from "./prompt-builder";
 import { POSITIVE_REPLY_INTEREST_THRESHOLD } from "@/server/lib/analytics/correlator";
 
+// ─── Category Detection ─────────────────────────────────
+
+export type StyleCategory = "subject" | "tone" | "cta" | "opener" | "length" | "general";
+
+/**
+ * Split text into sentences (non-empty, trimmed).
+ */
+function splitSentences(text: string): string[] {
+  return text.split(/[.!?]\s+/).map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+/**
+ * Auto-detect the category of a style correction based on heuristics.
+ *
+ * Priority: subject > length > opener > cta > tone > general
+ */
+export function detectCategory(original: string, edit: string): StyleCategory {
+  // 0. No change = general (not a meaningful correction)
+  if (original === edit) return "general";
+
+  const origWords = original.split(/\s+/).filter((w) => w.length > 0);
+  const editWords = edit.split(/\s+/).filter((w) => w.length > 0);
+
+  // 1. Short text (≤8 words both sides) = subject line edit
+  if (origWords.length <= 8 && editWords.length <= 8) return "subject";
+
+  // 2. Word count changed significantly (>30%) = length edit
+  const maxLen = Math.max(origWords.length, editWords.length);
+  if (maxLen > 0) {
+    const lengthDelta = Math.abs(origWords.length - editWords.length) / maxLen;
+    if (lengthDelta > 0.3) return "length";
+  }
+
+  const origSentences = splitSentences(original);
+  const editSentences = splitSentences(edit);
+
+  // 3. First sentence changed but rest similar = opener edit
+  if (
+    origSentences.length > 1 &&
+    editSentences.length > 1 &&
+    origSentences[0] !== editSentences[0] &&
+    origSentences.slice(1).join("|") === editSentences.slice(1).join("|")
+  ) {
+    return "opener";
+  }
+
+  // 4. Only the last sentence changes = CTA edit
+  if (
+    origSentences.length > 1 &&
+    editSentences.length > 1 &&
+    origSentences.slice(0, -1).join("|") === editSentences.slice(0, -1).join("|")
+  ) {
+    return "cta";
+  }
+
+  // 5. Similar length and structure but different wording = tone edit
+  //    Heuristic: same sentence count, similar word count, but content differs
+  if (
+    origSentences.length === editSentences.length &&
+    Math.abs(origWords.length - editWords.length) <= 5 &&
+    original !== edit
+  ) {
+    return "tone";
+  }
+
+  return "general";
+}
+
 /**
  * Captures a user's style correction for future email drafting.
+ * Auto-detects the category (subject, tone, cta, opener, length, general).
  */
 export async function captureStyleCorrection(
   workspaceId: string,
@@ -11,26 +81,40 @@ export async function captureStyleCorrection(
   edit: string,
   contentType: string,
 ): Promise<void> {
+  const category = detectCategory(original, edit);
   await prisma.agentFeedback.create({
     data: {
       workspaceId,
       type: "USER_EDIT",
       originalOutput: original,
       userEdit: edit,
-      metadata: { contentType },
+      metadata: { contentType, category } as unknown as Prisma.InputJsonValue,
     },
   });
 }
 
 /**
  * Retrieves recent style corrections to include in email prompts.
+ * Optionally filter by category for targeted injection.
  */
 export async function getStyleSamples(
   workspaceId: string,
   limit = 5,
+  category?: StyleCategory,
 ): Promise<string[]> {
+  const where: Prisma.AgentFeedbackWhereInput = {
+    workspaceId,
+    type: "USER_EDIT",
+    ...(category ? {
+      metadata: {
+        path: ["category"],
+        equals: category,
+      },
+    } : {}),
+  };
+
   const corrections = await prisma.agentFeedback.findMany({
-    where: { workspaceId, type: "USER_EDIT" },
+    where,
     orderBy: { createdAt: "desc" },
     take: limit,
   });
