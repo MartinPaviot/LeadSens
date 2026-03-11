@@ -103,7 +103,7 @@
 - [x] **AUDIT-06** Éliminer `as any` ✅ *Audit v3: 6 occurrences across 2 files (mistral-client.ts + instantly-sourcing.ts). All at SDK boundaries, all justified. CLOSED.*
 - [x] **AUDIT-07** AI Event logging ✅ *Audit v2: 100% coverage via centralized mistralClient*
 
-- [ ] **AUDIT-08** Remplacer 47 console.log par logger structuré
+- [x] **AUDIT-08** Remplacer 47 console.log par logger structuré ✅ *2026-03-11: Already cleaned up by prior iterations. 0 console.log in server code. 5 remaining in client-side React (agent-chat.tsx, email-preview-card.tsx) — legitimate since logger.ts is server-only. 1 in config.ts at startup — legitimate.*
   **Priorité:** LOW (DEBT-03)
 
 ---
