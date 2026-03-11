@@ -1,4 +1,5 @@
 import type { ChatMessage } from "./types";
+import { logger } from "@/lib/logger";
 
 // ─── Token Estimation ───────────────────────────────────
 
@@ -202,7 +203,7 @@ export function compressLoopMessages(
 
   if (estimatedTokens <= LOOP_TOKEN_BUDGET) return;
 
-  console.log(
+  logger.debug(
     `[chatStream] In-loop compression triggered: ~${estimatedTokens} tokens (budget: ${LOOP_TOKEN_BUDGET})`,
   );
 

@@ -22,16 +22,25 @@ export function extractDomain(url: string): string {
  * @param domain - Hostname used as cache key (e.g. "acme.com")
  * @param url - Full URL to scrape if cache miss
  * @param onStatus - Optional status callback for UI updates
+ * @param workspaceId - Optional workspace ID for cache scoping
  */
 export async function getOrScrapeCompany(
   domain: string,
   url: string,
   onStatus?: (msg: string) => void,
+  workspaceId?: string,
 ): Promise<string | null> {
-  // Check persistent cache
-  const cached = await prisma.companyCache.findUnique({
-    where: { domain },
+  // Check persistent cache (global first, then workspace-scoped)
+  const cached = await prisma.companyCache.findFirst({
+    where: {
+      domain,
+      OR: [
+        { workspaceId: workspaceId ?? null },
+        { workspaceId: null },
+      ],
+    },
     select: { markdown: true, scrapedAt: true },
+    orderBy: { scrapedAt: "desc" },
   });
 
   if (cached) {
@@ -48,9 +57,10 @@ export async function getOrScrapeCompany(
   const markdown = await scrapeLeadCompany(url);
 
   // Upsert: store result (including null for failed scrapes)
+  // Use domain as the unique key (shared cache — company data is public)
   await prisma.companyCache.upsert({
     where: { domain },
-    create: { domain, markdown, scrapedAt: new Date() },
+    create: { domain, markdown, workspaceId: workspaceId ?? null, scrapedAt: new Date() },
     update: { markdown, scrapedAt: new Date() },
   });
 

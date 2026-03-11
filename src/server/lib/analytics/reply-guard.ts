@@ -11,8 +11,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
-import { pauseCampaign } from "@/server/lib/connectors/instantly";
+import { getESPProvider } from "@/server/lib/providers";
+import { logger } from "@/lib/logger";
 
 // ─── Thresholds ────────────────────────────────────────
 export const NEGATIVE_REPLY_THRESHOLD = 3; // minimum negative replies in 24h to trigger
@@ -79,13 +79,13 @@ export async function checkAndPauseOnNegativeReplies(
     select: {
       id: true,
       name: true,
-      instantlyCampaignId: true,
+      espCampaignId: true,
       workspaceId: true,
       status: true,
     },
   });
 
-  if (!campaign?.instantlyCampaignId) {
+  if (!campaign?.espCampaignId) {
     return { paused: false, totalSends: 0, negativeReplies24h: 0, rate: 0 };
   }
 
@@ -126,21 +126,18 @@ export async function checkAndPauseOnNegativeReplies(
     return { paused: false, totalSends: leadsPushed, negativeReplies24h, rate };
   }
 
-  // Get Instantly API key
-  const integration = await prisma.integration.findUnique({
-    where: { workspaceId_type: { workspaceId: campaign.workspaceId, type: "INSTANTLY" } },
-  });
+  // Get ESP provider to pause campaign
+  const esp = await getESPProvider(campaign.workspaceId);
 
-  if (!integration?.apiKey || integration.status !== "ACTIVE") {
-    console.warn(`[reply-guard] Cannot auto-pause campaign ${campaign.name}: no active Instantly integration`);
+  if (!esp) {
+    logger.warn(`[reply-guard] Cannot auto-pause campaign ${campaign.name}: no active ESP integration`);
     return { paused: false, totalSends: leadsPushed, negativeReplies24h, rate };
   }
 
-  const apiKey = decrypt(integration.apiKey);
   const ratePercent = (rate * 100).toFixed(1);
 
   try {
-    await pauseCampaign(apiKey, campaign.instantlyCampaignId);
+    await esp.pauseCampaign(campaign.espCampaignId);
 
     const message = `Campaign "${campaign.name}" auto-paused: ${negativeReplies24h} negative replies in the last 24h (${ratePercent}% of ${leadsPushed} sends). This indicates messaging issues or wrong targeting. Review your email content, ICP definition, and reply feedback before resuming.`;
 
@@ -148,7 +145,7 @@ export async function checkAndPauseOnNegativeReplies(
 
     return { paused: true, totalSends: leadsPushed, negativeReplies24h, rate, message };
   } catch (error) {
-    console.warn(`[reply-guard] Failed to auto-pause campaign ${campaign.name}:`, error);
+    logger.warn(`[reply-guard] Failed to auto-pause campaign ${campaign.name}:`, { error });
     return { paused: false, totalSends: leadsPushed, negativeReplies24h, rate };
   }
 }

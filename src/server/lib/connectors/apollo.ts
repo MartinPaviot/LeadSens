@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod/v4";
+import { logger } from "@/lib/logger";
 
 const APOLLO_BASE = "https://api.apollo.io";
 
@@ -205,7 +206,7 @@ export async function enrichPerson(
       organizationRevenue: org?.annual_revenue_printed ?? undefined,
     };
   } catch (err) {
-    console.warn("[apollo] Person enrichment failed:", err);
+    logger.warn(`[apollo] Person enrichment failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
@@ -252,7 +253,234 @@ export async function enrichOrganization(
       latestFundingRoundDate: o.latest_funding_round_date ?? undefined,
     };
   } catch (err) {
-    console.warn("[apollo] Organization enrichment failed:", err);
+    logger.warn(`[apollo] Organization enrichment failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+// ─── API Usage Stats ────────────────────────────────────
+
+export interface ApolloRateLimitTier {
+  limit: number;
+  consumed: number;
+  leftOver: number;
+}
+
+export interface ApolloRateLimitInfo {
+  endpoint: string;
+  day: ApolloRateLimitTier;
+  hour: ApolloRateLimitTier;
+  minute: ApolloRateLimitTier;
+}
+
+const apolloRateLimitTierSchema = z.object({
+  limit: z.number(),
+  consumed: z.number(),
+  left_over: z.number(),
+});
+
+const apolloUsageStatsEntrySchema = z.object({
+  day: apolloRateLimitTierSchema,
+  hour: apolloRateLimitTierSchema,
+  minute: apolloRateLimitTierSchema,
+});
+
+/**
+ * Get API usage stats (rate limits + consumption) from Apollo.
+ * Requires a master API key (403 if not authorized).
+ * Returns null on failure (graceful degradation).
+ */
+export async function getApiUsageStats(
+  apiKey: string,
+): Promise<Record<string, ApolloRateLimitInfo> | null> {
+  try {
+    const raw = await apolloFetch(apiKey, "/api/v1/usage_stats/api_usage_stats", "POST");
+    // Apollo returns a flat object with stringified array keys like '["api/v1/contacts", "search"]'
+    const result: Record<string, ApolloRateLimitInfo> = {};
+
+    if (typeof raw !== "object" || raw === null) return null;
+
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      const parsed = apolloUsageStatsEntrySchema.safeParse(value);
+      if (!parsed.success) continue;
+      const d = parsed.data;
+      result[key] = {
+        endpoint: key,
+        day: { limit: d.day.limit, consumed: d.day.consumed, leftOver: d.day.left_over },
+        hour: { limit: d.hour.limit, consumed: d.hour.consumed, leftOver: d.hour.left_over },
+        minute: { limit: d.minute.limit, consumed: d.minute.consumed, leftOver: d.minute.left_over },
+      };
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+  } catch {
+    // 403 = not a master key, or other error — graceful degradation
+    return null;
+  }
+}
+
+/**
+ * Extract enrichment (people/match) rate limits from API usage stats.
+ * Looks for keys containing "people" and "match".
+ */
+export function getEnrichmentLimits(
+  stats: Record<string, ApolloRateLimitInfo>,
+): ApolloRateLimitInfo | null {
+  for (const [key, value] of Object.entries(stats)) {
+    if (key.includes("people") && key.includes("match")) return value;
+  }
+  return null;
+}
+
+// ─── People Search (FREE — no credits) ──────────────────
+
+export interface ApolloSearchPeopleParams {
+  person_titles?: string[];
+  person_seniorities?: string[];
+  person_locations?: string[];
+  include_similar_titles?: boolean;
+  q_organization_domains_list?: string[];
+  organization_locations?: string[];
+  organization_num_employees_ranges?: string[];
+  q_organization_keyword_tags?: string[];
+  contact_email_status?: string[];
+  organization_ids?: string[];
+  revenue_range?: { min?: number; max?: number };
+  currently_using_any_of_technology_uids?: string[];
+  currently_using_all_of_technology_uids?: string[];
+  currently_not_using_any_of_technology_uids?: string[];
+  q_organization_job_titles?: string[];
+  organization_job_locations?: string[];
+  per_page?: number;
+  page?: number;
+}
+
+export interface ApolloSearchPerson {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  title?: string;
+  headline?: string;
+  linkedinUrl?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  seniority?: string;
+  departments?: string[];
+  organizationName?: string;
+  organizationDomain?: string;
+  organizationIndustry?: string;
+  organizationEmployeeCount?: number;
+}
+
+export interface ApolloSearchResult {
+  people: ApolloSearchPerson[];
+  totalEntries: number;
+  totalPages: number;
+  currentPage: number;
+  perPage: number;
+}
+
+const apolloSearchPersonSchema = z.object({
+  id: z.string().nullish(),
+  first_name: z.string().nullish(),
+  last_name: z.string().nullish(),
+  name: z.string().nullish(),
+  title: z.string().nullish(),
+  headline: z.string().nullish(),
+  linkedin_url: z.string().nullish(),
+  city: z.string().nullish(),
+  state: z.string().nullish(),
+  country: z.string().nullish(),
+  seniority: z.string().nullish(),
+  departments: z.array(z.string()).nullish(),
+  organization: z.object({
+    name: z.string().nullish(),
+    primary_domain: z.string().nullish(),
+    industry: z.string().nullish(),
+    estimated_num_employees: z.number().nullish(),
+  }).nullish(),
+});
+
+const apolloSearchResultSchema = z.object({
+  people: z.array(apolloSearchPersonSchema),
+  pagination: z.object({
+    total_entries: z.number(),
+    total_pages: z.number(),
+    page: z.number(),
+    per_page: z.number(),
+  }),
+});
+
+/**
+ * Search for people using Apollo's 275M+ contact database.
+ * FREE — does not consume enrichment credits.
+ * Does NOT return emails/phones — use enrichPerson() for that.
+ *
+ * Apollo API endpoint: POST /api/v1/mixed_people/api_search
+ * Note: uses /api/v1/ prefix (not /v1/).
+ */
+export async function searchPeople(
+  apiKey: string,
+  params: ApolloSearchPeopleParams,
+): Promise<ApolloSearchResult | null> {
+  try {
+    const body: Record<string, unknown> = {};
+    if (params.person_titles?.length) body.person_titles = params.person_titles;
+    if (params.person_seniorities?.length) body.person_seniorities = params.person_seniorities;
+    if (params.person_locations?.length) body.person_locations = params.person_locations;
+    if (params.include_similar_titles !== undefined) body.include_similar_titles = params.include_similar_titles;
+    if (params.q_organization_domains_list?.length) body.q_organization_domains_list = params.q_organization_domains_list;
+    if (params.organization_locations?.length) body.organization_locations = params.organization_locations;
+    if (params.organization_num_employees_ranges?.length) body.organization_num_employees_ranges = params.organization_num_employees_ranges;
+    if (params.q_organization_keyword_tags?.length) body.q_organization_keyword_tags = params.q_organization_keyword_tags;
+    if (params.contact_email_status?.length) body.contact_email_status = params.contact_email_status;
+    if (params.organization_ids?.length) body.organization_ids = params.organization_ids;
+    if (params.revenue_range) body.revenue_range = params.revenue_range;
+    if (params.currently_using_any_of_technology_uids?.length) body.currently_using_any_of_technology_uids = params.currently_using_any_of_technology_uids;
+    if (params.currently_using_all_of_technology_uids?.length) body.currently_using_all_of_technology_uids = params.currently_using_all_of_technology_uids;
+    if (params.currently_not_using_any_of_technology_uids?.length) body.currently_not_using_any_of_technology_uids = params.currently_not_using_any_of_technology_uids;
+    if (params.q_organization_job_titles?.length) body.q_organization_job_titles = params.q_organization_job_titles;
+    if (params.organization_job_locations?.length) body.organization_job_locations = params.organization_job_locations;
+    body.per_page = params.per_page ?? 25;
+    body.page = params.page ?? 1;
+
+    // Note: Apollo People Search uses /api/v1/ prefix, not /v1/
+    const raw = await apolloFetch(apiKey, "/api/v1/mixed_people/api_search", "POST", body);
+    const parsed = apolloSearchResultSchema.safeParse(raw);
+    if (!parsed.success) {
+      logger.warn(`[apollo] People search response validation failed: ${parsed.error.message}`);
+      return null;
+    }
+
+    const data = parsed.data;
+    return {
+      people: data.people.map((p) => ({
+        id: p.id ?? undefined,
+        firstName: p.first_name ?? undefined,
+        lastName: p.last_name ?? undefined,
+        name: p.name ?? undefined,
+        title: p.title ?? undefined,
+        headline: p.headline ?? undefined,
+        linkedinUrl: p.linkedin_url ?? undefined,
+        city: p.city ?? undefined,
+        state: p.state ?? undefined,
+        country: p.country ?? undefined,
+        seniority: p.seniority ?? undefined,
+        departments: p.departments ?? undefined,
+        organizationName: p.organization?.name ?? undefined,
+        organizationDomain: p.organization?.primary_domain ?? undefined,
+        organizationIndustry: p.organization?.industry ?? undefined,
+        organizationEmployeeCount: p.organization?.estimated_num_employees ?? undefined,
+      })),
+      totalEntries: data.pagination.total_entries,
+      totalPages: data.pagination.total_pages,
+      currentPage: data.pagination.page,
+      perPage: data.pagination.per_page,
+    };
+  } catch (err) {
+    logger.warn(`[apollo] People search failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }

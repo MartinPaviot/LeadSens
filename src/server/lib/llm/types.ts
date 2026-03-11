@@ -35,11 +35,14 @@ export interface ToolDefinition {
   isSideEffect?: boolean;
 }
 
+export type AutonomyLevel = "MANUAL" | "SUPERVISED" | "AUTO";
+
 export interface ToolContext {
   workspaceId: string;
   userId: string;
   conversationId?: string;
   onStatus?: (label: string) => void;
+  autonomyLevel?: AutonomyLevel;
 }
 
 // ─── LLM Method Options ──────────────────────────────────
@@ -57,6 +60,7 @@ export interface ChatStreamOptions {
   userId?: string;
   onStatus?: (label: string) => void;
   signal?: AbortSignal;
+  autonomyLevel?: AutonomyLevel;
 }
 
 export interface CompleteOptions {

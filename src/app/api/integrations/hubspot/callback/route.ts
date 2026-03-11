@@ -29,9 +29,17 @@ export async function GET(req: Request) {
     );
   }
 
-  const clientId = process.env.HUBSPOT_CLIENT_ID!;
-  const clientSecret = process.env.HUBSPOT_CLIENT_SECRET!;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/integrations/hubspot/callback`;
+  const clientId = process.env.HUBSPOT_CLIENT_ID;
+  const clientSecret = process.env.HUBSPOT_CLIENT_SECRET;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+  if (!clientId || !clientSecret) {
+    return Response.redirect(
+      `${appUrl}/settings/integrations?error=hubspot_not_configured`,
+    );
+  }
+
+  const redirectUri = `${appUrl}/api/integrations/hubspot/callback`;
 
   try {
     const tokens = await exchangeCode(code, clientId, clientSecret, redirectUri);

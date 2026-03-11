@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "crypto";
-import { verifyWebhookSignature } from "@/app/api/webhooks/instantly/route";
+import { verifyWebhookSignature } from "@/server/lib/webhooks/instantly-utils";
 
 // ─── Helper ─────────────────────────────────────────────
 

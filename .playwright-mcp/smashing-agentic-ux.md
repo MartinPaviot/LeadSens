@@ -1,0 +1,989 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-heading"
+  - link "Start reading the article" [ref=e3] [cursor=pointer]:
+    - /url: "#article__start"
+  - link "Jump to list of all articles" [ref=e4] [cursor=pointer]:
+    - /url: /articles/
+  - link "Jump to all topics" [ref=e5] [cursor=pointer]:
+    - /url: "#topics"
+  - banner [ref=e6]:
+    - link "Smashing Magazine" [ref=e8] [cursor=pointer]:
+      - /url: /
+      - img "Smashing Magazine" [ref=e10]
+    - navigation "main" [ref=e11]:
+      - list [ref=e12]:
+        - listitem [ref=e13]:
+          - link "Articles" [ref=e14] [cursor=pointer]:
+            - /url: /articles/
+        - listitem [ref=e15]:
+          - link "Books" [ref=e16] [cursor=pointer]:
+            - /url: /printed-books/
+        - listitem [ref=e17]:
+          - link "Events" [ref=e18] [cursor=pointer]:
+            - /url: /events/
+        - button "More" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]: More
+    - navigation "mobile-only"
+    - generic [ref=e23]:
+      - searchbox "Search articles" [ref=e24]
+      - button "Clear Search" [ref=e25]:
+        - img "Clear Search" [ref=e26]
+  - banner [ref=e28]:
+    - navigation "secondary" [ref=e29]:
+      - list [ref=e30]:
+        - listitem [ref=e31]:
+          - link "Accessibility" [ref=e32] [cursor=pointer]:
+            - /url: /category/accessibility/
+        - listitem [ref=e33]:
+          - link "UX" [ref=e34] [cursor=pointer]:
+            - /url: /category/ux/
+        - listitem [ref=e35]:
+          - link "CSS" [ref=e36] [cursor=pointer]:
+            - /url: /category/css/
+        - listitem [ref=e37]:
+          - link "JavaScript" [ref=e38] [cursor=pointer]:
+            - /url: /category/javascript/
+        - listitem [ref=e39]:
+          - link "Performance" [ref=e40] [cursor=pointer]:
+            - /url: /category/performance/
+        - listitem [ref=e41]:
+          - link "Design" [ref=e42] [cursor=pointer]:
+            - /url: /category/design/
+        - listitem [ref=e43]:
+          - link "Figma" [ref=e44] [cursor=pointer]:
+            - /url: /category/figma/
+        - listitem [ref=e45]:
+          - link "Wallpapers" [ref=e46] [cursor=pointer]:
+            - /url: /category/wallpapers/
+        - listitem [ref=e47]:
+          - link "React" [ref=e48] [cursor=pointer]:
+            - /url: /category/react/
+        - listitem [ref=e49]:
+          - link "Vue" [ref=e50] [cursor=pointer]:
+            - /url: /category/vue/
+        - listitem [ref=e51]:
+          - link "Round-Ups" [ref=e52] [cursor=pointer]:
+            - /url: /category/round-ups/
+        - listitem [ref=e53]:
+          - link "Web Design" [ref=e54] [cursor=pointer]:
+            - /url: /category/web-design/
+        - listitem [ref=e55]:
+          - link "Guides" [ref=e56] [cursor=pointer]:
+            - /url: /category/guides/
+        - listitem [ref=e57]:
+          - link "Business" [ref=e58] [cursor=pointer]:
+            - /url: /category/business/
+        - listitem [ref=e59]:
+          - link "Career" [ref=e60] [cursor=pointer]:
+            - /url: /category/career/
+        - listitem [ref=e61]:
+          - link "Privacy" [ref=e62] [cursor=pointer]:
+            - /url: /category/privacy/
+        - link "Jump to all articles ↬" [ref=e63] [cursor=pointer]:
+          - /url: /articles/
+          - generic [ref=e64]: Jump to all articles ↬
+  - main [ref=e65]:
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - generic [ref=e70]:
+          - generic [ref=e72]:
+            - list [ref=e73]:
+              - listitem [ref=e74]:
+                - link "Victor Yocco" [ref=e75] [cursor=pointer]:
+                  - /url: /author/victoryocco/
+                - text: /
+              - listitem [ref=e76]:
+                - time [ref=e77]: Feb 11, 2026
+                - text: /
+              - listitem [ref=e78]:
+                - link "0 comments" [ref=e80] [cursor=pointer]:
+                  - /url: "#comments-designing-agentic-ai-practical-ux-patterns"
+                  - generic [ref=e620]: 0 comments
+            - 'heading "Designing For Agentic AI: Practical UX Patterns For Control, Consent, And Accountability" [level=1] [ref=e82]'
+          - list [ref=e83]:
+            - listitem [ref=e84]: 19 min read
+            - listitem [ref=e85]:
+              - link "UX" [ref=e86] [cursor=pointer]:
+                - /url: /category/ux
+              - text: ","
+              - link "Design" [ref=e87] [cursor=pointer]:
+                - /url: /category/design
+              - text: ","
+              - link "AI" [ref=e88] [cursor=pointer]:
+                - /url: /category/ai
+            - listitem [ref=e89]:
+              - text: Share on
+              - link "Twitter" [ref=e90] [cursor=pointer]:
+                - /url: https://TwItTeR.CoM/intent/tweet?text=Designing%20For%20Agentic%20AI%3a%20Practical%20UX%20Patterns%20For%20Control%2c%20Consent%2c%20And%20Accountability&url=https%3A%2F%2Fwww.smashingmagazine.com%2f2026%2f02%2fdesigning-agentic-ai-practical-ux-patterns%2f&via=smashingmag
+              - text: ","
+              - link "LinkedIn" [ref=e91] [cursor=pointer]:
+                - /url: https://data.smashing.services/ball?uri=//www.linkedin.com/shareArticle?url=https://www.smashingmagazine.com%2f2026%2f02%2fdesigning-agentic-ai-practical-ux-patterns%2f&title=Designing%20For%20Agentic%20AI%3a%20Practical%20UX%20Patterns%20For%20Control%2c%20Consent%2c%20And%20Accountability
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - link "Victor Yocco" [ref=e95] [cursor=pointer]:
+                - /url: /author/victoryocco/
+                - img "Victor Yocco" [ref=e98]
+              - generic [ref=e99]:
+                - heading "About The Author" [level=4] [ref=e100]
+                - paragraph [ref=e101]:
+                  - text: Victor Yocco, PhD, has over a decade of experience as a UX researcher and research director. He is currently affiliated with
+                  - link "Allelo Design" [ref=e102] [cursor=pointer]:
+                    - /url: https://www.allelodesign.com/
+                  - text: and is taking on …
+                  - link "More about Victor ↬" [ref=e103] [cursor=pointer]:
+                    - /url: /author/victoryocco/
+            - generic [ref=e104]:
+              - heading "Email Newsletter" [level=4] [ref=e105]
+              - generic [ref=e108]:
+                - generic: Your (smashing) email
+                - generic [ref=e109]:
+                  - textbox "Your (smashing) email" [ref=e110]:
+                    - /placeholder: Your email
+                  - button "Meow!" [ref=e111]
+              - paragraph [ref=e112]:
+                - emphasis [ref=e113]:
+                  - link "Weekly tips on front-end & UX" [ref=e114] [cursor=pointer]:
+                    - /url: https://www.smashingmagazine.com/the-smashing-newsletter/
+                  - text: .
+                  - text: Trusted by 182,000+ folks.
+          - list [ref=e623]:
+            - listitem [ref=e624]:
+              - link [ref=e625] [cursor=pointer]:
+                - /url: https://smashingconf.com/amsterdam-2026/
+                - img [ref=e627]
+                - emphasis [ref=e628]: SmashingConf Amsterdam 2026
+          - list [ref=e631]:
+            - listitem [ref=e632]:
+              - link [ref=e633] [cursor=pointer]:
+                - /url: https://smashed.by/cloudways-bootcamp
+                - img [ref=e634]
+                - emphasis [ref=e635]: Register Free Now
+            - listitem [ref=e636]:
+              - link [ref=e637] [cursor=pointer]:
+                - /url: https://ai-design-patterns.com
+                - img [ref=e639]
+                - emphasis [ref=e640]: Design Patterns For AI Interfaces, 30 lessons + UX training
+          - list [ref=e643]:
+            - listitem [ref=e644]:
+              - link [ref=e645] [cursor=pointer]:
+                - /url: https://surveyjs.io/?utm_source=smashing&utm_medium=banner
+                - img [ref=e646]
+                - emphasis [ref=e647]: "SurveyJS: White-Label Survey Solution for Your JS App"
+            - listitem [ref=e648]:
+              - link [ref=e649] [cursor=pointer]:
+                - /url: https://smashingconf.com/antwerp-2026/
+                - img [ref=e651]
+                - emphasis [ref=e652]: SmashingConf Antwerp 2026
+          - list [ref=e655]:
+            - listitem [ref=e656]:
+              - link [ref=e657] [cursor=pointer]:
+                - /url: https://ntl.fyi/3ZbIzAN
+                - img [ref=e658]
+                - emphasis [ref=e659]: Celebrating 10 million developers
+            - listitem [ref=e660]:
+              - link [ref=e661] [cursor=pointer]:
+                - /url: https://smart-interface-design-patterns.com
+                - img [ref=e663]
+                - emphasis [ref=e664]: Smart Interface Design Patterns, 45 lessons + UX training
+          - region "Quick summary" [ref=e116]:
+            - generic [ref=e117]: Quick summary ↬
+            - text: Autonomy is an output of a technical system. Trustworthiness is an output of a design process. Here are concrete design patterns, operational frameworks, and organizational practices for building agentic systems that are not only powerful but also transparent, controllable, and trustworthy.
+          - paragraph [ref=e118]:
+            - text: In the
+            - link "first part of this series" [ref=e119] [cursor=pointer]:
+              - /url: https://www.smashingmagazine.com/2026/01/beyond-generative-rise-agentic-ai-user-centric-design/
+            - text: ", we established the fundamental shift from generative to agentic artificial intelligence. We explored why this leap from suggesting to acting demands a new psychological and methodological toolkit for UX researchers, product managers, and leaders. We defined a taxonomy of agentic behaviors, from suggesting to acting autonomously, outlined the essential research methods, defined the risks of agentic sludge, and established the accountability metrics required to navigate this new territory. We covered the"
+            - emphasis [ref=e120]: what
+            - text: and the
+            - emphasis [ref=e121]: why
+            - text: .
+          - paragraph [ref=e122]:
+            - text: Now, we move from the foundational to the functional. This article provides the
+            - emphasis [ref=e123]: how
+            - text: ": the concrete design patterns, operational frameworks, and organizational practices essential for building agentic systems that are not only powerful but also"
+            - strong [ref=e124]: transparent
+            - text: ","
+            - strong [ref=e125]: controllable
+            - text: ", and"
+            - strong [ref=e126]: worthy of user trust
+            - text: . If our research is the diagnostic tool, these patterns are the
+            - strong [ref=e127]: treatment plan
+            - text: . They are the practical mechanisms through which we can give users a palpable sense of control, even as we grant AI unprecedented autonomy. The goal is to create an experience where autonomy feels like a privilege granted by the user, not a right seized by the system.
+          - 'heading "Core UX Patterns For Agentic Systems #" [level=2] [ref=e665]':
+            - text: Core UX Patterns For Agentic Systems
+            - link "#" [ref=e666] [cursor=pointer]:
+              - /url: "#core-ux-patterns-for-agentic-systems"
+          - paragraph [ref=e129]:
+            - text: Designing for agentic AI is designing for a
+            - strong [ref=e130]: relationship
+            - text: . This relationship, like any successful partnership, must be built on clear communication, mutual understanding, and established boundaries.
+          - paragraph [ref=e131]: "To manage the shift from suggestion to action, we utilize six patterns that follow the functional lifecycle of an agentic interaction:"
+          - list [ref=e132]:
+            - listitem [ref=e133]:
+              - strong [ref=e134]: Pre-Action (Establishing Intent)
+              - text: The Intent Preview and Autonomy Dial ensure the user defines the plan and the agent’s boundaries before anything happens.
+            - listitem [ref=e135]:
+              - strong [ref=e136]: In-Action (Providing Context)
+              - text: The Explainable Rationale and Confidence Signal maintain transparency while the agent works, showing the “why” and “how certain.”
+            - listitem [ref=e137]:
+              - strong [ref=e138]: Post-Action (Safety and Recovery)
+              - text: The Action Audit & Undo and Escalation Pathway provide a safety net for errors or high-ambiguity moments.
+          - paragraph [ref=e139]: Below, we will cover each pattern in detail, including recommendations for metrics for success. These targets are representative benchmarks based on industry standards; adjust them based on your specific domain risk.
+          - complementary [ref=e141]:
+            - generic [ref=e143]:
+              - paragraph [ref=e144]:
+                - text: Meet
+                - strong [ref=e145]:
+                  - link "Smashing Workshops" [ref=e146] [cursor=pointer]:
+                    - /url: https://www.smashingconf.com/online-workshops/
+                - text: "on"
+                - strong [ref=e147]: front-end, design & UX
+                - text: ", with practical takeaways, live sessions,"
+                - strong [ref=e148]: video recordings
+                - text: and a friendly Q&A. With Brad Frost, Stéph Walter and
+                - link "so many others" [ref=e149] [cursor=pointer]:
+                  - /url: https://smashingconf.com/online-workshops/workshops
+                - text: .
+              - link "Jump to the workshops ↬" [ref=e150] [cursor=pointer]:
+                - /url: https://smashed.by/smashing-workshops
+            - link "Feature Panel" [ref=e152] [cursor=pointer]:
+              - /url: https://smashed.by/smashing-workshops
+              - img "Feature Panel" [ref=e154]
+          - 'heading "1. The Intent Preview: Clarifying the What and How #" [level=3] [ref=e667]':
+            - text: "1. The Intent Preview: Clarifying the What and How"
+            - link "#" [ref=e668] [cursor=pointer]:
+              - /url: "#1-the-intent-preview-clarifying-the-what-and-how"
+          - paragraph [ref=e156]:
+            - text: This pattern is the conversational equivalent of saying,
+            - emphasis [ref=e157]: “Here’s what I’m about to do. Are you okay with that?”
+            - text: It’s the foundational moment of seeking consent in the user-agent relationship.
+          - paragraph [ref=e158]: Before an agent takes any significant action, the user must have a clear, unambiguous understanding of what is about to happen. The Intent Preview, or Plan Summary, establishes informed consent. It is the conversational pause before action, transforming a black box of autonomous processes into a transparent, reviewable plan.
+          - paragraph [ref=e159]:
+            - strong [ref=e160]: Psychological Underpinning
+            - text: Presenting a plan before action reduces cognitive load and eliminates surprise, giving users a moment to verify the agent truly understands their intent.
+          - paragraph [ref=e161]:
+            - strong [ref=e162]: "Anatomy of an Effective Intent Preview:"
+          - list [ref=e163]:
+            - listitem [ref=e164]:
+              - strong [ref=e165]: Clarity and Conciseness
+              - text: The preview must be immediately digestible. It should summarize the primary actions and outcomes in plain language, avoiding technical jargon. For instance, instead of
+              - emphasis [ref=e166]: "“Executing API call to cancel_booking(id: 4A7B),”"
+              - text: it should state,
+              - emphasis [ref=e167]: “Cancel flight AA123 to San Francisco.”
+            - listitem [ref=e168]:
+              - strong [ref=e169]: Sequential Steps
+              - text: For multi-step operations, the preview should outline the key phases. This reveals the agent’s logic and allows users to spot potential issues in the proposed sequence.
+            - listitem [ref=e170]:
+              - strong [ref=e171]: Clear User Actions
+              - text: The preview is a decision point, not just a notification. It must be accompanied by a clear set of choices. It’s a moment of intentional friction, a ‘speed bump’ in the process designed to ensure the user is making a conscious choice, particularly for irreversible or high-stakes actions.
+          - paragraph [ref=e172]:
+            - text: Let’s revisit our travel assistant scenario from the
+            - link "first part of this series" [ref=e173] [cursor=pointer]:
+              - /url: https://www.smashingmagazine.com/2026/01/beyond-generative-rise-agentic-ai-user-centric-design/
+            - text: . We use this proactive assistant to illustrate how an agent handles a flight cancellation. The agent has detected a flight cancellation and has formulated a recovery plan.
+          - paragraph [ref=e174]: "The Intent Preview would look something like this:"
+          - blockquote [ref=e175]:
+            - strong [ref=e176]: Proposed Plan for Your Trip Disruption
+            - text: "I’ve detected that your 10:05 AM flight has been canceled. Here’s what I plan to do:"
+            - list [ref=e177]:
+              - listitem [ref=e178]:
+                - strong [ref=e179]: Cancel Flight UA456
+                - text: Process refund and confirm cancellation details.
+              - listitem [ref=e180]:
+                - strong [ref=e181]: Rebook on Flight DL789
+                - text: Book a confirmed seat on a 2:30 PM non-stop flight, as this is the next available non-stop flight with a confirmed seat.
+              - listitem [ref=e182]:
+                - strong [ref=e183]: Update Hotel Reservation
+                - text: Notify the Marriott that you will be arriving late.
+              - listitem [ref=e184]:
+                - strong [ref=e185]: Email Updated Itinerary
+                - text: Send the new flight and hotel details to you and your assistant, Jane Doe.
+            - text: "[ Proceed with this Plan ] [ Edit Plan ] [ Handle it Myself ]"
+          - paragraph [ref=e186]: "This preview is effective because it provides a complete picture, from cancellation to communication, and offers three distinct paths forward: full consent (Proceed), a desire for modification (Edit Plan), or a full override (Handle it Myself). This multifaceted control is the bedrock of trust."
+          - figure "The Intent Preview is the primary pattern for building user trust. By clearly stating what the agent plans to do and offering simple, direct controls like “Proceed,” “Edit,” or “Handle it Myself,” we transform a black box into a transparent and controllable experience. (Large preview)" [ref=e187]:
+            - link "Example of the intent preview" [ref=e188] [cursor=pointer]:
+              - /url: https://files.smashing.media/articles/designing-agentic-ai-practical-ux-patterns/1-intent-preview.png
+              - img "Example of the intent preview"
+            - generic [ref=e189]:
+              - text: The Intent Preview is the primary pattern for building user trust. By clearly stating what the agent plans to do and offering simple, direct controls like “Proceed,” “Edit,” or “Handle it Myself,” we transform a black box into a transparent and controllable experience. (
+              - link "Large preview" [ref=e190] [cursor=pointer]:
+                - /url: https://files.smashing.media/articles/designing-agentic-ai-practical-ux-patterns/1-intent-preview.png
+              - text: )
+          - paragraph [ref=e191]:
+            - strong [ref=e192]: When to Prioritize This Pattern
+            - text: This pattern is non-negotiable for any action that is irreversible (e.g., deleting user data), involves a financial transaction of any amount, shares information with other people or systems, or makes a significant change that a user cannot easily undo.
+          - paragraph [ref=e193]:
+            - strong [ref=e194]: Risk of Omission
+            - text: Without this, users feel ambushed by the agent’s actions and will disable the feature to regain control.
+          - paragraph [ref=e195]:
+            - strong [ref=e196]: "Metrics for Success:"
+          - list [ref=e197]:
+            - listitem [ref=e198]:
+              - strong [ref=e199]: Acceptance Ratio
+              - text: Plans Accepted Without Edit / Total Plans Displayed. Target > 85%.
+            - listitem [ref=e200]:
+              - strong [ref=e201]: Override Frequency
+              - text: Total Handle it Myself Clicks / Total Plans Displayed. A rate > 10% triggers a model review.
+            - listitem [ref=e202]:
+              - strong [ref=e203]: Recall Accuracy
+              - text: Percentage of test participants who can correctly list the plan’s steps 10 seconds after the preview is hidden.
+          - 'heading "Applying This to High-Stakes Domains #" [level=4] [ref=e669]':
+            - text: Applying This to High-Stakes Domains
+            - link "#" [ref=e670] [cursor=pointer]:
+              - /url: "#applying-this-to-high-stakes-domains"
+          - paragraph [ref=e205]: While travel plans are a relatable baseline, this pattern becomes indispensable in complex, high-stakes environments where an error results in more than an inconvenience for an individual traveling. Many of us work in settings where wrong decisions may result in a system outage, putting a patient’s safety at risk, or numerous other catastrophic outcomes that unreliable technology would introduce.
+          - paragraph [ref=e206]: Consider a DevOps Release Agent tasked with managing cloud infrastructure. In this context, the Intent Preview acts as a safety barrier against accidental downtime.
+          - figure "The intent preview in a higher-stakes setting, for example, cloud infrastructure. (Large preview)" [ref=e207]:
+            - link "The intent preview in cloud infrastructure" [ref=e208] [cursor=pointer]:
+              - /url: https://files.smashing.media/articles/designing-agentic-ai-practical-ux-patterns/2-intent-preview-higher-stakes-setting.png
+              - img "The intent preview in cloud infrastructure"
+            - generic [ref=e209]:
+              - text: The intent preview in a higher-stakes setting, for example, cloud infrastructure. (
+              - link "Large preview" [ref=e210] [cursor=pointer]:
+                - /url: https://files.smashing.media/articles/designing-agentic-ai-practical-ux-patterns/2-intent-preview-higher-stakes-setting.png
+              - text: )
+          - paragraph [ref=e211]: In this interface, the specific terminology (Drain Traffic, Rollback) replaces generalities, and the actions are binary and impactful. The user authorizes a major operational shift based on the agent’s logic, rather than approving a suggestion.
+          - 'heading "2. The Autonomy Dial: Calibrating Trust With Progressive Authorization #" [level=3] [ref=e671]':
+            - text: "2. The Autonomy Dial: Calibrating Trust With Progressive Authorization"
+            - link "#" [ref=e672] [cursor=pointer]:
+              - /url: "#2-the-autonomy-dial-calibrating-trust-with-progressive-authorization"
+          - paragraph [ref=e213]: Every healthy relationship has boundaries. The Autonomy Dial is how the user establishes it with their agent, defining what they are comfortable with the agent handling on its own.
+          - paragraph [ref=e214]: Trust is not a binary switch; it’s a spectrum. A user might trust an agent to handle low-stakes tasks autonomously but demand full confirmation for high-stakes decisions. The Autonomy Dial, a form of progressive authorization, allows users to set their preferred level of agent independence, making them active participants in defining the relationship.
+          - paragraph [ref=e215]:
+            - strong [ref=e216]: Psychological Underpinning
+            - text: Allowing users to tune the agent’s autonomy grants them a locus of control, letting them match the system’s behavior to their personal risk tolerance.
+          - paragraph [ref=e217]:
+            - strong [ref=e218]: Implementation
+            - text: "This can be implemented as a simple, clear setting within the application, ideally on a per-task-type basis. Using the taxonomy from our first article, the settings could be:"
+          - list [ref=e219]:
+            - listitem [ref=e220]:
+              - strong [ref=e221]: Observe & Suggest
+              - text: I want to be notified of opportunities or issues, but the agent will never propose a plan.
+            - listitem [ref=e222]:
+              - strong [ref=e223]: Plan & Propose
+              - text: The agent can create plans, but I must review every one before any action is taken.
+            - listitem [ref=e224]:
+              - strong [ref=e225]: Act with Confirmation
+              - text: For familiar tasks, the agent can prepare actions, and I will give a final go/no-go confirmation.
+            - listitem [ref=e226]:
+              - strong [ref=e227]: Act Autonomously
+              - text: For pre-approved tasks (e.g., disputing charges under $50), the agent can act independently and notify me after the fact.
+          - paragraph [ref=e228]: An email assistant, for example, could have a separate autonomy dial for scheduling meetings versus sending emails on the user’s behalf. This granularity is key, as it reflects the nuanced reality of a user’s trust.
+          - paragraph [ref=e229]:
+            - strong [ref=e230]: When to Prioritize This Pattern
+            - text: Prioritize this in systems where tasks vary widely in risk and personal preference (e.g., financial management tools, communication platforms). It is essential for onboarding, allowing users to start with low autonomy and increase it as their confidence grows.
+          - paragraph [ref=e231]:
+            - strong [ref=e232]: Risk of Omission
+            - text: Without this, users who experience a single failure will abandon the agent completely rather than simply dialing back its permissions.
+          - paragraph [ref=e233]:
+            - strong [ref=e234]: "Metrics for Success:"
+          - list [ref=e235]:
+            - listitem [ref=e236]:
+              - strong [ref=e237]: Trust Density
+              - text: Percentage breakdown of users per setting (e.g., 20% Suggest, 50% Confirm, 30% Auto).
+            - listitem [ref=e238]:
+              - strong [ref=e239]: Setting Churn
+              - text: Number of Setting Changes / Total Active Users per month. High churn indicates trust volatility.
+          - 'heading "3. The Explainable Rationale: Answering Why? #" [level=3] [ref=e673]':
+            - text: "3. The Explainable Rationale: Answering Why?"
+            - link "#" [ref=e674] [cursor=pointer]:
+              - /url: "#3-the-explainable-rationale-answering-why"
+          - paragraph [ref=e241]:
+            - text: After taking an action, a good partner explains their reasoning. This pattern is the open communication that follows an action, answering
+            - emphasis [ref=e242]: Why?
+            - text: before it’s even asked.
+            - emphasis [ref=e243]: “I did that because you’ve told me in the past that you prefer X.”
+          - paragraph [ref=e244]:
+            - text: When an agent acts, especially autonomously, the immediate question in the user’s mind is often,
+            - emphasis [ref=e245]: Why did it do that?
+            - text: The Explainable Rationale pattern proactively answers this question, providing a concise justification for the agent’s decisions. This is not a technical log file. In my first article of this series, we discussed translating system primitives into user-facing language to prevent deception. This pattern is the practical application of that principle. It transforms the raw logic into a human-readable explanation grounded in the user’s own stated preferences and prior inputs.
+          - paragraph [ref=e246]:
+            - strong [ref=e247]: Psychological Underpinning
+            - text: When an agent’s actions are explainable, they feel logical rather than random, helping the user build an accurate mental model of how the agent thinks.
+          - paragraph [ref=e248]:
+            - strong [ref=e249]: "Effective Rationales:"
+          - list [ref=e250]:
+            - listitem [ref=e251]:
+              - strong [ref=e252]: Grounded in Precedent
+              - text: The best explanations link back to a rule, preference, or prior action.
+            - listitem [ref=e253]:
+              - strong [ref=e254]: Simple and Direct
+              - text: Avoid complex conditional logic. Use a simple
+              - emphasis [ref=e255]: “Because you said X, I did Y”
+              - text: structure.
+          - paragraph [ref=e256]: "Returning to the travel example, after the flight is rebooked autonomously, the user might see this in their notification feed:"
+          - blockquote [ref=e257]:
+            - strong [ref=e258]: I’ve rebooked your canceled flight.
+            - list [ref=e259]:
+              - listitem [ref=e260]:
+                - strong [ref=e261]: "New Flight:"
+                - text: Delta 789, departing at 2:30 PM.
+              - listitem [ref=e262]:
+                - strong [ref=e263]: "Why I took this action:"
+                - list [ref=e264]:
+                  - listitem [ref=e265]: Your original flight was canceled by the airline.
+                  - listitem [ref=e266]: You’ve pre-approved autonomous rebooking for same-day, non-stop flights.
+            - text: "[ View New Itinerary ] [ Undo this Action ]"
+          - paragraph [ref=e267]: The rationale is clear, defensible, and reinforces the idea that the agent is operating within the boundaries the user established.
+          - paragraph [ref=e268]:
+            - strong [ref=e269]: When to Prioritize This Pattern
+            - text: Prioritize it for any autonomous action where the reasoning isn’t immediately obvious from the context, especially for actions that happen in the background or are triggered by an external event (like the flight cancellation example).
+          - paragraph [ref=e270]:
+            - strong [ref=e271]: Risk of Omission
+            - text: Without this, users interpret valid autonomous actions as random behavior or ‘bugs,’ preventing them from forming a correct mental model.
+          - paragraph [ref=e272]:
+            - strong [ref=e273]: "Metrics for Success:"
+          - list [ref=e274]:
+            - listitem [ref=e275]:
+              - strong [ref=e276]: Why? Ticket Volume
+              - text: Number of support tickets tagged “Agent Behavior — Unclear” per 1,000 active users.
+            - listitem [ref=e277]:
+              - strong [ref=e278]: Rationale Validation
+              - text: Percentage of users who rate the explanation as ‘Helpful’ in post-interaction microsurveys.
+          - text: More after jump! Continue reading below ↓
+          - 'heading "4. The Confidence Signal #" [level=3] [ref=e675]':
+            - text: 4. The Confidence Signal
+            - link "#" [ref=e676] [cursor=pointer]:
+              - /url: "#4-the-confidence-signal"
+          - paragraph [ref=e280]: This pattern is about the agent being self-aware in the relationship. By communicating its own confidence, it helps the user decide when to trust its judgment and when to apply more scrutiny.
+          - paragraph [ref=e281]: To help users calibrate their own trust, the agent should surface its own confidence in its plans and actions. This makes the agent’s internal state more legible and helps the user decide when to scrutinize a decision more closely.
+          - paragraph [ref=e282]:
+            - strong [ref=e283]: Psychological Underpinning
+            - text: Surfacing uncertainty helps prevent automation bias, encouraging users to scrutinize low-confidence plans rather than blindly accepting them.
+          - paragraph [ref=e284]:
+            - strong [ref=e285]: "Implementation:"
+          - list [ref=e286]:
+            - listitem [ref=e287]:
+              - strong [ref=e288]: Confidence Score
+              - text: "A simple percentage (e.g., Confidence: 95%) can be a quick, scannable indicator."
+            - listitem [ref=e289]:
+              - strong [ref=e290]: Scope Declaration
+              - text: "A clear statement of the agent’s area of expertise (e.g., Scope: Travel bookings only) helps manage user expectations and prevents them from asking the agent to perform tasks it’s not designed for."
+            - listitem [ref=e291]:
+              - strong [ref=e292]: Visual Cues
+              - text: A green checkmark can denote high confidence, while a yellow question mark can indicate uncertainty, prompting the user to review more carefully.
+          - paragraph [ref=e293]:
+            - strong [ref=e294]: When to Prioritize This Pattern
+            - text: Prioritize when the agent’s performance can vary significantly based on the quality of input data or the ambiguity of the task. It is especially valuable in expert systems (e.g., medical aids, code assistants) where a human must critically evaluate the AI’s output.
+          - paragraph [ref=e295]:
+            - strong [ref=e296]: Risk of Omission
+            - text: Without this, users will fall victim to automation bias, blindly accepting low-confidence hallucinations, or anxiously double-check high-confidence work.
+          - paragraph [ref=e297]:
+            - strong [ref=e298]: "Metrics for Success:"
+          - list [ref=e299]:
+            - listitem [ref=e300]:
+              - strong [ref=e301]: Calibration Score
+              - text: Pearson correlation between Model Confidence Score and User Acceptance Rate. Target > 0.8.
+            - listitem [ref=e302]:
+              - strong [ref=e303]: Scrutiny Delta
+              - text: Difference between the average review time of low-confidence plans and high-confidence plans. Expected to be positive (e.g., +12 seconds).
+          - 'heading "5. The Action Audit & Undo: The Ultimate Safety Net #" [level=3] [ref=e677]':
+            - text: "5. The Action Audit & Undo: The Ultimate Safety Net"
+            - link "#" [ref=e678] [cursor=pointer]:
+              - /url: "#5-the-action-audit-undo-the-ultimate-safety-net"
+          - paragraph [ref=e305]: Trust requires knowing you can recover from a mistake. The Undo function is the ultimate relationship safety net, assuring the user that even if the agent misunderstands, the consequences are not catastrophic.
+          - paragraph [ref=e306]: The single most powerful mechanism for building user confidence is the ability to easily reverse an agent’s action. A persistent, easy-to-read Action Audit log, with a prominent Undo button for every possible action, is the ultimate safety net. It dramatically lowers the perceived risk of granting autonomy.
+          - paragraph [ref=e307]:
+            - strong [ref=e308]: Psychological Underpinning
+            - text: Knowing that a mistake can be easily undone creates psychological safety, encouraging users to delegate tasks without fear of irreversible consequences.
+          - paragraph [ref=e309]:
+            - strong [ref=e310]: "Design Best Practices:"
+          - list [ref=e311]:
+            - listitem [ref=e312]:
+              - strong [ref=e313]: Timeline View
+              - text: A chronological log of all agent-initiated actions is the most intuitive format.
+            - listitem [ref=e314]:
+              - strong [ref=e315]: Clear Status Indicators
+              - text: Show whether an action was successful, is in progress, or has been undone.
+            - listitem [ref=e316]:
+              - strong [ref=e317]: Time-Limited Undos
+              - text: For actions that become irreversible after a certain point (e.g., a non-refundable booking), the UI must clearly communicate this time window (e.g., Undo available for 15 minutes). This transparency about the system’s limitations is just as important as the undo capability itself. Being honest about when an action becomes permanent builds trust.
+          - paragraph [ref=e318]:
+            - strong [ref=e319]: When to Prioritize This Pattern
+            - text: This is a foundational pattern that should be implemented in nearly all agentic systems. It is absolutely non-negotiable when introducing autonomous features or when the cost of an error (financial, social, or data-related) is high.
+          - paragraph [ref=e320]:
+            - strong [ref=e321]: Risk of Omission
+            - text: Without this, one error permanently destroys trust, as users realize they have no safety net.
+          - paragraph [ref=e322]:
+            - strong [ref=e323]: "Metrics for Success:"
+          - list [ref=e324]:
+            - listitem [ref=e325]:
+              - strong [ref=e326]: Reversion Rate
+              - text: Undone Actions / Total Actions Performed. If the Reversion Rate > 5% for a specific task, disable automation for that task.
+            - listitem [ref=e327]:
+              - strong [ref=e328]: Safety Net Conversion
+              - text: Percentage of users who upgrade to Act Autonomously within 7 days of successfully using Undo.
+          - 'heading "6. The Escalation Pathway: Handling Uncertainty Gracefully #" [level=3] [ref=e679]':
+            - text: "6. The Escalation Pathway: Handling Uncertainty Gracefully"
+            - link "#" [ref=e680] [cursor=pointer]:
+              - /url: "#6-the-escalation-pathway-handling-uncertainty-gracefully"
+          - paragraph [ref=e330]: A smart partner knows when to ask for help instead of guessing. This pattern allows the agent to handle ambiguity gracefully by escalating to the user, demonstrating a humility that builds, rather than erodes, trust.
+          - paragraph [ref=e331]: Even the most advanced agent will encounter situations where it is uncertain about the user’s intent or the best course of action. How it handles this uncertainty is a defining moment. A well-designed agent doesn’t guess; it escalates.
+          - paragraph [ref=e332]:
+            - strong [ref=e333]: Psychological Underpinning
+            - text: When an agent acknowledges its limits rather than guessing, it builds trust by respecting the user’s authority in ambiguous situations.
+          - paragraph [ref=e334]:
+            - strong [ref=e335]: "Escalation Patterns Include:"
+          - list [ref=e336]:
+            - listitem [ref=e337]:
+              - strong [ref=e338]: Requesting Clarification
+              - emphasis [ref=e339]: “You mentioned ‘next Tuesday.’ Do you mean September 30th or October 7th?”
+            - listitem [ref=e340]:
+              - strong [ref=e341]: Presenting Options
+              - emphasis [ref=e342]: “I found three flights that match your criteria. Which one looks best to you?”
+            - listitem [ref=e343]:
+              - strong [ref=e344]: Requesting Human Intervention
+              - text: "For high-stakes or highly ambiguous tasks, the agent should have a clear pathway to loop in a human expert or support agent. The prompt might be:"
+              - emphasis [ref=e345]: “This transaction seems unusual, and I’m not confident about how to proceed. Would you like me to flag this for a human agent to review?”
+          - paragraph [ref=e346]:
+            - strong [ref=e347]: When to Prioritize This Pattern
+            - text: Prioritize in domains where user intent can be ambiguous or highly context-dependent (e.g., natural language interactions, complex data queries). Use this whenever the agent operates with incomplete information or when multiple correct paths exist.
+          - paragraph [ref=e348]:
+            - strong [ref=e349]: Risk of Omission
+            - text: Without this, the agent will eventually make a confident, catastrophic guess that alienates the user.
+          - paragraph [ref=e350]:
+            - strong [ref=e351]: "Metrics for Success:"
+          - list [ref=e352]:
+            - listitem [ref=e353]:
+              - strong [ref=e354]: Escalation Frequency
+              - text: "Agent Requests for Help / Total Tasks. Healthy range: 5-15%."
+            - listitem [ref=e355]:
+              - strong [ref=e356]: Recovery Success Rate
+              - text: Tasks Completed Post-Escalation / Total Escalations. Target > 90%.
+          - table [ref=e357]:
+            - rowgroup [ref=e358]:
+              - row "Pattern Best For Primary Risk Key Metric" [ref=e359]:
+                - columnheader "Pattern" [ref=e360]
+                - columnheader "Best For" [ref=e361]
+                - columnheader "Primary Risk" [ref=e362]
+                - columnheader "Key Metric" [ref=e363]
+            - rowgroup [ref=e364]:
+              - row "Intent Preview Irreversible or financial actions User feels ambushed >85% Acceptance Rate" [ref=e365]:
+                - cell "Intent Preview" [ref=e366]
+                - cell "Irreversible or financial actions" [ref=e367]
+                - cell "User feels ambushed" [ref=e368]
+                - cell ">85% Acceptance Rate" [ref=e369]
+              - row "Autonomy Dial Tasks with variable risk levels Total feature abandonment Setting Churn" [ref=e370]:
+                - cell "Autonomy Dial" [ref=e371]
+                - cell "Tasks with variable risk levels" [ref=e372]
+                - cell "Total feature abandonment" [ref=e373]
+                - cell "Setting Churn" [ref=e374]
+              - row "Explainable Rationale Background or autonomous tasks User perceives bugs “Why?” Ticket Volume" [ref=e375]:
+                - cell "Explainable Rationale" [ref=e376]
+                - cell "Background or autonomous tasks" [ref=e377]
+                - cell "User perceives bugs" [ref=e378]
+                - cell "“Why?” Ticket Volume" [ref=e379]
+              - row "Confidence Signal Expert or high-stakes systems Automation bias Scrutiny Delta" [ref=e380]:
+                - cell "Confidence Signal" [ref=e381]
+                - cell "Expert or high-stakes systems" [ref=e382]
+                - cell "Automation bias" [ref=e383]
+                - cell "Scrutiny Delta" [ref=e384]
+              - row "Action Audit & Undo All agentic systems Permanent loss of trust <5% Reversion Rate" [ref=e385]:
+                - cell "Action Audit & Undo" [ref=e386]
+                - cell "All agentic systems" [ref=e387]
+                - cell "Permanent loss of trust" [ref=e388]
+                - cell "<5% Reversion Rate" [ref=e389]
+              - row "Escalation Pathway Ambiguous user intent Confident, catastrophic guesses >90% Recovery Success" [ref=e390]:
+                - cell "Escalation Pathway" [ref=e391]
+                - cell "Ambiguous user intent" [ref=e392]
+                - cell "Confident, catastrophic guesses" [ref=e393]
+                - cell ">90% Recovery Success" [ref=e394]
+          - paragraph [ref=e395]:
+            - strong [ref=e396]:
+              - emphasis [ref=e397]: "Table 1:"
+            - emphasis [ref=e398]: Summary of Agentic AI UX patterns. Remember to adjust the metrics based on your specific domain risk and needs.
+          - text: More after jump! Continue reading below ↓
+          - 'heading "Designing for Repair and Redress #" [level=2] [ref=e681]':
+            - text: Designing for Repair and Redress
+            - link "#" [ref=e682] [cursor=pointer]:
+              - /url: "#designing-for-repair-and-redress"
+          - paragraph [ref=e400]: This is learning how to apologize effectively. A good apology acknowledges the mistake, fixes the damage, and promises to learn from it.
+          - paragraph [ref=e401]: Errors are not a possibility; they are an inevitability.
+          - blockquote [ref=e402]:
+            - paragraph [ref=e403]:
+              - link "Share on Twitter" [ref=e404] [cursor=pointer]:
+                - /url: https://twitter.com/share?text=%0aThe%20long-term%20success%20of%20an%20agentic%20system%20depends%20less%20on%20its%20ability%20to%20be%20perfect%20and%20more%20on%20its%20ability%20to%20recover%20gracefully%20when%20it%20fails.%20A%20robust%20framework%20for%20repair%20and%20redress%20is%20a%20core%20feature,%20not%20an%20afterthought.%0a&url=https://smashingmagazine.com%2f2026%2f02%2fdesigning-agentic-ai-practical-ux-patterns%2f
+                - text: The long-term success of an agentic system depends less on its ability to be perfect and more on its ability to recover gracefully when it fails. A robust framework for repair and redress is a core feature, not an afterthought.
+            - generic [ref=e407]: “
+          - 'heading "Empathic Apologies and Clear Remediation #" [level=3] [ref=e683]':
+            - text: Empathic Apologies and Clear Remediation
+            - link "#" [ref=e684] [cursor=pointer]:
+              - /url: "#empathic-apologies-and-clear-remediation"
+          - paragraph [ref=e409]:
+            - text: When an agent makes a mistake, the error message is the apology. It must be designed with psychological precision. This moment is a critical opportunity to demonstrate accountability. From a service design perspective, this is where companies can use the
+            - strong [ref=e410]: service recovery paradox
+            - text: ": the phenomenon where a customer who experiences a service failure, followed by a successful and empathetic recovery, can actually become more loyal than a customer who never experienced a failure at all. A well-handled mistake can be a more powerful trust-building event than a long history of flawless execution."
+          - paragraph [ref=e411]: "The key is treating the error as a relationship rupture that needs to be mended. This involves:"
+          - list [ref=e412]:
+            - listitem [ref=e413]:
+              - strong [ref=e414]: Acknowledge the Error
+              - text: The message should state clearly and simply that a mistake was made.
+              - emphasis [ref=e415]: "Example: I incorrectly transferred funds."
+            - listitem [ref=e416]:
+              - strong [ref=e417]: State the Immediate Correction
+              - text: Immediately follow up with the remedial action.
+              - emphasis [ref=e418]: "Example: I have reversed the action, and the funds have been returned to your account."
+            - listitem [ref=e419]:
+              - strong [ref=e420]: Provide a Path for Further Help
+              - text: Always offer a clear link to human support. This de-escalates frustration and shows that there is a system of accountability beyond the agent itself.
+          - paragraph [ref=e421]: "A well-designed repair UI might look like this:"
+          - blockquote [ref=e422]:
+            - strong [ref=e423]: We made a mistake on your recent transfer.
+            - text: I apologize. I transferred $250 to the wrong account.
+            - text: "✔ Corrective Action: The transfer has been reversed, and your $250 has been refunded."
+            - text: "✔ Next Steps: The incident has been flagged for internal review to prevent it from happening again."
+            - text: Need further help? [ Contact Support ]
+          - 'heading "Building the Governance Engine for Safe Innovation #" [level=2] [ref=e685]':
+            - text: Building the Governance Engine for Safe Innovation
+            - link "#" [ref=e686] [cursor=pointer]:
+              - /url: "#building-the-governance-engine-for-safe-innovation"
+          - paragraph [ref=e425]: The design patterns described above are the user-facing controls, but they cannot function effectively without a robust internal support structure. This is not about creating bureaucratic hurdles; it is about building a strategic advantage. An organization with a mature governance framework can ship more ambitious agentic features with greater speed and confidence, knowing that the necessary guardrails are in place to mitigate brand risk. This governance engine turns safety from a checklist into a competitive asset.
+          - paragraph [ref=e426]:
+            - text: This engine should function as a formal governance body, an
+            - strong [ref=e427]: Agentic AI Ethics Council
+            - text: ", comprising a cross-functional alliance of UX, Product, and Engineering, with vital support from Legal, Compliance, and Support. In smaller organizations, these ‘Council’ roles often collapse into a single triad of Product, Engineering, and Design leads."
+          - 'heading "A Checklist for Governance #" [level=3] [ref=e687]':
+            - text: A Checklist for Governance
+            - link "#" [ref=e688] [cursor=pointer]:
+              - /url: "#a-checklist-for-governance"
+          - list [ref=e429]:
+            - listitem [ref=e430]:
+              - strong [ref=e431]: Legal/Compliance
+              - text: This team is the first line of defense, ensuring the agent’s potential actions stay within regulatory and legal boundaries. They help define the hard no-go zones for autonomous action.
+            - listitem [ref=e432]:
+              - strong [ref=e433]: Product
+              - text: The product manager is the steward of the agent’s purpose. They define and monitor its operational boundaries through a formal autonomy policy that documents what the agent is and is not allowed to do. They own the Agent Risk Register.
+            - listitem [ref=e434]:
+              - strong [ref=e435]: UX Research
+              - text: This team is the voice of the user’s trust and anxiety. They are responsible for a recurring process for running trust calibration studies, simulated misbehavior tests, and qualitative interviews to understand the user’s evolving mental model of the agent.
+            - listitem [ref=e436]:
+              - strong [ref=e437]: Engineering
+              - text: This team builds the technical underpinnings of trust. They must architect the system for robust logging, one-click undo functionality, and the hooks needed to generate clear, explainable rationales.
+            - listitem [ref=e438]:
+              - strong [ref=e439]: Support
+              - text: These teams are on the front lines of failure. They must be trained and equipped to handle incidents caused by agent errors, and they must have a direct feedback loop to the Ethics Council to report on real-world failure patterns.
+          - figure "Effective agentic AI is a team sport. A successful governance model, or Agentic AI Ethics Council, creates a continuous feedback loop between UX, Product, Engineering, Legal, and Support, turning risk management into a strategic asset for safe and rapid innovation. (Large preview)" [ref=e440]:
+            - link "Visualization showing a continuous feedback loop between UX, Product, Engineering, Legal, and Support created by Agentic AI Ethics Council in the middle" [ref=e441] [cursor=pointer]:
+              - /url: https://files.smashing.media/articles/designing-agentic-ai-practical-ux-patterns/3-agentic-ai-ethics-council.png
+              - img "Visualization showing a continuous feedback loop between UX, Product, Engineering, Legal, and Support created by Agentic AI Ethics Council in the middle"
+            - generic [ref=e442]:
+              - text: Effective agentic AI is a team sport. A successful governance model, or Agentic AI Ethics Council, creates a continuous feedback loop between UX, Product, Engineering, Legal, and Support, turning risk management into a strategic asset for safe and rapid innovation. (
+              - link "Large preview" [ref=e443] [cursor=pointer]:
+                - /url: https://files.smashing.media/articles/designing-agentic-ai-practical-ux-patterns/3-agentic-ai-ethics-council.png
+              - text: )
+          - paragraph [ref=e444]: This governance structure should maintain a set of living documents, including an Agent Risk Register that proactively identifies potential failure modes, Action Audit Logs that are regularly reviewed, and the formal Autonomy Policy Documentation.
+          - 'heading "Where to Start: A Phased Approach for Product Leaders #" [level=3] [ref=e689]':
+            - text: "Where to Start: A Phased Approach for Product Leaders"
+            - link "#" [ref=e690] [cursor=pointer]:
+              - /url: "#where-to-start-a-phased-approach-for-product-leaders"
+          - paragraph [ref=e446]: For product managers and executives, integrating agentic AI can feel like a monumental task. The key is to approach it not as a single launch, but as a phased journey of building both technical capability and user trust in parallel. This roadmap allows your organization to learn and adapt, ensuring each step is built on a solid foundation.
+          - 'heading "Phase 1: Foundational Safety (Suggest & Propose) #" [level=4] [ref=e691]':
+            - text: "Phase 1: Foundational Safety (Suggest & Propose)"
+            - link "#" [ref=e692] [cursor=pointer]:
+              - /url: "#phase-1-foundational-safety-suggest-propose"
+          - paragraph [ref=e448]: The initial goal is to build the bedrock of trust without taking significant autonomous risks. In this phase, the agent’s power is limited to analysis and suggestion.
+          - list [ref=e449]:
+            - listitem [ref=e450]:
+              - text: Implement a rock-solid
+              - strong [ref=e451]: Intent Preview
+              - text: ": This is your core interaction model. Get users comfortable with the idea of the agent formulating plans, while keeping the user in full control of execution."
+            - listitem [ref=e452]:
+              - text: Build the
+              - strong [ref=e453]: Action Audit & Undo
+              - text: "infrastructure: Even if the agent isn’t acting autonomously yet, build the technical scaffolding for logging and reversal. This prepares your system for the future and builds user confidence that a safety net exists."
+          - 'heading "Phase 2: Calibrated Autonomy (Act with Confirmation) #" [level=4] [ref=e693]':
+            - text: "Phase 2: Calibrated Autonomy (Act with Confirmation)"
+            - link "#" [ref=e694] [cursor=pointer]:
+              - /url: "#phase-2-calibrated-autonomy-act-with-confirmation"
+          - paragraph [ref=e455]: Once users are comfortable with the agent’s proposals, you can begin to introduce low-risk autonomy. This phase is about teaching users how the agent thinks and letting them set their own pace.
+          - list [ref=e456]:
+            - listitem [ref=e457]:
+              - text: Introduce the
+              - strong [ref=e458]: Autonomy Dial
+              - text: "with limited settings: Start by allowing users to grant the agent the power to Act with Confirmation."
+            - listitem [ref=e459]:
+              - text: Deploy the
+              - strong [ref=e460]: Explainable Rationale
+              - text: ": For every action the agent prepares, provide a clear explanation. This demystifies the agent’s logic and reinforces that it is operating based on the user’s own preferences."
+          - 'heading "Phase 3: Proactive Delegation (Act Autonomously) #" [level=4] [ref=e695]':
+            - text: "Phase 3: Proactive Delegation (Act Autonomously)"
+            - link "#" [ref=e696] [cursor=pointer]:
+              - /url: "#phase-3-proactive-delegation-act-autonomously"
+          - paragraph [ref=e462]: This is the final step, taken only after you have clear data from the previous phases demonstrating that users trust the system.
+          - list [ref=e463]:
+            - listitem [ref=e464]:
+              - text: Enable
+              - strong [ref=e465]: Act Autonomously
+              - text: "for specific, pre-approved tasks: Use the data from Phase 2 (e.g., high Proceed rates, low Undo rates) to identify the first set of low-risk tasks that can be fully automated."
+            - listitem [ref=e466]:
+              - strong [ref=e467]: Monitor and Iterate
+              - text: ": The launch of autonomous features is not the end, but the beginning of a continuous cycle of monitoring performance, gathering user feedback, and refining the agent’s scope and behavior based on real-world data."
+          - 'heading "Design As The Ultimate Safety Lever #" [level=2] [ref=e697]':
+            - text: Design As The Ultimate Safety Lever
+            - link "#" [ref=e698] [cursor=pointer]:
+              - /url: "#design-as-the-ultimate-safety-lever"
+          - paragraph [ref=e469]:
+            - text: The emergence of agentic AI represents a new frontier in human-computer interaction. It promises a future where technology can proactively reduce our burdens and streamline our lives. But this power comes with profound
+            - strong [ref=e470]: responsibility
+            - text: .
+          - blockquote [ref=e471]:
+            - paragraph [ref=e472]:
+              - link "Share on Twitter" [ref=e473] [cursor=pointer]:
+                - /url: https://twitter.com/share?text=%0aAutonomy%20is%20an%20output%20of%20a%20technical%20system,%20but%20trustworthiness%20is%20an%20output%20of%20a%20design%20process.%20Our%20challenge%20is%20to%20ensure%20that%20the%20user%20experience%20is%20not%20a%20casualty%20of%20technical%20capability%20but%20its%20primary%20beneficiary.%0a&url=https://smashingmagazine.com%2f2026%2f02%2fdesigning-agentic-ai-practical-ux-patterns%2f
+                - text: Autonomy is an output of a technical system, but trustworthiness is an output of a design process. Our challenge is to ensure that the user experience is not a casualty of technical capability but its primary beneficiary.
+            - generic [ref=e476]: “
+          - paragraph [ref=e477]:
+            - text: As UX professionals, product managers, and leaders, our role is to act as the stewards of that trust. By implementing clear design patterns for control and consent, designing thoughtful pathways for repair, and building robust governance frameworks, we create the essential safety levers that make agentic AI viable. We are not just designing interfaces; we are
+            - strong [ref=e478]: architecting relationships
+            - text: . The future of AI’s utility and acceptance rests on our ability to design these complex systems with wisdom, foresight, and a deep-seated respect for the user’s ultimate authority.
+          - generic [ref=e479]:
+            - img "Smashing Editorial" [ref=e480]
+            - text: (gg, yk)
+          - generic [ref=e481]:
+            - generic [ref=e482]: Explore more on
+            - navigation "categories" [ref=e483]:
+              - list [ref=e484]:
+                - listitem [ref=e485]:
+                  - link "UX" [ref=e486] [cursor=pointer]:
+                    - /url: /category/ux
+                - listitem [ref=e487]:
+                  - link "Design" [ref=e488] [cursor=pointer]:
+                    - /url: /category/design
+                - listitem [ref=e489]:
+                  - link "AI" [ref=e490] [cursor=pointer]:
+                    - /url: /category/ai
+        - text: Our friends and supporters. You know, they help us pay the bills ↓
+        - generic [ref=e492]:
+          - figure "Smashing Newsletter Tips on front-end & UX, delivered weekly in your inbox. Just the things you can actually use." [ref=e493]:
+            - link "Smashing Newsletter" [ref=e495] [cursor=pointer]:
+              - /url: /the-smashing-newsletter/
+              - img "Smashing Newsletter" [ref=e496]
+            - generic [ref=e497]:
+              - heading "Smashing Newsletter" [level=4] [ref=e498]:
+                - link "Smashing Newsletter" [ref=e499] [cursor=pointer]:
+                  - /url: /the-smashing-newsletter/
+              - paragraph [ref=e500]: Tips on front-end & UX, delivered weekly in your inbox. Just the things you can actually use.
+          - figure "Front-End & UX Workshops, Online With practical takeaways, live sessions, video recordings and a friendly Q&A." [ref=e501]:
+            - link "Front-End & UX Workshops, Online" [ref=e503] [cursor=pointer]:
+              - /url: https://www.smashingconf.com/online-workshops/
+              - img "Front-End & UX Workshops, Online" [ref=e504]
+            - generic [ref=e505]:
+              - heading "Front-End & UX Workshops, Online" [level=4] [ref=e506]:
+                - link "Front-End & UX Workshops, Online" [ref=e507] [cursor=pointer]:
+                  - /url: https://www.smashingconf.com/online-workshops/
+              - paragraph [ref=e508]: With practical takeaways, live sessions, video recordings and a friendly Q&A.
+          - figure "TypeScript in 50 Lessons Everything TypeScript, with code walkthroughs and examples. And other printed books." [ref=e509]:
+            - link "TypeScript in 50 Lessons" [ref=e511] [cursor=pointer]:
+              - /url: /printed-books/
+              - img "TypeScript in 50 Lessons" [ref=e512]
+            - generic [ref=e513]:
+              - heading "TypeScript in 50 Lessons" [level=4] [ref=e514]:
+                - link "TypeScript in 50 Lessons" [ref=e515] [cursor=pointer]:
+                  - /url: /printed-books/
+              - paragraph [ref=e516]: Everything TypeScript, with code walkthroughs and examples. And other printed books.
+  - generic [ref=e699]:
+    - paragraph [ref=e700]:
+      - text: We use cookies for login, checkout and stats. Learn more in our
+      - link "privacy settings" [ref=e701] [cursor=pointer]:
+        - /url: /privacy-policy/
+      - text: .
+    - generic [ref=e702]:
+      - button "No, thanks." [ref=e703] [cursor=pointer]
+      - button "It’s okay." [ref=e704] [cursor=pointer]
+  - contentinfo [ref=e517]:
+    - generic [ref=e518]:
+      - generic [ref=e520]:
+        - 'heading "Browse All Smashing Magazine Topics #" [level=4] [ref=e705]':
+          - text: Browse All Smashing Magazine Topics
+          - link "#" [ref=e706] [cursor=pointer]:
+            - /url: "#topics"
+        - list [ref=e522]:
+          - listitem [ref=e523]:
+            - text: •
+            - link "Accessibility" [ref=e524] [cursor=pointer]:
+              - /url: /category/accessibility
+          - listitem [ref=e525]:
+            - text: •
+            - link "Best practices" [ref=e526] [cursor=pointer]:
+              - /url: /category/best-practices
+          - listitem [ref=e527]:
+            - text: •
+            - link "Business" [ref=e528] [cursor=pointer]:
+              - /url: /category/business
+          - listitem [ref=e529]:
+            - text: •
+            - link "Career" [ref=e530] [cursor=pointer]:
+              - /url: /category/career
+          - listitem [ref=e531]:
+            - text: •
+            - link "Checklists" [ref=e532] [cursor=pointer]:
+              - /url: /category/checklists
+          - listitem [ref=e533]:
+            - text: •
+            - link "CSS" [ref=e534] [cursor=pointer]:
+              - /url: /category/css
+          - listitem [ref=e535]:
+            - text: •
+            - link "Data Visualization" [ref=e536] [cursor=pointer]:
+              - /url: /category/data-visualization
+          - listitem [ref=e537]:
+            - text: •
+            - link "Design" [ref=e538] [cursor=pointer]:
+              - /url: /category/design
+          - listitem [ref=e539]:
+            - text: •
+            - link "Design Patterns" [ref=e540] [cursor=pointer]:
+              - /url: /category/design-patterns
+          - listitem [ref=e541]:
+            - text: •
+            - link "Design Systems" [ref=e542] [cursor=pointer]:
+              - /url: /category/design-systems
+          - listitem [ref=e543]:
+            - text: •
+            - link "E-Commerce" [ref=e544] [cursor=pointer]:
+              - /url: /category/e-commerce
+          - listitem [ref=e545]:
+            - text: •
+            - link "Figma" [ref=e546] [cursor=pointer]:
+              - /url: /category/figma
+          - listitem [ref=e547]:
+            - text: •
+            - link "Freebies" [ref=e548] [cursor=pointer]:
+              - /url: /category/freebies
+          - listitem [ref=e549]:
+            - text: •
+            - link "HTML" [ref=e550] [cursor=pointer]:
+              - /url: /category/html
+          - listitem [ref=e551]:
+            - text: •
+            - link "Illustrator" [ref=e552] [cursor=pointer]:
+              - /url: /category/illustrator
+          - listitem [ref=e553]:
+            - text: •
+            - link "Inspiration" [ref=e554] [cursor=pointer]:
+              - /url: /category/inspiration
+          - listitem [ref=e555]:
+            - text: •
+            - link "JavaScript" [ref=e556] [cursor=pointer]:
+              - /url: /category/javascript
+          - listitem [ref=e557]:
+            - text: •
+            - link "Mobile" [ref=e558] [cursor=pointer]:
+              - /url: /category/mobile
+          - listitem [ref=e559]:
+            - text: •
+            - link "Performance" [ref=e560] [cursor=pointer]:
+              - /url: /category/performance
+          - listitem [ref=e561]:
+            - text: •
+            - link "Privacy" [ref=e562] [cursor=pointer]:
+              - /url: /category/privacy
+          - listitem [ref=e563]:
+            - text: •
+            - link "React" [ref=e564] [cursor=pointer]:
+              - /url: /category/react
+          - listitem [ref=e565]:
+            - text: •
+            - link "Responsive Design" [ref=e566] [cursor=pointer]:
+              - /url: /category/responsive-design
+          - listitem [ref=e567]:
+            - text: •
+            - link "Round-Ups" [ref=e568] [cursor=pointer]:
+              - /url: /category/round-ups
+          - listitem [ref=e569]:
+            - text: •
+            - link "SEO" [ref=e570] [cursor=pointer]:
+              - /url: /category/seo
+          - listitem [ref=e571]:
+            - text: •
+            - link "Typography" [ref=e572] [cursor=pointer]:
+              - /url: /category/typography
+          - listitem [ref=e573]:
+            - text: •
+            - link "Tools" [ref=e574] [cursor=pointer]:
+              - /url: /category/tools
+          - listitem [ref=e575]:
+            - text: •
+            - link "UI" [ref=e576] [cursor=pointer]:
+              - /url: /category/ui
+          - listitem [ref=e577]:
+            - text: •
+            - link "Usability" [ref=e578] [cursor=pointer]:
+              - /url: /category/usability
+          - listitem [ref=e579]:
+            - text: •
+            - link "UX" [ref=e580] [cursor=pointer]:
+              - /url: /category/ux
+          - listitem [ref=e581]:
+            - text: •
+            - link "Vue" [ref=e582] [cursor=pointer]:
+              - /url: /category/vue
+          - listitem [ref=e583]:
+            - text: •
+            - link "Wallpapers" [ref=e584] [cursor=pointer]:
+              - /url: /category/wallpapers
+          - listitem [ref=e585]:
+            - text: •
+            - link "Web Design" [ref=e586] [cursor=pointer]:
+              - /url: /category/web-design
+          - listitem [ref=e587]:
+            - text: •
+            - link "Workflow" [ref=e588] [cursor=pointer]:
+              - /url: /category/workflow
+      - generic [ref=e589]:
+        - generic [ref=e590]:
+          - paragraph [ref=e591]: With a commitment to quality content for the design community.
+          - paragraph [ref=e592]:
+            - text: Founded by
+            - link "Vitaly Friedman" [ref=e593] [cursor=pointer]:
+              - /url: https://smart-interface-design-patterns.com
+            - text: and
+            - link "Sven Lennartz" [ref=e594] [cursor=pointer]:
+              - /url: https://lennartz.cc
+            - text: . 2006–2026.
+          - paragraph [ref=e595]:
+            - text: Smashing is proudly running on
+            - link "Netlify" [ref=e596] [cursor=pointer]:
+              - /url: https://www.netlify.com/?utm_source=link&utm_medium=parter&utm_campaign=sm-footer
+            - text: ","
+            - link "TinaCMS" [ref=e597] [cursor=pointer]:
+              - /url: https://www.tina.io/?utm_source=link&utm_medium=parter&utm_campaign=sm-footer
+            - text: and
+            - link "Swell" [ref=e598] [cursor=pointer]:
+              - /url: https://www.swell.is/?utm_source=link&utm_medium=parter&utm_campaign=sm-footer
+            - text: .
+          - paragraph [ref=e599]:
+            - text: Fonts by
+            - link "Latinotype" [ref=e600] [cursor=pointer]:
+              - /url: http://latinotype.com/
+            - text: .
+        - list [ref=e601]:
+          - listitem [ref=e602]:
+            - text: ✎
+            - link "Write for us" [ref=e603] [cursor=pointer]:
+              - /url: /write-for-us/
+          - listitem [ref=e604]:
+            - link "Contact us" [ref=e605] [cursor=pointer]:
+              - /url: /contact/
+          - listitem [ref=e606]:
+            - link "About us (Impressum)" [ref=e607] [cursor=pointer]:
+              - /url: /about/
+          - listitem [ref=e608]:
+            - link "Privacy policy" [ref=e609] [cursor=pointer]:
+              - /url: /privacy-policy/
+          - listitem [ref=e610]:
+            - link "Membership login" [ref=e611] [cursor=pointer]:
+              - /url: /auth/
+          - listitem [ref=e612]:
+            - link "Delivery times" [ref=e613] [cursor=pointer]:
+              - /url: /delivery-times/
+          - listitem [ref=e614]:
+            - link "Advertise" [ref=e615] [cursor=pointer]:
+              - /url: /advertise/
+          - listitem [ref=e616]:
+            - link "Job Board" [ref=e617] [cursor=pointer]:
+              - /url: /jobs/
+          - listitem [ref=e618]:
+            - link "Podcasts" [ref=e619] [cursor=pointer]:
+              - /url: https://podcast.smashingmagazine.com

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   webhookEventSchema,
   webhookVariantToIndex,
-} from "@/app/api/webhooks/instantly/route";
+} from "@/server/lib/webhooks/instantly-utils";
 
 // ─── Schema validation for new webhook events ───────────
 

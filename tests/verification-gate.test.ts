@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkVerificationGate } from "@/server/lib/tools/instantly-tools";
+import { checkVerificationGate } from "@/server/lib/tools/tool-utils";
 
 describe("checkVerificationGate", () => {
   // ─── No verifier connected (graceful degradation) ─────────

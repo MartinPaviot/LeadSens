@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { webhookVariantToIndex } from "@/app/api/webhooks/instantly/route";
+import { webhookVariantToIndex } from "@/server/lib/webhooks/instantly-utils";
 
 // ─── webhookVariantToIndex (pure function) ─────────────
 

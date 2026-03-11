@@ -68,8 +68,8 @@
 - [x] **T3-QUAL-02** Feedback loop stats Instantly ✅ *Audit 2026-03-09: analytics-sync-worker + correlator + insights + adaptive drafting*
 - [x] **T3-QUAL-03** Style learner avancé ✅ *2026-03-11: RES-07 added 6-category detection (subject/tone/cta/opener/length/general). STYLE-WIRE-01 wired category filters to all callers. Subject corrections injected near subject patterns, body corrections in style guide section.*
 - [x] **T3-SCORE-01** Scoring multi-dimensionnel ✅ *2026-03-09: computeSignalBoost() in icp-scorer.ts — deterministic post-enrichment boost, fit 40% + intent 35% + timing 25%, 13 tests*
-- [ ] **T3-SCORE-02** Filtres broadening → scoring signals — RESTE À FAIRE
-- [ ] **T3-SCORE-03** Scraping page careers (signal hiring) — *Audit 2026-03-09: careers page IS scraped (jina.ts:85) mais hiringSignals extraction basic*
+- [x] **T3-SCORE-02** Filtres broadening → scoring signals ✅ *2026-03-11: broadenedFields stored on Campaign. computeBroadeningBonus() maps 8 filter types to enrichment data. All 3 enrichment paths (batch, single, Inngest) pass broadened fields to computeSignalBoost(). +1 per match, max +2. 21 tests in signal-boost.test.ts.*
+- [x] **T3-SCORE-03** Scraping page careers (signal hiring) ✅ *2026-03-12: Deterministic extractHiringSignals() parses careers markdown — job titles, dept growth, seniority levels. mergeHiringSignals() dedup-aware merge with LLM signals. All 3 enrichment paths wired. 26 tests in hiring-signal-extractor.test.ts.*
 - [x] **T3-INTEL-01** Campaign insights tool ✅ *Audit 2026-03-09: campaign_insights + performance_insights tools*
 - [x] **T3-INTEL-02** A/B auto-pause ✅ *2026-03-11: Implemented via RES-06. Z-test significance + auto-pause via Instantly v_disabled. Autonomy-aware.*
 - [x] **T3-INTEL-03** ICP refinement suggestions ✅ *Audit v2 2026-03-09: Feedback loop implémenté — alerte si >70% leads score <5, enrichment-tools.ts:308-317*

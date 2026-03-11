@@ -73,86 +73,46 @@ Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélior
 > ⚠️ SECTION CRITIQUE — Claude Code doit TOUJOURS distinguer ce qui EXISTE de ce qui est À CONSTRUIRE.
 > Ne jamais présumer qu'une feature existe. Vérifier dans le code source.
 
-### 3.1 Pipeline — ce qui est implémenté
+### 3.1 Pipeline — état d'implémentation
 
 ```
-IMPLÉMENTÉ (pre-launch) :
-  User décrit ICP → Mistral Large parse → Instantly SuperSearch count → source → fetch leads
-  → ICP scoring (Mistral Small, fit pre-filter) + feedback loop si >70% skipped
-  → Post-enrichment signal boost: fit 40% + intent 35% + timing 25% (deterministic, 0 LLM)
-  → Jina scrape 5 pages (homepage+about+blog+careers+press) + cache in-memory par domaine
-  → Apify LinkedIn (headline, career, posts) → Mistral Small summarize (18+ champs)
-  → Mistral Large draft 6 emails (PAS/Value-add/Social Proof/New Angle/Micro-value/Breakup)
-    avec connection bridge, trigger opener, toutes données enrichies, follow-ups cohérents
-  → Quality gate 7/10 + 2 retries → 3 subject variants/step (5 patterns formels)
-  → Cadence variable [0,2,5,9,14,21] → Preview dans le chat
-  → Instantly create campaign + push leads + A/B variants[]
+PIPELINE COMPLET (ICP → Meeting Booked) :
+  ICP parse (Mistral Large, two-phase v2) → SuperSearch count → source → fetch leads
+  → ICP scoring (Mistral Small, fit pre-filter) + feedback loop >70% skipped
+  → Signal boost post-enrichment (fit 40% + intent 35% + timing 25%, deterministic)
+  → Jina 5 pages + Apify LinkedIn → Mistral Small summarize → CompanyCache in-memory
+  → 6 emails (6 frameworks hardcodés) + connection bridge + quality gate + 3 subject variants
+  → Cadence [0,2,5,9,14,21] → ESP create campaign + push + A/B variants[]
+  → Webhook (11 events) → Reply classify → Draft reply → CRM push
+  → A/B auto-pause (z-test) → Winner propagation → Style learner (6 categories)
+  → Multi-ESP routing (ESPProvider: Instantly/Smartlead/Lemlist)
 
-NON IMPLÉMENTÉ (pre-launch) :
-  ❌ Cache par domaine PERSISTANT (Prisma CompanyCache TTL 7j) — actuellement Map in-memory par batch
-  ❌ Subject line pattern library FORMELLE avec tracking perf par pattern
-  ❌ Scoring multi-dimensionnel (fit + intent + timing) — actuellement fit-only
+RESTE À FAIRE :
+  ❌ CompanyCache PERSISTANT (Prisma TTL 7j) — actuellement Map in-memory par batch
   ❌ Import CSV — Tier A bloquant, STRATEGY §4.2
-  ✅ Multi-ESP routing (tools → ESPProvider) — DONE: ESPProvider interface + 3 implementations (Instantly/Smartlead/Lemlist), all tools route through provider
-
-IMPLÉMENTÉ (post-launch) :
-  ✅ LeadStatus étendu (8 statuts post-PUSHED) + state machine
-  ✅ Webhook Instantly (11 events: sent, opened, clicked, reply, bounce, unsub, meeting, interested, not_interested, completed, account_error)
-  ✅ Sync campaign performance (EmailPerformance + StepAnalytics, worker 30min)
-  ✅ Reply classification (Mistral Small, 6 interest levels)
-  ✅ Reply drafting + sending (Unibox API)
-  ✅ CRM push complet (HubSpot create contact + deal)
-  ✅ Campaign insights + adaptive drafting + winning patterns
-
-NON IMPLÉMENTÉ (post-launch) :
-  ✅ A/B auto-pause variantes faibles (z-test, ab-testing.ts)
-  ✅ Winner propagation automatique (getWinningSubjects → prompt injection)
-  ✅ Style learner catégorisé (6 categories: subject/tone/cta/opener/length/general)
-  ❌ Multi-ESP routing
 ```
 
-### 3.2 Scores par composant (STRATEGY §6.2)
+### 3.2 Scores par composant (STRATEGY §6.2) — tous les objectifs atteints ou dépassés
 
-| Composant | Score actuel | Cible | Réf |
-|-----------|-------------|-------|-----|
-| Enrichissement prospect | **7/10** | 6/10 | §7.1.1 |
-| ICP Scoring | **7/10** | 7/10 | §7.3.3 |
-| Email Copywriting | **8/10** | 8/10 | §7.1.2-1.4 |
-| Subject Lines | **6/10** | 6/10 | §7.2.1 |
-| A/B Testing | **7/10** | 5/10 | §7.2.1 |
-| Cadence & Séquence | **7.5/10** | 7/10 | §7.2.2-2.4 |
-| Feedback Loop | **5.5/10** | 5/10 | §7.3.2 |
-| Pipeline post-launch | **7/10** | 5/10 | §11 |
+| Composant | Score | Cible | Composant | Score | Cible |
+|-----------|-------|-------|-----------|-------|-------|
+| Enrichissement | **7/10** | 6 | Subject Lines | **6/10** | 6 |
+| ICP Scoring | **7/10** | 7 | A/B Testing | **7/10** | 5 |
+| Email Copywriting | **8/10** | 8 | Feedback Loop | **5.5/10** | 5 |
+| Cadence & Séquence | **7.5/10** | 7 | Pipeline post-launch | **7/10** | 5 |
 
 ### 3.3 Bugs connus
 
-- ~~`industry: null` hardcodé dans `instantly_source_leads`~~ ✅ CORRIGÉ (instantly-tools.ts:289-292)
-- `listLeads` limité à 100 sans pagination — STRATEGY §6.2 (à vérifier)
-- Filtres avancés supprimés au broadening au lieu de devenir des scoring signals — STRATEGY §6.2
+- `listLeads` limité à 100 sans pagination — STRATEGY §6.2
 
 ---
 
-## 4. Email Frameworks (état CIBLE — à implémenter)
+## 4. Email Frameworks (IMPLÉMENTÉ)
 
-> ⚠️ L'état actuel est 3 steps avec delays fixes [0, 3, 3] et un seul framework PAS.
-> La cible ci-dessous est Tier 2 (STRATEGY §7.2.2).
+6 steps via `getFramework(step)` dans `prompt-builder.ts` :
+PAS (J+0, 85w) → Value-add (J+2, 65w) → Social proof (J+5, 70w) → New angle (J+9, 65w) → Micro-value (J+14, 50w) → Breakup (J+21, 45w)
 
-| Step | Framework | Delay | Mots | Structure |
-|------|-----------|-------|------|-----------|
-| **0** | **PAS** (Problem-Agitate-Solve) | J+0 | 80 | Trigger event en opener si dispo. Connection bridge. |
-| **1** | **Value-add** (insight/ressource) | J+2 | 60 | Insight, ressource, ou case study. |
-| **2** | **Social proof** (case study) | J+5 | 60 | Résultat concret d'un client similaire. |
-| **3** | **New angle** (different pain point) | J+9 | 70 | Pain point différent du step 0. |
-| **4** | **Micro-value** (stat, tip, question) | J+14 | 50 | Un seul insight actionable. Question ouverte. |
-| **5** | **Breakup** (dernier message) | J+21 | 40 | Court, direct. Zero pression. |
-
-**Règles cibles (à implémenter) :**
-- Frameworks hardcodés dans le system prompt, pas laissés au choix du modèle
-- **Connection bridge** : connecter LE pain point le plus pertinent à LA solution spécifique du sender
-- **Trigger en opener** : si un trigger existe, il DOIT être l'opener
-- **Follow-ups cohérents** : chaque step reçoit le body complet des steps précédents
-- **A/B testing** : 2-3 variantes de subject line par step via `variants[]` Instantly
-- **Quality gate** : score LLM post-génération, régénération si < 6/10
+Règles implémentées : frameworks hardcodés, connection bridge 3-step, trigger en opener, follow-ups cohérents (body complet steps précédents, trunc 1500 chars), 3 subject variants/step (5 patterns), quality gate step-aware (Step 0=8/10, autres=7/10).
 
 ---
 
@@ -177,22 +137,9 @@ NON IMPLÉMENTÉ (post-launch) :
 
 ---
 
-## 6. Ce que LeadSens n'est PAS (vs Elevay)
+## 6. Différences clés vs Elevay (ancien projet)
 
-| Concept Elevay | Status LeadSens |
-|---------------|-----------------|
-| Model `Agent` | ❌ 1 agent implicite par workspace |
-| Composio | ❌ API directes |
-| Worker campaign:send | ❌ Instantly gère l'envoi |
-| MailboxAccount | ❌ Mailboxes dans Instantly |
-| CampaignEmail (tracking Gmail) | ❌ Remplacé par DraftedEmail |
-| Flow mode | ❌ Chat only |
-| Context Panel sidebar | ❌ Pas en V1 |
-| Agent templates | ❌ 1 seul agent |
-| cheerio scraping | ❌ Jina Reader + Apify + TinyFish |
-| Claude pour les emails | ❌ Mistral pour tout en V1 (upgrade path → Claude Sonnet) |
-
-> Note : Le reply management (classify + draft reply) est IN SCOPE Phase 1 (STRATEGY §11, §12).
+LeadSens ≠ Elevay : 1 agent implicite (pas de model Agent), API directes (pas Composio), Instantly gère l'envoi (pas de worker), chat-only (pas de flow mode), Jina+Apify (pas cheerio), Mistral V1 (upgrade path → Claude Sonnet pour drafting si reply rate < 14%).
 
 ---
 
@@ -219,115 +166,29 @@ docs/
 ## 8. Structure du projet
 
 ```
-leadsens/
-├── CLAUDE.md
-├── .claude/
-│   ├── commands/               ← Slash commands autonomes
-│   │   ├── implement-next.md
-│   │   ├── audit.md
-│   │   ├── audit-prompts.md
-│   │   ├── challenge.md
-│   │   └── status.md
-│   ├── tasks/
-│   │   ├── BACKLOG.md          ← Tâches ordonnées par impact reply rate
-│   │   ├── CURRENT.md          ← Tâche en cours
-│   │   └── DONE.md             ← Historique
-│   ├── findings/               ← Écarts code vs stratégie
-│   └── progress.txt            ← Log chronologique de chaque itération
-├── scripts/
-│   └── loop.sh                 ← Bash wrapper pour boucle autonome
-├── docs/
-│   ├── STRATEGY.md
-│   ├── SPEC-CHAT.md
-│   ├── SPEC-BACKEND.md
-│   ├── INSTANTLY-API.md
-│   └── PROMPTS.md
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── agents/chat/route.ts
-│   │   │   ├── integrations/instantly/route.ts
-│   │   │   ├── integrations/hubspot/{auth,callback}/route.ts
-│   │   │   ├── webhooks/instantly/route.ts        ← À implémenter (Phase 1)
-│   │   │   ├── inngest/route.ts                   ← Inngest serve handler
-│   │   │   └── trpc/[trpc]/route.ts
-│   │   ├── (dashboard)/
-│   │   │   ├── page.tsx
-│   │   │   ├── campaigns/page.tsx
-│   │   │   └── settings/integrations/page.tsx
-│   │   ├── (auth)/login/page.tsx
-│   │   └── layout.tsx
-│   ├── components/
-│   │   ├── chat/
-│   │   │   ├── agent-chat.tsx
-│   │   │   ├── agent-runtime-provider.tsx
-│   │   │   ├── thread.tsx
-│   │   │   ├── assistant-message.tsx
-│   │   │   ├── user-message.tsx
-│   │   │   ├── composer.tsx
-│   │   │   ├── greeting-loader.tsx
-│   │   │   ├── scroll-to-bottom.tsx
-│   │   │   ├── tool-ui-registry.tsx
-│   │   │   └── inline/
-│   │   │       ├── lead-table-card.tsx
-│   │   │       ├── email-preview-card.tsx
-│   │   │       ├── campaign-summary-card.tsx
-│   │   │       └── progress-bar.tsx
-│   │   └── ui/
-│   ├── server/
-│   │   ├── trpc/
-│   │   │   ├── router.ts
-│   │   │   ├── context.ts
-│   │   │   └── routers/
-│   │   └── lib/
-│   │       ├── llm/
-│   │       │   ├── mistral-client.ts
-│   │       │   └── types.ts
-│   │       ├── tools/
-│   │       │   ├── index.ts
-│   │       │   ├── types.ts
-│   │       │   ├── instantly-tools.ts
-│   │       │   ├── enrichment-tools.ts
-│   │       │   ├── email-tools.ts
-│   │       │   ├── crm-tools.ts
-│   │       │   ├── memory-tools.ts
-│   │       │   ├── icp-parser.ts
-│   │       │   ├── csv-tools.ts                   ← À implémenter (Tier A)
-│   │       │   ├── reply-tools.ts                 ← À implémenter (Phase 1)
-│   │       │   └── analytics-tools.ts             ← À implémenter (Phase 1)
-│   │       ├── connectors/
-│   │       │   ├── instantly.ts
-│   │       │   ├── hubspot.ts
-│   │       │   ├── jina.ts
-│   │       │   ├── apify.ts
-│   │       │   └── tinyfish.ts
-│   │       ├── enrichment/
-│   │       │   ├── jina-scraper.ts
-│   │       │   ├── summarizer.ts
-│   │       │   └── icp-scorer.ts
-│   │       └── email/
-│   │           ├── prompt-builder.ts
-│   │           ├── style-learner.ts
-│   │           └── drafting.ts
-│   ├── lib/
-│   │   ├── encryption.ts
-│   │   ├── config.ts
-│   │   ├── errors.ts
-│   │   ├── ai-events.ts
-│   │   ├── lead-status.ts                         ← State machine à étendre (Phase 1)
-│   │   ├── utils.ts
-│   │   ├── auth.ts
-│   │   ├── auth-client.ts
-│   │   ├── trpc-client.ts
-│   │   └── inline-component-registry.ts
-│   └── inngest/
-│       ├── client.ts                              ← Inngest client
-│       └── functions.ts                           ← Cron + event-driven functions
-├── prisma/
-│   └── schema.prisma
-├── .env.example
-├── package.json
-└── tsconfig.json
+src/
+├── app/api/agents/chat/route.ts          ← Chat SSE + system prompts (phase-tiered)
+├── app/api/webhooks/instantly/route.ts    ← Webhook handler (11 events)
+├── app/api/inngest/route.ts              ← Inngest serve handler
+├── app/(dashboard)/chat/                 ← Dashboard (auth required)
+├── app/(marketing)/                      ← Landing, pricing, legal (public)
+├── server/lib/
+│   ├── tools/index.ts                    ← Tool registry + phase filtering
+│   ├── tools/icp-parser.ts              ← ICP parsing (two-phase v2)
+│   ├── tools/pipeline-tools.ts          ← Reply classify/draft/send, CSV, insights
+│   ├── connectors/{instantly,hubspot,jina,apify,tinyfish}.ts
+│   ├── providers/index.ts               ← ESPProvider, CRMProvider, EmailVerifier
+│   ├── enrichment/{jina-scraper,summarizer,icp-scorer,hiring-signal-extractor}.ts
+│   ├── email/{prompt-builder,style-learner,drafting}.ts
+│   ├── analytics/{correlator,insights,adaptive,ab-testing,sync,bounce-guard,reply-guard}.ts
+│   └── llm/{mistral-client,context-manager}.ts
+├── lib/{encryption,lead-status,logger,rate-limit,redis}.ts
+├── inngest/{client,functions}.ts         ← 3 bg jobs (analytics cron, enrich, draft)
+├── components/chat/                      ← Chat UI (assistant-ui)
+docs/STRATEGY.md                          ← Source de vérité produit (read-only)
+.claude/tasks/BACKLOG.md                  ← Tâches ordonnées par impact
+.claude/progress.txt                      ← Log chronologique des itérations
+prisma/schema.prisma                      ← DB schema
 ```
 
 ---
@@ -400,44 +261,18 @@ Claude Code agit comme un **staff engineer autonome** qui :
 
 ### 10.2 Architecture de la boucle
 
-La boucle est orchestrée par `scripts/loop.sh` (bash), PAS par des slash commands chaînées. Chaque itération est une **session Claude Code séparée avec un contexte frais** pour éviter la dégradation de performance.
+`scripts/loop.sh` orchestre des sessions Claude Code séparées (contexte frais). Chaque itération : BACKLOG task → implement → test → commit → update progress.txt → exit → sleep 30 → next.
 
-```
-scripts/loop.sh
-  │
-  ├── Itération 1 : claude -p "..." → BACKLOG task → implement → test → commit
-  │                                    → update progress.txt
-  │                                    → update CLAUDE.md gotchas
-  │                                    → exit
-  │
-  ├── sleep 30
-  │
-  ├── Itération 2 : claude -p "..." → contexte frais, lit progress.txt + BACKLOG
-  │                                    → next task → implement → test → commit
-  │                                    → exit
-  │
-  └── ... (jusqu'à completion ou max_iterations)
-```
+### 10.3 Mémoire entre itérations
 
-### 10.3 4 canaux de mémoire entre itérations
+| Canal | Fichier |
+|-------|---------|
+| Git history | `.git/` (code + diffs + commits) |
+| Progress log | `.claude/progress.txt` (tâche, résultat, learnings) |
+| Task state | `.claude/tasks/BACKLOG.md` (done/pending) |
+| Learnings | Section 11 de ce fichier |
 
-| Canal | Fichier | Ce qu'il persiste |
-|-------|---------|-------------------|
-| **Git history** | `.git/` | Code + diffs + commit messages |
-| **Progress log** | `.claude/progress.txt` | Journal chronologique : tâche, résultat, erreurs, durée, learnings |
-| **Task state** | `.claude/tasks/BACKLOG.md` | Statut de chaque tâche (done/pending) |
-| **Learnings** | Section 11 de ce fichier | Gotchas, patterns, conventions découverts |
-
-### 10.4 Commandes disponibles
-
-| Commande | Usage | Ce qu'elle fait |
-|----------|-------|-----------------|
-| `/implement-next` | Interactif | Pioche 1 tâche, planifie, implémente, teste, commit |
-| `/audit` | Interactif | Audit complet codebase vs STRATEGY.md, génère findings + tâches |
-| `/audit-prompts` | Interactif | Audit des prompts LLM vs STRATEGY.md §5-7 |
-| `/challenge [module]` | Interactif | Deep-dive sur 1 module, challenge chaque décision |
-| `/status` | Interactif | Dashboard progression |
-| `scripts/loop.sh` | Autonome | Boucle bash : 1 tâche par session, contexte frais, max N itérations |
+### 10.4 Commandes : `/implement-next`, `/audit`, `/audit-prompts`, `/challenge [module]`, `/status`, `scripts/loop.sh` (autonome)
 
 ### 10.5 Règles de la boucle
 
@@ -474,232 +309,71 @@ JAMAIS:
 - Présumer qu'une feature existe sans vérifier dans le code
 ```
 
-### 10.6 Format des tâches dans BACKLOG.md
+### 10.6 Formats
 
-Chaque tâche a des **acceptance criteria** testables :
+**BACKLOG.md** : `- [ ] **T1-ENR-01** Titre` + `Fichiers:` + `Réf: STRATEGY §X` + `PASS IF:` (acceptance criteria testables)
 
-```markdown
-- [ ] **T1-ENR-01** Multi-page scraping Jina
-  **Fichiers:** `src/server/lib/enrichment/jina-scraper.ts`
-  **Réf:** STRATEGY §7.1.1
-  **PASS IF:**
-  - jina-scraper accepte une URL et retourne le markdown de 3+ pages (homepage + about + blog/careers/press)
-  - Les liens internes sont extraits de la homepage et filtrés (about, blog, careers, press)
-  - Le rate limit 20 req/min est respecté (delay entre les appels)
-  - Un test unitaire vérifie le multi-page avec un mock Jina
-  - `pnpm typecheck && pnpm test` passent
-```
-
-### 10.7 Format progress.txt
-
-```
-=== ITERATION 14 | 2026-03-10 09:42 UTC ===
-TASK: T1-ENR-01 Multi-page scraping Jina
-STATUS: DONE
-DURATION: ~25 min
-FILES CHANGED: jina-scraper.ts, enrichment-tools.ts, jina-scraper.test.ts
-TESTS: 14/14 passed
-COMMIT: feat(enrichment): multi-page scraping with Jina Reader
-LEARNINGS:
-- Jina retourne des 403 sur certains /blog — fallback nécessaire (try/catch par page)
-- Les pages /careers sont souvent des iframes vers un ATS externe — Jina retourne du HTML minimal
-- Le markdown concaténé peut dépasser 30K chars — tronquer à 15K avant le summarizer
-NEXT: T1-ENR-02 Cache par domaine
-```
+**progress.txt** : `=== ITERATION N | date ===` + TASK + STATUS + FILES CHANGED + TESTS + COMMIT + LEARNINGS + NEXT
 
 ---
 
 ## 11. Gotchas & Patterns (auto-alimenté)
 
-> Cette section est mise à jour par Claude Code après chaque itération.
-> Elle sert de mémoire persistante entre les sessions.
+> Mémoire persistante entre sessions. Garder CONCIS — max 1 ligne par item.
+> Details d'implementation → lire le code source directement.
 
-### Patterns découverts
+### Patterns architecturaux
 
-- **[enrichment]** : 3-layer fallback (Apollo → LinkedIn → Website → LinkedIn-only → always advance) — non-blocking failures
-- **[email]** : 6-step framework with hardcoded names (PAS/Value-add/Social Proof/New Angle/Micro-value/Breakup) via `getFramework(step)`
-- **[email]** : Signal prioritization with recency weighting + data-driven weights from correlator
-- **[email]** : 5 subject line patterns (question/observation/curiosity/direct/personalized) — each variant must use a different pattern
-- **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated — prevents silent empty campaigns
-- **[scoring]** : Two-phase scoring — LLM fit pre-enrichment (cheap filter) → deterministic signal boost post-enrichment (0 LLM cost, uses hiringSignals/fundingSignals/leadershipChanges/techStackChanges/publicPriorities/LinkedIn activity)
-- **[scoring]** : Compound bonus for 3+ distinct signal types: +1 (3 types), +2 (4 types), +3 (5+ types, cap). `signals.length` == distinct type count. Research: 2.4x conversion with 3+ active signals.
-- **[providers]** : Adapter pattern at SDK boundaries — `as any` acceptable with eslint-disable at `SourcingProvider`/Mistral SDK interface
-- **[enrichment]** : Dual TTL cache — null markdown (failed scrape) = 1h TTL, successful scrape = 7d TTL. No schema change needed, just check `cached.markdown === null` to select TTL.
+- **[enrichment]** : 3-layer fallback (Apollo → LinkedIn+Website → LinkedIn-only → always advance), non-blocking
+- **[enrichment]** : Dual TTL cache (null=1h, success=7d), StructuredSignal[] with signalAge() recency multiplier
+- **[enrichment]** : Deterministic hiring signals from careers pages (`hiring-signal-extractor.ts`), 0 LLM cost
+- **[scoring]** : Two-phase (LLM fit pre-enrichment → deterministic signal boost post-enrichment)
+- **[scoring]** : Broadening bonus (+1/match, max +2), Compound bonus (+1/+2/+3 for 3/4/5+ signal types)
+- **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated
+- **[email]** : 6-step framework via `getFramework(step)`, maxWords [85,65,70,65,50,45]
+- **[email]** : 5 subject patterns (question/observation/curiosity/direct/personalized), 2-5 words enforced
+- **[email]** : Connection bridge 3-step: signal → pain reasoning → solution with proof
+- **[quality-gate]** : Step 0=8/10, others=7/10. Blocking checks: spam, filler, word count, subject, AI tells. Non-blocking: thin data <40%
+- **[analytics]** : ALWAYS `isPositiveReply()` / `POSITIVE_REPLY_SQL`, NEVER raw `replyCount > 0`
+- **[analytics]** : Reply guard (3 neg/24h) + bounce guard (>3% after 50 sends) = dual auto-pause
+- **[analytics]** : `replied` from EmailPerformance (positive-only), NOT StepAnalytics (raw counts)
+- **[ab-testing]** : z-test → auto-pause losers → propagate winners. Thresholds: 100+ sends, 5+ days, |z|>1.96
+- **[providers]** : ESPProvider abstraction, zero direct connector imports outside connectors + sourcing
+- **[dedup]** : `@@unique([workspaceId, email])`, cross-campaign via EmailPerformance by email, `ALREADY_CONTACTED_STATUSES` (8)
+- **[phases]** : MONITORING = valid phase, uses PHASE_ACTIVE prompt. Tool filtering by phase (24→14-15)
+- **[pipeline]** : `classify_reply` stale status — transitions don't chain within one call
 
-### Gotchas
+### Gotchas (bugs you'll hit again)
 
-- **[Prisma Json]** : `{ not: null }` doesn't typecheck for Json fields — use `{ not: Prisma.JsonNull }`
-- **[Prisma Json]** : Storing arbitrary objects in `Json` fields requires `as unknown as Prisma.InputJsonValue` (not `as any`)
-- **[webhook]** : `safeTransition()` must accept `LeadStatus` type, not `string` — import from `@prisma/client`
-- **[providers]** : `getActiveIntegration()` parameter should be `IntegrationType` not `string` — callers use `as const` arrays
-- **[webhook]** : HMAC verification needs `req.text()` BEFORE `JSON.parse()` — `req.json()` consumes the body stream, can't read raw bytes after
-- **[webhook]** : `timingSafeEqual` requires equal-length buffers — check `.length` before calling to avoid throwing
+- **[Prisma]** : Json fields → `Prisma.JsonNull` (not null), `as unknown as Prisma.InputJsonValue` (not as any)
+- **[Prisma]** : Upsert always overwrites — use separate `updateMany({where:{field:null}})` for null-only updates
+- **[webhook]** : `req.text()` BEFORE `JSON.parse()` (body stream consumed once for HMAC)
+- **[webhook]** : `timingSafeEqual` needs equal-length check first
+- **[webhook]** : Instantly variant is 1-indexed → `webhookVariantToIndex()` converts to 0-indexed
+- **[instantly]** : Lead `status` read-only — use `updateLeadInterestStatus` to stop sequences
+- **[instantly]** : `getEmails()` response field is `lead` not `lead_email`
+- **[instantly]** : `getCampaignStepAnalytics` has 4 response shapes with different field names
+- **[regex]** : `\b` fails after `:` — use `^re:\s` not `^(re:)\b`
+- **[enrichment]** : `extractLinkedInContext()` returns `undefined` (not `null`) for absent keys
+- **[testing]** : Zod `.default()` = REQUIRED in infer type — tests must include explicitly
+- **[testing]** : setTimeout stub for rate-limit: capture `realSetTimeout` before stubbing
+- **[types]** : `safeTransition()` needs `LeadStatus` type, `getActiveIntegration()` needs `IntegrationType`
+- **[types]** : SDK boundaries → explicit eslint-disable + comment. Everywhere else, zero `as any`
+- **[csv]** : Delimiter priority: tab > semicolon > comma. French headers mapped. Missing email = skip
 
-### Conventions émergentes
-
-- **[type safety]** : At SDK/provider boundaries, use explicit eslint-disable + comment explaining why. Everywhere else, zero `as any`
-- **[scoring]** : Threshold alerts on tool outputs (not just raw counts) — agent gets structured warnings it can act on
-- **[pipeline]** : `classify_reply` has stale `lead.status` — transitions within one call don't chain (PUSHED→REPLIED then REPLIED→INTERESTED fails). Mitigated by webhook setting REPLIED first, but sequence removal only fires when lead is already at REPLIED
-- **[instantly]** : Lead `status` (Active/Completed/Bounced) is read-only in Instantly API. Use `updateLeadInterestStatus` to signal interest level — Instantly stops the sequence for leads with interest status set
-- **[analytics]** : All reply-based metrics use `isPositiveReply()` / `POSITIVE_REPLY_SQL` — never raw `replyCount > 0`. Threshold: `replyAiInterest >= 5` (positive/neutral). NULL = positive (backward compat for unclassified replies).
-- **[analytics]** : Reply guard + bounce guard = dual protection. Bounce guard: >3% after 50+ sends. Reply guard: ≥3 negative replies (aiInterest < 3) in 24h after 20+ sends. Both use same pattern: pure function → DB check → Instantly pause → chat notification.
-- **[quality-gate]** : Step-aware threshold via `getMinQualityScore(step)` — Step 0 = 8/10, others = 7/10. LLM scorer prompt also step-aware ("be strict for Step 0"). `context.step` already available from all callers.
-- **[quality-gate]** : Deterministic word count enforcement at 130% of `maxWords`. Uses `getFramework(step)` inside the retry loop. On violation: score penalized -1, issue added, forces retry. Returns the first clean passing result, NOT bestResult (which may have violations).
-- **[quality-gate]** : Subject line length validation via `checkSubjectLength()` — max 5 words, max 50 chars. Checks primary subject + all variants. Same penalty pattern as word count and spam checks (score -1, issue, block clean pass). Runs before LLM scoring (zero cost).
-- **[email]** : maxWords per step: [85, 65, 70, 65, 50, 45] — compromises between STRATEGY targets and framework needs. Research consensus: <80 words = highest reply rates.
-- **[email]** : Connection bridge 3-step: (1) signal → (2) WHY it implies pain (reasoning step) → (3) solution with timeline proof. BAD/GOOD example in prompt. Signal mention = +15-20%, signal→pain reasoning = 2x that.
-- **[quality-gate]** : Filler phrase detection via `scanForFillerPhrases()` — checks first 2 sentences after greeting only (opener problem, not body). Threshold = 1 (any single filler = -1 penalty + retry), stricter than spam words (threshold = 3). `extractOpener()` strips Hi/Hey/Hello/Dear lines before sentence extraction. 35 phrases across 6 categories.
-- **[analytics]** : Variant attribution via `syncVariantAttribution()` — fetches sent emails via ESPProvider.getEmails({emailType:"sent"}), matches subject to DraftedEmail variants via `matchVariantIndex()`. Stores `variantIndex` (0=primary, 1/2=variants) on EmailPerformance. Only sets when null (idempotent). Step 0 attribution prioritized (earliest sent email per lead).
-- **[analytics]** : `syncSingleCampaign()` accepts `ESPProvider` (not raw apiKey). Analytics module (sync.ts + variant-attribution.ts) is fully ESP-agnostic — no imports from connectors/instantly. Inngest cron uses `getESPProvider(workspaceId)` per campaign. ESPProvider interface has `getStepAnalytics()` + `getLeadsPerformance()` for all 3 connectors.
-- **[instantly]** : `getEmails()` supports `starting_after` pagination. Response field is `lead` (not `lead_email`) — handle both. `email_type: "1"` filters for campaign-sent emails.
-- **[analytics]** : `getReplyRateBySubjectVariant()` separates SQL aggregation (EmailPerformance grouped by variantIndex) from subject text resolution (DraftedEmail.findFirst). Cleaner than JSON field JOIN in SQL. Pure helpers `getSubjectForVariant()` + `toVariantPerformanceRows()` are fully testable.
-- **[analytics]** : CampaignReport.variantBreakdown is always `VariantPerformanceRow[]` (empty if no data). Frontend safe — no null checks needed.
-- **[analytics]** : CampaignReport overview+stepBreakdown `replied` counts come from EmailPerformance (positive-only filter), NOT StepAnalytics. StepAnalytics stores raw Instantly counts including negative replies. Use StepAnalytics for sent/opened/bounced only.
-- **[webhook]** : Instantly webhook `variant` field is 1-indexed (1=primary, 2=v2, 3=v3). Convert with `webhookVariantToIndex(variant)` → 0-indexed. `step` field also available. Native attribution replaces `syncVariantAttribution()` polling for new events; keep sync as historical backfill.
-- **[pipeline]** : `classify_reply` has `isSideEffect: true` — requires user confirmation. Reply dedup via `isDuplicateReply()`: body prefix (100 chars) + 5-min window + same direction. Prevents webhook × classify_reply race condition creating duplicate Reply records.
-- **[webhook]** : 11 event types handled: reply_received, email_bounced, lead_unsubscribed, campaign_completed, email_sent, email_opened, link_clicked, lead_meeting_booked, lead_interested, lead_not_interested, account_error. All validated via Zod discriminatedUnion.
-- **[webhook]** : `email_sent` resolves phantom SENT status (PIPE-SENT-01) — transitions PUSHED→SENT on real send. `sentAt` + `sentStep` stored on EmailPerformance.
-- **[webhook]** : `email_opened` updates openCount + firstOpenAt/lastOpenAt. `link_clicked` increments clickCount. Both support variant attribution.
-- **[lead-status]** : REPLIED→MEETING_BOOKED is a valid transition — meetings can be booked directly from reply without classify_reply step first.
-- **[enrichment]** : `hiringSignals`/`fundingSignals` are now `StructuredSignal[]` (`{detail, date, source}`) — backward-compat Zod parsing auto-converts legacy `string[]` from DB. `signalAge(date)` returns recency multiplier: <3mo=1.0, 3-6mo=0.7, 6-12mo=0.3, >12mo=0.1, null=0.5. `computeSignalBoost()` uses `weightedSignalCount()` for hiring/funding.
-- **[prisma]** : Upsert update path always overwrites fields — no built-in "set only if null". For conditional-null-only updates, use separate `updateMany({ where: { field: null }, data: { field: value } })` after the upsert.
-- **[analytics]** : `campaign_insights` tool now uses `isPositiveReply()` for all segment reply counts (industry, companySize, country, total). Convention: NEVER use raw `replyCount > 0` anywhere — always filter by `replyAiInterest`.
-- **[phases]** : MONITORING phase is a valid CampaignPhase — uses PHASE_ACTIVE prompt and same tools as ACTIVE (reply mgmt + analytics + CRM + new pipeline). Represents "campaign sending complete, still processing replies."
-- **[email]** : Subject word count constraint is "2-5 words" everywhere (drafting.ts, prompt-builder.ts, quality-gate.ts). Gate enforces at SUBJECT_MAX_WORDS=5. Never give LLM a soft target (e.g., "2-4") with a hidden tolerance — causes retry waste.
-- **[email]** : buildPreviousEmailsSection() truncates at 1500 chars (was 500). Step 0 PAS emails (~350-400 chars) preserved fully for follow-up coherence.
-- **[sourcing]** : source_leads enrichment polling has 30×5s=150s timeout. Returns graceful message with resourceId on timeout. Leaves 150s margin within Vercel 300s function timeout.
-- **[analytics]** : `getReplyRateBySubjectPattern()` now accepts optional `campaignId`. All callers pass it to prevent cross-campaign contamination in Thompson Sampling. Performance matching uses `.find(p => p.campaignId === email.campaignId)`, NOT `[0]` (which grabbed data from any campaign).
-- **[regex]** : `\b` word boundary fails after non-word chars like `:`. `^(re:)\b` never matches because `:` → ` ` is non-word→non-word (no boundary). Use explicit `^re:\s` instead.
-- **[analytics]** : `subjectPattern` stored at draft time via `detectSubjectPattern(subject)` — deterministic classification into 5 patterns (Question/Observation/Curiosity/Direct/Personalized). `getReplyRateBySubjectPattern()` prefers stored field, falls back to heuristic for old records. 7th correlation dimension in workspace insights.
-- **[analytics]** : `getReplyRateBySubjectPatternSQL()` = pure SQL aggregation (efficient, DB-level). `getReplyRateBySubjectPattern()` = JS-level with heuristic fallback (needed for Thompson Sampling on mixed old+new data). Both coexist.
-- **[ab-testing]** : A/B auto-pause via `ab-testing.ts` — pure z-test functions + Instantly v_disabled integration. `calculateZTest(n1,x1,n2,x2)` returns z-score + significance. `findLosingVariant()` pairwise comparison of VariantPerformanceRow[]. `checkAndPauseLosingVariant()` respects autonomy level (AUTO=pause, SUPERVISED/MANUAL=notify). Runs from inngest analytics cron after each sync. Thresholds: 100+ sends/variant, 5+ days, |z|>1.96.
-- **[ab-testing]** : Instantly variant disable via `v_disabled: true` in sequences PATCH. Must GET full campaign sequences first, modify specific variant, then PATCH with full sequences array. Step 0 variants targeted (primary A/B testing step).
-- **[providers]** : `getActiveIntegration()` exported from `providers/index.ts` — used by integration API routes for status checks. ab-testing.ts now uses `getESPProvider()` exclusively (T2-INT-02 complete).
-- **[providers]** : `ESPProvider.disableVariant(campaignId, stepIndex, variantIndex)` — Instantly sets `v_disabled: true` on variant, Smartlead/Lemlist return false (no API support). ab-testing.ts calls `esp.disableVariant()` through the provider abstraction. Zero direct connector imports outside connectors + sourcing (by design).
-- **[dedup]** : `@@unique([workspaceId, email])` prevents duplicate Lead records. Cross-campaign dedup must query EmailPerformance by email (not leadId) — perf records preserve historical campaign data even after lead reassignment.
-- **[dedup]** : `ALREADY_CONTACTED_STATUSES` (8 statuses) in tool-utils.ts — used by `add_leads_to_campaign` to filter out all post-push leads, not just PUSHED. Includes: PUSHED, SENT, REPLIED, INTERESTED, NOT_INTERESTED, MEETING_BOOKED, BOUNCED, UNSUBSCRIBED.
-- **[dedup]** : `analyzeCrossCampaignDedup()` is a pure function (no DB calls). The ESP tool handler does the EmailPerformance query then passes results to the pure function. `skip_dedup_check` parameter allows user-confirmed intentional overlap.
-- **[style-learner]** : `detectCategory()` uses 6 categories: subject|tone|cta|opener|length|general. Priority order matters: subject (≤8 words) checked first to avoid misclassifying short opener/CTA edits. Identity check (`original === edit`) must precede all heuristics — identical multi-sentence text falsely matches CTA heuristic (all slices equal). `getStyleSamples(category?)` accepts `StyleCategory | StyleCategory[]`. `BODY_STYLE_CATEGORIES` = all except subject. Callers (email-tools, draft-lead) fetch body + subject separately. Subject corrections injected near subject patterns in prompt (STYLE-WIRE-01 DONE).
-- **[testing]** : Zero-delay setTimeout stub for rate-limit bypass in tests: capture `realSetTimeout` before stubbing, replace global `setTimeout` with `realSetTimeout(fn, 0)`. More reliable than `vi.useFakeTimers({ shouldAdvanceTime: true })` which hangs with sequential awaited `setTimeout` in loops.
-- **[jina]** : `scrapeWithFallbacks()` has a 100-char content threshold, separate from `scrapeViaJina()`'s 50-char minimum. Content 50-99 chars passes Jina but gets rejected by fallbacks — tested in jina-scraper.test.ts.
-- **[deliverability]** : Bounce threshold must be consistent across all surfaces: bounce-guard.ts auto-pauses at 3% (after 50+ sends), PHASE_ACTIVE alerts at 3%, PHASE_PUSHING pre-flight checks warmup+auth+tracking domain+volume. All thresholds from RESEARCH-DELIVERABILITY-2026.md.
-- **[enrichment]** : `extractLinkedInContext()` casts `enrichment[key] as string | null` — if the key is absent, result is `undefined` not `null`. Test with `toBeUndefined()` not `toBeNull()` for missing fields.
-- **[enrichment]** : `summarizeEnrichmentQuality()` counts industry/apolloEmail/apolloSeniority as `has` entries (with value suffix like `industry:SaaS`) but does NOT track them in `missing`. Only 4 fields tracked in missing: companySummary, painPoints, linkedinHeadline, signals.
-- **[jina]** : Per-section char budget in `scrapeLeadCompany()` via `SECTION_BUDGETS`: homepage 4K, about 3K, blog 3K, careers 2.5K, press 2.5K. Each section truncated independently before concat. No final `.slice()` needed — budgets sum to 15K. Prevents homepage-heavy pages from starving signal-rich sections (careers=hiring, press=triggers).
-- **[csv]** : `parseCSV()` delimiter detection priority: tab > semicolon > comma. When tab present in header, everything between tabs is one column — mixed delimiters get consumed. French headers (prénom, entreprise, poste, pays) mapped to canonical fields. Rows without `email` silently skipped.
-- **[lead-status]** : `VALID_TRANSITIONS` has 8 source states. Terminal states (MEETING_BOOKED, NOT_INTERESTED, BOUNCED, UNSUBSCRIBED, SKIPPED) return `undefined` from the map — any transition from them is invalid. `isValidTransition(from, to)` = `VALID_TRANSITIONS[from]?.includes(to) ?? false`.
-- **[insights]** : `buildInsightSuggestions()` uses strict `>` for bounce threshold (not `>=`), so exactly 5% does NOT trigger. Industry threshold is `> overallRate * 1.5`. Low rate suggestion requires BOTH `< 5%` AND `>= 50` sent.
-- **[enrichment]** : `computeEnrichmentCompleteness()` counts 18 raw data fields (6 strings + 12 arrays). Excludes 4 narrative/derived fields (enrichmentContext/LinkedIn/Signals/Diagnostic) and generic `signals` catch-all. Returns 0-1. Stored on Lead as `enrichmentCompleteness Float?`.
-- **[quality-gate]** : Two warning categories: blocking (spam, filler, word count, subject length, AI tells) = score -1 + retry trigger. Non-blocking (thin enrichment data < 40%) = informational issue only, no score penalty, no retry. `addThinDataWarning()` runs after retry loop on final result.
-- **[crm]** : `buildCRMEnrichmentProperties(lead)` pure function maps 4 standard CRM fields (industry, website, country, numberofemployees) + `buildEnrichmentNotes()` formats 8 enrichment sections into description text. `updateContact()` called best-effort after `createContact()` — failure doesn't block. Standard HubSpot props: industry, website, country, numberofemployees, jobtitle, phone. Non-standard data goes into `description` text field.
-- **[perf]** : `flushLeadUpdates()` batches DB writes — accumulates `PendingLeadUpdate[]` and flushes via `prisma.$transaction()` every `DB_FLUSH_SIZE=20` leads. Used by `score_leads_batch` and `enrich_leads_batch`. 100 leads = 5 transactions instead of 100. Prisma PrismaPromises are lazy — don't execute until `$transaction()` runs.
-- **[ab-testing]** : Winner propagation = 4th layer of A/B feedback loop: generate → attribute → pause losers → propagate winners. `getWinningSubjects(workspaceId)` queries DraftedEmails with positive replies, resolves actual variant via `resolveVariantSubject(primary, variants, variantIndex)`. variantIndex 0=primary, 1=variants[0], 2=variants[1]. Section injected into prompt as `### WINNING SUBJECTS` between pattern ranking and style corrections. All 3 drafting callers (batch, single, Inngest) load winning subjects in parallel.
-- **[testing]** : Zod `.default(value)` makes the field REQUIRED in `z.infer` output type. Tests passing filter objects to functions like `countLeads()` must include fields with `.default()` explicitly (e.g., `skip_owned_leads: true`). Use a shared `EMPTY_FILTERS` constant.
-- **[testing]** : `instantlyFetch` retry backoff uses real `setTimeout` (2s, 4s). Retry tests take ~10s total. Timer mocking possible but not worth it for 3 tests.
-- **[connector]** : Instantly API response shapes vary wildly — `getCampaignStepAnalytics` handles 4 response shapes: `{ steps: [...] }`, raw `[...]`, and two sets of field name variants (`step`/`step_number`, `sent`/`emails_sent`, `opened`/`emails_read`/`emails_opened`, `replied`/`replies`, `bounced`/`bounces`).
-- **[console.log]** : Server code has 0 raw console.log (all use logger.ts). 5 remaining in client-side React components (agent-chat.tsx:4, email-preview-card.tsx:1) — legitimate since logger.ts is server-only. 1 in config.ts at startup — pre-logger, also legitimate.
-- **[email-tools]** : `classifyEnrichmentDepth()` counts 10 independent fields but all 4 signal arrays (signals, hiringSignals, fundingSignals, leadershipChanges) coalesce into 1 combined field. Empty arrays and empty strings don't count. Thresholds: rich≥5, partial≥3, minimal≥1, none=0.
-- **[email-tools]** : `buildDraftMetadata()` industry priority: `lead.industry` > `enrichmentData.industry` > null. `detectSubjectPattern()` priority: Question > Personalized > Observation > Curiosity > Direct. "Noticed your" matches Personalized before Observation.
-- **[testing]** : DEBT-06 complete — all 60+ pure functions have unit tests (100% coverage). Remaining untested code is integration-heavy tool execute() handlers (require DB/API mocks, not pure-testable). DEBT-07 complete — 20 prompt snapshot tests guard against LLM prompt regressions. Full prompt snapshots use `toMatchSnapshot()` (file-based), section snapshots isolate critical areas (connection bridge, enrichment enforcement, constraints, CTAs, tier tones, signals).
-
-## 12. Playwright MCP — Utilisation maximale
-
-### Navigation & recherche web
+## 12. Playwright MCP — Aide-mémoire
 
 ```
-- Dire "use playwright mcp" au premier appel de chaque session
-- browser_navigate pour aller sur une URL
-- browser_click sur les liens, boutons, onglets pour naviguer dans un site
-- browser_type pour taper dans les barres de recherche
-- browser_press_key "Enter" pour lancer une recherche
-- Ne JAMAIS se limiter au premier résultat Google — cliquer sur 3-5 résultats pertinents
-- Sur chaque site : naviguer vers les pages internes (about, pricing, features, blog, docs, changelog, API reference)
-```
+NAVIGATION: browser_navigate → browser_snapshot (lire) → browser_click (liens/boutons)
+RECHERCHE:  browser_type (search bar) → browser_press_key "Enter" → snapshot résultats
+MULTI-TAB:  browser_tab_new / browser_tab_list / browser_tab_select
+DONNÉES:    browser_snapshot (accessibility tree, 2-5KB) >> browser_take_screenshot (500KB)
+VISUEL:     browser_take_screenshot (fullPage=true), sauver dans .claude/findings/screenshots/
+FORMS:      browser_click + browser_type + browser_select_option, slowly=true pour JS handlers
+DEBUG:      browser_console (erreurs), browser_network (requêtes), browser_wait (chargement)
 
-### Multi-onglets
-
-```
-- browser_tab_new pour ouvrir un nouvel onglet
-- browser_tab_list pour voir les onglets ouverts
-- browser_tab_select pour basculer entre les onglets
-- Workflow : concurrent dans tab 1, notre doc dans tab 2, comparer
-```
-
-### Extraction de données
-
-```
-- browser_snapshot pour lire le contenu structuré (accessibility tree, 2-5KB — rapide et fiable)
-- browser_get_text pour le texte visible
-- browser_get_html pour le HTML brut (tableaux de pricing, structures de données)
-- browser_run_javascript pour extraire des données spécifiques du DOM :
-  "async (page) => { return await page.$$eval('table tr', rows => rows.map(r => r.textContent)) }"
-- TOUJOURS préférer browser_snapshot à browser_take_screenshot pour l'extraction de données
-```
-
-### Screenshots & analyse visuelle
-
-```
-- browser_take_screenshot pour capturer l'état visuel
-- fullPage=true pour la page complète (pas juste le viewport)
-- element + ref pour capturer un composant spécifique (bouton, card, section)
-- Sauvegarder dans .claude/findings/screenshots/ avec nom descriptif
-- Prendre des screenshots des UX concurrents : onboarding flows, chat UI, dashboards, pricing pages
-- Les screenshots servent UNIQUEMENT pour l'analyse visuelle — utiliser snapshot pour les données
-```
-
-### Formulaires & interactions
-
-```
-- browser_click + browser_type + browser_select_option pour remplir des formulaires
-- browser_choose_file pour upload
-- browser_hover pour menus dropdown et tooltips
-- browser_type avec slowly=true pour déclencher les handlers JavaScript
-```
-
-### Debugging & réseau
-
-```
-- browser_console pour lire les erreurs console d'une page
-- browser_network pour voir les requêtes réseau (comprendre les APIs des concurrents)
-- browser_wait pour attendre qu'une page charge complètement
-```
-
-### Export
-
-```
-- browser_save_as_pdf pour sauvegarder un article ou une doc en PDF dans les findings
-```
-
-### Analyse concurrents (sans login)
-
-```
-- Pages features/pricing/changelog des concurrents → screenshots + snapshot
-- YouTube : chercher "[concurrent] demo 2026" → regarder les démos vidéo
-- G2.com et Capterra : reviews avec screenshots des dashboards
-- Reddit et Twitter : "[concurrent] review" pour les retours users réels
-- Documentation API publique des concurrents
-- GitHub : repos open source, changelogs, issues
-```
-
-### Workflow de recherche optimal
-
-```
-1. browser_navigate vers Google
-2. browser_type la requête + browser_press_key Enter
-3. browser_snapshot pour lire les résultats
-4. browser_click sur le résultat #1
-5. browser_snapshot pour lire le contenu
-6. Naviguer dans le site (browser_click sur les liens internes pertinents)
-7. browser_take_screenshot des éléments UX intéressants
-8. browser_tab_new pour le résultat #2 (garder le #1 ouvert pour comparer)
-9. Répéter pour 3-5 résultats
-10. Synthétiser dans un finding avec URLs sources exactes
-```
-
-### Performance
-
-```
-- Playwright lit l'accessibility tree (2-5KB) pas des screenshots (500KB) — préférer snapshot
-- Chaque tool call coûte du contexte — regrouper les actions quand possible
-- Ne pas screenshot chaque page — seulement les éléments visuellement intéressants (UX, design)
+RÈGLES:
+- Toujours 3-5 résultats Google, naviguer les pages internes de chaque site
+- Préférer snapshot pour les données, screenshot uniquement pour le visuel
+- Synthétiser dans un finding avec URLs sources exactes
 ```

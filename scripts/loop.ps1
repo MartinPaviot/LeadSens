@@ -5,8 +5,8 @@
 #         .\scripts\loop.ps1 -NoResearch
 
 param(
-    [int]$MaxIterations = 30,
-    [int]$MaxTimeMinutes = 360,
+    [int]$MaxIterations = 100,
+    [int]$MaxTimeMinutes = 720,
     [int]$MaxConsecutiveFailures = 3,
     [int]$PauseBetween = 45,
     [switch]$DryRun,

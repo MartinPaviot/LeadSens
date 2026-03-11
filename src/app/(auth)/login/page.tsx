@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { GoogleLogo } from "@phosphor-icons/react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,10 +30,10 @@ export default function LoginPage() {
       {
         email,
         password,
-        callbackURL: "/",
+        callbackURL: "/chat",
       },
       {
-        onSuccess: () => router.push("/"),
+        onSuccess: () => router.push("/chat"),
         onError: (ctx) => {
           toast.error(ctx.error.message ?? "Sign in failed");
           setIsPending(false);
@@ -45,11 +46,29 @@ export default function LoginPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-xl">Welcome back</CardTitle>
-        <CardDescription>Login to continue</CardDescription>
+        <CardDescription>Sign in to continue</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-6">
-          <div className="grid gap-4">
+        <div className="grid gap-6">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() =>
+              signIn.social({ provider: "google", callbackURL: "/chat" })
+            }
+          >
+            <GoogleLogo weight="bold" />
+            Continue with Google
+          </Button>
+
+          <div className="relative text-center text-sm text-muted-foreground">
+            <span className="relative z-10 bg-card px-2">or</span>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" />
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="grid gap-4">
             <div className="grid gap-2">
               <label htmlFor="email" className="text-sm font-medium">
                 Email
@@ -77,20 +96,20 @@ export default function LoginPage() {
                 minLength={8}
               />
             </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Loading..." : "Login"}
-          </Button>
-          <div className="text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="underline underline-offset-4 hover:text-primary"
-            >
-              Sign up
-            </Link>
-          </div>
-        </form>
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Loading..." : "Sign in"}
+            </Button>
+            <div className="text-center text-sm">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="underline underline-offset-4 hover:text-primary"
+              >
+                Sign up
+              </Link>
+            </div>
+          </form>
+        </div>
       </CardContent>
     </Card>
   );

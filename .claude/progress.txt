@@ -1,3 +1,56 @@
+=== ITERATION 42 | 2026-03-12 04:20 UTC ===
+TASK: T3-SCORE-03 — Deterministic hiring signal extraction from careers pages
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: hiring-signal-extractor.ts (NEW), enrichment-tools.ts, enrich-lead.ts, tests/hiring-signal-extractor.test.ts (NEW)
+TESTS: 1245/1245 passed (49 test files, +26 net new tests)
+COMMIT: feat(enrichment): deterministic hiring signal extraction from careers pages (T3-SCORE-03)
+CHANGES:
+- New `hiring-signal-extractor.ts` with 5 exported functions:
+  - extractCareersSection(combinedMarkdown) — parses --- CAREERS --- section from multi-page markdown
+  - extractJobTitles(markdown) — regex-based title extraction with 3 pattern groups, dedup, false positive filtering
+  - extractHiringSignals(careersMarkdown) — produces StructuredSignal[] from careers content:
+    - Hiring scope (role count + departments + seniority levels)
+    - Specific role titles (top 5, +N more)
+    - Growth language detection (6 patterns with 0-3 intervening words tolerance)
+    - Multi-department expansion (3+ departments = strong growth signal)
+  - mergeHiringSignals(llmSignals, extractedSignals) — dedup-aware merge (fuzzy match on careers-sourced signals)
+  - enhanceWithCareersSignals() helper in enrichment-tools.ts wraps extract+merge
+- Wired into all 3 enrichment paths: batch (enrichment-tools.ts), single (enrichment-tools.ts), Inngest (enrich-lead.ts)
+- 26 tests: extractCareersSection (4), extractJobTitles (6), extractHiringSignals (7), mergeHiringSignals (5), enhanceWithCareersSignals (4)
+LEARNINGS:
+- Growth language regex needs 0-3 word tolerance between "growing" and "team" — real text often has "growing our engineering team" not "growing team"
+- Job title regex needs explicit false positive filter for navigation items (About, Learn, Join, View, etc.)
+- Dedup merge checks for overlapping 4+ char words between signals from same source — simple but effective
+- Careers sections are typically 500-2000 chars, enough for reliable extraction
+- Source attribution "careers page" on all extracted signals distinguishes them from LLM-extracted "LinkedIn" or "press release" sources
+NEXT: DEBT-02 (Zod validation on API routes) or DEBT-03 (error hierarchy)
+
+=== ITERATION 41 | 2026-03-11 23:10 UTC ===
+TASK: T3-SCORE-02 — Broadened filters → scoring signals
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: prisma/schema.prisma, migration, icp-scorer.ts, sourcing-tools.ts, enrichment-tools.ts, enrich-lead.ts, signal-boost.test.ts
+TESTS: 1219/1219 passed (48 test files, +21 net new tests)
+COMMIT: feat(scoring): broadened filters → scoring signals (T3-SCORE-02)
+CHANGES:
+- Added `broadenedFields String[]` to Campaign model + migration
+- source_leads stores broadened_fields from count_leads on Campaign creation
+- New `computeBroadeningBonus()` pure function maps 8 filter types to enrichment data:
+  - news → recentNews, funding_type → fundingSignals, technologies → techStackChanges/techStack
+  - keyword_filter → publicPriorities/painPoints, job_listing → hiringSignals
+  - industries → industry, employee_count → teamSize
+  - revenue and job_titles skipped (not in EnrichmentData / not verifiable)
+- Conservative bonus: +1 per matching broadened field, capped at +2 total
+- All 3 enrichment paths wired: enrich_leads_batch, enrich_single_lead, enrichSingleLead (Inngest)
+- 21 new tests: computeBroadeningBonus (14: all field types + cap + empty cases) + integration (7: boost comparison, stacking, cap at 10, no-op cases)
+LEARNINGS:
+- `revenue` is NOT in EnrichmentData schema — comes from Apollo as extra merge field, stripped by safeParse. Can't use it for broadening bonus.
+- `job_titles` can't be verified from enrichment data — the lead's actual title is on the Lead model, not EnrichmentData.
+- enrich-lead.ts had unused `_campaignId` parameter — now used to fetch broadenedFields.
+- Broadening bonus is conservative by design (+1 per match, max +2) to avoid over-promoting leads that happen to have data in common fields.
+NEXT: T3-SCORE-03 (careers hiring signal extraction) or DEBT-02 (Zod validation on API routes)
+
 === ITERATION 40 | 2026-03-11 21:55 UTC ===
 TASK: T2-INT-02 — Multi-ESP routing (last Tier 2 task)
 STATUS: DONE

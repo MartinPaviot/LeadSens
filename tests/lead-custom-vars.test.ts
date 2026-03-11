@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLeadCustomVars } from "@/server/lib/tools/instantly-tools";
+import { buildLeadCustomVars } from "@/server/lib/tools/tool-utils";
 
 describe("buildLeadCustomVars", () => {
   // ─── Subject variant fallback (SUBJ-FIX-01) ──────────

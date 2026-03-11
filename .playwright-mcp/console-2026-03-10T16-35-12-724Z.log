@@ -1,0 +1,13 @@
+[    5313ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ https://www.lemlist.com/:0
+[    8482ms] [ERROR] You need to provide an access token to interact with Storyblok API. Read https://www.storyblok.com/docs/api/content-delivery#topics/authentication @ https://www.lemlist.com/_next/static/chunks/692e093abe110f3f.js?dpl=dpl_C9u7bCYdt54N7fXbm6s2jHb1Berq:0
+[    8485ms] [ERROR] You need to provide an access token to interact with Storyblok API. Read https://www.storyblok.com/docs/api/content-delivery#topics/authentication @ https://www.lemlist.com/_next/static/chunks/692e093abe110f3f.js?dpl=dpl_C9u7bCYdt54N7fXbm6s2jHb1Berq:0
+[   10445ms] [ERROR] The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element. @ https://www.lemlist.com/_next/static/chunks/ed915590bee6cf6d.js?dpl=dpl_C9u7bCYdt54N7fXbm6s2jHb1Berq:0
+[   10471ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://auth.lempire.com') does not match the recipient window's origin ('https://www.lemlist.com'). @ https://www.lemlist.com/_next/static/chunks/481ca19be796f20f.js?dpl=dpl_C9u7bCYdt54N7fXbm6s2jHb1Berq:0
+[   43676ms] Uncaught Error: Axeptio SDK is already loaded
+    at $r (https://static.axept.io/sdk.js:1:413335)
+    at <anonymous> (https://static.axept.io/sdk.js:1:661638)
+    at c (https://static.axept.io/sdk.js:1:197205)
+    at <anonymous> (https://static.axept.io/sdk.js:1:661607)
+    at <anonymous> (https://static.axept.io/sdk.js:1:661851)
+    at <anonymous> (https://static.axept.io/sdk.js:1:661854)
+[   49710ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://p.mdb.tools/v1/mdb_px_01K8RBNCDE7XAPEPVBXWPE8EPW:0
