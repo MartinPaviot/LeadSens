@@ -1,6 +1,8 @@
 import { mistralClient } from "@/server/lib/llm/mistral-client";
+import { logger } from "@/lib/logger";
 import { scanForSpamWords, SPAM_THRESHOLD } from "@/server/lib/email/spam-words";
 import { scanForFillerPhrases } from "@/server/lib/email/filler-phrases";
+import { scanForAiTells } from "@/server/lib/email/ai-tell-scanner";
 import { getFramework } from "@/server/lib/email/prompt-builder";
 import { z } from "zod/v4";
 
@@ -28,7 +30,7 @@ const SUBJECT_MAX_CHARS = 50;
 
 /**
  * Check all subjects (primary + variants) for length violations.
- * Prompt says "2-4 words, lowercase" — we allow up to 5 words with tolerance.
+ * Prompt says "2-5 words, lowercase" — max 5 words enforced deterministically.
  * Research recommends <50 chars for optimal open rates.
  * Returns an issue string if violated, null if OK.
  */
@@ -56,7 +58,7 @@ export function checkSubjectLength(
 
   if (violations.length === 0) return null;
 
-  return `Subject line too long: ${violations.join("; ")}. Subjects should be 2-4 words and under ${SUBJECT_MAX_CHARS} characters.`;
+  return `Subject line too long: ${violations.join("; ")}. Subjects should be 2-5 words and under ${SUBJECT_MAX_CHARS} characters.`;
 }
 
 /**
@@ -83,7 +85,7 @@ export async function scoreEmail(params: {
 AXES:
 - relevance: Does the email address the prospect's likely pain points? Is the solution connected to their role/industry?
 - specificity: Does it use concrete data (signals, metrics, names, tech stack)? Or is it generic/templated?
-- formatting: Proper line breaks (\\n), short paragraphs, no wall of text? Subject 2-4 words, lowercase?
+- formatting: Proper line breaks (\\n), short paragraphs, no wall of text? Subject 2-5 words, lowercase?
 - coherence: Does it follow the ${stepNames[context.step] ?? `step ${context.step}`} framework correctly? Is the CTA appropriate for this step?
 
 OVERALL: weighted average (relevance 35%, specificity 30%, formatting 15%, coherence 20%).
@@ -186,6 +188,14 @@ export async function draftWithQualityGate(params: {
       score.overall = Math.max(1, score.overall - 1);
     }
 
+    // AI "tell" scan — formal language, corporate buzzwords, repetitive structure
+    const aiTellScan = scanForAiTells(draft.body);
+    if (aiTellScan.flagged) {
+      const aiTellIssue = `AI tell (${aiTellScan.category}): "${aiTellScan.matches[0]}". Rewrite in casual peer-to-peer tone — no formal language, no corporate buzzwords.`;
+      score.issues = [...(score.issues ?? []), aiTellIssue];
+      score.overall = Math.max(1, score.overall - 1);
+    }
+
     if (!bestResult || score.overall > bestResult.qualityScore.overall) {
       bestResult = { ...draft, qualityScore: score };
     }
@@ -195,15 +205,16 @@ export async function draftWithQualityGate(params: {
       !spamScan.flagged &&
       !wordCountExceeded &&
       !subjectViolation &&
-      !fillerScan.flagged
+      !fillerScan.flagged &&
+      !aiTellScan.flagged
     ) {
       // Return current clean result, not bestResult — bestResult may have violations
       return { ...draft, qualityScore: score };
     }
 
-    console.log(
+    logger.debug(
       `[quality-gate] ${params.context.leadName} step ${params.context.step}: score ${score.overall}/${minScore} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
-      score.issues?.join(", ") ?? "",
+      { issues: score.issues?.join(", ") ?? "" },
     );
   }
 

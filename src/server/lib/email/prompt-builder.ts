@@ -1,6 +1,7 @@
 import type { EnrichmentData } from "@/server/lib/enrichment/summarizer";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "@/server/lib/email/campaign-angle";
+import type { LeadTier } from "@/server/lib/enrichment/icp-scorer";
 import type { LeadForEmail, DraftedEmailRef } from "./types";
 import { findBestMatches, findPortfolioMatches } from "./industry-taxonomy";
 
@@ -261,6 +262,38 @@ function findRelevantCaseStudy(
   return parts.join("\n");
 }
 
+// ─── CTA Library (proven patterns per step) ─────────────
+
+const CTA_LIBRARY: Record<number, string[]> = {
+  0: ["Worth a quick look?", "Does this resonate?", "Relevant for Q[X]?"],
+  1: ["Want me to send it over?", "Interested in the benchmark?", "Useful?"],
+  2: ["Would [X result] be relevant for [company]?", "Seen similar results?", "Worth exploring?"],
+  3: ["Open to exploring this angle?", "How are you handling [pain] today?", "On your radar?"],
+  4: ["Thoughts?", "Ring a bell?", "On your radar?"],
+  5: ["Should I close your file?", "Not the right time?", "Check back later?"],
+};
+
+// ─── Tier-based Tone Instructions ──────────────────────
+
+const TIER_TONE_INSTRUCTIONS: Record<LeadTier, string> = {
+  1: `## LEAD TIER: TIER 1 (high-fit, high-intent)
+- Be MORE direct and specific — this prospect is likely ready to engage
+- Reference their specific signals boldly in the opener
+- Propose a concrete next step (not "would love to chat" but "15 min this Thursday?")
+- You can be slightly longer if the content is highly personalized`,
+
+  2: `## LEAD TIER: TIER 2 (good fit, moderate intent)
+- Balance education with relevance
+- Use signals to build credibility, not to push
+- Standard cadence and tone`,
+
+  3: `## LEAD TIER: TIER 3 (minimum viable fit)
+- Be educational and non-pushy
+- Focus on value delivery, not meeting booking
+- Shorter emails, lighter CTAs ("worth exploring?" not "book a call")
+- Think nurture, not close`,
+};
+
 // ─── CTA Selection ──────────────────────────────────────
 
 function selectCta(
@@ -389,7 +422,7 @@ function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
   for (const email of previousEmails) {
     lines.push(`### Step ${email.step} — "${email.subject}"`);
     if (email.body) {
-      const truncated = email.body.length > 500 ? email.body.slice(0, 500) + "..." : email.body;
+      const truncated = email.body.length > 1500 ? email.body.slice(0, 1500) + "..." : email.body;
       lines.push(`Body: ${truncated}`);
     }
   }
@@ -464,6 +497,10 @@ export function buildEmailPrompt(params: {
   stepAnnotation?: StepPerformanceAnnotation;
   /** Winning email patterns from past campaigns */
   winningPatterns?: WinningPattern[];
+  /** Thompson-ranked subject line patterns (replaces default pattern table) */
+  patternRanking?: string;
+  /** Lead tier for tone adaptation */
+  tier?: LeadTier;
 }): string {
   const fw = getFramework(params.step);
   const ed = params.lead.enrichmentData;
@@ -572,26 +609,30 @@ AVOID: problem hooks ("Are you struggling with..."), rhetorical questions, flatt
 Combine the 2 best signals in your message. Signal stacking (2-3 combined signals) generates 25-40% reply rate vs 8-15% for a single signal.
 Format: "[Signal 1] + [Signal 2] → [combined consequence] → [your solution]"
 ` : ""}${enforcementBlock}
-## SUBJECT LINE PATTERNS (pick the best fit for this step)
+${params.patternRanking ? params.patternRanking : `## SUBJECT LINE PATTERNS (pick the best fit for this step)
 | Pattern | Best for | Examples |
 |---------|----------|---------|
 | **Question** | Step 0, 4 — sparks curiosity | "quick question, {{firstName}}" · "thoughts on {{painPoint}}?" · "{{company}}'s approach to {{topic}}?" |
 | **Observation** | Step 0, 1 — shows research | "noticed your {{signal}}" · "saw {{company}} is {{action}}" · "{{number}} {{industry}} teams shifting" |
 | **Curiosity gap** | Step 1, 3 — teases insight | "idea for {{painPoint}}" · "{{number}}% of {{industry}} leaders..." · "what {{similarCompany}} changed" |
 | **Direct** | Step 2, 5 — cuts to the point | "{{solution}} for {{company}}" · "{{result}} in {{timeline}}" · "{{company}} + {{senderCompany}}" |
-| **Personalized** | Any step with strong signal | "re: {{specific_trigger}}" · "congrats on {{achievement}}" · "following {{event}}" |
+| **Personalized** | Any step with strong signal | "re: {{specific_trigger}}" · "congrats on {{achievement}}" · "following {{event}}" |`}
 
 Include a concrete number when available (stat, %, count) — numbers in subjects boost open rates by +45%.
 Each variant in "subjects" MUST use a DIFFERENT pattern from this table. Never repeat the same pattern across variants.
 
+## PROVEN CTAs FOR STEP ${params.step} (pick one, adapt naturally)
+${(CTA_LIBRARY[params.step] ?? CTA_LIBRARY[0]).map((c) => `- "${c}"`).join("\n")}
+Do NOT invent a new CTA structure. Adapt one of the above to the prospect's context.
+
 ## Constraints
 - Max ${fw.maxWords} words for the body. Every word must earn its place.
-- Subject: 2-4 words, lowercase, no forced caps, no punctuation.
+- Subject: 2-5 words, lowercase, no forced caps, no punctuation.
 - 1 single CTA oriented toward meeting/exchange/call. Never a passive "let me know".
 - At least 1 prospect-specific element (signal, news, pain point).
 - Language: English by default. Write in the prospect's language only if their country is non-English-speaking.
 - Start with first name, no greeting formula.
 - FORMATTING: use \\n for line breaks in the body JSON. Each bullet point on its own line. Paragraphs separated by \\n\\n.
-
+${params.tier ? "\n" + TIER_TONE_INSTRUCTIONS[params.tier] : ""}
 JSON uniquement : {"subject": "...", "body": "..."}`.trim();
 }

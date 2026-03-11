@@ -3,6 +3,7 @@ import { buildEmailPrompt } from "./prompt-builder";
 import type { StepPerformanceAnnotation, WinningPattern } from "./prompt-builder";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "./campaign-angle";
+import type { LeadTier } from "@/server/lib/enrichment/icp-scorer";
 import type { LeadForEmail, DraftedEmailRef } from "./types";
 
 /**
@@ -26,6 +27,10 @@ export async function draftEmail(params: {
   stepAnnotation?: StepPerformanceAnnotation;
   /** Winning email patterns from past campaigns */
   winningPatterns?: WinningPattern[];
+  /** Thompson-ranked subject line patterns */
+  patternRanking?: string;
+  /** Lead tier for tone adaptation */
+  tier?: LeadTier;
 }): Promise<{ subject: string; subjects?: string[]; body: string }> {
   const prompt = buildEmailPrompt({
     lead: params.lead,
@@ -38,6 +43,8 @@ export async function draftEmail(params: {
     signalWeights: params.signalWeights,
     stepAnnotation: params.stepAnnotation,
     winningPatterns: params.winningPatterns,
+    patternRanking: params.patternRanking,
+    tier: params.tier,
   });
 
   return mistralClient.draftEmail({
@@ -47,7 +54,7 @@ export async function draftEmail(params: {
 LANGUAGE: Write emails in English by default. Only write in the prospect's language if their country is non-English-speaking (e.g., France → French, Germany → German).
 
 ABSOLUTE RULES:
-- Subject: 2-4 words max, lowercase, no clickbait, no [FirstName]
+- Subject: 2-5 words max, lowercase, no clickbait, no [FirstName]
 - Body: short sentences, direct tone, peer-to-peer style
 - ONE SINGLE CTA oriented toward exchange (call, meeting, chat) — never a generic CTA
 - Start with first name, no "Hi" or "Hello"
@@ -109,7 +116,7 @@ SUBJECT LINE VARIANTS (A/B testing):
 - Generate 3 subject line variants in "subjects": ["...", "...", "..."]
 - "subject" = your best variant (also included in "subjects")
 - Variants: same intent, different angles/phrasing
-- All variants: 2-4 words, lowercase, no clickbait
+- All variants: 2-5 words, lowercase, no clickbait
 
 JSON only: {"subject": "...", "subjects": ["...", "...", "..."], "body": "..."}`,
     prompt,

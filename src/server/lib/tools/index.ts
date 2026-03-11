@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolContext, WorkspaceWithIntegrations } from "./types";
-import { createInstantlyTools } from "./instantly-tools";
+import { createSourcingTools } from "./sourcing-tools";
+import { createESPTools } from "./esp-tools";
 import { createEnrichmentTools } from "./enrichment-tools";
 import { createEmailTools } from "./email-tools";
 import { createCrmTools } from "./crm-tools";
@@ -23,9 +24,13 @@ export function buildToolSet(
   return {
     ...createMemoryTools(ctx),
     ...createCompanyTools(ctx),
-    ...(hasESP ? createInstantlyTools(ctx) : {}),
+    // ESP-generic tools (works with Instantly, Smartlead, or Lemlist)
+    ...(hasESP ? createESPTools(ctx) : {}),
+    // Sourcing tools (Instantly SuperSearch only)
+    ...(hasIntegration(workspace, "INSTANTLY") ? createSourcingTools(ctx) : {}),
     ...(hasCRM ? createCrmTools(ctx) : {}),
     ...(hasIntegration(workspace, "ZEROBOUNCE") ? createVerificationTools(ctx) : {}),
+    // Analytics (Instantly-specific raw connector, requires Instantly)
     ...(hasIntegration(workspace, "INSTANTLY") ? createAnalyticsTools(ctx) : {}),
     ...createEnrichmentTools(ctx),
     ...createEmailTools(ctx),
@@ -35,10 +40,6 @@ export function buildToolSet(
 
 // ─── Phase-aware tool filtering ──────────────────────────
 // Only expose tools relevant to the current pipeline phase.
-// Fewer tools = less LLM confusion = better tool calling accuracy.
-//
-// Always available: memory, company, search_leads, render_lead_table,
-//                   show_drafted_emails, render_email_preview
 
 const ALWAYS_AVAILABLE = new Set([
   "save_memory", "get_memories", "delete_memory",
@@ -47,28 +48,33 @@ const ALWAYS_AVAILABLE = new Set([
   "show_drafted_emails", "render_email_preview",
   "render_campaign_summary",
   "performance_insights",
+  "icp_performance_analysis",
   "import_leads_csv",
 ]);
 
 const PHASE_TOOLS: Record<string, Set<string>> = {
   // No campaign or just created: discovery phase — ICP tools + sourcing only
   NONE: new Set([
-    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
-    "instantly_source_leads",
+    "parse_icp", "count_leads", "preview_leads",
+    "source_leads",
+    "find_decision_makers",
   ]),
   DRAFT: new Set([
-    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
-    "instantly_source_leads", "score_leads_batch",
+    "parse_icp", "count_leads", "preview_leads",
+    "source_leads", "score_leads_batch",
+    "find_decision_makers",
   ]),
-  // Post-sourcing: dedup + score + start enrichment (no re-sourcing — dedup would return 0)
+  // Post-sourcing: dedup + score + start enrichment
   SOURCING: new Set([
     "crm_check_duplicates",
     "score_leads_batch",
     "enrich_leads_batch", "enrich_single_lead",
+    "find_decision_makers",
   ]),
   SCORING: new Set([
     "score_leads_batch",
     "enrich_leads_batch", "enrich_single_lead",
+    "find_decision_makers",
   ]),
   // Enriching/Drafting: enrich + angle + draft + verify
   ENRICHING: new Set([
@@ -81,22 +87,24 @@ const PHASE_TOOLS: Record<string, Set<string>> = {
     "generate_campaign_angle",
     "draft_emails_batch", "draft_single_email",
     "verify_emails",
-    "instantly_list_accounts", "instantly_create_campaign",
-    "instantly_add_leads_to_campaign",
+    "preview_campaign_launch",
+    "list_accounts", "create_campaign",
+    "add_leads_to_campaign",
   ]),
-  // Ready/Pushed: campaign management + activation + angle regeneration + verify
+  // Ready/Pushed: campaign management + activation
   READY: new Set([
     "generate_campaign_angle",
     "verify_emails",
-    "instantly_list_accounts", "instantly_create_campaign",
-    "instantly_add_leads_to_campaign", "instantly_activate_campaign",
+    "preview_campaign_launch",
+    "list_accounts", "create_campaign",
+    "add_leads_to_campaign", "activate_campaign",
   ]),
   PUSHED: new Set([
     "generate_campaign_angle",
-    "instantly_activate_campaign",
+    "activate_campaign",
     // Monitoring
-    "instantly_campaign_sending_status", "instantly_pause_campaign",
-    "instantly_campaign_analytics", "instantly_get_replies",
+    "campaign_sending_status", "pause_campaign",
+    "campaign_analytics", "get_replies",
     // Analytics
     "sync_campaign_analytics", "campaign_performance_report", "campaign_insights",
     // Reply management
@@ -104,13 +112,13 @@ const PHASE_TOOLS: Record<string, Set<string>> = {
     // CRM handoff
     "crm_create_contact", "crm_create_deal",
     // Allow starting new pipeline
-    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
-    "instantly_source_leads",
+    "parse_icp", "count_leads", "preview_leads",
+    "source_leads",
   ]),
   // Active: monitoring + reply management + analytics + new pipeline
   ACTIVE: new Set([
-    "instantly_campaign_sending_status", "instantly_pause_campaign",
-    "instantly_campaign_analytics", "instantly_get_replies",
+    "campaign_sending_status", "pause_campaign",
+    "campaign_analytics", "get_replies",
     // Analytics
     "sync_campaign_analytics", "campaign_performance_report", "campaign_insights",
     // Reply management
@@ -118,8 +126,22 @@ const PHASE_TOOLS: Record<string, Set<string>> = {
     // CRM handoff
     "crm_create_contact", "crm_create_deal",
     // New pipeline
-    "parse_icp", "instantly_count_leads", "instantly_preview_leads",
-    "instantly_source_leads",
+    "parse_icp", "count_leads", "preview_leads",
+    "source_leads",
+  ]),
+  // Monitoring: same tools as ACTIVE (campaign sending complete, still managing replies + analytics)
+  MONITORING: new Set([
+    "campaign_sending_status", "pause_campaign",
+    "campaign_analytics", "get_replies",
+    // Analytics
+    "sync_campaign_analytics", "campaign_performance_report", "campaign_insights",
+    // Reply management
+    "classify_reply", "draft_reply", "reply_to_email",
+    // CRM handoff
+    "crm_create_contact", "crm_create_deal",
+    // New pipeline
+    "parse_icp", "count_leads", "preview_leads",
+    "source_leads",
   ]),
 };
 
@@ -140,21 +162,21 @@ export function filterToolsByPhase(
   return filtered;
 }
 
-// Activity labels (SPEC-BACKEND.md section 3.3)
+// Activity labels
 const TOOL_LABELS: Record<string, string> = {
   parse_icp: "Parsing ICP filters...",
-  instantly_count_leads: "Estimating available leads...",
-  instantly_source_leads: "Sourcing leads via SuperSearch...",
-  instantly_preview_leads: "Previewing leads...",
+  count_leads: "Estimating available leads...",
+  source_leads: "Sourcing leads via SuperSearch...",
+  preview_leads: "Previewing leads...",
   crm_check_duplicates: "Checking duplicates in your CRM...",
   score_leads_batch: "Scoring leads against your ICP...",
   enrich_leads_batch: "Enriching lead profiles via Jina...",
   draft_emails_batch: "Writing personalized emails...",
-  instantly_create_campaign: "Creating draft campaign in Instantly...",
-  instantly_add_leads_to_campaign: "Adding leads to campaign...",
-  instantly_activate_campaign: "Activating campaign...",
+  create_campaign: "Creating campaign...",
+  add_leads_to_campaign: "Adding leads to campaign...",
+  activate_campaign: "Activating campaign...",
   save_memory: "Saving to memory...",
-  instantly_list_accounts: "Listing email accounts...",
+  list_accounts: "Listing email accounts...",
   analyze_company_site: "Analyzing your website...",
   update_company_dna: "Updating company profile...",
   generate_campaign_angle: "Generating campaign angle...",
@@ -167,23 +189,26 @@ const TOOL_LABELS: Record<string, string> = {
   render_campaign_summary: "Preparing summary...",
   get_memories: "Checking memory...",
   delete_memory: "Deleting from memory...",
-  instantly_campaign_sending_status: "Checking sending status...",
-  instantly_pause_campaign: "Pausing campaign...",
-  instantly_campaign_analytics: "Fetching campaign analytics...",
-  instantly_get_replies: "Fetching campaign replies...",
+  campaign_sending_status: "Checking sending status...",
+  pause_campaign: "Pausing campaign...",
+  campaign_analytics: "Fetching campaign analytics...",
+  get_replies: "Fetching campaign replies...",
   verify_emails: "Verifying email addresses...",
   sync_campaign_analytics: "Syncing campaign analytics...",
   campaign_performance_report: "Generating performance report...",
   performance_insights: "Analyzing performance patterns...",
+  icp_performance_analysis: "Analyzing ICP performance...",
   // Pipeline tools (post-launch)
   classify_reply: "Classifying reply...",
   draft_reply: "Drafting reply...",
-  reply_to_email: "Sending reply via Instantly...",
+  reply_to_email: "Sending reply...",
   import_leads_csv: "Importing leads from CSV...",
+  preview_campaign_launch: "Preparing campaign preview...",
   campaign_insights: "Analyzing campaign patterns...",
   // CRM tools (extended)
   crm_create_contact: "Creating CRM contact...",
   crm_create_deal: "Creating CRM deal...",
+  find_decision_makers: "Searching for decision makers...",
 };
 
 export function getToolLabel(toolName: string): string {

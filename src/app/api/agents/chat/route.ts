@@ -186,6 +186,7 @@ function getPhasePrompt(
     case "PUSHED":
       return PHASE_PUSHING + "\n" + PHASE_ACTIVE;
     case "ACTIVE":
+    case "MONITORING":
       return PHASE_ACTIVE;
     default:
       return PHASE_DISCOVERY;
