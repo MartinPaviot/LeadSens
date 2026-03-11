@@ -1,3 +1,31 @@
+=== ITERATION 37 | 2026-03-11 08:20 UTC ===
+TASK: DEBT-06 (partial) — Unit tests for Instantly connector (instantly.ts, 1248 lines)
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: tests/instantly-connector.test.ts (NEW), .claude/tasks/BACKLOG.md (AUDIT-08 marked done)
+TESTS: 1124/1124 passed (46 test files, +77 net new tests)
+COMMIT: test(connector): add 77 unit tests for Instantly connector (DEBT-06 partial)
+CHANGES:
+- 77 tests covering the entire Instantly connector:
+  - Pure functions (7): resolveLocation (case-insensitive, aliases, cities, unknown), normalizePreviewLead (full/empty/LinkedIn URL), normalizeStoredLead (top-level vs payload priority, null handling)
+  - Filter preparation (15): job_titles→title.include, industries→industry.include, sub_industries→subIndustry, employeeCount camelCase, revenue mapping, level→title fallback (never sent to API), keyword_filter→object, lookalike_domain→look_alike, company_names→company_name, locations→place_id, location_filter_type→location_mode, names.include→name, Auth header
+  - Count/Preview responses (6): number_of_leads, count, total_count fallback, empty, leads array, empty leads
+  - Retry logic (4): 429 retry, 500 retry, max retries exhaustion, no retry on 403
+  - Campaign operations (6): step→variants mapping, default schedule (Europe/Sarajevo), default delay, getCampaign, activate, pause
+  - Pagination (3): listCampaigns multi-page, empty, listAccounts multi-page
+  - Analytics (7): getCampaignAnalytics array/single/empty, getCampaignStepAnalytics 4 response shapes
+  - Leads (9): listLeads params/cursor/default, createLead/updateLead camelCase→snake_case, deleteLead, addLeadsToCampaign, updateLeadInterestStatus
+  - Performance (2): field mapping, default values
+  - Emails (3): query string building, default limit, is_unread boolean
+  - Enrichment (3): snake_case/camelCase normalization, defaults
+  - Source (3): enrichment options, resourceId normalization, default enrichment
+- AUDIT-08 (console.log cleanup) marked DONE — server code already clean, 5 remaining in client-side React (legitimate)
+LEARNINGS:
+- Zod `.default(true)` makes the field required in the OUTPUT type (z.infer). Tests need to pass the field explicitly even when callers rely on the default.
+- `instantlyFetch` retry backoff uses real setTimeout — tests with retry logic take ~10s due to 2s + 4s delays. Could be optimized with timer mocking but acceptable.
+- The connector has excellent response normalization (handles multiple API response shapes for analytics, enrichment status) — all tested now.
+NEXT: DEBT-06 continues with instantly-tools.ts (760 lines) or email-tools.ts (649 lines)
+
 === ITERATION 36 | 2026-03-11 07:10 UTC ===
 TASK: AUDIT-04 — A/B winner propagation (winning subjects fed to new campaigns)
 STATUS: DONE
