@@ -18,7 +18,7 @@ import { resolveCampaignId } from "./resolve-campaign";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
 
 /** Classify how much enrichment data is available for a lead */
-function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string {
+export function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string {
   if (!ed) return "none";
   let fields = 0;
   if (ed.companySummary) fields++;
@@ -38,7 +38,7 @@ function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string 
 }
 
 /** Build metadata fields for DraftedEmail correlation */
-function buildDraftMetadata(lead: { enrichmentData?: unknown; industry?: string | null }, step: number, body: string, subject: string) {
+export function buildDraftMetadata(lead: { enrichmentData?: unknown; industry?: string | null }, step: number, body: string, subject: string) {
   const ed = lead.enrichmentData as EnrichmentData | null;
   const signals = ed ? prioritizeSignals(ed) : [];
   const framework = getFramework(step);
