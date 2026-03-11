@@ -1,6 +1,7 @@
 import type { EnrichmentData } from "@/server/lib/enrichment/summarizer";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "@/server/lib/email/campaign-angle";
+import type { LeadTier } from "@/server/lib/enrichment/icp-scorer";
 import type { LeadForEmail, DraftedEmailRef } from "./types";
 import { findBestMatches, findPortfolioMatches } from "./industry-taxonomy";
 
@@ -23,18 +24,20 @@ export function getFramework(step: number): Framework {
           "3) Present your solution in 1 sentence with timeline proof if available. " +
           "CTA: open-ended question oriented toward exchange (medium commitment). E.g.: 'Worth a 10-min call?'",
         objective: "Trigger curiosity via a concrete signal. The prospect should think 'they know what's going on at our company'.",
-        maxWords: 90,
+        maxWords: 85,
       };
     case 1:
       return {
         name: "Value-add",
         instructions:
-          "Deliver concrete value: a data-backed insight, an industry benchmark, or a case study with TIMELINE (e.g.: 'In 90 days, [client] achieved [result]'). " +
-          "NO 'following up on my last email'. The prospect must learn something. " +
+          "FORMAT: Write this as a CASUAL REPLY to your previous email — NOT a formal new touchpoint. " +
+          "Start with a reply-style opener like: 'Quick follow-up on my note — thought this might be relevant:' or 'One more thing I forgot to mention:' or 'Circling back with something useful:'. " +
+          "CONTENT: Deliver concrete value — a data-backed insight, an industry benchmark, or a case study with TIMELINE (e.g.: 'In 90 days, [client] achieved [result]'). " +
+          "The prospect must learn something. NO formal 'just following up' or 'checking in' or 'I wanted to follow up on my last email'. " +
           "Use a DIFFERENT signal from step 0. If signal stacking is possible (2+ signals), combine them. " +
           "CTA: low commitment (resource, insight). E.g.: 'Want me to send the benchmark?'",
-        objective: "Position yourself as a peer who brings value. Case study + timeline = credibility.",
-        maxWords: 70,
+        objective: "Position yourself as a peer who brings value. Reply-style format (+30% lift) + case study + timeline = credibility.",
+        maxWords: 65,
       };
     case 2:
       return {
@@ -46,7 +49,7 @@ export function getFramework(step: number): Framework {
           "If no same-industry case study, use the best available case study with projection. " +
           "CTA: medium commitment (demo, call).",
         objective: "Make the prospect project themselves into the result. Narrative > feature listing.",
-        maxWords: 80,
+        maxWords: 70,
       };
     case 3:
       return {
@@ -79,7 +82,7 @@ export function getFramework(step: number): Framework {
           "Leave the door open without pressure. " +
           "CTA: low commitment. E.g.: 'If timing's better later, let me know when.'",
         objective: "Close the loop cleanly. Low-pressure, high-respect. Recall the best argument.",
-        maxWords: 50,
+        maxWords: 45,
       };
     default:
       return getFramework(0);
@@ -127,23 +130,27 @@ export function prioritizeSignals(ed: EnrichmentData, weights?: Record<string, n
     });
   }
 
-  // 2. Funding signals (12-20% reply rate)
+  // 2. Funding signals (12-20% reply rate) — now structured with dates
   for (const f of ed.fundingSignals ?? []) {
+    const detail = typeof f === "string" ? f : f.detail + (f.date ? ` (${f.date})` : "");
+    const dateStr = typeof f === "string" ? null : f.date;
     signals.push({
       type: "funding",
       label: "Funding",
-      detail: f,
-      recency: "unknown",
+      detail,
+      recency: classifyRecency(dateStr),
     });
   }
 
-  // 3. Hiring signals (10-18% reply rate)
+  // 3. Hiring signals (10-18% reply rate) — now structured with dates
   for (const h of ed.hiringSignals ?? []) {
+    const detail = typeof h === "string" ? h : h.detail + (h.date ? ` (${h.date})` : "");
+    const dateStr = typeof h === "string" ? null : h.date;
     signals.push({
       type: "hiring",
       label: "Hiring",
-      detail: h,
-      recency: "unknown",
+      detail,
+      recency: classifyRecency(dateStr),
     });
   }
 
@@ -255,9 +262,41 @@ function findRelevantCaseStudy(
   return parts.join("\n");
 }
 
+// ─── CTA Library (proven patterns per step) ─────────────
+
+export const CTA_LIBRARY: Record<number, string[]> = {
+  0: ["Worth a quick look?", "Does this resonate?", "Relevant for Q[X]?"],
+  1: ["Want me to send it over?", "Interested in the benchmark?", "Useful?"],
+  2: ["Would [X result] be relevant for [company]?", "Seen similar results?", "Worth exploring?"],
+  3: ["Open to exploring this angle?", "How are you handling [pain] today?", "On your radar?"],
+  4: ["Thoughts?", "Ring a bell?", "On your radar?"],
+  5: ["Should I close your file?", "Not the right time?", "Check back later?"],
+};
+
+// ─── Tier-based Tone Instructions ──────────────────────
+
+const TIER_TONE_INSTRUCTIONS: Record<LeadTier, string> = {
+  1: `## LEAD TIER: TIER 1 (high-fit, high-intent)
+- Be MORE direct and specific — this prospect is likely ready to engage
+- Reference their specific signals boldly in the opener
+- Propose a concrete next step (not "would love to chat" but "15 min this Thursday?")
+- You can be slightly longer if the content is highly personalized`,
+
+  2: `## LEAD TIER: TIER 2 (good fit, moderate intent)
+- Balance education with relevance
+- Use signals to build credibility, not to push
+- Standard cadence and tone`,
+
+  3: `## LEAD TIER: TIER 3 (minimum viable fit)
+- Be educational and non-pushy
+- Focus on value delivery, not meeting booking
+- Shorter emails, lighter CTAs ("worth exploring?" not "book a call")
+- Think nurture, not close`,
+};
+
 // ─── CTA Selection ──────────────────────────────────────
 
-function selectCta(
+export function selectCta(
   ctas: NonNullable<CompanyDna["ctas"]>,
   step: number,
 ): string | null {
@@ -376,14 +415,14 @@ function buildWhoYouAre(
 
 // ─── Previous Emails Section ────────────────────────────
 
-function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
+export function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
   if (!previousEmails.length) return "";
 
   const lines = ["## Previous emails (DO NOT repeat, ADVANCE the conversation)"];
   for (const email of previousEmails) {
     lines.push(`### Step ${email.step} — "${email.subject}"`);
     if (email.body) {
-      const truncated = email.body.length > 500 ? email.body.slice(0, 500) + "..." : email.body;
+      const truncated = email.body.length > 1500 ? email.body.slice(0, 1500) + "..." : email.body;
       lines.push(`Body: ${truncated}`);
     }
   }
@@ -414,7 +453,7 @@ function buildStyleSection(
   return parts.join("\n");
 }
 
-function buildStepAnnotation(
+export function buildStepAnnotation(
   annotation: StepPerformanceAnnotation,
   step: number,
 ): string {
@@ -440,6 +479,28 @@ export interface WinningPattern {
   replyRate: number;
 }
 
+/** Winning subject line from a past campaign that got a positive reply */
+export interface WinningSubject {
+  subject: string;
+  pattern: string;
+  step: number;
+  replies: number;
+}
+
+/**
+ * Format winning subjects from past campaigns for injection into the prompt.
+ * Gives the LLM concrete examples of subjects that actually got replies.
+ */
+export function buildWinningSubjectsSection(subjects: WinningSubject[]): string {
+  if (!subjects.length) return "";
+  const lines = ["\n### WINNING SUBJECTS (from past campaigns that got replies)"];
+  for (const s of subjects) {
+    lines.push(`- "${s.subject}" (${s.pattern}, step ${s.step}, ${s.replies} ${s.replies === 1 ? "reply" : "replies"})`);
+  }
+  lines.push("Use these as INSPIRATION — adapt to the current prospect, don't copy verbatim.");
+  return lines.join("\n");
+}
+
 /**
  * Builds a structured email drafting prompt.
  * 6-step sequence with signal intelligence and timeline hooks.
@@ -451,6 +512,8 @@ export function buildEmailPrompt(params: {
   campaignAngle?: CampaignAngle;
   previousEmails?: DraftedEmailRef[];
   styleSamples?: string[];
+  /** Subject line style corrections from user edits */
+  subjectStyleSamples?: string[];
   icpDescription?: string;
   /** Data-driven signal weights (from correlator) */
   signalWeights?: Record<string, number>;
@@ -458,6 +521,12 @@ export function buildEmailPrompt(params: {
   stepAnnotation?: StepPerformanceAnnotation;
   /** Winning email patterns from past campaigns */
   winningPatterns?: WinningPattern[];
+  /** Thompson-ranked subject line patterns (replaces default pattern table) */
+  patternRanking?: string;
+  /** Winning subject lines from past campaigns (A/B winner propagation) */
+  winningSubjects?: WinningSubject[];
+  /** Lead tier for tone adaptation */
+  tier?: LeadTier;
 }): string {
   const fw = getFramework(params.step);
   const ed = params.lead.enrichmentData;
@@ -532,10 +601,14 @@ ${signalsSection}
 Do NOT LIST the prospect's pain points separately.
 Choose THE SINGLE pain point that resonates most with your solution (section "WHO YOU ARE").
 Build the ENTIRE email around this unique bridge:
-  1. Specific signal or problem from the prospect
-  2. → Specific capability of your solution that solves THIS problem
-  3. → Proof with TIMELINE (client case, metric, duration) that demonstrates the result
-If no pain point matches → use the most recent buying signal.
+  1. A signal or observation about the prospect's business
+  2. → WHY this signal implies a specific pain they likely have (the REASONING step — this is what separates great emails from mediocre ones)
+  3. → Your specific capability that solves THIS pain, with TIMELINE proof (client case, metric, duration)
+Do NOT just mention a signal — EXPLAIN what it means for their business.
+  BAD: "Saw you're hiring SDRs."
+  GOOD: "Hiring 3 SDRs usually means pipeline gen isn't keeping up — that's exactly the gap we close."
+The difference: BAD shows you can read LinkedIn. GOOD shows you understand their business.
+If no pain point matches → use the most recent buying signal with inferred pain.
 
 ## Framework — Step ${params.step}: ${fw.name}
 ${fw.instructions}
@@ -562,25 +635,30 @@ AVOID: problem hooks ("Are you struggling with..."), rhetorical questions, flatt
 Combine the 2 best signals in your message. Signal stacking (2-3 combined signals) generates 25-40% reply rate vs 8-15% for a single signal.
 Format: "[Signal 1] + [Signal 2] → [combined consequence] → [your solution]"
 ` : ""}${enforcementBlock}
-## SUBJECT LINE PATTERNS (pick the best fit for this step)
+${params.patternRanking ? params.patternRanking : `## SUBJECT LINE PATTERNS (pick the best fit for this step)
 | Pattern | Best for | Examples |
 |---------|----------|---------|
 | **Question** | Step 0, 4 — sparks curiosity | "quick question, {{firstName}}" · "thoughts on {{painPoint}}?" · "{{company}}'s approach to {{topic}}?" |
-| **Observation** | Step 0, 1 — shows research | "noticed your {{signal}}" · "saw {{company}} is {{action}}" · "your {{recentMove}}" |
-| **Curiosity gap** | Step 1, 3 — teases insight | "idea for {{painPoint}}" · "{{industry}} trend you'll want to see" · "what {{similarCompany}} changed" |
+| **Observation** | Step 0, 1 — shows research | "noticed your {{signal}}" · "saw {{company}} is {{action}}" · "{{number}} {{industry}} teams shifting" |
+| **Curiosity gap** | Step 1, 3 — teases insight | "idea for {{painPoint}}" · "{{number}}% of {{industry}} leaders..." · "what {{similarCompany}} changed" |
 | **Direct** | Step 2, 5 — cuts to the point | "{{solution}} for {{company}}" · "{{result}} in {{timeline}}" · "{{company}} + {{senderCompany}}" |
-| **Personalized** | Any step with strong signal | "re: {{specific_trigger}}" · "congrats on {{achievement}}" · "following {{event}}" |
+| **Personalized** | Any step with strong signal | "re: {{specific_trigger}}" · "congrats on {{achievement}}" · "following {{event}}" |`}
 
+Include a concrete number when available (stat, %, count) — numbers in subjects boost open rates by +45%.
 Each variant in "subjects" MUST use a DIFFERENT pattern from this table. Never repeat the same pattern across variants.
+${params.winningSubjects?.length ? buildWinningSubjectsSection(params.winningSubjects) : ""}${params.subjectStyleSamples?.length ? `\n### Subject line corrections from user:\n${params.subjectStyleSamples.join("\n")}\nApply these preferences to ALL subject variants.` : ""}
+## PROVEN CTAs FOR STEP ${params.step} (pick one, adapt naturally)
+${(CTA_LIBRARY[params.step] ?? CTA_LIBRARY[0]).map((c) => `- "${c}"`).join("\n")}
+Do NOT invent a new CTA structure. Adapt one of the above to the prospect's context.
 
 ## Constraints
 - Max ${fw.maxWords} words for the body. Every word must earn its place.
-- Subject: 2-4 words, lowercase, no forced caps, no punctuation.
+- Subject: 2-5 words, lowercase, no forced caps, no punctuation.
 - 1 single CTA oriented toward meeting/exchange/call. Never a passive "let me know".
 - At least 1 prospect-specific element (signal, news, pain point).
 - Language: English by default. Write in the prospect's language only if their country is non-English-speaking.
 - Start with first name, no greeting formula.
 - FORMATTING: use \\n for line breaks in the body JSON. Each bullet point on its own line. Paragraphs separated by \\n\\n.
-
+${params.tier ? "\n" + TIER_TONE_INSTRUCTIONS[params.tier] : ""}
 JSON uniquement : {"subject": "...", "body": "..."}`.trim();
 }

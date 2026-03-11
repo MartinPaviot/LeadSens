@@ -6,9 +6,10 @@ import { UserMessage } from "./user-message";
 import { LeadSensComposer } from "./composer";
 import { ScrollToBottomPill } from "./scroll-to-bottom";
 import { ThinkingBlock } from "./thinking-block";
+import { SuggestionChips } from "./suggestion-chips";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function LeadSensThread({ isStreaming }: { isStreaming: boolean }) {
+export function LeadSensThread({ isStreaming, pipelinePhase }: { isStreaming: boolean; pipelinePhase?: string | null }) {
   return (
     <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
       <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto scrollbar-thin relative flex flex-col bg-leadsens-mesh">
@@ -35,6 +36,9 @@ export function LeadSensThread({ isStreaming }: { isStreaming: boolean }) {
           {/* Layer 3: actual content */}
           <div className="relative">
             <ScrollToBottomPill />
+            <div className="max-w-[720px] mx-auto px-6">
+              <SuggestionChips phase={pipelinePhase ?? null} />
+            </div>
             <LeadSensComposer />
           </div>
         </ThreadPrimitive.ViewportFooter>

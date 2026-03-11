@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 const TINYFISH_API = "https://agent.tinyfish.ai/v1/automation/run-sse";
 
 export interface LinkedInProfileData {
@@ -18,7 +20,7 @@ export async function scrapeLinkedInViaTinyFish(
 ): Promise<LinkedInProfileData | null> {
   const apiKey = process.env.TINYFISH_API_KEY;
   if (!apiKey) {
-    console.warn("[tinyfish] TINYFISH_API_KEY not set — skipping LinkedIn scrape");
+    logger.warn("[tinyfish] TINYFISH_API_KEY not set — skipping LinkedIn scrape");
     return null;
   }
 
@@ -40,7 +42,7 @@ export async function scrapeLinkedInViaTinyFish(
     });
 
     if (!res.ok) {
-      console.warn(`[tinyfish] HTTP ${res.status} for ${linkedinUrl}`);
+      logger.warn(`[tinyfish] HTTP ${res.status} for ${linkedinUrl}`);
       return null;
     }
 
@@ -88,7 +90,7 @@ export async function scrapeLinkedInViaTinyFish(
     }
 
     if (!resultJson) {
-      console.warn(`[tinyfish] No resultJson for ${linkedinUrl}`);
+      logger.warn(`[tinyfish] No resultJson for ${linkedinUrl}`);
       return null;
     }
 
@@ -102,7 +104,7 @@ export async function scrapeLinkedInViaTinyFish(
 
     const rawPosts = data.posts ?? data.recentPosts ?? data.recentLinkedInPosts ?? [];
     if (!Array.isArray(rawPosts) || rawPosts.length === 0) {
-      console.warn(`[tinyfish] No posts found for ${linkedinUrl}`);
+      logger.warn(`[tinyfish] No posts found for ${linkedinUrl}`);
       return null;
     }
 
@@ -119,17 +121,17 @@ export async function scrapeLinkedInViaTinyFish(
       .filter((p) => p.length > 0);
 
     if (posts.length === 0) {
-      console.warn(`[tinyfish] Empty posts after normalization for ${linkedinUrl}`);
+      logger.warn(`[tinyfish] Empty posts after normalization for ${linkedinUrl}`);
       return null;
     }
 
-    console.log(`[tinyfish] LinkedIn scraped: ${posts.length} posts for ${linkedinUrl}`);
+    logger.debug(`[tinyfish] LinkedIn scraped: ${posts.length} posts for ${linkedinUrl}`);
     return { recentLinkedInPosts: posts };
   } catch (err) {
     if (err instanceof DOMException && err.name === "TimeoutError") {
-      console.warn(`[tinyfish] Timeout for ${linkedinUrl}`);
+      logger.warn(`[tinyfish] Timeout for ${linkedinUrl}`);
     } else {
-      console.warn(`[tinyfish] Error for ${linkedinUrl}:`, err);
+      logger.warn(`[tinyfish] Error for ${linkedinUrl}:`, { error: err });
     }
     return null;
   }

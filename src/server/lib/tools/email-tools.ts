@@ -2,19 +2,23 @@ import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { draftEmail } from "@/server/lib/email/drafting";
 import { draftWithQualityGate } from "@/server/lib/email/quality-gate";
-import { getStyleSamples, getWinningEmailPatterns } from "@/server/lib/email/style-learner";
+import { getStyleSamples, getWinningEmailPatterns, getWinningSubjects, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
 import { getDataDrivenWeights, getStepAnnotation } from "@/server/lib/analytics/adaptive";
+import { getReplyRateBySubjectPattern } from "@/server/lib/analytics/correlator";
+import { formatPatternRanking } from "@/server/lib/analytics/thompson-sampling";
 import type { EnrichmentData } from "@/server/lib/enrichment/summarizer";
+import type { LeadTier } from "@/server/lib/enrichment/icp-scorer";
 import { parseCompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "@/server/lib/email/campaign-angle";
 import { prioritizeSignals, getFramework } from "@/server/lib/email/prompt-builder";
+import { detectSubjectPattern } from "@/server/lib/analytics/correlator";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
 
 /** Classify how much enrichment data is available for a lead */
-function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string {
+export function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string {
   if (!ed) return "none";
   let fields = 0;
   if (ed.companySummary) fields++;
@@ -34,7 +38,7 @@ function classifyEnrichmentDepth(ed: EnrichmentData | null | undefined): string 
 }
 
 /** Build metadata fields for DraftedEmail correlation */
-function buildDraftMetadata(lead: { enrichmentData?: unknown; industry?: string | null }, step: number, body: string) {
+export function buildDraftMetadata(lead: { enrichmentData?: unknown; industry?: string | null }, step: number, body: string, subject: string) {
   const ed = lead.enrichmentData as EnrichmentData | null;
   const signals = ed ? prioritizeSignals(ed) : [];
   const framework = getFramework(step);
@@ -45,6 +49,7 @@ function buildDraftMetadata(lead: { enrichmentData?: unknown; industry?: string 
     enrichmentDepth: classifyEnrichmentDepth(ed),
     bodyWordCount: body.split(/\s+/).filter(Boolean).length,
     leadIndustry: lead.industry ?? (ed?.industry as string | undefined) ?? null,
+    subjectPattern: detectSubjectPattern(subject),
   };
 }
 
@@ -92,12 +97,16 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           },
         });
 
-        // Load style + adaptive data in parallel
-        const [styleSamples, signalWeights, winningPatterns] = await Promise.all([
-          getStyleSamples(ctx.workspaceId),
+        // Load style + adaptive data + pattern performance in parallel
+        const [styleSamples, subjectStyleSamples, signalWeights, winningPatterns, winningSubjects, patternStats] = await Promise.all([
+          getStyleSamples(ctx.workspaceId, 5, BODY_STYLE_CATEGORIES),
+          getStyleSamples(ctx.workspaceId, 3, "subject"),
           getDataDrivenWeights(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
+          getWinningSubjects(ctx.workspaceId),
+          getReplyRateBySubjectPattern(ctx.workspaceId, args.campaign_id),
         ]);
+        const patternRanking = formatPatternRanking(patternStats);
 
         let drafted = 0;
         let failed = 0;
@@ -136,16 +145,21 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                       workspaceId: ctx.workspaceId,
                       previousEmails,
                       styleSamples,
+                      subjectStyleSamples,
                       icpDescription: campaign.icpDescription ?? undefined,
                       signalWeights: signalWeights ?? undefined,
                       stepAnnotation: stepAnnotation ?? undefined,
                       winningPatterns: winningPatterns.length > 0 ? winningPatterns : undefined,
+                      patternRanking: patternRanking || undefined,
+                      winningSubjects: winningSubjects.length > 0 ? winningSubjects : undefined,
+                      tier: (lead.icpBreakdown as Record<string, unknown> | null)?.tier as LeadTier | undefined,
                     }),
                   context: {
                     leadName,
                     leadJobTitle: lead.jobTitle,
                     leadCompany: lead.company,
                     step,
+                    enrichmentCompleteness: lead.enrichmentCompleteness,
                   },
                   workspaceId: ctx.workspaceId,
                 });
@@ -153,7 +167,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                 // Filter out the primary subject from variants to store only alternatives
                 const altSubjects = subjects?.filter((s) => s !== subject) ?? [];
 
-                const metadata = buildDraftMetadata(lead, step, body);
+                const metadata = buildDraftMetadata(lead, step, body, subject);
 
                 await prisma.draftedEmail.upsert({
                   where: {
@@ -340,21 +354,25 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           icpDescription = campaign?.icpDescription ?? undefined;
         }
 
-        // Load style + adaptive data in parallel
-        const [styleSamples, singleWeights, singleWinning, singleStepAnnotation, previousDrafts] = await Promise.all([
-          getStyleSamples(ctx.workspaceId),
+        // Load style + adaptive data + pattern perf in parallel
+        const [styleSamples, subjectStyleSamples, singleWeights, singleWinning, singleWinningSubjects, singleStepAnnotation, previousDrafts, singlePatternStats] = await Promise.all([
+          getStyleSamples(ctx.workspaceId, 5, BODY_STYLE_CATEGORIES),
+          getStyleSamples(ctx.workspaceId, 3, "subject"),
           getDataDrivenWeights(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
+          getWinningSubjects(ctx.workspaceId),
           getStepAnnotation(ctx.workspaceId, args.step),
           prisma.draftedEmail.findMany({
             where: { leadId: lead.id, step: { lt: args.step } },
             orderBy: { step: "asc" },
           }),
+          getReplyRateBySubjectPattern(ctx.workspaceId, lead.campaignId ?? undefined),
         ]);
+        const singlePatternRanking = formatPatternRanking(singlePatternStats);
 
         const leadName = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim();
 
-        const { subject, body, qualityScore } = await draftWithQualityGate({
+        const { subject, subjects, body, qualityScore } = await draftWithQualityGate({
           draftFn: () =>
             draftEmail({
               lead: {
@@ -373,22 +391,30 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
               workspaceId: ctx.workspaceId,
               previousEmails: previousDrafts.map((d) => ({ step: d.step, subject: d.subject, body: d.userEdit ?? d.body })),
               styleSamples,
+              subjectStyleSamples,
               icpDescription,
               signalWeights: singleWeights ?? undefined,
               stepAnnotation: singleStepAnnotation ?? undefined,
               winningPatterns: singleWinning.length > 0 ? singleWinning : undefined,
+              patternRanking: singlePatternRanking || undefined,
+              winningSubjects: singleWinningSubjects.length > 0 ? singleWinningSubjects : undefined,
+              tier: (lead.icpBreakdown as Record<string, unknown> | null)?.tier as LeadTier | undefined,
             }),
           context: {
             leadName,
             leadJobTitle: lead.jobTitle,
             leadCompany: lead.company,
             step: args.step,
+            enrichmentCompleteness: lead.enrichmentCompleteness,
           },
           workspaceId: ctx.workspaceId,
         });
 
+        // Filter out primary subject from variants (same as batch)
+        const altSubjects = subjects?.filter((s) => s !== subject) ?? [];
+
         // Persist the draft
-        const singleMeta = buildDraftMetadata(lead, args.step, body);
+        const singleMeta = buildDraftMetadata(lead, args.step, body, subject);
 
         await prisma.draftedEmail.upsert({
           where: {
@@ -399,6 +425,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
             campaignId: lead.campaignId ?? "",
             step: args.step,
             subject,
+            subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
             body,
             qualityScore: qualityScore.overall,
             model: "mistral-large-latest",
@@ -406,6 +433,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           },
           update: {
             subject,
+            subjectVariants: altSubjects.length > 0 ? altSubjects : undefined,
             body,
             qualityScore: qualityScore.overall,
             model: "mistral-large-latest",

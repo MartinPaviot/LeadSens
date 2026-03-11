@@ -5,25 +5,30 @@ import {
   getReplyRateByEnrichmentDepth,
   getReplyRateByIndustry,
   getReplyRateByWordCount,
+  getReplyRateBySubjectVariant,
+  getReplyRateBySubjectPatternSQL,
+  POSITIVE_REPLY_INTEREST_THRESHOLD,
   type CorrelationRow,
+  type VariantPerformanceRow,
 } from "./correlator";
+import { getBenchmarkContext } from "./benchmarks";
 import { prisma } from "@/lib/prisma";
 
 export interface PerformanceInsight {
-  dimension: "signal_type" | "framework" | "quality_score" | "enrichment_depth" | "industry" | "word_count";
+  dimension: "signal_type" | "framework" | "quality_score" | "enrichment_depth" | "industry" | "word_count" | "subject_variant" | "subject_pattern";
   topPerformer: { label: string; replyRate: number; sampleSize: number };
   bottomPerformer: { label: string; replyRate: number; sampleSize: number };
   recommendation: string;
   confidence: "high" | "medium" | "low"; // high >= 50, medium >= 20, low < 20
 }
 
-function getConfidence(totalSent: number): "high" | "medium" | "low" {
+export function getConfidence(totalSent: number): "high" | "medium" | "low" {
   if (totalSent >= 50) return "high";
   if (totalSent >= 20) return "medium";
   return "low";
 }
 
-function buildInsight(
+export function buildInsight(
   dimension: PerformanceInsight["dimension"],
   rows: CorrelationRow[],
 ): PerformanceInsight | null {
@@ -45,6 +50,8 @@ function buildInsight(
     enrichment_depth: (t, b) => `"${t.dimension}" enrichment yields ${t.replyRate.toFixed(1)}% reply rate vs ${b.replyRate.toFixed(1)}% for "${b.dimension}". Invest in deeper enrichment.`,
     industry: (t, b) => `"${t.dimension}" industry responds best (${t.replyRate.toFixed(1)}% reply rate). "${b.dimension}" is weakest (${b.replyRate.toFixed(1)}%).`,
     word_count: (t, b) => `Emails in the ${t.dimension} word range get ${t.replyRate.toFixed(1)}% reply rate. ${b.dimension} words underperforms at ${b.replyRate.toFixed(1)}%.`,
+    subject_variant: (t, b) => `Subject "${t.dimension}" gets ${t.replyRate.toFixed(1)}% reply rate vs "${b.dimension}" at ${b.replyRate.toFixed(1)}%. Consider using this pattern for future campaigns.`,
+    subject_pattern: (t, b) => `"${t.dimension}" subject pattern gets ${t.replyRate.toFixed(1)}% reply rate vs "${b.dimension}" at ${b.replyRate.toFixed(1)}%. Prioritize this pattern in future campaigns.`,
   };
 
   return {
@@ -57,13 +64,14 @@ function buildInsight(
 }
 
 export async function getWorkspaceInsights(workspaceId: string): Promise<PerformanceInsight[]> {
-  const [signalType, step, qualityScore, enrichmentDepth, industry, wordCount] = await Promise.all([
+  const [signalType, step, qualityScore, enrichmentDepth, industry, wordCount, subjectPattern] = await Promise.all([
     getReplyRateBySignalType(workspaceId),
     getReplyRateByStep(workspaceId),
     getReplyRateByQualityScore(workspaceId),
     getReplyRateByEnrichmentDepth(workspaceId),
     getReplyRateByIndustry(workspaceId),
     getReplyRateByWordCount(workspaceId),
+    getReplyRateBySubjectPatternSQL(workspaceId),
   ]);
 
   const insights: PerformanceInsight[] = [];
@@ -74,6 +82,7 @@ export async function getWorkspaceInsights(workspaceId: string): Promise<Perform
     ["enrichment_depth", enrichmentDepth],
     ["industry", industry],
     ["word_count", wordCount],
+    ["subject_pattern", subjectPattern],
   ];
 
   for (const [dim, rows] of pairs) {
@@ -103,6 +112,7 @@ export interface CampaignReport {
     openRate: number;
     replyRate: number;
   }>;
+  variantBreakdown: VariantPerformanceRow[];
   topLeads: Array<{
     name: string;
     company: string | null;
@@ -111,6 +121,7 @@ export interface CampaignReport {
     replyCount: number;
   }>;
   insights: PerformanceInsight[];
+  benchmarkContext: string | null;
 }
 
 const FRAMEWORK_NAMES = [
@@ -119,36 +130,63 @@ const FRAMEWORK_NAMES = [
 ];
 
 export async function getCampaignReport(workspaceId: string, campaignId: string): Promise<CampaignReport> {
-  // Overview from StepAnalytics aggregate
+  // StepAnalytics for sent/opened/bounced (reliable counts from Instantly)
   const steps = await prisma.stepAnalytics.findMany({
     where: { campaignId },
     orderBy: { step: "asc" },
   });
 
+  // Positive-only reply counts from EmailPerformance (consistent with correlator)
+  const positiveReplyRows = await prisma.$queryRaw<Array<{ sentStep: number | null; count: bigint }>>`
+    SELECT
+      ep."sentStep",
+      COUNT(*) AS count
+    FROM "email_performance" ep
+    JOIN "lead" l ON ep."leadId" = l.id
+    WHERE ep."campaignId" = ${campaignId}
+      AND l."workspaceId" = ${workspaceId}
+      AND ep."replyCount" > 0
+      AND (ep."replyAiInterest" IS NULL OR ep."replyAiInterest" >= ${POSITIVE_REPLY_INTEREST_THRESHOLD})
+    GROUP BY ep."sentStep"
+  `;
+
+  // Build a map of step → positive reply count
+  const positiveReplyByStep = new Map<number, number>();
+  let totalPositiveReplies = 0;
+  for (const row of positiveReplyRows) {
+    const count = Number(row.count);
+    totalPositiveReplies += count;
+    if (row.sentStep !== null) {
+      positiveReplyByStep.set(row.sentStep, count);
+    }
+  }
+
   const overview = steps.reduce(
     (acc, s) => ({
       sent: acc.sent + s.sent,
       opened: acc.opened + s.opened,
-      replied: acc.replied + s.replied,
       bounced: acc.bounced + s.bounced,
     }),
-    { sent: 0, opened: 0, replied: 0, bounced: 0 },
+    { sent: 0, opened: 0, bounced: 0 },
   );
 
   const openRate = overview.sent > 0 ? (overview.opened / overview.sent) * 100 : 0;
-  const replyRate = overview.sent > 0 ? (overview.replied / overview.sent) * 100 : 0;
+  const replyRate = overview.sent > 0 ? (totalPositiveReplies / overview.sent) * 100 : 0;
   const bounceRate = overview.sent > 0 ? (overview.bounced / overview.sent) * 100 : 0;
 
-  // Step breakdown
-  const stepBreakdown = steps.map((s) => ({
-    step: s.step,
-    framework: FRAMEWORK_NAMES[s.step] ?? `Step ${s.step}`,
-    sent: s.sent,
-    opened: s.opened,
-    replied: s.replied,
-    openRate: s.openRate ?? (s.sent > 0 ? (s.opened / s.sent) * 100 : 0),
-    replyRate: s.replyRate ?? (s.sent > 0 ? (s.replied / s.sent) * 100 : 0),
-  }));
+  // Step breakdown — use positive reply counts per step
+  const stepBreakdown = steps.map((s) => {
+    const stepReplied = positiveReplyByStep.get(s.step) ?? 0;
+    return {
+      step: s.step,
+      framework: FRAMEWORK_NAMES[s.step] ?? `Step ${s.step}`,
+      sent: s.sent,
+      opened: s.opened,
+      replied: stepReplied,
+      openRate: s.openRate ?? (s.sent > 0 ? (s.opened / s.sent) * 100 : 0),
+      replyRate: s.sent > 0 ? (stepReplied / s.sent) * 100 : 0,
+    };
+  });
 
   // Top leads (by replies, then opens)
   const topLeads = await prisma.emailPerformance.findMany({
@@ -160,10 +198,11 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
     },
   });
 
-  // Campaign-specific insights
-  const [signalType, step] = await Promise.all([
+  // Campaign-specific insights + variant breakdown
+  const [signalType, step, variantBreakdown] = await Promise.all([
     getReplyRateBySignalType(workspaceId, campaignId),
     getReplyRateByStep(workspaceId, campaignId),
+    getReplyRateBySubjectVariant(workspaceId, campaignId),
   ]);
 
   const insights: PerformanceInsight[] = [];
@@ -172,9 +211,35 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
   const stepInsight = buildInsight("framework", step);
   if (stepInsight) insights.push(stepInsight);
 
+  // Build variant insight if we have enough data
+  if (variantBreakdown.length >= 2) {
+    const variantCorrelationRows: CorrelationRow[] = variantBreakdown.map((v) => ({
+      dimension: v.subject,
+      sent: v.sent,
+      opened: v.opened,
+      replied: v.replied,
+      openRate: v.openRate,
+      replyRate: v.replyRate,
+    }));
+    const variantInsight = buildInsight("subject_variant" as PerformanceInsight["dimension"], variantCorrelationRows);
+    if (variantInsight) insights.push(variantInsight);
+  }
+
+  // Benchmark context — find the dominant industry from campaign leads
+  const dominantIndustry = await prisma.lead.groupBy({
+    by: ["industry"],
+    where: { campaignId, industry: { not: null } },
+    _count: { industry: true },
+    orderBy: { _count: { industry: "desc" } },
+    take: 1,
+  });
+  const industryName = dominantIndustry[0]?.industry ?? null;
+  const benchmarkContext = getBenchmarkContext(industryName, replyRate);
+
   return {
-    overview: { ...overview, openRate, replyRate, bounceRate },
+    overview: { ...overview, replied: totalPositiveReplies, openRate, replyRate, bounceRate },
     stepBreakdown,
+    variantBreakdown,
     topLeads: topLeads.map((p) => ({
       name: [p.lead.firstName, p.lead.lastName].filter(Boolean).join(" "),
       company: p.lead.company,
@@ -183,5 +248,6 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
       replyCount: p.replyCount,
     })),
     insights,
+    benchmarkContext,
   };
 }

@@ -23,10 +23,16 @@ import type {
   CreateCampaignParams,
   CampaignSendingStatus,
   CampaignAnalytics,
+  StepAnalytics,
+  LeadPerformancePage,
   AddLeadsResult,
   ESPLeadData,
   GetEmailsParams,
   GetEmailsResult,
+  ReplyToEmailParams,
+  ReplyToEmailResult,
+  RemoveFromSequenceParams,
+  RemoveFromSequenceResult,
 } from "@/server/lib/providers/esp-provider";
 
 const LEMLIST_BASE = "https://api.lemlist.com/api";
@@ -209,6 +215,65 @@ export function createLemlistESP(apiKey: string): ESPProvider {
       };
     },
 
+    async getStepAnalytics(campaignId: string): Promise<StepAnalytics[]> {
+      // Lemlist exposes per-sequence stats within campaign details
+      const data = (await lemFetch(apiKey, `/campaigns/${campaignId}`)) as {
+        sequences?: Array<{
+          stepNumber?: number;
+          stats?: {
+            sent?: number;
+            opened?: number;
+            replied?: number;
+            bounced?: number;
+          };
+        }>;
+      };
+
+      if (!data.sequences || !Array.isArray(data.sequences)) return [];
+
+      return data.sequences.map((seq) => ({
+        step: (seq.stepNumber ?? 1) - 1, // 1-indexed → 0-indexed
+        sent: seq.stats?.sent ?? 0,
+        opened: seq.stats?.opened ?? 0,
+        replied: seq.stats?.replied ?? 0,
+        bounced: seq.stats?.bounced ?? 0,
+      }));
+    },
+
+    async getLeadsPerformance(campaignId: string, limit: number, cursor?: string): Promise<LeadPerformancePage> {
+      const offset = cursor ? parseInt(cursor, 10) : 0;
+      const data = (await lemFetch(
+        apiKey,
+        `/campaigns/${campaignId}/leads?limit=${limit}&offset=${offset}`,
+      )) as Array<{
+        _id: string;
+        email: string;
+        openCount?: number;
+        replyCount?: number;
+        clickCount?: number;
+        lastOpenedAt?: string;
+        lastRepliedAt?: string;
+      }>;
+
+      if (!Array.isArray(data)) return { items: [] };
+
+      const items = data.map((l) => ({
+        id: l._id,
+        email: l.email,
+        openCount: l.openCount ?? 0,
+        replyCount: l.replyCount ?? 0,
+        clickCount: l.clickCount ?? 0,
+        interestStatus: null,
+        lastOpenAt: l.lastOpenedAt ?? null,
+        lastReplyAt: l.lastRepliedAt ?? null,
+      }));
+
+      return {
+        items,
+        nextCursor: items.length >= limit ? String(offset + limit) : undefined,
+      };
+    },
+
     async addLeads(campaignId: string, leads: ESPLeadData[]): Promise<AddLeadsResult> {
       // Lemlist adds leads one at a time via POST /campaigns/{id}/leads/{email}
       let added = 0;
@@ -283,6 +348,29 @@ export function createLemlistESP(apiKey: string): ESPProvider {
         items,
         hasMore: items.length >= (params.limit ?? 50),
       };
+    },
+
+    async replyToEmail(_params: ReplyToEmailParams): Promise<ReplyToEmailResult> {
+      return { error: "Reply via API is not supported by Lemlist. Please reply directly from the Lemlist UI." };
+    },
+
+    async removeFromSequence(params: RemoveFromSequenceParams): Promise<RemoveFromSequenceResult> {
+      try {
+        await lemFetch(
+          apiKey,
+          `/campaigns/${params.campaignId}/leads/${encodeURIComponent(params.leadEmail)}`,
+          "DELETE",
+        );
+        return { removed: true };
+      } catch (err) {
+        return { removed: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async disableVariant(_campaignId: string, _stepIndex: number, _variantIndex: number): Promise<boolean> {
+      // Lemlist does not support per-variant disabling via API.
+      // A/B testing is managed at the campaign level in their UI.
+      return false;
     },
   };
 }

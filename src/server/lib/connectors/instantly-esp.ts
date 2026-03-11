@@ -4,6 +4,7 @@
  */
 
 import * as instantly from "./instantly";
+import { logger } from "@/lib/logger";
 import type {
   ESPProvider,
   ESPAccount,
@@ -11,10 +12,16 @@ import type {
   CreateCampaignParams,
   CampaignSendingStatus,
   CampaignAnalytics,
+  StepAnalytics,
+  LeadPerformancePage,
   AddLeadsResult,
   ESPLeadData,
   GetEmailsParams,
   GetEmailsResult,
+  ReplyToEmailParams,
+  ReplyToEmailResult,
+  RemoveFromSequenceParams,
+  RemoveFromSequenceResult,
 } from "@/server/lib/providers/esp-provider";
 
 export function createInstantlyESP(apiKey: string): ESPProvider {
@@ -38,6 +45,8 @@ export function createInstantlyESP(apiKey: string): ESPProvider {
           subject: s.subject,
           body: s.body,
           delay: s.delay,
+          // Map subjectVariants to Instantly's subjects array for A/B testing
+          ...(s.subjectVariants?.length ? { subjects: [s.subject, ...s.subjectVariants] } : {}),
         })),
         emailList: params.accountEmails,
         dailyLimit: params.dailyLimit,
@@ -82,6 +91,28 @@ export function createInstantlyESP(apiKey: string): ESPProvider {
       };
     },
 
+    async getStepAnalytics(campaignId: string): Promise<StepAnalytics[]> {
+      const result = await instantly.getCampaignStepAnalytics(apiKey, campaignId);
+      return result.steps;
+    },
+
+    async getLeadsPerformance(campaignId: string, limit: number, cursor?: string): Promise<LeadPerformancePage> {
+      const result = await instantly.getLeadsWithPerformance(apiKey, campaignId, limit, cursor);
+      return {
+        items: result.items.map((l) => ({
+          id: l.id,
+          email: l.email,
+          openCount: l.openCount,
+          replyCount: l.replyCount,
+          clickCount: l.clickCount,
+          interestStatus: l.interestStatus,
+          lastOpenAt: l.lastOpenAt,
+          lastReplyAt: l.lastReplyAt,
+        })),
+        nextCursor: result.nextStartingAfter,
+      };
+    },
+
     async addLeads(campaignId: string, leads: ESPLeadData[]): Promise<AddLeadsResult> {
       let added = 0;
       for (const lead of leads) {
@@ -123,5 +154,99 @@ export function createInstantlyESP(apiKey: string): ESPProvider {
         hasMore: !!res.next_starting_after,
       };
     },
+
+    async replyToEmail(params: ReplyToEmailParams): Promise<ReplyToEmailResult> {
+      try {
+        const response = await fetch("https://api.instantly.ai/api/v2/emails/reply", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            reply_to_uuid: params.emailId,
+            body: params.body,
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => "");
+          return { error: `Failed to send reply: ${response.status} ${errText.slice(0, 200)}` };
+        }
+
+        const data = await response.json();
+        return { id: data.id ?? undefined };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async removeFromSequence(params: RemoveFromSequenceParams): Promise<RemoveFromSequenceResult> {
+      const interestMap: Record<string, number> = {
+        interested: 1,
+        not_interested: -1,
+        meeting_booked: 2,
+      };
+
+      try {
+        await instantly.updateLeadInterestStatus(apiKey, {
+          leadId: params.leadEmail,
+          interestStatus: interestMap[params.reason],
+        });
+        return { removed: true };
+      } catch (err) {
+        return { removed: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+
+    async disableVariant(campaignId: string, stepIndex: number, variantIndex: number): Promise<boolean> {
+      try {
+        const campaign = await instantly.getCampaign(apiKey, campaignId);
+
+        if (!campaign.sequences?.[0]?.steps) {
+          logger.warn("[instantly-esp] Campaign has no sequences", { campaignId });
+          return false;
+        }
+
+        const sequences = campaign.sequences.map((seq: InstantlySequence) => ({
+          ...seq,
+          steps: seq.steps.map((step: InstantlyStep, sIdx: number) => ({
+            ...step,
+            variants: step.variants.map((variant: InstantlyVariant, vIdx: number) => ({
+              ...variant,
+              v_disabled: sIdx === stepIndex && vIdx === variantIndex ? true : variant.v_disabled ?? false,
+            })),
+          })),
+        }));
+
+        await instantly.updateCampaign(apiKey, campaignId, { sequences });
+        return true;
+      } catch (error) {
+        logger.error("[instantly-esp] Failed to disable variant", {
+          campaignId,
+          stepIndex,
+          variantIndex,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+    },
   };
+}
+
+/** Internal types for Instantly campaign structure */
+interface InstantlyVariant {
+  subject: string;
+  body: string;
+  v_disabled?: boolean;
+}
+
+interface InstantlyStep {
+  variants: InstantlyVariant[];
+  [key: string]: unknown;
+}
+
+interface InstantlySequence {
+  steps: InstantlyStep[];
+  [key: string]: unknown;
 }

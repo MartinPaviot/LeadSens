@@ -5,7 +5,7 @@ import type { ToolContext } from "./types";
  * Resolves the campaign ID for the current context.
  * Priority: explicit param > conversation link (DB) > most recent campaign.
  *
- * The conversation ↔ campaign link is set by instantly_source_leads
+ * The conversation ↔ campaign link is set by source_leads
  * when it creates a campaign, so it survives across chat turns.
  */
 export async function resolveCampaignId(

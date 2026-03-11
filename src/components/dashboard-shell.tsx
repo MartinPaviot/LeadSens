@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarEdgeTrigger } from "@/components/sidebar-edge-trigger";
 import { ConversationProvider } from "@/components/conversation-provider";
+import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -21,6 +22,7 @@ export function DashboardShell({
         <AppSidebar />
         <SidebarEdgeTrigger />
         <main className="flex-1 min-w-0">{children}</main>
+        <OnboardingModal />
       </SidebarProvider>
     </ConversationProvider>
   );

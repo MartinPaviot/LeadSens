@@ -1,20 +1,20 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
-import { decrypt } from "@/lib/encryption";
-import {
-  getCampaignAnalytics,
-  getCampaignStepAnalytics,
-  getLeadsWithPerformance,
-} from "@/server/lib/connectors/instantly";
+import { syncSingleCampaign } from "@/server/lib/analytics/sync";
+import { getESPProvider } from "@/server/lib/providers";
 import { getWorkspaceInsights, getCampaignReport } from "@/server/lib/analytics/insights";
+import {
+  getReplyRateByIcpScore,
+  getReplyRateByJobTitle,
+  getReplyRateByCompanySize,
+} from "@/server/lib/analytics/correlator";
 import type { ToolDefinition, ToolContext } from "./types";
 
 export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefinition> {
   return {
     sync_campaign_analytics: {
       name: "sync_campaign_analytics",
-      description: "Sync latest performance data (opens, replies, bounces) from Instantly for a campaign. Call this before generating reports to ensure fresh data.",
+      description: "Sync latest performance data (opens, replies, bounces) from the connected ESP for a campaign. Call this before generating reports to ensure fresh data.",
       parameters: z.object({
         campaign_id: z.string().optional().describe("Campaign ID. If omitted, uses the most recent PUSHED/ACTIVE campaign."),
       }),
@@ -33,80 +33,22 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
             });
 
         if (!campaign) return { error: "No campaign found to sync." };
-        if (!campaign.instantlyCampaignId) return { error: "Campaign has no Instantly campaign ID." };
+        if (!campaign.espCampaignId) return { error: "Campaign has no ESP campaign ID." };
 
-        // Get API key
-        const integration = await prisma.integration.findUnique({
-          where: { workspaceId_type: { workspaceId: ctx.workspaceId, type: "INSTANTLY" } },
-        });
-        if (!integration?.apiKey || integration.status !== "ACTIVE") {
-          return { error: "Instantly not connected." };
+        // Get ESP provider (supports Instantly, Smartlead, Lemlist)
+        const esp = await getESPProvider(ctx.workspaceId);
+        if (!esp) {
+          return { error: "No ESP connected. Connect Instantly, Smartlead, or Lemlist in Settings → Integrations." };
         }
-        const apiKey = decrypt(integration.apiKey);
 
         ctx.onStatus?.("Syncing campaign analytics...");
 
-        // 1. Overall analytics
-        const analytics = await getCampaignAnalytics(apiKey, campaign.instantlyCampaignId);
-        await prisma.campaign.update({
-          where: { id: campaign.id },
-          data: { analyticsCache: analytics as unknown as Prisma.InputJsonValue, lastSyncedAt: new Date() },
-        });
-
-        // 2. Step analytics
-        const stepData = await getCampaignStepAnalytics(apiKey, campaign.instantlyCampaignId);
-        for (const s of stepData.steps) {
-          const openRate = s.sent > 0 ? (s.opened / s.sent) * 100 : 0;
-          const replyRate = s.sent > 0 ? (s.replied / s.sent) * 100 : 0;
-          await prisma.stepAnalytics.upsert({
-            where: { campaignId_step: { campaignId: campaign.id, step: s.step } },
-            create: {
-              campaignId: campaign.id, step: s.step,
-              sent: s.sent, opened: s.opened, replied: s.replied, bounced: s.bounced,
-              openRate, replyRate, syncedAt: new Date(),
-            },
-            update: {
-              sent: s.sent, opened: s.opened, replied: s.replied, bounced: s.bounced,
-              openRate, replyRate, syncedAt: new Date(),
-            },
-          });
-        }
-
-        // 3. Lead performance (paginated)
-        let startingAfter: string | undefined;
-        let syncedLeads = 0;
-        do {
-          const page = await getLeadsWithPerformance(apiKey, campaign.instantlyCampaignId, 100, startingAfter);
-          for (const perf of page.items) {
-            const lead = await prisma.lead.findFirst({
-              where: { email: perf.email, workspaceId: ctx.workspaceId },
-              select: { id: true },
-            });
-            if (!lead) continue;
-
-            await prisma.emailPerformance.upsert({
-              where: { leadId_campaignId: { leadId: lead.id, campaignId: campaign.id } },
-              create: {
-                leadId: lead.id, campaignId: campaign.id, email: perf.email,
-                openCount: perf.openCount, replyCount: perf.replyCount, clickCount: perf.clickCount,
-                interestStatus: perf.interestStatus,
-                lastOpenAt: perf.lastOpenAt ? new Date(perf.lastOpenAt) : null,
-                repliedAt: perf.lastReplyAt ? new Date(perf.lastReplyAt) : null,
-                syncedAt: new Date(),
-              },
-              update: {
-                openCount: perf.openCount, replyCount: perf.replyCount, clickCount: perf.clickCount,
-                interestStatus: perf.interestStatus,
-                lastOpenAt: perf.lastOpenAt ? new Date(perf.lastOpenAt) : null,
-                repliedAt: perf.lastReplyAt ? new Date(perf.lastReplyAt) : null,
-                syncedAt: new Date(),
-              },
-            });
-            syncedLeads++;
-          }
-          startingAfter = page.nextStartingAfter;
-          if (startingAfter) await new Promise((r) => setTimeout(r, 500));
-        } while (startingAfter);
+        const result = await syncSingleCampaign(
+          esp,
+          campaign.id,
+          campaign.espCampaignId,
+          ctx.workspaceId,
+        );
 
         return {
           synced: true,
@@ -114,11 +56,12 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
           campaignName: campaign.name,
           lastSyncedAt: new Date().toISOString(),
           summary: {
-            sent: analytics.emails_sent,
-            opened: analytics.emails_read,
-            replied: analytics.replied,
-            bounced: analytics.bounced,
-            leadssynced: syncedLeads,
+            sent: result.sent,
+            opened: result.opened,
+            replied: result.replied,
+            bounced: result.bounced,
+            leadssynced: result.leadsSynced,
+            variantsAttributed: result.variantsAttributed,
           },
         };
       },
@@ -157,8 +100,10 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
             campaignName: campaign.name,
             overview: report.overview,
             stepBreakdown: report.stepBreakdown,
+            variantBreakdown: report.variantBreakdown,
             topLeads: report.topLeads,
             insights: report.insights,
+            benchmarkContext: report.benchmarkContext,
           },
         };
       },
@@ -168,7 +113,7 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
       name: "performance_insights",
       description: "Analyze cross-campaign performance patterns: which signals, frameworks, enrichment depths, industries, and word counts drive the best reply rates.",
       parameters: z.object({
-        dimension: z.enum(["signal_type", "framework", "quality_score", "enrichment_depth", "industry", "word_count"])
+        dimension: z.enum(["signal_type", "framework", "quality_score", "enrichment_depth", "industry", "word_count", "subject_variant"])
           .optional()
           .describe("Focus on a specific dimension, or omit for all insights."),
       }),
@@ -188,6 +133,83 @@ export function createAnalyticsTools(ctx: ToolContext): Record<string, ToolDefin
         }
 
         return { insights };
+      },
+    },
+
+    icp_performance_analysis: {
+      name: "icp_performance_analysis",
+      description:
+        "Analyze which ICP segments perform best based on real reply data. " +
+        "Shows reply rates by ICP score bucket, job title, and company size. " +
+        "Use this to validate your ICP against actual campaign results.",
+      parameters: z.object({
+        campaign_id: z.string().optional().describe("Specific campaign to analyze, or omit for all campaigns"),
+      }),
+      async execute(args) {
+        const [byScore, byTitle, bySize] = await Promise.all([
+          getReplyRateByIcpScore(ctx.workspaceId, args.campaign_id),
+          getReplyRateByJobTitle(ctx.workspaceId, args.campaign_id),
+          getReplyRateByCompanySize(ctx.workspaceId, args.campaign_id),
+        ]);
+
+        if (byScore.length === 0 && byTitle.length === 0 && bySize.length === 0) {
+          return {
+            message: "Not enough performance data yet. Need at least 5 sent emails with tracking data per segment. Sync campaign analytics first.",
+          };
+        }
+
+        // Compute ideal ICP profile = segments with highest reply rate + sufficient volume (>= 20)
+        const idealProfile: string[] = [];
+        const negativeProfile: string[] = [];
+        const MIN_VOLUME = 20;
+
+        for (const row of byTitle) {
+          if (row.sent >= MIN_VOLUME && row.replyRate >= 10) {
+            idealProfile.push(`${row.dimension} (${row.replyRate}% reply rate, ${row.sent} sent)`);
+          }
+          if (row.sent >= MIN_VOLUME && row.replyRate === 0) {
+            negativeProfile.push(`${row.dimension} (0% reply rate, ${row.sent} sent)`);
+          }
+        }
+
+        for (const row of bySize) {
+          if (row.sent >= MIN_VOLUME && row.replyRate >= 10) {
+            idealProfile.push(`Company size ${row.dimension} (${row.replyRate}% reply rate, ${row.sent} sent)`);
+          }
+          if (row.sent >= MIN_VOLUME && row.replyRate === 0) {
+            negativeProfile.push(`Company size ${row.dimension} (0% reply rate, ${row.sent} sent)`);
+          }
+        }
+
+        const recommendations: string[] = [];
+
+        // Score threshold recommendation
+        const highScoreBucket = byScore.find((r) => r.dimension === "9-10");
+        const midScoreBucket = byScore.find((r) => r.dimension === "7-8");
+        if (highScoreBucket && midScoreBucket) {
+          if (highScoreBucket.replyRate > midScoreBucket.replyRate * 1.5) {
+            recommendations.push(`Focus on score 9-10 leads (${highScoreBucket.replyRate}% vs ${midScoreBucket.replyRate}% reply rate). Consider raising the scoring threshold.`);
+          } else if (midScoreBucket.replyRate >= highScoreBucket.replyRate) {
+            recommendations.push(`Score 7-8 leads perform as well as 9-10 (${midScoreBucket.replyRate}% vs ${highScoreBucket.replyRate}%). Current threshold is appropriate.`);
+          }
+        }
+
+        if (negativeProfile.length > 0) {
+          recommendations.push(`Consider excluding these segments from future campaigns (0% reply rate with significant volume): ${negativeProfile.slice(0, 3).join("; ")}`);
+        }
+
+        if (idealProfile.length > 0) {
+          recommendations.push(`Double down on these high-performing segments: ${idealProfile.slice(0, 3).join("; ")}`);
+        }
+
+        return {
+          by_icp_score: byScore,
+          by_job_title: byTitle,
+          by_company_size: bySize,
+          ideal_icp_segments: idealProfile,
+          negative_icp_segments: negativeProfile,
+          recommendations,
+        };
       },
     },
   };

@@ -22,7 +22,25 @@
       "Bash(taskkill:*)",
       "Bash(npx vitest:*)",
       "Bash(npx next:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npx prisma:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_evaluate",
+      "WebFetch(domain:logotic.me)",
+      "WebFetch(domain:destiny-dirigible-8f5.notion.site)",
+      "WebFetch(domain:www.lemlist.com)",
+      "WebFetch(domain:www.zerobounce.net)",
+      "WebFetch(domain:cdn.brandfetch.io)",
+      "WebFetch(domain:lemlist.com)",
+      "WebFetch(domain:play.google.com)",
+      "Bash(cd C:/Users/marti/LeadSens && pnpm test 2>&1)",
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_tabs",
+      "mcp__playwright__browser_snapshot",
+      "Bash(cd C:/Users/marti/LeadSens && pnpm typecheck 2>&1 | tail -5)",
+      "Bash(npm list:*)"
     ]
   }
 }

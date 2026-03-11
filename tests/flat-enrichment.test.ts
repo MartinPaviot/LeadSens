@@ -153,8 +153,8 @@ describe("extractFlatEnrichmentFields", () => {
     const result = extractFlatEnrichmentFields(
       makeEnrichment({
         signals: ["Expanding APAC"],
-        hiringSignals: ["Hiring 5 SDRs"],
-        fundingSignals: ["Series B $20M"],
+        hiringSignals: [{ detail: "Hiring 5 SDRs", date: "2026-01", source: "careers" }],
+        fundingSignals: [{ detail: "Series B $20M", date: "2025-11", source: "press" }],
         productLaunches: ["Launched v3.0"],
         leadershipChanges: [{ event: "New CRO: Jane Doe", date: "2026-01", source: "press" }],
         publicPriorities: [{ statement: "CEO: 2x revenue in 2026", date: "2026-02", source: "blog" }],
@@ -162,7 +162,7 @@ describe("extractFlatEnrichmentFields", () => {
       }),
     );
     expect(result.buyingSignals).toBe(
-      "Expanding APAC; Hiring 5 SDRs; Series B $20M; Launched v3.0; New CRO: Jane Doe; CEO: 2x revenue in 2026; Migrated to HubSpot",
+      "Expanding APAC; Hiring 5 SDRs (2026-01); Series B $20M (2025-11); Launched v3.0; New CRO: Jane Doe; CEO: 2x revenue in 2026; Migrated to HubSpot",
     );
   });
 

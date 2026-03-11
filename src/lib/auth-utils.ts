@@ -25,6 +25,6 @@ export async function requireUnauth() {
     headers: await headers(),
   });
   if (session) {
-    redirect("/");
+    redirect("/chat");
   }
 }

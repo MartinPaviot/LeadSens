@@ -151,13 +151,13 @@ export function AppSidebar() {
 
   const handleNewChat = () => {
     startNewChat();
-    router.push("/");
+    router.push("/chat");
     if (isMobile) setOpenMobile(false);
   };
 
   const handleSelect = (id: string) => {
     selectConversation(id);
-    router.push("/");
+    router.push("/chat");
     if (isMobile) setOpenMobile(false);
   };
 

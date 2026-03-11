@@ -65,6 +65,45 @@ export const conversationRouter = router({
       });
     }),
 
+  getResumptionSummary: protectedProcedure
+    .input(z.object({ conversationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const conversation = await prisma.conversation.findFirst({
+        where: { id: input.conversationId, workspaceId: ctx.workspaceId! },
+        include: {
+          campaign: {
+            select: {
+              name: true,
+              status: true,
+              leadsTotal: true,
+              leadsScored: true,
+              leadsEnriched: true,
+              leadsDrafted: true,
+              leadsPushed: true,
+              leadsSkipped: true,
+            },
+          },
+        },
+      });
+
+      if (!conversation?.campaign) return { summary: null };
+
+      const c = conversation.campaign;
+      const parts: string[] = [];
+
+      if (c.leadsTotal > 0) parts.push(`${c.leadsTotal} leads sourced`);
+      if (c.leadsScored > 0) parts.push(`${c.leadsScored} scored`);
+      if (c.leadsEnriched > 0) parts.push(`${c.leadsEnriched} enriched`);
+      if (c.leadsDrafted > 0) parts.push(`${c.leadsDrafted} emails drafted`);
+      if (c.leadsPushed > 0) parts.push(`${c.leadsPushed} pushed`);
+      if (c.leadsSkipped > 0) parts.push(`${c.leadsSkipped} skipped`);
+
+      const progress = parts.length > 0 ? ` — ${parts.join(", ")}` : "";
+      const summary = `Welcome back! Campaign "${c.name}" is in ${c.status} phase${progress}.`;
+
+      return { summary };
+    }),
+
   rename: protectedProcedure
     .input(z.object({ id: z.string(), title: z.string().min(1).max(200) }))
     .mutation(async ({ ctx, input }) => {

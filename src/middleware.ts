@@ -3,24 +3,47 @@ import { NextRequest, NextResponse } from "next/server";
 const SESSION_COOKIE = "better-auth.session_token";
 const SECURE_SESSION_COOKIE = `__Secure-${SESSION_COOKIE}`;
 
+/** Public routes accessible without authentication */
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/pricing",
+  "/privacy",
+  "/terms",
+];
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip API routes — they handle auth themselves
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   const hasSession =
     request.cookies.has(SESSION_COOKIE) ||
     request.cookies.has(SECURE_SESSION_COOKIE);
 
-  const isAuthPage =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/signup");
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api");
-
-  // Skip API routes — they handle auth themselves
-  if (isApiRoute) {
+  // Landing page "/" is always public
+  if (pathname === "/") {
+    // If logged in, redirect to chat (the main app)
+    if (hasSession) {
+      return NextResponse.redirect(new URL("/chat", request.url));
+    }
     return NextResponse.next();
   }
 
-  // Redirect to login if no session cookie on protected pages
+  // Public routes (auth pages, legal, pricing)
+  const isPublicRoute = PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+  if (isPublicRoute) {
+    return NextResponse.next();
+  }
+
+  // Protected routes — redirect to login if no session cookie
   // (fast reject — avoids server-side DB call for obvious cases)
-  if (!hasSession && !isAuthPage) {
+  if (!hasSession) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

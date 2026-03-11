@@ -14,7 +14,7 @@ LeadSens n'est pas un outil. C'est le **chef d'orchestre** des outils du user. C
 
 La valeur est dans les **décisions entre les appels API** : scoring pré-enrichissement (~40% d'économie), Company DNA, frameworks copywriting hardcodés, clustering par segments, style learner, curseur d'autonomie.
 
-### Score actuel : 6.2/10 (audit 2026-03-09, était 4.2). Objectif : 8/10. Reply rate cible : 18%.
+### Score actuel : 7.0/10 (audit v4+ 2026-03-11, était 6.9 → 6.8 → 6.7 → 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
 
 Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
 
@@ -32,7 +32,7 @@ Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélior
 | Chat UI | assistant-ui | `@assistant-ui/react` `@assistant-ui/react-markdown` |
 | Icons | Phosphor | `@phosphor-icons/react` |
 | DB | Prisma 6 + PostgreSQL (Supabase) | `prisma` `@prisma/client` |
-| Queue | BullMQ + Redis | `bullmq` `ioredis` |
+| Background jobs | Inngest (cron + event-driven) | `inngest` |
 | Auth | Better Auth | `better-auth` |
 | API layer | tRPC + TanStack Query | `@trpc/*` `@tanstack/react-query` |
 | LLM | Mistral (Large + Small) | `@mistralai/mistralai` |
@@ -73,86 +73,46 @@ Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélior
 > ⚠️ SECTION CRITIQUE — Claude Code doit TOUJOURS distinguer ce qui EXISTE de ce qui est À CONSTRUIRE.
 > Ne jamais présumer qu'une feature existe. Vérifier dans le code source.
 
-### 3.1 Pipeline — ce qui est implémenté
+### 3.1 Pipeline — état d'implémentation
 
 ```
-IMPLÉMENTÉ (pre-launch) :
-  User décrit ICP → Mistral Large parse → Instantly SuperSearch count → source → fetch leads
-  → ICP scoring (Mistral Small, fit pre-filter) + feedback loop si >70% skipped
-  → Post-enrichment signal boost: fit 40% + intent 35% + timing 25% (deterministic, 0 LLM)
-  → Jina scrape 5 pages (homepage+about+blog+careers+press) + cache in-memory par domaine
-  → Apify LinkedIn (headline, career, posts) → Mistral Small summarize (18+ champs)
-  → Mistral Large draft 6 emails (PAS/Value-add/Social Proof/New Angle/Micro-value/Breakup)
-    avec connection bridge, trigger opener, toutes données enrichies, follow-ups cohérents
-  → Quality gate 7/10 + 2 retries → 3 subject variants/step (5 patterns formels)
-  → Cadence variable [0,2,5,9,14,21] → Preview dans le chat
-  → Instantly create campaign + push leads + A/B variants[]
+PIPELINE COMPLET (ICP → Meeting Booked) :
+  ICP parse (Mistral Large, two-phase v2) → SuperSearch count → source → fetch leads
+  → ICP scoring (Mistral Small, fit pre-filter) + feedback loop >70% skipped
+  → Signal boost post-enrichment (fit 40% + intent 35% + timing 25%, deterministic)
+  → Jina 5 pages + Apify LinkedIn → Mistral Small summarize → CompanyCache in-memory
+  → 6 emails (6 frameworks hardcodés) + connection bridge + quality gate + 3 subject variants
+  → Cadence [0,2,5,9,14,21] → ESP create campaign + push + A/B variants[]
+  → Webhook (11 events) → Reply classify → Draft reply → CRM push
+  → A/B auto-pause (z-test) → Winner propagation → Style learner (6 categories)
+  → Multi-ESP routing (ESPProvider: Instantly/Smartlead/Lemlist)
 
-NON IMPLÉMENTÉ (pre-launch) :
-  ❌ Cache par domaine PERSISTANT (Prisma CompanyCache TTL 7j) — actuellement Map in-memory par batch
-  ❌ Subject line pattern library FORMELLE avec tracking perf par pattern
-  ❌ Scoring multi-dimensionnel (fit + intent + timing) — actuellement fit-only
+RESTE À FAIRE :
+  ❌ CompanyCache PERSISTANT (Prisma TTL 7j) — actuellement Map in-memory par batch
   ❌ Import CSV — Tier A bloquant, STRATEGY §4.2
-  ❌ Multi-ESP routing (tools → ESPProvider) — abstractions prêtes, tools appellent Instantly directement
-
-IMPLÉMENTÉ (post-launch) :
-  ✅ LeadStatus étendu (8 statuts post-PUSHED) + state machine
-  ✅ Webhook Instantly (reply, bounce, unsub, completed)
-  ✅ Sync campaign performance (EmailPerformance + StepAnalytics, worker 30min)
-  ✅ Reply classification (Mistral Small, 6 interest levels)
-  ✅ Reply drafting + sending (Unibox API)
-  ✅ CRM push complet (HubSpot create contact + deal)
-  ✅ Campaign insights + adaptive drafting + winning patterns
-
-NON IMPLÉMENTÉ (post-launch) :
-  ❌ A/B auto-pause variantes faibles
-  ❌ Winner propagation automatique
-  ❌ Style learner catégorisé (subject vs tone vs CTA)
-  ❌ Multi-ESP routing
 ```
 
-### 3.2 Scores par composant (STRATEGY §6.2)
+### 3.2 Scores par composant (STRATEGY §6.2) — tous les objectifs atteints ou dépassés
 
-| Composant | Score actuel | Cible | Réf |
-|-----------|-------------|-------|-----|
-| Enrichissement prospect | **7/10** | 6/10 | §7.1.1 |
-| ICP Scoring | **7/10** | 7/10 | §7.3.3 |
-| Email Copywriting | **8/10** | 8/10 | §7.1.2-1.4 |
-| Subject Lines | **6/10** | 6/10 | §7.2.1 |
-| A/B Testing | **4/10** | 5/10 | §7.2.1 |
-| Cadence & Séquence | **7.5/10** | 7/10 | §7.2.2-2.4 |
-| Feedback Loop | **5/10** | 5/10 | §7.3.2 |
-| Pipeline post-launch | **6/10** | 5/10 | §11 |
+| Composant | Score | Cible | Composant | Score | Cible |
+|-----------|-------|-------|-----------|-------|-------|
+| Enrichissement | **7/10** | 6 | Subject Lines | **6/10** | 6 |
+| ICP Scoring | **7/10** | 7 | A/B Testing | **7/10** | 5 |
+| Email Copywriting | **8/10** | 8 | Feedback Loop | **5.5/10** | 5 |
+| Cadence & Séquence | **7.5/10** | 7 | Pipeline post-launch | **7/10** | 5 |
 
 ### 3.3 Bugs connus
 
-- ~~`industry: null` hardcodé dans `instantly_source_leads`~~ ✅ CORRIGÉ (instantly-tools.ts:289-292)
-- `listLeads` limité à 100 sans pagination — STRATEGY §6.2 (à vérifier)
-- Filtres avancés supprimés au broadening au lieu de devenir des scoring signals — STRATEGY §6.2
+- `listLeads` limité à 100 sans pagination — STRATEGY §6.2
 
 ---
 
-## 4. Email Frameworks (état CIBLE — à implémenter)
+## 4. Email Frameworks (IMPLÉMENTÉ)
 
-> ⚠️ L'état actuel est 3 steps avec delays fixes [0, 3, 3] et un seul framework PAS.
-> La cible ci-dessous est Tier 2 (STRATEGY §7.2.2).
+6 steps via `getFramework(step)` dans `prompt-builder.ts` :
+PAS (J+0, 85w) → Value-add (J+2, 65w) → Social proof (J+5, 70w) → New angle (J+9, 65w) → Micro-value (J+14, 50w) → Breakup (J+21, 45w)
 
-| Step | Framework | Delay | Mots | Structure |
-|------|-----------|-------|------|-----------|
-| **0** | **PAS** (Problem-Agitate-Solve) | J+0 | 80 | Trigger event en opener si dispo. Connection bridge. |
-| **1** | **Value-add** (insight/ressource) | J+2 | 60 | Insight, ressource, ou case study. |
-| **2** | **Social proof** (case study) | J+5 | 60 | Résultat concret d'un client similaire. |
-| **3** | **New angle** (different pain point) | J+9 | 70 | Pain point différent du step 0. |
-| **4** | **Micro-value** (stat, tip, question) | J+14 | 50 | Un seul insight actionable. Question ouverte. |
-| **5** | **Breakup** (dernier message) | J+21 | 40 | Court, direct. Zero pression. |
-
-**Règles cibles (à implémenter) :**
-- Frameworks hardcodés dans le system prompt, pas laissés au choix du modèle
-- **Connection bridge** : connecter LE pain point le plus pertinent à LA solution spécifique du sender
-- **Trigger en opener** : si un trigger existe, il DOIT être l'opener
-- **Follow-ups cohérents** : chaque step reçoit le body complet des steps précédents
-- **A/B testing** : 2-3 variantes de subject line par step via `variants[]` Instantly
-- **Quality gate** : score LLM post-génération, régénération si < 6/10
+Règles implémentées : frameworks hardcodés, connection bridge 3-step, trigger en opener, follow-ups cohérents (body complet steps précédents, trunc 1500 chars), 3 subject variants/step (5 patterns), quality gate step-aware (Step 0=8/10, autres=7/10).
 
 ---
 
@@ -162,7 +122,7 @@ NON IMPLÉMENTÉ (post-launch) :
 2. **Validation** — Zod sur tous les inputs : routes API, tools, env vars, LLM JSON outputs
 3. **Streaming** — SSE via `fetch()` + `ReadableStream` pour le chat. RAF batch update. Pattern : `docs/SPEC-CHAT.md` section 10
 4. **Tool loop** — Max 5 steps (rounds de tool calling) par message user
-5. **Workers** — Graceful shutdown (SIGTERM/SIGINT) sur les workers BullMQ. Pattern : `docs/SPEC-BACKEND.md` section 7.1
+5. **Background jobs** — Inngest functions (cron + event-driven) via `src/inngest/`. Served at `/api/inngest`. No long-running workers.
 6. **Side effects** — Les tools qui consomment des crédits Instantly sont wrappés avec confirmation. Pattern : `docs/SPEC-BACKEND.md` section 8.5
 7. **Error handling** — Hiérarchie d'erreurs typées. Pattern : `docs/SPEC-BACKEND.md` section 8.3
 8. **AI logging** — Chaque appel LLM est loggé (model, tokens, cost, latency). Pattern : `docs/SPEC-BACKEND.md` section 8.4
@@ -173,25 +133,13 @@ NON IMPLÉMENTÉ (post-launch) :
 13. **Pas de `console.log`** — Utiliser le logger structuré.
 14. **Commits** — Conventional Commits (feat:, fix:, refactor:, perf:).
 15. **Tests** — `pnpm typecheck && pnpm test` AVANT chaque commit. Non négociable.
+16. **Jamais commit sur main** — En mode autonome, toujours vérifier la branche avant de commit. Si on est sur main, créer une branche auto/improve-{date} d'abord. Commande : git checkout -b auto/improve-$(date +%Y%m%d) avant le premier commit.
 
 ---
 
-## 6. Ce que LeadSens n'est PAS (vs Elevay)
+## 6. Différences clés vs Elevay (ancien projet)
 
-| Concept Elevay | Status LeadSens |
-|---------------|-----------------|
-| Model `Agent` | ❌ 1 agent implicite par workspace |
-| Composio | ❌ API directes |
-| Worker campaign:send | ❌ Instantly gère l'envoi |
-| MailboxAccount | ❌ Mailboxes dans Instantly |
-| CampaignEmail (tracking Gmail) | ❌ Remplacé par DraftedEmail |
-| Flow mode | ❌ Chat only |
-| Context Panel sidebar | ❌ Pas en V1 |
-| Agent templates | ❌ 1 seul agent |
-| cheerio scraping | ❌ Jina Reader + Apify + TinyFish |
-| Claude pour les emails | ❌ Mistral pour tout en V1 (upgrade path → Claude Sonnet) |
-
-> Note : Le reply management (classify + draft reply) est IN SCOPE Phase 1 (STRATEGY §11, §12).
+LeadSens ≠ Elevay : 1 agent implicite (pas de model Agent), API directes (pas Composio), Instantly gère l'envoi (pas de worker), chat-only (pas de flow mode), Jina+Apify (pas cheerio), Mistral V1 (upgrade path → Claude Sonnet pour drafting si reply rate < 14%).
 
 ---
 
@@ -218,115 +166,29 @@ docs/
 ## 8. Structure du projet
 
 ```
-leadsens/
-├── CLAUDE.md
-├── .claude/
-│   ├── commands/               ← Slash commands autonomes
-│   │   ├── implement-next.md
-│   │   ├── audit.md
-│   │   ├── audit-prompts.md
-│   │   ├── challenge.md
-│   │   └── status.md
-│   ├── tasks/
-│   │   ├── BACKLOG.md          ← Tâches ordonnées par impact reply rate
-│   │   ├── CURRENT.md          ← Tâche en cours
-│   │   └── DONE.md             ← Historique
-│   ├── findings/               ← Écarts code vs stratégie
-│   └── progress.txt            ← Log chronologique de chaque itération
-├── scripts/
-│   └── loop.sh                 ← Bash wrapper pour boucle autonome
-├── docs/
-│   ├── STRATEGY.md
-│   ├── SPEC-CHAT.md
-│   ├── SPEC-BACKEND.md
-│   ├── INSTANTLY-API.md
-│   └── PROMPTS.md
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── agents/chat/route.ts
-│   │   │   ├── integrations/instantly/route.ts
-│   │   │   ├── integrations/hubspot/{auth,callback}/route.ts
-│   │   │   ├── webhooks/instantly/route.ts        ← À implémenter (Phase 1)
-│   │   │   └── trpc/[trpc]/route.ts
-│   │   ├── (dashboard)/
-│   │   │   ├── page.tsx
-│   │   │   ├── campaigns/page.tsx
-│   │   │   └── settings/integrations/page.tsx
-│   │   ├── (auth)/login/page.tsx
-│   │   └── layout.tsx
-│   ├── components/
-│   │   ├── chat/
-│   │   │   ├── agent-chat.tsx
-│   │   │   ├── agent-runtime-provider.tsx
-│   │   │   ├── thread.tsx
-│   │   │   ├── assistant-message.tsx
-│   │   │   ├── user-message.tsx
-│   │   │   ├── composer.tsx
-│   │   │   ├── greeting-loader.tsx
-│   │   │   ├── scroll-to-bottom.tsx
-│   │   │   ├── tool-ui-registry.tsx
-│   │   │   └── inline/
-│   │   │       ├── lead-table-card.tsx
-│   │   │       ├── email-preview-card.tsx
-│   │   │       ├── campaign-summary-card.tsx
-│   │   │       └── progress-bar.tsx
-│   │   └── ui/
-│   ├── server/
-│   │   ├── trpc/
-│   │   │   ├── router.ts
-│   │   │   ├── context.ts
-│   │   │   └── routers/
-│   │   └── lib/
-│   │       ├── llm/
-│   │       │   ├── mistral-client.ts
-│   │       │   └── types.ts
-│   │       ├── tools/
-│   │       │   ├── index.ts
-│   │       │   ├── types.ts
-│   │       │   ├── instantly-tools.ts
-│   │       │   ├── enrichment-tools.ts
-│   │       │   ├── email-tools.ts
-│   │       │   ├── crm-tools.ts
-│   │       │   ├── memory-tools.ts
-│   │       │   ├── icp-parser.ts
-│   │       │   ├── csv-tools.ts                   ← À implémenter (Tier A)
-│   │       │   ├── reply-tools.ts                 ← À implémenter (Phase 1)
-│   │       │   └── analytics-tools.ts             ← À implémenter (Phase 1)
-│   │       ├── connectors/
-│   │       │   ├── instantly.ts
-│   │       │   ├── hubspot.ts
-│   │       │   ├── jina.ts
-│   │       │   ├── apify.ts
-│   │       │   └── tinyfish.ts
-│   │       ├── enrichment/
-│   │       │   ├── jina-scraper.ts
-│   │       │   ├── summarizer.ts
-│   │       │   └── icp-scorer.ts
-│   │       └── email/
-│   │           ├── prompt-builder.ts
-│   │           ├── style-learner.ts
-│   │           └── drafting.ts
-│   ├── lib/
-│   │   ├── encryption.ts
-│   │   ├── config.ts
-│   │   ├── errors.ts
-│   │   ├── ai-events.ts
-│   │   ├── lead-status.ts                         ← State machine à étendre (Phase 1)
-│   │   ├── utils.ts
-│   │   ├── auth.ts
-│   │   ├── auth-client.ts
-│   │   ├── trpc-client.ts
-│   │   └── inline-component-registry.ts
-│   └── queue/
-│       ├── factory.ts
-│       ├── enrichment-worker.ts
-│       └── email-draft-worker.ts
-├── prisma/
-│   └── schema.prisma
-├── .env.example
-├── package.json
-└── tsconfig.json
+src/
+├── app/api/agents/chat/route.ts          ← Chat SSE + system prompts (phase-tiered)
+├── app/api/webhooks/instantly/route.ts    ← Webhook handler (11 events)
+├── app/api/inngest/route.ts              ← Inngest serve handler
+├── app/(dashboard)/chat/                 ← Dashboard (auth required)
+├── app/(marketing)/                      ← Landing, pricing, legal (public)
+├── server/lib/
+│   ├── tools/index.ts                    ← Tool registry + phase filtering
+│   ├── tools/icp-parser.ts              ← ICP parsing (two-phase v2)
+│   ├── tools/pipeline-tools.ts          ← Reply classify/draft/send, CSV, insights
+│   ├── connectors/{instantly,hubspot,jina,apify,tinyfish}.ts
+│   ├── providers/index.ts               ← ESPProvider, CRMProvider, EmailVerifier
+│   ├── enrichment/{jina-scraper,summarizer,icp-scorer,hiring-signal-extractor}.ts
+│   ├── email/{prompt-builder,style-learner,drafting}.ts
+│   ├── analytics/{correlator,insights,adaptive,ab-testing,sync,bounce-guard,reply-guard}.ts
+│   └── llm/{mistral-client,context-manager}.ts
+├── lib/{encryption,lead-status,logger,rate-limit,redis}.ts
+├── inngest/{client,functions}.ts         ← 3 bg jobs (analytics cron, enrich, draft)
+├── components/chat/                      ← Chat UI (assistant-ui)
+docs/STRATEGY.md                          ← Source de vérité produit (read-only)
+.claude/tasks/BACKLOG.md                  ← Tâches ordonnées par impact
+.claude/progress.txt                      ← Log chronologique des itérations
+prisma/schema.prisma                      ← DB schema
 ```
 
 ---
@@ -399,44 +261,18 @@ Claude Code agit comme un **staff engineer autonome** qui :
 
 ### 10.2 Architecture de la boucle
 
-La boucle est orchestrée par `scripts/loop.sh` (bash), PAS par des slash commands chaînées. Chaque itération est une **session Claude Code séparée avec un contexte frais** pour éviter la dégradation de performance.
+`scripts/loop.sh` orchestre des sessions Claude Code séparées (contexte frais). Chaque itération : BACKLOG task → implement → test → commit → update progress.txt → exit → sleep 30 → next.
 
-```
-scripts/loop.sh
-  │
-  ├── Itération 1 : claude -p "..." → BACKLOG task → implement → test → commit
-  │                                    → update progress.txt
-  │                                    → update CLAUDE.md gotchas
-  │                                    → exit
-  │
-  ├── sleep 30
-  │
-  ├── Itération 2 : claude -p "..." → contexte frais, lit progress.txt + BACKLOG
-  │                                    → next task → implement → test → commit
-  │                                    → exit
-  │
-  └── ... (jusqu'à completion ou max_iterations)
-```
+### 10.3 Mémoire entre itérations
 
-### 10.3 4 canaux de mémoire entre itérations
+| Canal | Fichier |
+|-------|---------|
+| Git history | `.git/` (code + diffs + commits) |
+| Progress log | `.claude/progress.txt` (tâche, résultat, learnings) |
+| Task state | `.claude/tasks/BACKLOG.md` (done/pending) |
+| Learnings | Section 11 de ce fichier |
 
-| Canal | Fichier | Ce qu'il persiste |
-|-------|---------|-------------------|
-| **Git history** | `.git/` | Code + diffs + commit messages |
-| **Progress log** | `.claude/progress.txt` | Journal chronologique : tâche, résultat, erreurs, durée, learnings |
-| **Task state** | `.claude/tasks/BACKLOG.md` | Statut de chaque tâche (done/pending) |
-| **Learnings** | Section 11 de ce fichier | Gotchas, patterns, conventions découverts |
-
-### 10.4 Commandes disponibles
-
-| Commande | Usage | Ce qu'elle fait |
-|----------|-------|-----------------|
-| `/implement-next` | Interactif | Pioche 1 tâche, planifie, implémente, teste, commit |
-| `/audit` | Interactif | Audit complet codebase vs STRATEGY.md, génère findings + tâches |
-| `/audit-prompts` | Interactif | Audit des prompts LLM vs STRATEGY.md §5-7 |
-| `/challenge [module]` | Interactif | Deep-dive sur 1 module, challenge chaque décision |
-| `/status` | Interactif | Dashboard progression |
-| `scripts/loop.sh` | Autonome | Boucle bash : 1 tâche par session, contexte frais, max N itérations |
+### 10.4 Commandes : `/implement-next`, `/audit`, `/audit-prompts`, `/challenge [module]`, `/status`, `scripts/loop.sh` (autonome)
 
 ### 10.5 Règles de la boucle
 
@@ -450,8 +286,22 @@ TOUJOURS:
 - Écrire dans progress.txt APRÈS chaque itération
 - Ajouter les learnings dans la section 11 de ce CLAUDE.md
 
+STRATEGY.md — Mise à jour autonome autorisée :
+- UNIQUEMENT après une phase de recherche avec sources vérifiables
+- Chaque modification = un commit séparé "docs(strategy): [description]"
+- Ajouter une entrée au changelog en bas de STRATEGY.md : date + ce qui a changé + source + raison
+- Toutes les sections sont modifiables si la recherche le justifie avec des données concrètes
+- Pas de changement basé sur de l'opinion ou de l'intuition — uniquement des données
+
+RECHERCHE — Règles de validation :
+- Chaque nouveau insight doit être CROISÉ avec les findings précédents dans .claude/findings/
+- Si un nouveau résultat contredit un finding précédent → ne pas remplacer, documenter les deux sources et noter la contradiction dans le finding
+- Pour modifier STRATEGY.md, il faut AU MINIMUM 2 sources indépendantes qui convergent
+- Les benchmarks chiffrés (reply rates, pricing) ne sont mis à jour que si la nouvelle source est plus fiable (étude > blog > tweet) ou plus récente
+- Conserver l'historique : ne jamais supprimer un ancien finding, ajouter des updates dessus
+- En cas de doute, garder la valeur conservative (la plus basse pour les reply rates, la plus haute pour les coûts)
+
 JAMAIS:
-- Modifier STRATEGY.md
 - Skip les tests
 - Implémenter sans plan
 - Ignorer un finding
@@ -459,64 +309,71 @@ JAMAIS:
 - Présumer qu'une feature existe sans vérifier dans le code
 ```
 
-### 10.6 Format des tâches dans BACKLOG.md
+### 10.6 Formats
 
-Chaque tâche a des **acceptance criteria** testables :
+**BACKLOG.md** : `- [ ] **T1-ENR-01** Titre` + `Fichiers:` + `Réf: STRATEGY §X` + `PASS IF:` (acceptance criteria testables)
 
-```markdown
-- [ ] **T1-ENR-01** Multi-page scraping Jina
-  **Fichiers:** `src/server/lib/enrichment/jina-scraper.ts`
-  **Réf:** STRATEGY §7.1.1
-  **PASS IF:**
-  - jina-scraper accepte une URL et retourne le markdown de 3+ pages (homepage + about + blog/careers/press)
-  - Les liens internes sont extraits de la homepage et filtrés (about, blog, careers, press)
-  - Le rate limit 20 req/min est respecté (delay entre les appels)
-  - Un test unitaire vérifie le multi-page avec un mock Jina
-  - `pnpm typecheck && pnpm test` passent
-```
-
-### 10.7 Format progress.txt
-
-```
-=== ITERATION 14 | 2026-03-10 09:42 UTC ===
-TASK: T1-ENR-01 Multi-page scraping Jina
-STATUS: DONE
-DURATION: ~25 min
-FILES CHANGED: jina-scraper.ts, enrichment-tools.ts, jina-scraper.test.ts
-TESTS: 14/14 passed
-COMMIT: feat(enrichment): multi-page scraping with Jina Reader
-LEARNINGS:
-- Jina retourne des 403 sur certains /blog — fallback nécessaire (try/catch par page)
-- Les pages /careers sont souvent des iframes vers un ATS externe — Jina retourne du HTML minimal
-- Le markdown concaténé peut dépasser 30K chars — tronquer à 15K avant le summarizer
-NEXT: T1-ENR-02 Cache par domaine
-```
+**progress.txt** : `=== ITERATION N | date ===` + TASK + STATUS + FILES CHANGED + TESTS + COMMIT + LEARNINGS + NEXT
 
 ---
 
 ## 11. Gotchas & Patterns (auto-alimenté)
 
-> Cette section est mise à jour par Claude Code après chaque itération.
-> Elle sert de mémoire persistante entre les sessions.
+> Mémoire persistante entre sessions. Garder CONCIS — max 1 ligne par item.
+> Details d'implementation → lire le code source directement.
 
-### Patterns découverts
+### Patterns architecturaux
 
-- **[enrichment]** : 3-layer fallback (Apollo → LinkedIn → Website → LinkedIn-only → always advance) — non-blocking failures
-- **[email]** : 6-step framework with hardcoded names (PAS/Value-add/Social Proof/New Angle/Micro-value/Breakup) via `getFramework(step)`
-- **[email]** : Signal prioritization with recency weighting + data-driven weights from correlator
-- **[email]** : 5 subject line patterns (question/observation/curiosity/direct/personalized) — each variant must use a different pattern
-- **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated — prevents silent empty campaigns
-- **[scoring]** : Two-phase scoring — LLM fit pre-enrichment (cheap filter) → deterministic signal boost post-enrichment (0 LLM cost, uses hiringSignals/fundingSignals/leadershipChanges/techStackChanges/publicPriorities/LinkedIn activity)
-- **[providers]** : Adapter pattern at SDK boundaries — `as any` acceptable with eslint-disable at `SourcingProvider`/Mistral SDK interface
+- **[enrichment]** : 3-layer fallback (Apollo → LinkedIn+Website → LinkedIn-only → always advance), non-blocking
+- **[enrichment]** : Dual TTL cache (null=1h, success=7d), StructuredSignal[] with signalAge() recency multiplier
+- **[enrichment]** : Deterministic hiring signals from careers pages (`hiring-signal-extractor.ts`), 0 LLM cost
+- **[scoring]** : Two-phase (LLM fit pre-enrichment → deterministic signal boost post-enrichment)
+- **[scoring]** : Broadening bonus (+1/match, max +2), Compound bonus (+1/+2/+3 for 3/4/5+ signal types)
+- **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated
+- **[email]** : 6-step framework via `getFramework(step)`, maxWords [85,65,70,65,50,45]
+- **[email]** : 5 subject patterns (question/observation/curiosity/direct/personalized), 2-5 words enforced
+- **[email]** : Connection bridge 3-step: signal → pain reasoning → solution with proof
+- **[quality-gate]** : Step 0=8/10, others=7/10. Blocking checks: spam, filler, word count, subject, AI tells. Non-blocking: thin data <40%
+- **[analytics]** : ALWAYS `isPositiveReply()` / `POSITIVE_REPLY_SQL`, NEVER raw `replyCount > 0`
+- **[analytics]** : Reply guard (3 neg/24h) + bounce guard (>3% after 50 sends) = dual auto-pause
+- **[analytics]** : `replied` from EmailPerformance (positive-only), NOT StepAnalytics (raw counts)
+- **[ab-testing]** : z-test → auto-pause losers → propagate winners. Thresholds: 100+ sends, 5+ days, |z|>1.96
+- **[providers]** : ESPProvider abstraction, zero direct connector imports outside connectors + sourcing
+- **[dedup]** : `@@unique([workspaceId, email])`, cross-campaign via EmailPerformance by email, `ALREADY_CONTACTED_STATUSES` (8)
+- **[phases]** : MONITORING = valid phase, uses PHASE_ACTIVE prompt. Tool filtering by phase (24→14-15)
+- **[pipeline]** : `classify_reply` stale status — transitions don't chain within one call
 
-### Gotchas
+### Gotchas (bugs you'll hit again)
 
-- **[Prisma Json]** : `{ not: null }` doesn't typecheck for Json fields — use `{ not: Prisma.JsonNull }`
-- **[Prisma Json]** : Storing arbitrary objects in `Json` fields requires `as unknown as Prisma.InputJsonValue` (not `as any`)
-- **[webhook]** : `safeTransition()` must accept `LeadStatus` type, not `string` — import from `@prisma/client`
-- **[providers]** : `getActiveIntegration()` parameter should be `IntegrationType` not `string` — callers use `as const` arrays
+- **[Prisma]** : Json fields → `Prisma.JsonNull` (not null), `as unknown as Prisma.InputJsonValue` (not as any)
+- **[Prisma]** : Upsert always overwrites — use separate `updateMany({where:{field:null}})` for null-only updates
+- **[webhook]** : `req.text()` BEFORE `JSON.parse()` (body stream consumed once for HMAC)
+- **[webhook]** : `timingSafeEqual` needs equal-length check first
+- **[webhook]** : Instantly variant is 1-indexed → `webhookVariantToIndex()` converts to 0-indexed
+- **[instantly]** : Lead `status` read-only — use `updateLeadInterestStatus` to stop sequences
+- **[instantly]** : `getEmails()` response field is `lead` not `lead_email`
+- **[instantly]** : `getCampaignStepAnalytics` has 4 response shapes with different field names
+- **[regex]** : `\b` fails after `:` — use `^re:\s` not `^(re:)\b`
+- **[enrichment]** : `extractLinkedInContext()` returns `undefined` (not `null`) for absent keys
+- **[testing]** : Zod `.default()` = REQUIRED in infer type — tests must include explicitly
+- **[testing]** : setTimeout stub for rate-limit: capture `realSetTimeout` before stubbing
+- **[types]** : `safeTransition()` needs `LeadStatus` type, `getActiveIntegration()` needs `IntegrationType`
+- **[types]** : SDK boundaries → explicit eslint-disable + comment. Everywhere else, zero `as any`
+- **[csv]** : Delimiter priority: tab > semicolon > comma. French headers mapped. Missing email = skip
 
-### Conventions émergentes
+## 12. Playwright MCP — Aide-mémoire
 
-- **[type safety]** : At SDK/provider boundaries, use explicit eslint-disable + comment explaining why. Everywhere else, zero `as any`
-- **[scoring]** : Threshold alerts on tool outputs (not just raw counts) — agent gets structured warnings it can act on
+```
+NAVIGATION: browser_navigate → browser_snapshot (lire) → browser_click (liens/boutons)
+RECHERCHE:  browser_type (search bar) → browser_press_key "Enter" → snapshot résultats
+MULTI-TAB:  browser_tab_new / browser_tab_list / browser_tab_select
+DONNÉES:    browser_snapshot (accessibility tree, 2-5KB) >> browser_take_screenshot (500KB)
+VISUEL:     browser_take_screenshot (fullPage=true), sauver dans .claude/findings/screenshots/
+FORMS:      browser_click + browser_type + browser_select_option, slowly=true pour JS handlers
+DEBUG:      browser_console (erreurs), browser_network (requêtes), browser_wait (chargement)
+
+RÈGLES:
+- Toujours 3-5 résultats Google, naviguer les pages internes de chaque site
+- Préférer snapshot pour les données, screenshot uniquement pour le visuel
+- Synthétiser dans un finding avec URLs sources exactes
+```

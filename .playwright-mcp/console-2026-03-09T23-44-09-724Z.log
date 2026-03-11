@@ -1,0 +1,12 @@
+[    3648ms] ReferenceError: YOUR_HOTJAR_ID is not defined
+    at <anonymous>:1:103
+    at <anonymous>:1:266
+    at https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:850:429
+    at https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:851:132
+    at lR (https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:852:31)
+    at Od.kR (https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:849:92)
+    at Od.<anonymous> (https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:268:187)
+    at k.apply (https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:200:466)
+    at kb (https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:163:209)
+    at jb (https://www.googletagmanager.com/gtm.js?id=GTM-MJLJ9KHS:162:527)
+[    6171ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://aplo-evnt.com/api/v1/intent_pixel/track_request?app_id=69977d2b56ece7000d87e8c9:0

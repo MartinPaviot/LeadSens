@@ -1,4 +1,5 @@
 import { Mistral, HTTPClient } from "@mistralai/mistralai";
+import { logger } from "@/lib/logger";
 import type {
   Tool,
   ToolCall,
@@ -16,7 +17,16 @@ import type {
   DraftEmailOptions,
   DraftEmailResult,
   ToolDefinition,
+  AutonomyLevel,
 } from "./types";
+
+// ─── Autonomy Cursor ─────────────────────────────────────
+// Tools that require confirmation in MANUAL mode (beyond isSideEffect tools)
+const MANUAL_CONFIRMATION_TOOLS = new Set([
+  "enrich_leads_batch",
+  "draft_emails_batch",
+  "score_leads_batch",
+]);
 
 // ─── Client Singleton ─────────────────────────────────────
 
@@ -292,6 +302,27 @@ function stripPhantomToolCalls(text: string, toolNames: string[]): string {
   return result;
 }
 
+/**
+ * Determine if a tool execution should be blocked pending user confirmation.
+ * Based on the workspace autonomy level and tool properties.
+ */
+function shouldRequireConfirmation(
+  toolDef: ToolDefinition,
+  toolName: string,
+  autonomyLevel?: AutonomyLevel,
+): boolean {
+  const level = autonomyLevel ?? "SUPERVISED";
+
+  // AUTO mode: execute everything
+  if (level === "AUTO") return false;
+
+  // SUPERVISED mode: block only isSideEffect tools
+  if (level === "SUPERVISED") return !!toolDef.isSideEffect;
+
+  // MANUAL mode: block isSideEffect + batch processing tools
+  return !!toolDef.isSideEffect || MANUAL_CONFIRMATION_TOOLS.has(toolName);
+}
+
 // ─── 1. chatStream — Streaming with tool loop ─────────────
 
 export async function* chatStream(
@@ -356,11 +387,11 @@ export async function* chatStream(
         temperature: options.temperature ?? 0.7,
       });
     } catch (err) {
-      console.error("[chatStream] Mistral API error at step", step, err);
+      logger.error(`[chatStream] Mistral API error at step ${step}`, { error: err });
       // If this was after a phantom recovery, try one final call without
       // the phantom messages (strip last 2 messages: assistant + tool)
       if (phantomRecoveries > 0 && messages.length >= 3) {
-        console.log("[chatStream] Retrying without phantom messages");
+        logger.debug("[chatStream] Retrying without phantom messages");
         messages.splice(-2); // Remove the phantom assistant + tool messages
         try {
           stream = await client.chat.stream({
@@ -372,7 +403,7 @@ export async function* chatStream(
             temperature: options.temperature ?? 0.7,
           });
         } catch (retryErr) {
-          console.error("[chatStream] Retry also failed:", retryErr);
+          logger.error("[chatStream] Retry also failed:", { error: retryErr });
           yield { type: "text-delta" as const, delta: "Sorry, a technical error occurred. Please try your message again." };
           yield { type: "finish", usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, totalSteps: step }, finishReason: "stop" };
           return;
@@ -518,7 +549,7 @@ export async function* chatStream(
             fixedArgs = { [firstParam]: rawValue };
           }
 
-          console.log(`[chatStream] Phantom recovery #${phantomRecoveries}: ${phantom.toolName}`, JSON.stringify(fixedArgs).slice(0, 200));
+          logger.debug(`[chatStream] Phantom recovery #${phantomRecoveries}: ${phantom.toolName}`, { args: JSON.stringify(fixedArgs).slice(0, 200) });
 
           const phantomId = `phantom-${Date.now()}`;
 
@@ -559,7 +590,7 @@ export async function* chatStream(
           });
 
           // Continue the loop — Mistral will see the tool result and
-          // should call the next tool (e.g. instantly_count_leads)
+          // should call the next tool (e.g. count_leads)
           continue;
         }
       }
@@ -625,11 +656,19 @@ export async function* chatStream(
         input: args,
       };
 
-      // Execute tool
+      // Execute tool (with autonomy cursor enforcement)
       let output: unknown;
       try {
         if (!toolDef) {
           output = { error: `Unknown tool: ${toolName}` };
+        } else if (shouldRequireConfirmation(toolDef, toolName, options.autonomyLevel)) {
+          // Autonomy cursor: return confirmation request instead of executing
+          output = {
+            __confirmation_required: true,
+            tool: toolName,
+            description: toolDef.description.slice(0, 100),
+            args_summary: Object.keys(args as Record<string, unknown>).join(", "),
+          };
         } else {
           output = await toolDef.execute(args, {
             workspaceId: options.workspaceId,

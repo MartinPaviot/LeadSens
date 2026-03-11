@@ -1,0 +1,973 @@
+- generic [active] [ref=e1]:
+  - link "Accéder au contenu principal" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+    - generic [ref=e4]: Accéder au contenu principal
+  - generic [ref=e6]:
+    - generic:
+      - generic [ref=e7]:
+        - generic: "opinion impopulaire : la personnalisation par l'IA est en train de ruiner les e-mails froids et vous n'êtes pas prêts pour cette conversation : r/salesdevelopment"
+      - banner [ref=e10]:
+        - navigation [ref=e11]:
+          - generic [ref=e12]:
+            - button "Ouvrir le menu" [ref=e16] [cursor=pointer]:
+              - img [ref=e19]
+              - generic [ref=e21]:
+                - generic: Ouvrir le menu
+            - link "Accueil" [ref=e24] [cursor=pointer]:
+              - /url: /
+              - img [ref=e26]
+          - search [ref=e43]:
+            - generic [ref=e45]:
+              - img [ref=e48]
+              - generic "Supprimer le filtre r/salesdevelopment et étendre la recherche à l’ensemble de Reddit" [ref=e51] [cursor=pointer]:
+                - button [pressed] [ref=e52]:
+                  - generic [ref=e56]: r/salesdevelopment
+                - img [ref=e58]
+              - textbox "Supprimer le filtre r/salesdevelopment et étendre la recherche à l’ensemble de Reddit" [ref=e61]:
+                - /placeholder: Rechercher dans r/salesdevelopment
+          - generic [ref=e62]:
+            - button "Traductions activées" [ref=e70] [cursor=pointer]:
+              - img [ref=e73]
+            - link "Se connecter" [ref=e78] [cursor=pointer]:
+              - /url: https://www.reddit.com/login/
+              - generic [ref=e80]: Se connecter
+            - button "Agrandir le menu" [ref=e85] [cursor=pointer]:
+              - img [ref=e88]
+              - generic [ref=e90]:
+                - generic: Agrandir le menu
+      - generic [ref=e94]:
+        - main [ref=e95]:
+          - 'generic "opinion impopulaire : la personnalisation par l''IA est en train de ruiner les e-mails froids et vous n''êtes pas prêts pour cette conversation : r/salesdevelopment"'
+          - generic [ref=e97]:
+            - generic [ref=e98]:
+              - generic [ref=e99]:
+                - button "Retour" [ref=e101] [cursor=pointer]:
+                  - img [ref=e104]
+                  - generic [ref=e106]:
+                    - generic: Retour
+                - link "Accéder à salesdevelopment" [ref=e109] [cursor=pointer]:
+                  - /url: /r/salesdevelopment/
+                  - generic [ref=e113]:
+                    - generic: Accéder à salesdevelopment
+                - group [ref=e114]:
+                  - generic [ref=e115]:
+                    - link "r/salesdevelopment" [ref=e118] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/
+                    - generic [ref=e119]: •
+                    - time [ref=e121]: "-8 h"
+                  - 'link "Auteur·rice : Kindly-Reality4804" [ref=e126] [cursor=pointer]':
+                    - /url: /user/Kindly-Reality4804/
+                    - text: Kindly-Reality4804
+              - button "Ouvrir les actions de membre" [ref=e131] [cursor=pointer]:
+                - img [ref=e134]
+            - 'heading "Titre de la publication : opinion impopulaire : la personnalisation par l''IA est en train de ruiner les e-mails froids et vous n''êtes pas prêts pour cette conversation" [level=1] [ref=e138]': "opinion impopulaire : la personnalisation par l'IA est en train de ruiner les e-mails froids et vous n'êtes pas prêts pour cette conversation"
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - paragraph [ref=e143]: Je vais me faire défoncer pour ça, mais tant pis.
+                - paragraph [ref=e144]: "Tous les jours dans ce sous-forum, quelqu'un pose des questions sur les outils de personnalisation par IA. Quel est le meilleur ? Comment le configurer ? Dois-je utiliser Clay + chatgpt ou devrais-je utiliser [insérer le nouvel outil sorti la semaine dernière] ? Et tout le monde dans les commentaires répond : oui, absolument, vous AVEZ BESOIN de personnalisation en 2026, sinon vos e-mails ne fonctionneront pas."
+                - paragraph [ref=e145]: Et je reste là à lire ces fils de discussion en me disant, mec, on est en train de faire plonger cette chaîne et personne ne le voit.
+                - paragraph [ref=e146]: Laissez-moi vous expliquer ce que je veux dire.
+                - paragraph [ref=e147]:
+                  - strong [ref=e148]: À quoi ressemble réellement la personnalisation par IA du point de vue des prospects
+                - paragraph [ref=e149]: Je veux que vous fassiez quelque chose de rapide. Allez vérifier le dossier spam ou l'onglet promotions de n'importe quel e-mail professionnel auquel vous avez accès. N'importe quelle boîte de réception de fondateur. N'importe quelle boîte de réception de VP. Regardez les e-mails froids qui s'y trouvent depuis la semaine dernière.
+                - paragraph [ref=e150]: "Je vous garantis qu'au moins la moitié d'entre eux commencent par quelque chose comme ça :"
+                - paragraph [ref=e151]: "\"Salut [nom], j'ai vu votre récent post sur [sujet] sur LinkedIn, vraiment intéressant.\""
+                - paragraph [ref=e152]: "\"J'ai remarqué que [entreprise] vient de [chose de leur site web]. Croissance impressionnante.\""
+                - paragraph [ref=e153]: "\"Je suis tombé sur votre profil et votre expérience dans [secteur] a attiré mon attention.\""
+                - paragraph [ref=e154]: "\"J'ai vu que [entreprise] se développe sur [marché], c'est passionnant.\""
+                - paragraph [ref=e155]: Chacun. Est. Pareil.
+                - paragraph [ref=e156]: Parce qu'ils SONT pareils. Ils sont tous écrits par les mêmes outils d'IA qui tirent des informations des mêmes profils LinkedIn et des mêmes sites web d'entreprises et les soumettent aux mêmes invites. Le résultat est techniquement "personnalisé" parce qu'il mentionne quelque chose de spécifique sur le prospect. Mais ça ne donne pas l'impression d'être personnalisé parce que tous les autres e-mails dans leur boîte de réception font exactement la même chose.
+                - paragraph [ref=e157]: C'est comme quand une personne arrive à une soirée avec une tenue unique et que ça a l'air cool. Puis 200 personnes arrivent avec la même tenue. Ce n'est plus unique. C'est un uniforme.
+                - paragraph [ref=e158]: C'est ce que la personnalisation par IA est devenue. Un uniforme que chaque démarcheur par e-mail froid porte tout en prétendant se démarquer.
+                - paragraph [ref=e159]:
+                  - strong [ref=e160]: Les données que personne ne veut partager
+                - paragraph [ref=e161]: Alors, voici ce qui m'a vraiment poussé à écrire ce post. Au cours des 4 derniers mois, j'ai mené un test sur un tas de campagnes. Ce n'était même pas intentionnel au début, j'ai juste commencé à remarquer quelque chose d'étrange.
+                - paragraph [ref=e162]: J'avais des campagnes en cours avec des premières lignes personnalisées par IA. Vous connaissez le principe. Clay récupère les données. gpt écrit une première ligne personnalisée pour chaque prospect. "J'ai vu que votre équipe vient d'ouvrir un bureau à Londres, félicitations pour l'expansion" et ce genre de choses. Une personnalisation de bonne qualité aussi, pas de la merde. Des observations spécifiques et réellement pertinentes.
+                - paragraph [ref=e163]: Et puis j'avais des campagnes où on ne... personnalisait pas. Pas de première ligne sur eux du tout. On passait directement au pitch. "Salut [nom] - nous aidons [ICP] à faire [chose]. On vient de le faire pour [entreprise similaire] et [résultat]. Ça vaut le coup d'en discuter ?"
+                - paragraph [ref=e164]: Plat. Direct. Zéro personnalisation au-delà de leur nom et de leur entreprise.
+                - paragraph [ref=e165]: Les campagnes personnalisées ont obtenu environ 3,1 % de taux de réponse global. Les campagnes non personnalisées ? 2,7 %.
+                - paragraph [ref=e166]: Donc oui, la personnalisation a "gagné". De 0,4 %.
+                - paragraph [ref=e167]: Maintenant, prenez en compte ce que ce 0,4 % a réellement coûté.
+                - paragraph [ref=e168]: La configuration de la personnalisation par IA. L'abonnement à Clay. Les coûts de l'API gpt . Le temps passé à construire et à maintenir les flux de travail. Le temps passé à l'assurance qualité des résultats, car parfois l'IA écrit quelque chose de complètement faux ou maladroit et vous ne pouvez pas simplement l'envoyer à l'aveugle. Le temps passé à corriger l'enrichissement cassé lorsque les données LinkedIn ne se récupèrent pas correctement ou que le scraper du site web de l'entreprise renvoie des déchets.
+                - paragraph [ref=e169]: Pour une différence de 0,4 %.
+                - paragraph [ref=e170]: Je suis resté là à regarder les chiffres et je me suis dit, attends. Est-ce que je dépense tout cet argent, ce temps et cette complexité supplémentaires pour une amélioration de 0,4 % ? Alors que je pourrais simplement écrire une meilleure deuxième ligne ou tester une offre différente et probablement obtenir 3 fois cette amélioration gratuitement ?
+                - paragraph [ref=e171]: Et je réalise que mon test n'est pas une étude scientifique massive. Les tailles d'échantillon pourraient être plus grandes. Les secteurs varient. Tout ça. Mais ce sont des données réelles provenant de campagnes réelles et la tendance était suffisamment constante pour me faire sérieusement remettre en question ce que nous faisions.
+                - paragraph [ref=e172]:
+                  - strong [ref=e173]: En fait, ça rend les gens PIRES en matière d'e-mails froids
+                - paragraph [ref=e174]: Voici la partie qui m'ennuie vraiment.
+                - paragraph [ref=e175]: La personnalisation par IA est devenue une béquille qui permet aux gens d'éviter de faire le vrai travail difficile de l'e-mailing froid, qui consiste à construire des listes solides et à élaborer des offres que les gens veulent réellement.
+                - paragraph [ref=e176]: Je le vois constamment. Quelqu'un a une offre pourrie et une liste médiocre et au lieu de corriger ces choses, il pense "eh bien, si je personnalise davantage, ça va marcher". Alors il passe 2 semaines à construire un flux de travail Clay élaboré qui génère des premières lignes personnalisées pour chaque prospect. Puis il lance et obtient un taux de réponse de 1,8 % et se dit "hmm, peut-être que j'ai besoin d'une MEILLEURE personnalisation" et recommence le cycle.
+                - paragraph [ref=e177]: Mec, ta personnalisation n'est pas le problème. Tu envoies des e-mails aux mauvaises personnes avec une offre dont personne ne se soucie. Aucune quantité de "j'ai vu votre récent post sur LinkedIn" ne va arranger ça. Tu mets un pansement sur une jambe cassée.
+                - paragraph [ref=e178]: Les fondamentaux de l'e-mailing froid n'ont pas changé. La bonne personne. La bonne offre. Le bon moment. Un e-mail court. Une demande claire. Une infrastructure appropriée. Tout le reste est une optimisation sur une base qui doit d'abord être solide.
+                - paragraph [ref=e179]: La personnalisation par IA est une optimisation. Une optimisation mineure d'après ce que j'ai vu. Mais les gens la traitent comme si c'était la base. Comme si c'était LA chose qui fait fonctionner l'e-mailing froid. Ce n'est pas le cas. Ça ne l'a jamais été. Et plus les gens se concentrent dessus, plus ils ignorent les choses qui font réellement bouger les choses.
+                - paragraph [ref=e180]:
+                  - strong [ref=e181]: Ce qui fonctionne réellement mieux que la personnalisation, d'après mon expérience
+                - paragraph [ref=e182]: Au lieu de passer du temps et de l'argent sur les premières lignes par IA, voici où je mets cette énergie maintenant et où j'obtiens de bien meilleurs résultats.
+                - paragraph [ref=e183]:
+                  - strong [ref=e184]: Un ciblage plus précis
+                - paragraph [ref=e185]: Je sais que c'est un conseil ennuyeux et que tout le monde le dit, mais sérieusement. Passer d'une liste large à une liste hyper spécifique fait plus pour votre taux de réponse que n'importe quelle personnalisation ne le fera jamais. Trouver des entreprises avec des signaux d'achat actifs. Filtrer par technographie. Détecter l'intention d'embauche. Ces choses vous donnent des améliorations de taux de réponse de 1 à 3 %. Pas 0,4 %.
+                - paragraph [ref=e186]:
+                  - strong [ref=e187]: De meilleures offres
+                - paragraph [ref=e188]: Réécrivez votre offre avant de réécrire votre première ligne. Rendez-la plus spécifique. Ajoutez un chiffre. Ajoutez un délai. Ajoutez une inversion des risques. "Nous aidons les entreprises à obtenir plus de prospects" devient "Nous avons ajouté 34 rendez-vous qualifiés en 60 jours pour une entreprise comme la vôtre et si nous n'atteignons pas ce chiffre, vous ne payez pas." À laquelle répondriez-vous ? Exactement.
+                - paragraph [ref=e189]:
+                  - strong [ref=e190]: Plus de relances avec une substance réelle
+                - paragraph [ref=e191]: La plupart des gens envoient 2 relances et arrêtent. Nous en envoyons 4 à 5 et chacune introduit quelque chose de nouveau. Un résultat différent. Un angle différent. Une question pertinente. Cela seul génère plus de rendez-vous que n'importe quelle optimisation de première ligne ne l'a jamais fait.
+                - paragraph [ref=e192]:
+                  - strong [ref=e193]: Du volume avec une infrastructure propre
+                - paragraph [ref=e194]: Si vous envoyez 150 e-mails par jour et que vous obtenez 4 à 5 réponses, au lieu d'essayer de gagner 0,5 % de plus grâce à la personnalisation, passez simplement à 400 e-mails par jour avec plus de boîtes de réception et transformez ces 5 réponses en 13. Problème résolu. Plus de rendez-vous. Pas besoin d'abonnement à Clay.
+                - paragraph [ref=e195]:
+                  - strong [ref=e196]: "\"Mais les gourous disent que vous AVEZ BESOIN de personnalisation\""
+                - paragraph [ref=e197]: Oui, les gourous vendent aussi des outils de personnalisation. Ou ils vendent des cours qui vous apprennent à utiliser des outils de personnalisation. Ou ils ont des accords d'affiliation avec des outils de personnalisation. C'est marrant comme ça marche, non ?
+                - paragraph [ref=e198]: Je ne dis pas que la personnalisation est complètement inutile. Si vous faites de la prospection à faible volume auprès de comptes d'entreprise. Genre 20 à 30 e-mails par jour aux cadres supérieurs des entreprises du classement Fortune 500. Alors oui, absolument, faites des recherches manuelles sur chaque personne et écrivez quelque chose de vraiment réfléchi et spécifique. Parce qu'à ce volume et à cette taille de transaction, l'effort supplémentaire par e-mail est justifié par le retour potentiel.
+                - paragraph [ref=e199]: Mais si vous faites de la prospection B2B normale à grande échelle. Envoyer 300 à 500 e-mails par jour à des entreprises de taille moyenne. Le retour sur investissement de la personnalisation par IA est au mieux discutable et au pire une perte d'argent totale.
+                - paragraph [ref=e200]: Et le coût d'opportunité est ce qui me tue. Chaque heure que quelqu'un passe à construire des flux de travail Clay et à déboguer des scrapers d'enrichissement est une heure qu'il pourrait passer à construire de meilleures listes ou à tester de nouvelles offres ou à ajouter plus d'infrastructure d'envoi. Ces choses ont un retour sur investissement beaucoup plus élevé qu'une première ligne personnalisée qui ressemble à toutes les autres premières lignes personnalisées.
+                - paragraph [ref=e201]:
+                  - strong [ref=e202]: Où cela mène et pourquoi cela me fait peur
+                - paragraph [ref=e203]: Ma vraie crainte est que la personnalisation par IA accélère la fatigue de la boîte de réception pour tout le monde. Pas seulement pour les personnes qui l'utilisent, mais pour tous les démarcheurs par e-mail froid.
+                - paragraph [ref=e204]: Réfléchissez-y. Il y a 3 ans, recevoir un e-mail froid personnalisé était plutôt cool. Oh, ils ont mentionné mon podcast. Ils ont remarqué qu'on venait de lever des fonds. On avait l'impression que quelqu'un se souciait vraiment de nous. On pouvait répondre juste à cause de cet effort.
+                - paragraph [ref=e205]: Maintenant ? Chaque e-mail est "personnalisé". Le prospect sait que c'est automatisé. Il le sent. La magie a complètement disparu. Et pire, cela a appris aux prospects à être PLUS sceptiques envers chaque e-mail froid parce qu'ils supposent que tout est généré par l'IA. Même les e-mails qui sont réellement écrits par un être humain.
+                - paragraph [ref=e206]: Nous formons collectivement nos prospects à nous ignorer. Et la réponse de la communauté des e-mails froids est de redoubler d'efforts sur la chose même qui cause le problème. Plus d'IA. Plus d'automatisation. Plus de fausse personnalisation à grande échelle. C'est comme essayer d'éteindre un incendie avec de l'essence.
+                - paragraph [ref=e207]: À un moment donné, et je pense qu'on y arrive, la chose la plus "personnalisée" que vous puissiez faire est de NE PAS personnaliser. Soyez direct. Soyez honnête. Dites ce que vous voulez. Oubliez l'intimité simulée. La barre est tombée si bas pour l'e-mailing froid que le simple fait d'être une personne normale qui écrit un e-mail simple de 3 phrases est en train de devenir le facteur de différenciation.
+                - paragraph [ref=e208]: Ce qui est assez hilarant si vous y réfléchissez. On a fait le tour. La meilleure stratégie d'e-mailing froid en 2026 pourrait bien être d'écrire un e-mail normal comme en 2019.
+                - paragraph [ref=e209]:
+                  - strong [ref=e210]: Écoutez, je sais que ce point de vue va être controversé
+                - paragraph [ref=e211]: Et c'est très bien. Peut-être que votre expérience est différente. Peut-être que votre configuration de personnalisation par IA est en train de tout déchirer et vous donne des taux de réponse de 8 %. Vraiment, tant mieux pour vous si c'est le cas.
+                - paragraph [ref=e212]: Mais ce que je vois dans mes propres campagnes et ce que j'entends d'autres opérateurs en qui j'ai confiance, c'est que l'écart entre la personnalisation et la non-personnalisation se réduit rapidement. Et le coût et la complexité de la personnalisation à grande échelle ne diminuent pas. Donc, le calcul du retour sur investissement s'aggrave chaque mois.
+                - paragraph [ref=e213]: Je préfère passer mon temps et mon argent sur les choses qui se cumulent réellement. Une meilleure infrastructure. Des données plus propres. Des offres plus solides. Plus de volume. Ce sont les fondamentaux et ils le seront toujours.
+                - paragraph [ref=e214]: La personnalisation, c'est l'assaisonnement. Les gens ici la traitent comme le plat principal. Ce n'est pas le cas. Ça ne l'a jamais été.
+                - paragraph [ref=e215]: Faites-en ce que vous voulez. Je vous dis juste ce que je vois.
+              - button "Lire la suite" [ref=e216] [cursor=pointer]:
+                - text: Lire la suite
+                - img [ref=e218]
+            - generic [ref=e220]:
+              - img [ref=e221]
+              - generic [ref=e223]: "23"
+              - img [ref=e224]
+              - generic [ref=e226]: ·
+              - img [ref=e227]
+              - generic [ref=e229]: "9"
+          - separator [ref=e230]
+          - region "Commentaires" [ref=e234]:
+            - heading "Section des commentaires" [level=1] [ref=e235]
+            - generic:
+              - article "Commentaire de Low_Instruction4175 il y a 8 heures" [ref=e237]:
+                - generic "Métadonnées du commentaire de Low_Instruction4175" [ref=e238]:
+                  - link "Profil de Low_Instruction4175 --- avatar" [ref=e243] [cursor=pointer]:
+                    - /url: /user/Low_Instruction4175/
+                    - img "avatar u/Low_Instruction4175" [ref=e246]
+                  - generic [ref=e251]:
+                    - link "Profil de Low_Instruction4175" [ref=e254] [cursor=pointer]:
+                      - /url: /user/Low_Instruction4175/
+                      - text: Low_Instruction4175
+                    - generic [ref=e255]: •
+                    - link "il y a 8 h" [ref=e256] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9s660v/
+                      - time [ref=e257]: il y a 8 h
+                - generic [ref=e258]:
+                  - paragraph [ref=e265]: La personnalisation est presque morte. Seule la pertinence compte.
+                  - generic [ref=e269]:
+                    - img [ref=e270]
+                    - generic [ref=e272]: "9"
+                    - img [ref=e273]
+              - article "Commentaire de ToeSpecial5088 il y a 7 heures" [ref=e276]:
+                - generic "Métadonnées du commentaire de ToeSpecial5088" [ref=e277]:
+                  - link "Profil de ToeSpecial5088 --- avatar" [ref=e282] [cursor=pointer]:
+                    - /url: /user/ToeSpecial5088/
+                    - img "avatar u/ToeSpecial5088" [ref=e285]
+                  - generic [ref=e290]:
+                    - link "Profil de ToeSpecial5088" [ref=e293] [cursor=pointer]:
+                      - /url: /user/ToeSpecial5088/
+                      - text: ToeSpecial5088
+                    - generic [ref=e294]: •
+                    - link "il y a 7 h" [ref=e295] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9sc2ae/
+                      - time [ref=e296]: il y a 7 h
+                - generic [ref=e297]:
+                  - paragraph [ref=e306]: J'ai littéralement mis le sujet comme "prénom du prospect" et j'écris mon objectif, et le taux d'ouverture et de réponse est assez élevé lol. L'autre gars a raison, si ce n'est pas pertinent, alors le prospect peut s'en aller (je suis dans une impasse de vente et je suis en colère)
+                  - generic [ref=e307]:
+                    - button "Toggle Comment Thread" [expanded] [ref=e309] [cursor=pointer]:
+                      - img [ref=e312]
+                    - generic [ref=e315]:
+                      - img [ref=e316]
+                      - generic [ref=e318]: "4"
+                      - img [ref=e319]
+                  - 'article "Fil de commentaires niveau 1 : réponse de PapiKevinho il y a 4 heures" [ref=e325]':
+                    - generic "Métadonnées du commentaire de PapiKevinho" [ref=e326]:
+                      - link "Profil de PapiKevinho --- avatar" [ref=e331] [cursor=pointer]:
+                        - /url: /user/PapiKevinho/
+                        - img [ref=e336]
+                      - generic [ref=e342]:
+                        - link "Profil de PapiKevinho" [ref=e345] [cursor=pointer]:
+                          - /url: /user/PapiKevinho/
+                          - text: PapiKevinho
+                        - generic [ref=e346]: •
+                        - link "il y a 4 h" [ref=e347] [cursor=pointer]:
+                          - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9syw9f/
+                          - time [ref=e348]: il y a 4 h
+                    - generic [ref=e349]:
+                      - paragraph [ref=e356]: Donne moi un exemple?
+                      - generic [ref=e360]:
+                        - img [ref=e361]
+                        - generic [ref=e363]: "1"
+                        - img [ref=e364]
+              - article "Commentaire de Intelligent-Fox-6894 il y a 7 heures" [ref=e367]:
+                - generic "Métadonnées du commentaire de Intelligent-Fox-6894" [ref=e368]:
+                  - link "Profil de Intelligent-Fox-6894 --- avatar" [ref=e373] [cursor=pointer]:
+                    - /url: /user/Intelligent-Fox-6894/
+                    - generic [ref=e375]:
+                      - img [ref=e377]
+                      - img [ref=e381]
+                      - img [ref=e384]
+                  - generic [ref=e390]:
+                    - link "Profil de Intelligent-Fox-6894" [ref=e393] [cursor=pointer]:
+                      - /url: /user/Intelligent-Fox-6894/
+                      - text: Intelligent-Fox-6894
+                    - generic [ref=e394]: •
+                    - link "il y a 7 h" [ref=e395] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9s8n23/
+                      - time [ref=e396]: il y a 7 h
+                - generic [ref=e397]:
+                  - paragraph [ref=e404]: Vous avez réussi
+                  - generic [ref=e408]:
+                    - img [ref=e409]
+                    - generic [ref=e411]: "2"
+                    - img [ref=e412]
+              - article "Commentaire de cherrygirl12 il y a 6 heures" [ref=e415]:
+                - generic "Métadonnées du commentaire de cherrygirl12" [ref=e416]:
+                  - link "Profil de cherrygirl12 --- avatar" [ref=e421] [cursor=pointer]:
+                    - /url: /user/cherrygirl12/
+                    - img [ref=e426]
+                  - generic [ref=e432]:
+                    - link "Profil de cherrygirl12" [ref=e435] [cursor=pointer]:
+                      - /url: /user/cherrygirl12/
+                      - text: cherrygirl12
+                    - generic [ref=e436]: •
+                    - link "il y a 6 h" [ref=e437] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9spgvo/
+                      - time [ref=e438]: il y a 6 h
+                - generic [ref=e439]:
+                  - paragraph [ref=e446]: Sérieusement, j'ai eu trop de réunions quand mes e-mails et mes messages privés n'étaient pas du tout gênants ni automatiques, il suffit de rester bref et concis.
+                  - generic [ref=e450]:
+                    - img [ref=e451]
+                    - generic [ref=e453]: "2"
+                    - img [ref=e454]
+              - article "Commentaire de False_Resident_941 il y a 7 heures" [ref=e457]:
+                - generic "Métadonnées du commentaire de False_Resident_941" [ref=e458]:
+                  - button [ref=e460] [cursor=pointer]:
+                    - img [ref=e463]
+                  - generic [ref=e469]:
+                    - link "Profil de False_Resident_941" [ref=e472] [cursor=pointer]:
+                      - /url: /user/False_Resident_941/
+                      - text: False_Resident_941
+                    - generic [ref=e473]: •
+                    - link "il y a 7 h" [ref=e474] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9s9ici/
+                      - time [ref=e475]: il y a 7 h
+              - article "Commentaire de TigerWorldly3575 il y a 6 heures" [ref=e477]:
+                - generic "Métadonnées du commentaire de TigerWorldly3575" [ref=e478]:
+                  - link "Profil de TigerWorldly3575 --- avatar" [ref=e483] [cursor=pointer]:
+                    - /url: /user/TigerWorldly3575/
+                    - img "avatar u/TigerWorldly3575" [ref=e486]
+                  - generic [ref=e491]:
+                    - link "Profil de TigerWorldly3575" [ref=e494] [cursor=pointer]:
+                      - /url: /user/TigerWorldly3575/
+                      - text: TigerWorldly3575
+                    - generic [ref=e495]: •
+                    - link "il y a 6 h" [ref=e496] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9slj5m/
+                      - time [ref=e497]: il y a 6 h
+                - generic [ref=e498]:
+                  - generic [ref=e504]:
+                    - paragraph [ref=e505]: C'est mort
+                    - paragraph [ref=e506]: L'IA l'a juste rendu moins cher et maintenant la course vers le bas est déjà là
+                    - paragraph [ref=e507]: Juste une autre version de modèles et de crochets de champs personnalisés
+                  - generic [ref=e511]:
+                    - img [ref=e512]
+                    - generic [ref=e514]: "1"
+                    - img [ref=e515]
+              - article "Commentaire de MantisTabogganMD il y a 6 heures" [ref=e518]:
+                - generic "Métadonnées du commentaire de MantisTabogganMD" [ref=e519]:
+                  - link "Profil de MantisTabogganMD --- avatar" [ref=e524] [cursor=pointer]:
+                    - /url: /user/MantisTabogganMD/
+                    - img "avatar u/MantisTabogganMD" [ref=e527]
+                  - generic [ref=e532]:
+                    - link "Profil de MantisTabogganMD" [ref=e535] [cursor=pointer]:
+                      - /url: /user/MantisTabogganMD/
+                      - text: MantisTabogganMD
+                    - generic [ref=e536]: •
+                    - link "il y a 6 h" [ref=e537] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1rqgpa6/comment/o9sn14m/
+                      - time [ref=e538]: il y a 6 h
+                - generic [ref=e539]:
+                  - paragraph [ref=e546]: Est-ce que tu automatises tes séquences d'e-mails à froid ? J'ai trouvé très peu de retour sur investissement avec les e-mails et je n'ai quasiment pas de temps en dehors des réunions de découverte et des appels à froid. Ce serait sympa de rédiger des e-mails manuels avec plus de pertinence spécifique si j'avais le temps.
+                  - generic [ref=e550]:
+                    - img [ref=e551]
+                    - generic [ref=e553]: "1"
+                    - img [ref=e554]
+        - generic [ref=e556]:
+          - generic [ref=e557]:
+            - complementary [ref=e560]:
+              - generic [ref=e561]:
+                - generic [ref=e562]: Première fois sur Reddit ?
+                - paragraph [ref=e563]: Crée ton compte et découvre tout un monde de communautés.
+              - generic [ref=e564]:
+                - iframe [ref=e573]:
+                  - button "Continuer avec Google. S'ouvre dans un nouvel onglet." [ref=f21e3] [cursor=pointer]:
+                    - generic [ref=f21e5]:
+                      - img [ref=f21e7]
+                      - generic [ref=f21e14]: Continuer avec Google
+                - link "Utiliser une adresse mail" [ref=e575] [cursor=pointer]:
+                  - /url: https://www.reddit.com/register/
+                  - generic [ref=e578]:
+                    - img [ref=e579]
+                    - generic [ref=e581]: Utiliser une adresse mail
+              - link "Continuer avec le numéro de téléphone" [ref=e584] [cursor=pointer]:
+                - /url: https://www.reddit.com/login/
+                - generic [ref=e587]:
+                  - img [ref=e588]
+                  - generic [ref=e591]: Continuer avec le numéro de téléphone
+              - generic [ref=e592]:
+                - text: En continuant, tu acceptes nos
+                - link "Contrat d’utilisation" [ref=e593] [cursor=pointer]:
+                  - /url: https://www.redditinc.com/policies/user-agreement
+                - text: et reconnais que tu comprends la
+                - link "Politique de confidentialité" [ref=e594] [cursor=pointer]:
+                  - /url: https://www.redditinc.com/policies/privacy-policy
+                - text: .
+            - complementary "Section des publications connexes" [ref=e595]:
+              - heading "Section des publications connexes" [level=1] [ref=e596]: Davantage de publications susceptibles de vous plaire
+              - list [ref=e603]:
+                - listitem [ref=e604]:
+                  - generic [ref=e605]:
+                    - generic [ref=e607]:
+                      - link "Est-ce que les recruteurs s'en foutent/peuvent-ils dire si la lettre de motivation est écrite par une IA ?" [ref=e608] [cursor=pointer]:
+                        - /url: /r/recruitinghell/comments/1ptb98w/do_recruiters_care_can_they_tell_if_the_cover/
+                        - generic [ref=e609]:
+                          - generic: Est-ce que les recruteurs s'en foutent/peuvent-ils dire si la lettre de motivation est écrite par une IA ?
+                      - generic [ref=e612]:
+                        - generic [ref=e614]:
+                          - link "r/recruitinghell" [ref=e615] [cursor=pointer]:
+                            - /url: /r/recruitinghell/
+                            - generic [ref=e619]: r/recruitinghell
+                          - generic [ref=e620]: •
+                          - time [ref=e622]: "-3 m."
+                        - 'link "Publication de l’élément de la liste : Est-ce que les recruteurs s''en foutent/peuvent-ils dire si ..." [ref=e624] [cursor=pointer]':
+                          - /url: /r/recruitinghell/comments/1ptb98w/do_recruiters_care_can_they_tell_if_the_cover/
+                          - 'heading "Publication de l’élément de la liste : Est-ce que les recruteurs s''en foutent/peuvent-ils dire si ..." [level=3] [ref=e627]': Est-ce que les recruteurs s'en foutent/peuvent-ils dire si la lettre de motivation est écrite par une IA ?
+                      - generic [ref=e629]:
+                        - generic [ref=e630]: "45"
+                        - text: commentaires
+                    - separator [ref=e631]
+                - listitem [ref=e632]:
+                  - generic [ref=e633]:
+                    - generic [ref=e635]:
+                      - link "Je me suis fait balader par une entreprise pendant 2 mois et demi et je n'ai reçu qu'un bref e-mail de rejet à la fin." [ref=e636] [cursor=pointer]:
+                        - /url: /r/recruitinghell/comments/1m3odlv/i_got_strung_along_by_a_company_for_25_months_and/
+                        - generic [ref=e637]:
+                          - generic: Je me suis fait balader par une entreprise pendant 2 mois et demi et je n'ai reçu qu'un bref e-mail de rejet à la fin.
+                      - generic [ref=e639]:
+                        - generic [ref=e640]:
+                          - generic [ref=e642]:
+                            - link "r/recruitinghell" [ref=e643] [cursor=pointer]:
+                              - /url: /r/recruitinghell/
+                              - generic [ref=e647]: r/recruitinghell
+                            - generic [ref=e648]: •
+                            - time [ref=e650]: "-8 m."
+                          - 'link "Publication de l’élément de la liste : Je me suis fait balader par une entreprise pendant 2 mois e..." [ref=e652] [cursor=pointer]':
+                            - /url: /r/recruitinghell/comments/1m3odlv/i_got_strung_along_by_a_company_for_25_months_and/
+                            - 'heading "Publication de l’élément de la liste : Je me suis fait balader par une entreprise pendant 2 mois e..." [level=3] [ref=e655]': Je me suis fait balader par une entreprise pendant 2 mois et demi et je n'ai reçu qu'un bref e-mail de rejet à la fin.
+                        - link "r/recruitinghell - Je me suis fait balader par une entreprise pendant 2 mois et demi et je n'ai reçu qu'un bref e-mail de rejet à la fin." [ref=e658] [cursor=pointer]:
+                          - /url: /r/recruitinghell/comments/1m3odlv/i_got_strung_along_by_a_company_for_25_months_and/
+                          - img "r/recruitinghell - Je me suis fait balader par une entreprise pendant 2 mois et demi et je n'ai reçu qu'un bref e-mail de rejet à la fin." [ref=e659]
+                      - generic [ref=e661]:
+                        - generic [ref=e662]: "33"
+                        - text: upvotes ·
+                        - generic [ref=e663]: "20"
+                        - text: commentaires
+                    - separator [ref=e664]
+                - listitem [ref=e665]:
+                  - generic [ref=e666]:
+                    - generic [ref=e668]:
+                      - link "Quelqu'un peut me convaincre de NE PAS envoyer cet email (expérience d'entretien horrible)" [ref=e669] [cursor=pointer]:
+                        - /url: /r/sales/comments/1qvxn9k/someone_convince_me_not_to_send_this_email/
+                        - generic [ref=e670]:
+                          - generic: Quelqu'un peut me convaincre de NE PAS envoyer cet email (expérience d'entretien horrible)
+                      - generic [ref=e673]:
+                        - generic [ref=e675]:
+                          - link "r/sales" [ref=e676] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e680]: r/sales
+                          - generic [ref=e681]: •
+                          - time [ref=e683]: "-1 m."
+                        - 'link "Publication de l’élément de la liste : Quelqu''un peut me convaincre de NE PAS envoyer cet email (e..." [ref=e685] [cursor=pointer]':
+                          - /url: /r/sales/comments/1qvxn9k/someone_convince_me_not_to_send_this_email/
+                          - 'heading "Publication de l’élément de la liste : Quelqu''un peut me convaincre de NE PAS envoyer cet email (e..." [level=3] [ref=e688]': Quelqu'un peut me convaincre de NE PAS envoyer cet email (expérience d'entretien horrible)
+                      - generic [ref=e690]:
+                        - generic [ref=e691]: "156"
+                        - text: upvotes ·
+                        - generic [ref=e692]: "172"
+                        - text: commentaires
+                    - separator [ref=e693]
+                - listitem
+                - listitem [ref=e694]:
+                  - generic [ref=e695]:
+                    - generic [ref=e697]:
+                      - link "IA pour les appels à froid ?" [ref=e698] [cursor=pointer]:
+                        - /url: /r/sales/comments/1m6illp/ai_for_cold_calling/
+                        - generic [ref=e699]:
+                          - generic: IA pour les appels à froid ?
+                      - generic [ref=e702]:
+                        - generic [ref=e704]:
+                          - link "r/sales" [ref=e705] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e709]: r/sales
+                          - generic [ref=e710]: •
+                          - time [ref=e712]: "-8 m."
+                        - 'link "Publication de l’élément de la liste : IA pour les appels à froid ?" [ref=e714] [cursor=pointer]':
+                          - /url: /r/sales/comments/1m6illp/ai_for_cold_calling/
+                          - 'heading "Publication de l’élément de la liste : IA pour les appels à froid ?" [level=3] [ref=e717]': IA pour les appels à froid ?
+                      - generic [ref=e719]:
+                        - generic [ref=e720]: "9"
+                        - text: upvotes ·
+                        - generic [ref=e721]: "81"
+                        - text: commentaires
+                    - separator [ref=e722]
+                - listitem [ref=e723]:
+                  - generic [ref=e724]:
+                    - generic [ref=e726]:
+                      - link "On m'a dit que je n'avais pas eu le job parce qu'on me soupçonnait d'avoir utilisé l'IA pour répondre aux questions de l'entretien." [ref=e727] [cursor=pointer]:
+                        - /url: /r/recruitinghell/comments/1l999vw/was_told_i_didnt_get_a_job_because_i_was/
+                        - generic [ref=e728]:
+                          - generic: On m'a dit que je n'avais pas eu le job parce qu'on me soupçonnait d'avoir utilisé l'IA pour répondre aux questions de l'entretien.
+                      - generic [ref=e731]:
+                        - generic [ref=e733]:
+                          - link "r/recruitinghell" [ref=e734] [cursor=pointer]:
+                            - /url: /r/recruitinghell/
+                            - generic [ref=e738]: r/recruitinghell
+                          - generic [ref=e739]: •
+                          - time [ref=e741]: "-9 m."
+                        - 'link "Publication de l’élément de la liste : On m''a dit que je n''avais pas eu le job parce qu''on me soup..." [ref=e743] [cursor=pointer]':
+                          - /url: /r/recruitinghell/comments/1l999vw/was_told_i_didnt_get_a_job_because_i_was/
+                          - 'heading "Publication de l’élément de la liste : On m''a dit que je n''avais pas eu le job parce qu''on me soup..." [level=3] [ref=e746]': On m'a dit que je n'avais pas eu le job parce qu'on me soupçonnait d'avoir utilisé l'IA pour répondre aux questions de l'entretien.
+                      - generic [ref=e748]:
+                        - generic [ref=e749]: "335"
+                        - text: upvotes ·
+                        - generic [ref=e750]: "95"
+                        - text: commentaires
+                    - separator [ref=e751]
+                - listitem [ref=e752]:
+                  - generic [ref=e753]:
+                    - generic [ref=e755]:
+                      - link "Le boss pense que l'IA fait tout mon boulot et je suis vénère." [ref=e756] [cursor=pointer]:
+                        - /url: /r/sales/comments/1on26p6/boss_thinks_ai_is_doing_all_my_work_and_im_pissed/
+                        - generic [ref=e757]:
+                          - generic: Le boss pense que l'IA fait tout mon boulot et je suis vénère.
+                      - generic [ref=e760]:
+                        - generic [ref=e762]:
+                          - link "r/sales" [ref=e763] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e767]: r/sales
+                          - generic [ref=e768]: •
+                          - time [ref=e770]: "-4 m."
+                        - 'link "Publication de l’élément de la liste : Le boss pense que l''IA fait tout mon boulot et je suis vénè..." [ref=e772] [cursor=pointer]':
+                          - /url: /r/sales/comments/1on26p6/boss_thinks_ai_is_doing_all_my_work_and_im_pissed/
+                          - 'heading "Publication de l’élément de la liste : Le boss pense que l''IA fait tout mon boulot et je suis vénè..." [level=3] [ref=e775]': Le boss pense que l'IA fait tout mon boulot et je suis vénère.
+                      - generic [ref=e777]:
+                        - generic [ref=e778]: "78"
+                        - text: upvotes ·
+                        - generic [ref=e779]: "67"
+                        - text: commentaires
+                    - separator [ref=e780]
+                - listitem [ref=e781]:
+                  - generic [ref=e782]:
+                    - generic [ref=e784]:
+                      - link "Pour ceux d'entre vous qui font de l'outreach à froid ou des emails à froid, des conseils ?" [ref=e785] [cursor=pointer]:
+                        - /url: /r/sales/comments/1nuly8a/for_those_of_you_doing_cold_outreach_or_cold/
+                        - generic [ref=e786]:
+                          - generic: Pour ceux d'entre vous qui font de l'outreach à froid ou des emails à froid, des conseils ?
+                      - generic [ref=e789]:
+                        - generic [ref=e791]:
+                          - link "r/sales" [ref=e792] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e796]: r/sales
+                          - generic [ref=e797]: •
+                          - time [ref=e799]: "-5 m."
+                        - 'link "Publication de l’élément de la liste : Pour ceux d''entre vous qui font de l''outreach à froid ou de..." [ref=e801] [cursor=pointer]':
+                          - /url: /r/sales/comments/1nuly8a/for_those_of_you_doing_cold_outreach_or_cold/
+                          - 'heading "Publication de l’élément de la liste : Pour ceux d''entre vous qui font de l''outreach à froid ou de..." [level=3] [ref=e804]': Pour ceux d'entre vous qui font de l'outreach à froid ou des emails à froid, des conseils ?
+                      - generic [ref=e806]:
+                        - generic [ref=e807]: "11"
+                        - text: upvotes ·
+                        - generic [ref=e808]: "42"
+                        - text: commentaires
+                    - separator [ref=e809]
+                - listitem [ref=e810]:
+                  - generic [ref=e811]:
+                    - generic [ref=e813]:
+                      - link "Des astuces pour améliorer mes emails à froid ?" [ref=e814] [cursor=pointer]:
+                        - /url: /r/sales/comments/1qhgtr6/tips_to_improving_my_cold_email_outreach/
+                        - generic [ref=e815]:
+                          - generic: Des astuces pour améliorer mes emails à froid ?
+                      - generic [ref=e818]:
+                        - generic [ref=e820]:
+                          - link "r/sales" [ref=e821] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e825]: r/sales
+                          - generic [ref=e826]: •
+                          - time [ref=e828]: "-2 m."
+                        - 'link "Publication de l’élément de la liste : Des astuces pour améliorer mes emails à froid ?" [ref=e830] [cursor=pointer]':
+                          - /url: /r/sales/comments/1qhgtr6/tips_to_improving_my_cold_email_outreach/
+                          - 'heading "Publication de l’élément de la liste : Des astuces pour améliorer mes emails à froid ?" [level=3] [ref=e833]': Des astuces pour améliorer mes emails à froid ?
+                      - generic [ref=e835]:
+                        - generic [ref=e836]: "8"
+                        - text: upvotes ·
+                        - generic [ref=e837]: "32"
+                        - text: commentaires
+                    - separator [ref=e838]
+                - listitem
+                - listitem [ref=e839]:
+                  - generic [ref=e840]:
+                    - generic [ref=e842]:
+                      - link "Je viens de découvrir que le recruteur avec qui j'échange par email depuis 3 semaines est une IA. Les réponses étaient indiscernables. Je ne suis même pas en colère, je suis juste fatigué." [ref=e843] [cursor=pointer]:
+                        - /url: /r/recruitinghell/comments/1rl4jsg/i_just_found_out_the_recruiter_ive_been_emailing/
+                        - generic [ref=e844]:
+                          - generic: Je viens de découvrir que le recruteur avec qui j'échange par email depuis 3 semaines est une IA. Les réponses étaient indiscernables. Je ne suis même pas en colère, je suis juste fatigué.
+                      - generic [ref=e847]:
+                        - generic [ref=e849]:
+                          - link "r/recruitinghell" [ref=e850] [cursor=pointer]:
+                            - /url: /r/recruitinghell/
+                            - generic [ref=e854]: r/recruitinghell
+                          - generic [ref=e855]: •
+                          - time [ref=e857]: "-6 j"
+                        - 'link "Publication de l’élément de la liste : Je viens de découvrir que le recruteur avec qui j''échange p..." [ref=e859] [cursor=pointer]':
+                          - /url: /r/recruitinghell/comments/1rl4jsg/i_just_found_out_the_recruiter_ive_been_emailing/
+                          - 'heading "Publication de l’élément de la liste : Je viens de découvrir que le recruteur avec qui j''échange p..." [level=3] [ref=e862]': Je viens de découvrir que le recruteur avec qui j'échange par email depuis 3 semaines est une IA. Les réponses étaient indiscernables. Je ne suis même pas en colère, je suis juste fatigué.
+                      - generic [ref=e864]:
+                        - generic [ref=e865]: "65"
+                        - text: upvotes ·
+                        - generic [ref=e866]: "8"
+                        - text: commentaires
+                    - separator [ref=e867]
+                - listitem [ref=e868]:
+                  - generic [ref=e869]:
+                    - generic [ref=e871]:
+                      - link "Prise de notes IA pour les réunions clients en personne" [ref=e872] [cursor=pointer]:
+                        - /url: /r/sales/comments/1q46q9o/ai_notetaking_for_inperson_customer_meetings/
+                        - generic [ref=e873]:
+                          - generic: Prise de notes IA pour les réunions clients en personne
+                      - generic [ref=e876]:
+                        - generic [ref=e878]:
+                          - link "r/sales" [ref=e879] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e883]: r/sales
+                          - generic [ref=e884]: •
+                          - time [ref=e886]: "-2 m."
+                        - 'link "Publication de l’élément de la liste : Prise de notes IA pour les réunions clients en personne" [ref=e888] [cursor=pointer]':
+                          - /url: /r/sales/comments/1q46q9o/ai_notetaking_for_inperson_customer_meetings/
+                          - 'heading "Publication de l’élément de la liste : Prise de notes IA pour les réunions clients en personne" [level=3] [ref=e891]': Prise de notes IA pour les réunions clients en personne
+                      - generic [ref=e893]:
+                        - generic [ref=e894]: "9"
+                        - text: upvotes ·
+                        - generic [ref=e895]: "54"
+                        - text: commentaires
+                    - separator [ref=e896]
+                - listitem [ref=e897]:
+                  - generic [ref=e898]:
+                    - generic [ref=e900]:
+                      - link "Est-ce une mauvaise idée d'envoyer un e-mail à un PDG pour un emploi ?" [ref=e901] [cursor=pointer]:
+                        - /url: /r/sales/comments/1odl6uu/is_it_a_bad_idea_to_email_a_ceo_about_a_job/
+                        - generic [ref=e902]:
+                          - generic: Est-ce une mauvaise idée d'envoyer un e-mail à un PDG pour un emploi ?
+                      - generic [ref=e905]:
+                        - generic [ref=e907]:
+                          - link "r/sales" [ref=e908] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e912]: r/sales
+                          - generic [ref=e913]: •
+                          - time [ref=e915]: "-5 m."
+                        - 'link "Publication de l’élément de la liste : Est-ce une mauvaise idée d''envoyer un e-mail à un PDG pour ..." [ref=e917] [cursor=pointer]':
+                          - /url: /r/sales/comments/1odl6uu/is_it_a_bad_idea_to_email_a_ceo_about_a_job/
+                          - 'heading "Publication de l’élément de la liste : Est-ce une mauvaise idée d''envoyer un e-mail à un PDG pour ..." [level=3] [ref=e920]': Est-ce une mauvaise idée d'envoyer un e-mail à un PDG pour un emploi ?
+                      - generic [ref=e922]:
+                        - generic [ref=e923]: "149"
+                        - text: upvotes ·
+                        - generic [ref=e924]: "122"
+                        - text: commentaires
+                    - separator [ref=e925]
+                - listitem [ref=e926]:
+                  - generic [ref=e927]:
+                    - generic [ref=e929]:
+                      - link "Le cold emailing, ça marche !!" [ref=e930] [cursor=pointer]:
+                        - /url: /r/jobsearchhacks/comments/1n7mn42/cold_emailing_works/
+                        - generic [ref=e931]:
+                          - generic: Le cold emailing, ça marche !!
+                      - generic [ref=e934]:
+                        - generic [ref=e936]:
+                          - link "r/jobsearchhacks" [ref=e937] [cursor=pointer]:
+                            - /url: /r/jobsearchhacks/
+                            - img [ref=e941]
+                            - generic [ref=e943]: r/jobsearchhacks
+                          - generic [ref=e944]: •
+                          - time [ref=e946]: "-6 m."
+                        - 'link "Publication de l’élément de la liste : Le cold emailing, ça marche !!" [ref=e948] [cursor=pointer]':
+                          - /url: /r/jobsearchhacks/comments/1n7mn42/cold_emailing_works/
+                          - 'heading "Publication de l’élément de la liste : Le cold emailing, ça marche !!" [level=3] [ref=e951]': Le cold emailing, ça marche !!
+                      - generic [ref=e953]:
+                        - generic [ref=e954]: "88"
+                        - text: upvotes ·
+                        - generic [ref=e955]: "20"
+                        - text: commentaires
+                    - separator [ref=e956]
+                - listitem [ref=e957]:
+                  - generic [ref=e958]:
+                    - generic [ref=e960]:
+                      - link "Est-ce que quelqu'un ici obtient réellement des résultats avec les emails de prospection générés par l'IA ?" [ref=e961] [cursor=pointer]:
+                        - /url: /r/salestechniques/comments/1o77pui/is_anyone_here_actually_getting_results_from/
+                        - generic [ref=e962]:
+                          - generic: Est-ce que quelqu'un ici obtient réellement des résultats avec les emails de prospection générés par l'IA ?
+                      - generic [ref=e965]:
+                        - generic [ref=e967]:
+                          - link "r/salestechniques" [ref=e968] [cursor=pointer]:
+                            - /url: /r/salestechniques/
+                            - generic [ref=e972]: r/salestechniques
+                          - generic [ref=e973]: •
+                          - time [ref=e975]: "-5 m."
+                        - 'link "Publication de l’élément de la liste : Est-ce que quelqu''un ici obtient réellement des résultats a..." [ref=e977] [cursor=pointer]':
+                          - /url: /r/salestechniques/comments/1o77pui/is_anyone_here_actually_getting_results_from/
+                          - 'heading "Publication de l’élément de la liste : Est-ce que quelqu''un ici obtient réellement des résultats a..." [level=3] [ref=e980]': Est-ce que quelqu'un ici obtient réellement des résultats avec les emails de prospection générés par l'IA ?
+                      - generic [ref=e982]:
+                        - generic [ref=e983]: "10"
+                        - text: upvotes ·
+                        - generic [ref=e984]: "16"
+                        - text: commentaires
+                    - separator [ref=e985]
+                - listitem [ref=e986]:
+                  - generic [ref=e987]:
+                    - generic [ref=e989]:
+                      - link "Je pense que le nouveau CRM basé sur l'IA de ma boîte, c'est moins pour aider les ventes et plus pour apprendre comment nous remplacer." [ref=e990] [cursor=pointer]:
+                        - /url: /r/sales/comments/1opd3z5/i_think_my_companys_new_aipowered_crm_is_less/
+                        - generic [ref=e991]:
+                          - generic: Je pense que le nouveau CRM basé sur l'IA de ma boîte, c'est moins pour aider les ventes et plus pour apprendre comment nous remplacer.
+                      - generic [ref=e994]:
+                        - generic [ref=e996]:
+                          - link "r/sales" [ref=e997] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1001]: r/sales
+                          - generic [ref=e1002]: •
+                          - time [ref=e1004]: "-4 m."
+                        - 'link "Publication de l’élément de la liste : Je pense que le nouveau CRM basé sur l''IA de ma boîte, c''es..." [ref=e1006] [cursor=pointer]':
+                          - /url: /r/sales/comments/1opd3z5/i_think_my_companys_new_aipowered_crm_is_less/
+                          - 'heading "Publication de l’élément de la liste : Je pense que le nouveau CRM basé sur l''IA de ma boîte, c''es..." [level=3] [ref=e1009]': Je pense que le nouveau CRM basé sur l'IA de ma boîte, c'est moins pour aider les ventes et plus pour apprendre comment nous remplacer.
+                      - generic [ref=e1011]:
+                        - generic [ref=e1012]: "89"
+                        - text: upvotes ·
+                        - generic [ref=e1013]: "42"
+                        - text: commentaires
+                    - separator [ref=e1014]
+                - listitem [ref=e1015]:
+                  - generic [ref=e1016]:
+                    - generic [ref=e1018]:
+                      - link "E-mails froids" [ref=e1019] [cursor=pointer]:
+                        - /url: /r/sales/comments/1rfgoct/cold_emails/
+                        - generic [ref=e1020]:
+                          - generic: E-mails froids
+                      - generic [ref=e1023]:
+                        - generic [ref=e1025]:
+                          - link "r/sales" [ref=e1026] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1030]: r/sales
+                          - generic [ref=e1031]: •
+                          - time [ref=e1033]: "-13 j"
+                        - 'link "Publication de l’élément de la liste : E-mails froids" [ref=e1035] [cursor=pointer]':
+                          - /url: /r/sales/comments/1rfgoct/cold_emails/
+                          - 'heading "Publication de l’élément de la liste : E-mails froids" [level=3] [ref=e1038]': E-mails froids
+                      - generic [ref=e1040]:
+                        - generic [ref=e1041]: "4"
+                        - text: upvotes ·
+                        - generic [ref=e1042]: "19"
+                        - text: commentaires
+                    - separator [ref=e1043]
+                - listitem [ref=e1044]:
+                  - generic [ref=e1045]:
+                    - generic [ref=e1047]:
+                      - link "Comment avez-vous utilisé l'IA pour conclure des affaires, raccourcir votre cycle de vente ou vendre plus efficacement ?" [ref=e1048] [cursor=pointer]:
+                        - /url: /r/sales/comments/1muvn2v/how_have_you_been_using_ai_to_close_deals_make/
+                        - generic [ref=e1049]:
+                          - generic: Comment avez-vous utilisé l'IA pour conclure des affaires, raccourcir votre cycle de vente ou vendre plus efficacement ?
+                      - generic [ref=e1052]:
+                        - generic [ref=e1054]:
+                          - link "r/sales" [ref=e1055] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1059]: r/sales
+                          - generic [ref=e1060]: •
+                          - time [ref=e1062]: "-7 m."
+                        - 'link "Publication de l’élément de la liste : Comment avez-vous utilisé l''IA pour conclure des affaires, ..." [ref=e1064] [cursor=pointer]':
+                          - /url: /r/sales/comments/1muvn2v/how_have_you_been_using_ai_to_close_deals_make/
+                          - 'heading "Publication de l’élément de la liste : Comment avez-vous utilisé l''IA pour conclure des affaires, ..." [level=3] [ref=e1067]': Comment avez-vous utilisé l'IA pour conclure des affaires, raccourcir votre cycle de vente ou vendre plus efficacement ?
+                      - generic [ref=e1069]:
+                        - generic [ref=e1070]: "14"
+                        - text: upvotes ·
+                        - generic [ref=e1071]: "66"
+                        - text: commentaires
+                    - separator [ref=e1072]
+                - listitem [ref=e1073]:
+                  - generic [ref=e1074]:
+                    - generic [ref=e1076]:
+                      - link "Contenu/Rythme des e-mails à froid" [ref=e1077] [cursor=pointer]:
+                        - /url: /r/sales/comments/1qhmnw7/cold_email_contentcadence/
+                        - generic [ref=e1078]:
+                          - generic: Contenu/Rythme des e-mails à froid
+                      - generic [ref=e1081]:
+                        - generic [ref=e1083]:
+                          - link "r/sales" [ref=e1084] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1088]: r/sales
+                          - generic [ref=e1089]: •
+                          - time [ref=e1091]: "-2 m."
+                        - 'link "Publication de l’élément de la liste : Contenu/Rythme des e-mails à froid" [ref=e1093] [cursor=pointer]':
+                          - /url: /r/sales/comments/1qhmnw7/cold_email_contentcadence/
+                          - 'heading "Publication de l’élément de la liste : Contenu/Rythme des e-mails à froid" [level=3] [ref=e1096]': Contenu/Rythme des e-mails à froid
+                      - generic [ref=e1098]:
+                        - generic [ref=e1099]: "6"
+                        - text: upvotes ·
+                        - generic [ref=e1100]: "20"
+                        - text: commentaires
+                    - separator [ref=e1101]
+                - listitem [ref=e1102]:
+                  - generic [ref=e1103]:
+                    - generic [ref=e1105]:
+                      - link "Dois-je arrêter d'envoyer des e-mails post-entretien à l'ère de l'IA ?" [ref=e1106] [cursor=pointer]:
+                        - /url: /r/interviews/comments/1lsw1bk/should_i_stop_sending_postinterview_emails_in_the/
+                        - generic [ref=e1107]:
+                          - generic: Dois-je arrêter d'envoyer des e-mails post-entretien à l'ère de l'IA ?
+                      - generic [ref=e1110]:
+                        - generic [ref=e1112]:
+                          - link "r/interviews" [ref=e1113] [cursor=pointer]:
+                            - /url: /r/interviews/
+                            - img [ref=e1117]
+                            - generic [ref=e1119]: r/interviews
+                          - generic [ref=e1120]: •
+                          - time [ref=e1122]: "-8 m."
+                        - 'link "Publication de l’élément de la liste : Dois-je arrêter d''envoyer des e-mails post-entretien à l''èr..." [ref=e1124] [cursor=pointer]':
+                          - /url: /r/interviews/comments/1lsw1bk/should_i_stop_sending_postinterview_emails_in_the/
+                          - 'heading "Publication de l’élément de la liste : Dois-je arrêter d''envoyer des e-mails post-entretien à l''èr..." [level=3] [ref=e1127]': Dois-je arrêter d'envoyer des e-mails post-entretien à l'ère de l'IA ?
+                      - generic [ref=e1129]:
+                        - generic [ref=e1130]: "12"
+                        - text: upvotes ·
+                        - generic [ref=e1131]: "34"
+                        - text: commentaires
+                    - separator [ref=e1132]
+                - listitem [ref=e1133]:
+                  - generic [ref=e1134]:
+                    - generic [ref=e1136]:
+                      - link "La vente, c'est avant tout établir des relations, et dans un an, personne ne connaîtra le client potentiel mieux que l'IA. Les ventes sont-elles condamnées ?" [ref=e1137] [cursor=pointer]:
+                        - /url: /r/sales/comments/1rfdgtd/sales_is_about_relationship_building_and_within_a/
+                        - generic [ref=e1138]:
+                          - generic: La vente, c'est avant tout établir des relations, et dans un an, personne ne connaîtra le client potentiel mieux que l'IA. Les ventes sont-elles condamnées ?
+                      - generic [ref=e1141]:
+                        - generic [ref=e1143]:
+                          - link "r/sales" [ref=e1144] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1148]: r/sales
+                          - generic [ref=e1149]: •
+                          - time [ref=e1151]: "-13 j"
+                        - 'link "Publication de l’élément de la liste : La vente, c''est avant tout établir des relations, et dans u..." [ref=e1153] [cursor=pointer]':
+                          - /url: /r/sales/comments/1rfdgtd/sales_is_about_relationship_building_and_within_a/
+                          - 'heading "Publication de l’élément de la liste : La vente, c''est avant tout établir des relations, et dans u..." [level=3] [ref=e1156]': La vente, c'est avant tout établir des relations, et dans un an, personne ne connaîtra le client potentiel mieux que l'IA. Les ventes sont-elles condamnées ?
+                      - generic [ref=e1158]:
+                        - generic [ref=e1159]: "42"
+                        - text: commentaires
+                    - separator [ref=e1160]
+                - listitem [ref=e1161]:
+                  - generic [ref=e1162]:
+                    - generic [ref=e1164]:
+                      - link "Comment utilisez-vous l'IA pour simplifier une partie de votre charge de travail dans les ventes ?" [ref=e1165] [cursor=pointer]:
+                        - /url: /r/sales/comments/1ltjax1/how_are_you_using_ai_to_streamline_some_of_your/
+                        - generic [ref=e1166]:
+                          - generic: Comment utilisez-vous l'IA pour simplifier une partie de votre charge de travail dans les ventes ?
+                      - generic [ref=e1169]:
+                        - generic [ref=e1171]:
+                          - link "r/sales" [ref=e1172] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1176]: r/sales
+                          - generic [ref=e1177]: •
+                          - time [ref=e1179]: "-8 m."
+                        - 'link "Publication de l’élément de la liste : Comment utilisez-vous l''IA pour simplifier une partie de vo..." [ref=e1181] [cursor=pointer]':
+                          - /url: /r/sales/comments/1ltjax1/how_are_you_using_ai_to_streamline_some_of_your/
+                          - 'heading "Publication de l’élément de la liste : Comment utilisez-vous l''IA pour simplifier une partie de vo..." [level=3] [ref=e1184]': Comment utilisez-vous l'IA pour simplifier une partie de votre charge de travail dans les ventes ?
+                      - generic [ref=e1186]:
+                        - generic [ref=e1187]: "41"
+                        - text: upvotes ·
+                        - generic [ref=e1188]: "70"
+                        - text: commentaires
+                    - separator [ref=e1189]
+                - listitem [ref=e1190]:
+                  - generic [ref=e1191]:
+                    - generic [ref=e1193]:
+                      - link "L'avenir des ventes (IA, automatisation) ?" [ref=e1194] [cursor=pointer]:
+                        - /url: /r/sales/comments/1moa75b/future_of_sales_ai_automation/
+                        - generic [ref=e1195]:
+                          - generic: L'avenir des ventes (IA, automatisation) ?
+                      - generic [ref=e1198]:
+                        - generic [ref=e1200]:
+                          - link "r/sales" [ref=e1201] [cursor=pointer]:
+                            - /url: /r/sales/
+                            - generic [ref=e1205]: r/sales
+                          - generic [ref=e1206]: •
+                          - time [ref=e1208]: "-7 m."
+                        - 'link "Publication de l’élément de la liste : L''avenir des ventes (IA, automatisation) ?" [ref=e1210] [cursor=pointer]':
+                          - /url: /r/sales/comments/1moa75b/future_of_sales_ai_automation/
+                          - 'heading "Publication de l’élément de la liste : L''avenir des ventes (IA, automatisation) ?" [level=3] [ref=e1213]': L'avenir des ventes (IA, automatisation) ?
+                      - generic [ref=e1215]:
+                        - generic [ref=e1216]: "7"
+                        - text: upvotes ·
+                        - generic [ref=e1217]: "74"
+                        - text: commentaires
+                    - separator [ref=e1218]
+                - listitem [ref=e1219]:
+                  - generic [ref=e1220]:
+                    - generic [ref=e1222]:
+                      - link "Quel est l'e-mail froid le plus \"hors des sentiers battus\" que vous ayez jamais envoyé et qui a vraiment fonctionné ?" [ref=e1223] [cursor=pointer]:
+                        - /url: /r/salesdevelopment/comments/1np9hxo/whats_the_most_outofthebox_cold_email_youve_ever/
+                        - generic [ref=e1224]:
+                          - generic: Quel est l'e-mail froid le plus "hors des sentiers battus" que vous ayez jamais envoyé et qui a vraiment fonctionné ?
+                      - generic [ref=e1227]:
+                        - generic [ref=e1229]:
+                          - link "r/salesdevelopment" [ref=e1230] [cursor=pointer]:
+                            - /url: /r/salesdevelopment/
+                            - generic [ref=e1234]: r/salesdevelopment
+                          - generic [ref=e1235]: •
+                          - time [ref=e1237]: "-6 m."
+                        - 'link "Publication de l’élément de la liste : Quel est l''e-mail froid le plus \"hors des sentiers battus\" ..." [ref=e1239] [cursor=pointer]':
+                          - /url: /r/salesdevelopment/comments/1np9hxo/whats_the_most_outofthebox_cold_email_youve_ever/
+                          - 'heading "Publication de l’élément de la liste : Quel est l''e-mail froid le plus \"hors des sentiers battus\" ..." [level=3] [ref=e1242]': Quel est l'e-mail froid le plus "hors des sentiers battus" que vous ayez jamais envoyé et qui a vraiment fonctionné ?
+                      - generic [ref=e1244]:
+                        - generic [ref=e1245]: "9"
+                        - text: upvotes ·
+                        - generic [ref=e1246]: "10"
+                        - text: commentaires
+                    - separator [ref=e1247]
+                - listitem [ref=e1248]:
+                  - generic [ref=e1249]:
+                    - generic [ref=e1251]:
+                      - link "3 changements qui ont fait passer mon taux de réponse à mes emails à froid de 1 % à 13 %" [ref=e1252] [cursor=pointer]:
+                        - /url: /r/salesdevelopment/comments/1rlnfgd/3_changes_that_took_my_cold_email_reply_rate_from/
+                        - generic [ref=e1253]:
+                          - generic: 3 changements qui ont fait passer mon taux de réponse à mes emails à froid de 1 % à 13 %
+                      - generic [ref=e1256]:
+                        - generic [ref=e1258]:
+                          - link "r/salesdevelopment" [ref=e1259] [cursor=pointer]:
+                            - /url: /r/salesdevelopment/
+                            - generic [ref=e1263]: r/salesdevelopment
+                          - generic [ref=e1264]: •
+                          - time [ref=e1266]: "-6 j"
+                        - 'link "Publication de l’élément de la liste : 3 changements qui ont fait passer mon taux de réponse à mes..." [ref=e1268] [cursor=pointer]':
+                          - /url: /r/salesdevelopment/comments/1rlnfgd/3_changes_that_took_my_cold_email_reply_rate_from/
+                          - 'heading "Publication de l’élément de la liste : 3 changements qui ont fait passer mon taux de réponse à mes..." [level=3] [ref=e1271]': 3 changements qui ont fait passer mon taux de réponse à mes emails à froid de 1 % à 13 %
+                      - generic [ref=e1273]:
+                        - generic [ref=e1274]: "37"
+                        - text: upvotes ·
+                        - generic [ref=e1275]: "16"
+                        - text: commentaires
+                    - separator [ref=e1276]
+                - listitem [ref=e1277]:
+                  - generic [ref=e1278]:
+                    - generic [ref=e1280]:
+                      - link "Quelqu'un a déjà essayé des outils d'IA pour se préparer aux entretiens d'embauche ? Qu'est-ce qui a marché et qu'est-ce qui manque ?" [ref=e1281] [cursor=pointer]:
+                        - /url: /r/recruitinghell/comments/1lpo9l1/anyone_tried_ai_tools_to_prep_for_job_interviews/
+                        - generic [ref=e1282]:
+                          - generic: Quelqu'un a déjà essayé des outils d'IA pour se préparer aux entretiens d'embauche ? Qu'est-ce qui a marché et qu'est-ce qui manque ?
+                      - generic [ref=e1285]:
+                        - generic [ref=e1287]:
+                          - link "r/recruitinghell" [ref=e1288] [cursor=pointer]:
+                            - /url: /r/recruitinghell/
+                            - generic [ref=e1292]: r/recruitinghell
+                          - generic [ref=e1293]: •
+                          - time [ref=e1295]: "-8 m."
+                        - 'link "Publication de l’élément de la liste : Quelqu''un a déjà essayé des outils d''IA pour se préparer au..." [ref=e1297] [cursor=pointer]':
+                          - /url: /r/recruitinghell/comments/1lpo9l1/anyone_tried_ai_tools_to_prep_for_job_interviews/
+                          - 'heading "Publication de l’élément de la liste : Quelqu''un a déjà essayé des outils d''IA pour se préparer au..." [level=3] [ref=e1300]': Quelqu'un a déjà essayé des outils d'IA pour se préparer aux entretiens d'embauche ? Qu'est-ce qui a marché et qu'est-ce qui manque ?
+                      - generic [ref=e1302]:
+                        - generic [ref=e1303]: "4"
+                        - text: upvotes ·
+                        - generic [ref=e1304]: "7"
+                        - text: commentaires
+                    - separator [ref=e1305]
+                - listitem [ref=e1306]:
+                  - generic [ref=e1309]:
+                    - link "J'ai enfin trouvé le modèle de cold mail parfait. Ça marche super bien" [ref=e1310] [cursor=pointer]:
+                      - /url: /r/salesdevelopment/comments/1r0zdke/i_finally_found_the_perfect_cold_mail_template/
+                      - generic [ref=e1311]:
+                        - generic: J'ai enfin trouvé le modèle de cold mail parfait. Ça marche super bien
+                    - generic [ref=e1314]:
+                      - generic [ref=e1316]:
+                        - link "r/salesdevelopment" [ref=e1317] [cursor=pointer]:
+                          - /url: /r/salesdevelopment/
+                          - generic [ref=e1321]: r/salesdevelopment
+                        - generic [ref=e1322]: •
+                        - time [ref=e1324]: "-1 m."
+                      - 'link "Publication de l’élément de la liste : J''ai enfin trouvé le modèle de cold mail parfait. Ça marche..." [ref=e1326] [cursor=pointer]':
+                        - /url: /r/salesdevelopment/comments/1r0zdke/i_finally_found_the_perfect_cold_mail_template/
+                        - 'heading "Publication de l’élément de la liste : J''ai enfin trouvé le modèle de cold mail parfait. Ça marche..." [level=3] [ref=e1329]': J'ai enfin trouvé le modèle de cold mail parfait. Ça marche super bien
+                    - generic [ref=e1331]:
+                      - generic [ref=e1332]: "6"
+                      - text: upvotes ·
+                      - generic [ref=e1333]: "7"
+                      - text: commentaires
+            - complementary "Informations sur la communauté" [ref=e1335]:
+              - generic [ref=e1337]:
+                - heading "Section des informations sur la communauté" [level=1] [ref=e1338]
+                - generic [ref=e1339]:
+                  - link "r/salesdevelopment" [ref=e1341] [cursor=pointer]:
+                    - /url: /r/salesdevelopment/
+                    - generic [ref=e1342]: r/salesdevelopment
+                  - button "Rejoindre" [ref=e1346] [cursor=pointer]
+                - generic [ref=e1347]:
+                  - generic [ref=e1348]: R/Sales Développement Commercial
+                  - generic [ref=e1349]: Une chaîne officielle de R/Sales. La ressource incontournable pour les SDR (Sales Development Representatives), les BDR (Business Development Representatives), et tous les commerciaux axés sur le haut du funnel. Lisez nos règles avant de poster ou de commenter. La vente, le recrutement et le spam de blogs entraîneront une interdiction immédiate et permanente.
+                  - button "Afficher plus" [ref=e1350] [cursor=pointer]:
+                    - generic [ref=e1352]: Afficher plus
+                  - generic [ref=e1355]:
+                    - img [ref=e1356]
+                    - text: Public
+          - generic [ref=e1359]:
+            - link "Règles de Reddit" [ref=e1362] [cursor=pointer]:
+              - /url: https://www.redditinc.com/policies/content-policy
+            - link "Politique de confidentialité" [ref=e1365] [cursor=pointer]:
+              - /url: https://www.reddit.com/policies/privacy-policy
+            - link "Contrat d'utilisation" [ref=e1368] [cursor=pointer]:
+              - /url: https://www.redditinc.com/policies/user-agreement
+            - link "Accessibilité" [ref=e1371] [cursor=pointer]:
+              - /url: https://support.reddithelp.com/hc/sections/38303584022676-Accessibility
+            - link "Reddit, Inc. © 2026. Tous droits réservés." [ref=e1373] [cursor=pointer]:
+              - /url: https://redditinc.com
+      - dialog "Data Protection Consent" [ref=e1375]:
+        - generic [ref=e1376]:
+          - generic [ref=e1378]:
+            - generic:
+              - button "Fermer" [ref=e1382] [cursor=pointer]:
+                - img [ref=e1385]
+              - generic [ref=e1387]:
+                - generic [ref=e1389]: Indique-nous tes préférences en matière de cookies
+                - generic [ref=e1391]:
+                  - paragraph [ref=e1392]: "Reddit utilise des cookies et des technologies similaires pour :"
+                  - list [ref=e1393]:
+                    - listitem [ref=e1394]: Assurer le bon fonctionnement du site web
+                    - listitem [ref=e1395]: Prévenir les fraudes et les abus
+                    - listitem [ref=e1396]: Surveiller l’utilisation du site et les indicateurs de performance
+                  - paragraph [ref=e1397]: "Si tu choisis « Tout accepter », nous utiliserons également des cookies pour :"
+                  - list [ref=e1398]:
+                    - listitem [ref=e1399]: Personnaliser tes recommandations et tes publicités
+                    - listitem [ref=e1400]: Mesurer les performances des publicités
+                    - listitem [ref=e1401]: Développer et améliorer de nouvelles fonctionnalités et de nouveaux services
+                  - paragraph [ref=e1402]: Si tu choisis « Refuser les cookies optionnels », nous n’utiliserons pas de cookies pour ces utilisations supplémentaires. Tu peux mettre à jour tes préférences en matière de cookies dans tes paramètres.
+                  - paragraph [ref=e1403]:
+                    - text: En savoir plus sur
+                    - link "la façon dont Reddit utilise les cookies" [ref=e1404] [cursor=pointer]:
+                      - /url: /fr-fr/policies/cookies
+                    - text: .
+          - generic [ref=e1406]:
+            - button "Refuser les cookies optionnels" [ref=e1407] [cursor=pointer]:
+              - generic [ref=e1409]: Refuser les cookies optionnels
+            - button "Tout accepter" [ref=e1410] [cursor=pointer]:
+              - generic [ref=e1412]: Tout accepter

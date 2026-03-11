@@ -81,22 +81,38 @@ export function createVerificationTools(ctx: ToolContext): Record<string, ToolDe
           const vr = resultMap.get(lead.email.toLowerCase());
           if (!vr) {
             unknown++;
+            await prisma.lead.update({
+              where: { id: lead.id },
+              data: { verificationStatus: "unknown" },
+            });
             continue;
           }
 
           if (vr.status === "invalid" || vr.status === "spamtrap" || vr.status === "abuse" || vr.status === "disposable") {
-            // Mark as SKIPPED with reason
+            // Mark as SKIPPED with reason + store verification status
             await prisma.lead.update({
               where: { id: lead.id },
-              data: { status: "SKIPPED" },
+              data: { status: "SKIPPED", verificationStatus: vr.status },
             });
             invalid++;
             skippedIds.push(lead.id);
           } else if (vr.status === "valid") {
+            await prisma.lead.update({
+              where: { id: lead.id },
+              data: { verificationStatus: "valid" },
+            });
             valid++;
           } else if (vr.status === "catch_all") {
+            await prisma.lead.update({
+              where: { id: lead.id },
+              data: { verificationStatus: "catch_all" },
+            });
             catchAll++;
           } else {
+            await prisma.lead.update({
+              where: { id: lead.id },
+              data: { verificationStatus: vr.status },
+            });
             unknown++;
           }
         }

@@ -1,4 +1,5 @@
 import { ApifyClient } from "apify-client";
+import { logger } from "@/lib/logger";
 
 const ACTOR_ID = "2SyF0bVxmgGr8IVCZ";
 
@@ -25,7 +26,7 @@ export async function scrapeLinkedInViaApify(
 ): Promise<LinkedInProfileData | null> {
   const token = process.env.APIFY_API_TOKEN;
   if (!token) {
-    console.warn("[apify] APIFY_API_TOKEN not set — skipping LinkedIn scrape");
+    logger.warn("[apify] APIFY_API_TOKEN not set — skipping LinkedIn scrape");
     return null;
   }
 
@@ -42,7 +43,7 @@ export async function scrapeLinkedInViaApify(
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
     if (!items || items.length === 0) {
-      console.warn(`[apify] No results for ${linkedinUrl}`);
+      logger.warn(`[apify] No results for ${linkedinUrl}`);
       return null;
     }
 
@@ -114,8 +115,8 @@ export async function scrapeLinkedInViaApify(
     }
 
     // Log all profile keys for debugging (helps discover available fields)
-    console.log(`[apify] Profile keys: ${Object.keys(profile).join(", ")}`);
-    console.log(
+    logger.debug(`[apify] Profile keys: ${Object.keys(profile).join(", ")}`);
+    logger.debug(
       `[apify] LinkedIn scraped: headline=${!!headline}, career=${careerHistory.length}, posts=${posts.length}, companyWebsite=${companyWebsite} for ${linkedinUrl}`,
     );
 
@@ -128,9 +129,9 @@ export async function scrapeLinkedInViaApify(
     };
   } catch (err) {
     if (err instanceof Error && err.message.includes("timeout")) {
-      console.warn(`[apify] Timeout for ${linkedinUrl}`);
+      logger.warn(`[apify] Timeout for ${linkedinUrl}`);
     } else {
-      console.warn(`[apify] Error for ${linkedinUrl}:`, err);
+      logger.warn(`[apify] Error for ${linkedinUrl}:`, { error: err });
     }
     return null;
   }

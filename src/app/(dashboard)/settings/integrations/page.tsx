@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { FileArrowUp, Lightning, MagnifyingGlass, PaperPlaneTilt, ShieldCheck } from "@phosphor-icons/react";
+import { FileArrowUp } from "@phosphor-icons/react";
 
 interface Integration {
   type: string;
@@ -169,7 +169,7 @@ export default function IntegrationsPage() {
         placeholder="Apollo API Key"
         icon={
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
-            <MagnifyingGlass size={24} className="text-purple-600" weight="duotone" />
+            <Image src="/apollo.svg" alt="Apollo" width={24} height={24} />
           </div>
         }
         integrations={integrations}
@@ -184,7 +184,7 @@ export default function IntegrationsPage() {
         placeholder="ZeroBounce API Key"
         icon={
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
-            <ShieldCheck size={24} className="text-amber-600" weight="duotone" />
+            <Image src="/zerobounce.svg" alt="ZeroBounce" width={24} height={24} />
           </div>
         }
         integrations={integrations}
@@ -202,7 +202,7 @@ export default function IntegrationsPage() {
         placeholder="Smartlead API Key"
         icon={
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950">
-            <Lightning size={24} className="text-teal-600" weight="duotone" />
+            <Image src="/smartlead.svg" alt="Smartlead" width={24} height={24} />
           </div>
         }
         integrations={integrations}
@@ -217,7 +217,7 @@ export default function IntegrationsPage() {
         placeholder="Lemlist API Key"
         icon={
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-950">
-            <PaperPlaneTilt size={24} className="text-violet-600" weight="duotone" />
+            <Image src="/lemlist.svg" alt="Lemlist" width={24} height={24} />
           </div>
         }
         integrations={integrations}

@@ -4,6 +4,7 @@ import {
   searchFiltersSchema,
   type InstantlySearchFilters,
 } from "@/server/lib/connectors/instantly";
+import { logger } from "@/lib/logger";
 
 const ICP_PARSER_SYSTEM = `You are an ICP (Ideal Customer Profile) parser. Convert natural language descriptions of target prospects into structured Instantly SuperSearch filters.
 
@@ -1156,7 +1157,7 @@ function fixDepartment(values: string[] | undefined): string[] | undefined {
       if (mapped) {
         fixed.add(mapped);
       } else {
-        console.warn(`[fixDepartment] Dropped unknown value: "${v}"`);
+        logger.warn(`[fixDepartment] Dropped unknown value: "${v}"`);
       }
     }
   }
@@ -1230,7 +1231,7 @@ function fixLevel(values: string[] | undefined): string[] | undefined {
       if (mapped) {
         fixed.add(mapped);
       } else {
-        console.warn(`[fixLevel] Dropped unknown value: "${v}"`);
+        logger.warn(`[fixLevel] Dropped unknown value: "${v}"`);
       }
     }
   }
@@ -1309,7 +1310,7 @@ function fixFundingType(values: string[] | undefined): string[] | undefined {
         if (VALID_FUNDING_TYPES.has(snaked)) {
           fixed.add(snaked);
         } else {
-          console.warn(`[fixFundingType] Dropped unknown value: "${v}"`);
+          logger.warn(`[fixFundingType] Dropped unknown value: "${v}"`);
         }
       }
     }
@@ -1403,7 +1404,7 @@ function fixNews(values: string[] | undefined): string[] | undefined {
         if (VALID_NEWS.has(snaked)) {
           fixed.add(snaked);
         } else {
-          console.warn(`[fixNews] Dropped unknown value: "${v}"`);
+          logger.warn(`[fixNews] Dropped unknown value: "${v}"`);
         }
       }
     }
@@ -1451,7 +1452,7 @@ function fixEmployeeCount(values: string[] | undefined): string[] | undefined {
         const nums = v.replace(/[^0-9+KkMm]/g, "").toUpperCase();
         const fuzzy = EMPLOYEE_COUNT_FIXES[nums];
         if (fuzzy) fuzzy.forEach((m) => fixed.add(m));
-        else console.warn(`[fixEmployeeCount] Dropped unknown value: "${v}"`);
+        else logger.warn(`[fixEmployeeCount] Dropped unknown value: "${v}"`);
       }
     }
   }
@@ -1475,7 +1476,7 @@ function fixRevenue(values: string[] | undefined): string[] | undefined {
         const withDollar = v.startsWith("$") ? v : `$${v}`;
         const fuzzy = REVENUE_FIXES[withDollar] ?? REVENUE_FIXES[withDollar.replace(/\s/g, "")];
         if (fuzzy) fuzzy.forEach((m) => fixed.add(m));
-        else console.warn(`[fixRevenue] Dropped unknown value: "${v}"`);
+        else logger.warn(`[fixRevenue] Dropped unknown value: "${v}"`);
       }
     }
   }
@@ -1510,7 +1511,7 @@ function fixIndustries(values: string[] | undefined): string[] | undefined {
         // Fuzzy fallback: substring matching
         const fuzzy = fuzzyMatchIndustry(v);
         if (fuzzy) fuzzy.forEach((f) => fixed.add(f));
-        else console.warn(`[fixIndustries] Dropped unknown value: "${v}"`);
+        else logger.warn(`[fixIndustries] Dropped unknown value: "${v}"`);
       }
     }
   }
@@ -1536,7 +1537,7 @@ function inferIndustriesFromDescription(
   // inferIndustries still skips when company_names is huge (no point adding industries on top of 40 company names).
   const cn = filters.company_names as { include?: string[] } | undefined;
   if (cn?.include && cn.include.length >= 10) {
-    console.log(`[inferIndustries] Skipping — company_names has ${cn.include.length} entries (stock index)`);
+    logger.debug(`[inferIndustries] Skipping — company_names has ${cn.include.length} entries (stock index)`);
     return undefined;
   }
 
@@ -1554,7 +1555,7 @@ function inferIndustriesFromDescription(
       filters.industries = [...merged];
       kfMatch.forEach((m) => inferred.add(m));
       delete filters.keyword_filter;
-      console.log(`[inferIndustries] keyword_filter "${kf}" → industry ${JSON.stringify(kfMatch)}`);
+      logger.debug(`[inferIndustries] keyword_filter "${kf}" → industry ${JSON.stringify(kfMatch)}`);
     }
   }
 
@@ -1599,7 +1600,7 @@ function inferIndustriesFromDescription(
     const existing = (filters.industries as string[] | undefined) ?? [];
     const merged = new Set([...existing, ...inferred]);
     filters.industries = [...merged];
-    console.log(`[inferIndustries] Inferred from description: ${[...inferred].join(", ")}`);
+    logger.debug(`[inferIndustries] Inferred from description: ${[...inferred].join(", ")}`);
   }
 
   return inferred.size > 0 ? [...inferred] : undefined;
@@ -1645,13 +1646,13 @@ function inferSubIndustriesFromDescription(
     const subs = NICHE_SUBINDUSTRY_LOWER.get(term);
     if (subs) {
       subs.forEach((s) => subIndustries.add(s));
-      console.log(`[inferSubIndustries] Added sub_industries: ${JSON.stringify(subs)} from term "${term}"`);
+      logger.debug(`[inferSubIndustries] Added sub_industries: ${JSON.stringify(subs)} from term "${term}"`);
     }
   }
 
   if (subIndustries.size > 0) {
     filters.sub_industries = [...subIndustries];
-    console.log(`[inferSubIndustries] Final sub_industries: ${JSON.stringify(filters.sub_industries)}`);
+    logger.debug(`[inferSubIndustries] Final sub_industries: ${JSON.stringify(filters.sub_industries)}`);
   }
 }
 
@@ -1683,7 +1684,7 @@ function stripNegatedFilters(description: string, filters: Record<string, unknow
 
   if (negatedTerms.length === 0) return;
 
-  console.log(`[stripNegatedFilters] Detected negated terms: ${JSON.stringify(negatedTerms)}`);
+  logger.debug(`[stripNegatedFilters] Detected negated terms: ${JSON.stringify(negatedTerms)}`);
 
   // Strip matching sub_industries
   if (Array.isArray(filters.sub_industries)) {
@@ -1694,7 +1695,7 @@ function stripNegatedFilters(description: string, filters: Record<string, unknow
     });
     if ((filters.sub_industries as string[]).length === 0) delete filters.sub_industries;
     if ((filters.sub_industries as string[] | undefined)?.length !== before.length) {
-      console.log(`[stripNegatedFilters] Stripped sub_industries: ${JSON.stringify(before)} → ${JSON.stringify(filters.sub_industries)}`);
+      logger.debug(`[stripNegatedFilters] Stripped sub_industries: ${JSON.stringify(before)} → ${JSON.stringify(filters.sub_industries)}`);
     }
   }
 
@@ -1707,7 +1708,7 @@ function stripNegatedFilters(description: string, filters: Record<string, unknow
     });
     if ((filters.industries as string[]).length === 0) delete filters.industries;
     if ((filters.industries as string[] | undefined)?.length !== before.length) {
-      console.log(`[stripNegatedFilters] Stripped industries: ${JSON.stringify(before)} → ${JSON.stringify(filters.industries)}`);
+      logger.debug(`[stripNegatedFilters] Stripped industries: ${JSON.stringify(before)} → ${JSON.stringify(filters.industries)}`);
     }
   }
 }
@@ -1843,11 +1844,11 @@ function postProcessFilters(raw: Record<string, unknown>): InstantlySearchFilter
   // in instantly.ts will auto-generate title from level+department.
   // But ideally, we should strip it here and let the ICP parser always use job_titles.
   if (filters.level && !filters.job_titles) {
-    console.log(`[postProcessFilters] level=${JSON.stringify(filters.level)} without job_titles — will be converted to title by prepareFiltersForAPI`);
+    logger.debug(`[postProcessFilters] level=${JSON.stringify(filters.level)} without job_titles — will be converted to title by prepareFiltersForAPI`);
   }
   // If LLM output both job_titles AND level, drop level (job_titles is the primary targeting).
   if (filters.job_titles && filters.level) {
-    console.log("[postProcessFilters] Both job_titles and level set. Dropping level (job_titles wins).");
+    logger.debug("[postProcessFilters] Both job_titles and level set. Dropping level (job_titles wins).");
     delete filters.level;
   }
 
@@ -2332,7 +2333,7 @@ export async function parseICP(
   // 0. Pre-LLM check: block obviously empty descriptions
   const tooShort = checkDescriptionTooShort(description);
   if (tooShort) {
-    console.log("[parseICP] Description too short, asking for clarification");
+    logger.debug("[parseICP] Description too short, asking for clarification");
     return {
       filters: { skip_owned_leads: true } as InstantlySearchFilters,
       clarificationNeeded: tooShort,
@@ -2348,12 +2349,12 @@ export async function parseICP(
     action: "icp-parse",
   });
 
-  console.log("[parseICP] Raw LLM output:", JSON.stringify(raw).slice(0, 1000));
+  logger.debug(`[parseICP] Raw LLM output: ${JSON.stringify(raw).slice(0, 1000)}`);
 
   // 2. Post-process to fix common LLM enum mistakes
   const fixed = postProcessFilters(raw as Record<string, unknown>);
 
-  console.log("[parseICP] After postProcess:", JSON.stringify(fixed).slice(0, 1000));
+  logger.debug(`[parseICP] After postProcess: ${JSON.stringify(fixed).slice(0, 1000)}`);
 
   // 2.1 Stock index + industry logic
   // When user mentions a stock index (CAC 40, Fortune 500, etc.), the LLM may either:
@@ -2376,18 +2377,18 @@ export async function parseICP(
       return regex.test(descWithoutIndex);
     });
     if (!hasExplicitIndustry) {
-      console.log(`[parseICP] Stock index detected — dropping LLM-guessed industries: ${JSON.stringify(fixed.industries)}`);
+      logger.debug(`[parseICP] Stock index detected — dropping LLM-guessed industries: ${JSON.stringify(fixed.industries)}`);
       delete (fixed as Record<string, unknown>).industries;
       delete (fixed as Record<string, unknown>).sub_industries;
     } else {
-      console.log(`[parseICP] Stock index detected but description mentions an industry — keeping industries: ${JSON.stringify(fixed.industries)}`);
+      logger.debug(`[parseICP] Stock index detected but description mentions an industry — keeping industries: ${JSON.stringify(fixed.industries)}`);
     }
   }
 
   // 2.5 Strip hallucinated locations — hard guard
   const parseWarnings: string[] = [];
   if (fixed.locations && !descriptionMentionsLocation(description)) {
-    console.log(`[parseICP] Stripped hallucinated locations: ${JSON.stringify(fixed.locations)} (not mentioned in description)`);
+    logger.debug(`[parseICP] Stripped hallucinated locations: ${JSON.stringify(fixed.locations)} (not mentioned in description)`);
     parseWarnings.push(`Location filter "${JSON.stringify(fixed.locations)}" was removed — not found in your description. If you intended a geographic filter, please specify the location explicitly.`);
     delete (fixed as Record<string, unknown>).locations;
     delete (fixed as Record<string, unknown>).location_filter_type;
@@ -2399,7 +2400,7 @@ export async function parseICP(
     const extracted = extractLocationsFromDescription(description);
     if (extracted.length > 0) {
       (fixed as Record<string, unknown>).locations = extracted;
-      console.log(`[parseICP] Injected missing locations: ${JSON.stringify(extracted)} (detected in description but LLM omitted)`);
+      logger.debug(`[parseICP] Injected missing locations: ${JSON.stringify(extracted)} (detected in description but LLM omitted)`);
     }
   }
 
@@ -2416,7 +2417,7 @@ export async function parseICP(
   const empCount = (fixed as Record<string, unknown>).employee_count as string[] | undefined;
   if (empCount && empCount.length >= 6) {
     // 6+ ranges out of 8 = essentially "everything" → not a meaningful filter
-    console.log(`[parseICP] Over-broad employee_count (${empCount.length}/8 ranges) — stripping as negation artifact`);
+    logger.debug(`[parseICP] Over-broad employee_count (${empCount.length}/8 ranges) — stripping as negation artifact`);
     delete (fixed as Record<string, unknown>).employee_count;
   }
 
@@ -2425,7 +2426,7 @@ export async function parseICP(
   // we must remove those values from industries/sub_industries.
   stripNegatedFilters(description, fixed as unknown as Record<string, unknown>);
 
-  console.log("[parseICP] After inferIndustries+SubIndustries:", JSON.stringify(fixed).slice(0, 1000));
+  logger.debug(`[parseICP] After inferIndustries+SubIndustries: ${JSON.stringify(fixed).slice(0, 1000)}`);
 
   // 3. Validate with Zod AFTER post-processing
   const validated = searchFiltersSchema.safeParse(fixed);
@@ -2434,31 +2435,31 @@ export async function parseICP(
   if (validated.success) {
     // Guard: check if we accidentally stripped everything
     if (!hasSubstantiveFilters(validated.data as unknown as Record<string, unknown>)) {
-      console.error("[parseICP] WARNING: All filters were stripped! Raw had:", Object.keys(raw as object).join(", "));
+      logger.error(`[parseICP] WARNING: All filters were stripped! Raw had: ${Object.keys(raw as object).join(", ")}`);
       // Try stripping from the raw output directly (in case postProcess failed to flatten)
       const rawStripped = { skip_owned_leads: true, ...stripInvalidFields(postProcessFilters(raw as Record<string, unknown>)) } as InstantlySearchFilters;
       if (hasSubstantiveFilters(rawStripped as unknown as Record<string, unknown>)) {
-        console.log("[parseICP] Recovered filters from raw:", JSON.stringify(rawStripped).slice(0, 1000));
+        logger.debug(`[parseICP] Recovered filters from raw: ${JSON.stringify(rawStripped).slice(0, 1000)}`);
         finalFilters = rawStripped;
       } else {
         finalFilters = validated.data;
       }
     } else {
-      console.log("[parseICP] Final filters (Zod OK):", JSON.stringify(validated.data).slice(0, 1000));
+      logger.debug(`[parseICP] Final filters (Zod OK): ${JSON.stringify(validated.data).slice(0, 1000)}`);
       finalFilters = validated.data;
     }
   } else {
     // 4. If still invalid, extract valid fields individually (never throw)
-    console.warn("[parseICP] Zod validation failed:", JSON.stringify(validated.error.issues));
+    logger.warn(`[parseICP] Zod validation failed: ${JSON.stringify(validated.error.issues)}`);
     const stripped = { skip_owned_leads: true, ...stripInvalidFields(fixed) } as InstantlySearchFilters;
-    console.log("[parseICP] Final filters (stripped):", JSON.stringify(stripped).slice(0, 1000));
+    logger.debug(`[parseICP] Final filters (stripped): ${JSON.stringify(stripped).slice(0, 1000)}`);
     finalFilters = stripped;
   }
 
   // 5. Post-LLM check: verify the LLM produced meaningful targeting filters
   const insufficientFilters = checkFiltersCompleteness(finalFilters as unknown as Record<string, unknown>);
   if (insufficientFilters) {
-    console.log("[parseICP] LLM output lacks targeting — asking for clarification");
+    logger.debug("[parseICP] LLM output lacks targeting — asking for clarification");
     return {
       filters: finalFilters,
       inferredIndustries,
@@ -3173,16 +3174,16 @@ export async function parseICPv2(
       action: "icp-parse-v2",
     });
 
-    console.log("[parseICPv2] Raw LLM intent:", JSON.stringify(raw).slice(0, 1000));
+    logger.debug(`[parseICPv2] Raw LLM intent: ${JSON.stringify(raw).slice(0, 1000)}`);
 
     // Flatten common nesting mistakes
     const flattened = flattenRawIntent(raw as Record<string, unknown>);
-    console.log("[parseICPv2] After flatten:", JSON.stringify(flattened).slice(0, 1000));
+    logger.debug(`[parseICPv2] After flatten: ${JSON.stringify(flattened).slice(0, 1000)}`);
 
     const parsed = rawIntentSchema.safeParse(flattened);
     if (!parsed.success) {
       // Retry once with Zod error injected
-      console.warn("[parseICPv2] Schema validation failed, retrying:", parsed.error.message);
+      logger.warn(`[parseICPv2] Schema validation failed, retrying: ${parsed.error.message}`);
       const retryRaw = await mistralClient.jsonRaw({
         model: "mistral-large-latest",
         system: RAW_INTENT_SYSTEM,
@@ -3192,7 +3193,7 @@ export async function parseICPv2(
       });
       const retryParsed = rawIntentSchema.safeParse(retryRaw);
       if (!retryParsed.success) {
-        console.warn("[parseICPv2] Retry also failed, falling back to v1:", retryParsed.error.message);
+        logger.warn(`[parseICPv2] Retry also failed, falling back to v1: ${retryParsed.error.message}`);
         return parseICP(description, workspaceId);
       }
       rawIntent = retryParsed.data;
@@ -3200,13 +3201,13 @@ export async function parseICPv2(
       rawIntent = parsed.data;
     }
   } catch (err) {
-    console.error("[parseICPv2] LLM call failed, falling back to v1:", err);
+    logger.error("[parseICPv2] LLM call failed, falling back to v1", { error: String(err) });
     return parseICP(description, workspaceId);
   }
 
   // 2. Deterministic mapping: raw intent → Instantly filters
   const { filters: mapped, approximations } = mapRawIntentToFilters(rawIntent);
-  console.log("[parseICPv2] After mapping:", JSON.stringify(mapped).slice(0, 1000));
+  logger.debug(`[parseICPv2] After mapping: ${JSON.stringify(mapped).slice(0, 1000)}`);
 
   // 3. Apply the same safety nets from v1
   const parseWarnings: string[] = [];
@@ -3269,7 +3270,7 @@ export async function parseICPv2(
       finalFilters = validated.data;
     }
   } else {
-    console.warn("[parseICPv2] Zod validation failed:", JSON.stringify(validated.error.issues));
+    logger.warn(`[parseICPv2] Zod validation failed: ${JSON.stringify(validated.error.issues)}`);
     finalFilters = { skip_owned_leads: true, ...stripInvalidFields(filters) } as InstantlySearchFilters;
   }
 

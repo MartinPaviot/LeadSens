@@ -71,6 +71,157 @@ function normalizeMemoryToSchema(
 }
 
 export const workspaceRouter = router({
+  // ─── Autonomy Level ─────────────────────────────────────
+
+  getAutonomyLevel: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: ctx.workspaceId! },
+      select: { autonomyLevel: true },
+    });
+    return { autonomyLevel: workspace.autonomyLevel as "MANUAL" | "SUPERVISED" | "AUTO" };
+  }),
+
+  setAutonomyLevel: protectedProcedure
+    .input(z.object({ level: z.enum(["MANUAL", "SUPERVISED", "AUTO"]) }))
+    .mutation(async ({ ctx, input }) => {
+      await prisma.workspace.update({
+        where: { id: ctx.workspaceId! },
+        data: { autonomyLevel: input.level },
+      });
+      return { autonomyLevel: input.level };
+    }),
+
+  // ─── Onboarding State ──────────────────────────────────
+
+  getOnboardingState: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: ctx.workspaceId! },
+      include: {
+        integrations: { select: { type: true, status: true } },
+        campaigns: { select: { status: true }, take: 20 },
+      },
+    });
+
+    const hasEsp = workspace.integrations.some(
+      (i) => ["INSTANTLY", "SMARTLEAD", "LEMLIST"].includes(i.type) && i.status === "ACTIVE",
+    );
+    const hasCampaign = workspace.campaigns.length > 0;
+    const hasPreviewed = workspace.campaigns.some(
+      (c) => !["DRAFT"].includes(c.status),
+    );
+    const hasLaunched = workspace.campaigns.some(
+      (c) => ["PUSHED", "ACTIVE"].includes(c.status),
+    );
+
+    return {
+      steps: [
+        { key: "dna", label: "Company DNA", done: !!workspace.companyDna },
+        { key: "esp", label: "ESP connected", done: hasEsp },
+        { key: "icp", label: "ICP described", done: hasCampaign },
+        { key: "preview", label: "Campaign previewed", done: hasPreviewed },
+        { key: "launch", label: "Campaign launched", done: hasLaunched },
+      ],
+    };
+  }),
+
+  // ─── Onboarding Wizard ─────────────────────────────────
+
+  getOnboardingData: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: ctx.workspaceId! },
+      select: {
+        onboardingCompletedAt: true,
+        name: true,
+        companyUrl: true,
+        companyDna: true,
+        autonomyLevel: true,
+        integrations: { select: { type: true, status: true } },
+      },
+    });
+
+    return {
+      onboardingCompletedAt: workspace.onboardingCompletedAt,
+      name: workspace.name,
+      companyUrl: workspace.companyUrl,
+      companyDna: workspace.companyDna as Record<string, unknown> | null,
+      autonomyLevel: workspace.autonomyLevel as "MANUAL" | "SUPERVISED" | "AUTO",
+      integrations: workspace.integrations.map((i) => ({
+        type: i.type,
+        status: i.status,
+      })),
+    };
+  }),
+
+  completeOnboarding: protectedProcedure
+    .input(
+      z.object({
+        workspaceName: z.string().min(1).max(100).optional(),
+        senderRole: z.string().max(100).optional(),
+        autonomyLevel: z.enum(["MANUAL", "SUPERVISED", "AUTO"]).optional(),
+        teamSize: z.string().max(10).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data: Record<string, unknown> = {
+        onboardingCompletedAt: new Date(),
+      };
+
+      if (input.workspaceName) {
+        data.name = input.workspaceName;
+      }
+      if (input.autonomyLevel) {
+        data.autonomyLevel = input.autonomyLevel;
+      }
+
+      await prisma.workspace.update({
+        where: { id: ctx.workspaceId! },
+        data: data as Prisma.WorkspaceUpdateInput,
+      });
+
+      // Update senderIdentity.role + metadata.teamSize in CompanyDna if provided
+      if (input.senderRole || input.teamSize) {
+        const workspace = await prisma.workspace.findUniqueOrThrow({
+          where: { id: ctx.workspaceId! },
+          select: { companyDna: true },
+        });
+
+        const dna = (workspace.companyDna as Record<string, unknown>) ?? {};
+
+        if (input.senderRole) {
+          const senderIdentity = (dna.senderIdentity as Record<string, unknown>) ?? {
+            name: "",
+            role: "",
+            signatureHook: "",
+          };
+          senderIdentity.role = input.senderRole;
+          dna.senderIdentity = senderIdentity;
+        }
+
+        if (input.teamSize) {
+          const metadata = (dna.metadata as Record<string, unknown>) ?? {};
+          metadata.teamSize = input.teamSize;
+          dna.metadata = metadata;
+        }
+
+        await prisma.workspace.update({
+          where: { id: ctx.workspaceId! },
+          data: { companyDna: dna as Prisma.InputJsonValue },
+        });
+      }
+
+      return { success: true };
+    }),
+
+  skipOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
+    await prisma.workspace.update({
+      where: { id: ctx.workspaceId! },
+      data: { onboardingCompletedAt: new Date() },
+    });
+    return { success: true };
+  }),
+
+  // ─── Company DNA ────────────────────────────────────────
+
   getCompanyDna: protectedProcedure.query(async ({ ctx }) => {
     const workspace = await prisma.workspace.findUniqueOrThrow({
       where: { id: ctx.workspaceId! },

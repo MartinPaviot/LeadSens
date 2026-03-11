@@ -42,6 +42,10 @@ const registry: Record<string, () => Promise<{ default: ComponentType<any> }>> =
     import("@/components/chat/inline/analytics-report-card").then((m) => ({
       default: m.AnalyticsReportCard,
     })),
+  "campaign-launch-preview": () =>
+    import("@/components/chat/inline/campaign-launch-preview-card").then((m) => ({
+      default: m.CampaignLaunchPreviewCard,
+    })),
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,10 +61,11 @@ const TOOL_TO_COMPONENT: Record<string, string> = {
   render_email_preview: "email-preview",
   render_campaign_summary: "campaign-summary",
   render_inline_progress: "progress-bar",
-  instantly_list_accounts: "account-picker",
-  instantly_campaign_sending_status: "campaign-status",
-  instantly_campaign_analytics: "campaign-analytics",
+  list_accounts: "account-picker",
+  campaign_sending_status: "campaign-status",
+  campaign_analytics: "campaign-analytics",
   campaign_performance_report: "analytics-report",
+  preview_campaign_launch: "campaign-launch-preview",
 };
 
 export function toolNameToComponent(toolName: string): string | null {

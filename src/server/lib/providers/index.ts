@@ -36,7 +36,7 @@ type VerifierType = (typeof VERIFIER_TYPES)[number];
 
 // ─── Integration loader ─────────────────────────────────
 
-async function getActiveIntegration(
+export async function getActiveIntegration(
   workspaceId: string,
   type: IntegrationType,
 ) {

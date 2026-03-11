@@ -59,9 +59,9 @@ interface EnrichedLead {
     recentNews?: string[];
     techStack?: string[];
     signals?: string[];
-    // Structured signals
-    hiringSignals?: string[];
-    fundingSignals?: string[];
+    // Structured signals (may be string[] for legacy or {detail,date,source}[] for new data)
+    hiringSignals?: (string | { detail: string; date?: string | null; source?: string | null })[];
+    fundingSignals?: (string | { detail: string; date?: string | null; source?: string | null })[];
     productLaunches?: string[];
     leadershipChanges?: LeadershipChange[];
     publicPriorities?: PublicPriority[];
@@ -296,7 +296,7 @@ function LeadRow({ lead }: { lead: EnrichedLead }) {
                       <div className="flex items-center gap-1 text-[11px] font-medium text-foreground/70">
                         <Users className="size-3" /> Hiring
                       </div>
-                      <TagList items={e.hiringSignals} />
+                      <TagList items={e.hiringSignals.map((s) => typeof s === "string" ? s : s.detail + (s.date ? ` (${s.date})` : ""))} />
                     </div>
                   )}
                   {e.fundingSignals && e.fundingSignals.length > 0 && (
@@ -304,7 +304,7 @@ function LeadRow({ lead }: { lead: EnrichedLead }) {
                       <div className="flex items-center gap-1 text-[11px] font-medium text-foreground/70">
                         <TrendUp className="size-3" /> Funding
                       </div>
-                      <TagList items={e.fundingSignals} />
+                      <TagList items={e.fundingSignals.map((s) => typeof s === "string" ? s : s.detail + (s.date ? ` (${s.date})` : ""))} />
                     </div>
                   )}
                   {e.productLaunches && e.productLaunches.length > 0 && (
@@ -434,8 +434,8 @@ function buildCsv(leads: EnrichedLead[]): string {
       e?.recentNews?.join("; ") || "",
       e?.signals?.join("; ") || "",
       e?.techStack?.join("; ") || "",
-      e?.hiringSignals?.join("; ") || "",
-      e?.fundingSignals?.join("; ") || "",
+      e?.hiringSignals?.map((s) => typeof s === "string" ? s : s.detail + (s.date ? ` (${s.date})` : "")).join("; ") || "",
+      e?.fundingSignals?.map((s) => typeof s === "string" ? s : s.detail + (s.date ? ` (${s.date})` : "")).join("; ") || "",
       e?.productLaunches?.join("; ") || "",
       formatArrayField(e?.leadershipChanges),
       formatArrayField(e?.publicPriorities),

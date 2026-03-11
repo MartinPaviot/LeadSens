@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signUp } from "@/lib/auth-client";
+import { signUp, signIn } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,23 +14,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Eye, EyeSlash, GoogleLogo } from "@phosphor-icons/react";
 
 export default function SignupPage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, setIsPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords don't match");
-      return;
-    }
-
     setIsPending(true);
 
     await signUp.email(
@@ -38,10 +33,10 @@ export default function SignupPage() {
         name: firstName,
         email,
         password,
-        callbackURL: "/",
+        callbackURL: "/chat",
       },
       {
-        onSuccess: () => router.push("/"),
+        onSuccess: () => router.push("/chat"),
         onError: (ctx) => {
           toast.error(ctx.error.message ?? "Sign up failed");
           setIsPending(false);
@@ -54,14 +49,34 @@ export default function SignupPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-xl">Get Started</CardTitle>
-        <CardDescription>Create your account to get started</CardDescription>
+        <CardDescription>
+          Free to start — no credit card required
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-6">
-          <div className="grid gap-4">
+        <div className="grid gap-6">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() =>
+              signIn.social({ provider: "google", callbackURL: "/chat" })
+            }
+          >
+            <GoogleLogo weight="bold" />
+            Continue with Google
+          </Button>
+
+          <div className="relative text-center text-sm text-muted-foreground">
+            <span className="relative z-10 bg-card px-2">or</span>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" />
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="grid gap-4">
             <div className="grid gap-2">
               <label htmlFor="firstName" className="text-sm font-medium">
-                Prénom
+                First name
               </label>
               <Input
                 id="firstName"
@@ -89,44 +104,45 @@ export default function SignupPage() {
               <label htmlFor="password" className="text-sm font-medium">
                 Password
               </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="********"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="********"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeSlash size={16} />
+                  ) : (
+                    <Eye size={16} />
+                  )}
+                </button>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm password
-              </label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="********"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-              />
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Loading..." : "Get Started Free"}
+            </Button>
+            <div className="text-center text-sm">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="underline underline-offset-4 hover:text-primary"
+              >
+                Sign in
+              </Link>
             </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? "Loading..." : "Sign up"}
-          </Button>
-          <div className="text-center text-sm">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="underline underline-offset-4 hover:text-primary"
-            >
-              Login
-            </Link>
-          </div>
-        </form>
+          </form>
+        </div>
       </CardContent>
     </Card>
   );

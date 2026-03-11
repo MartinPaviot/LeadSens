@@ -15,6 +15,7 @@ import { LeadSensThread } from "./thread";
 import { GreetingLoader } from "./greeting-loader";
 import { GreetingScreen } from "./greeting-screen";
 import { ThemeToggle } from "./theme-toggle";
+import { AutonomySelector } from "./autonomy-selector";
 import { useConversations } from "@/components/conversation-provider";
 import type { SSEEventName, SSEEventPayload } from "@/lib/sse";
 
@@ -82,6 +83,8 @@ export default function AgentChat() {
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [integrations, setIntegrations] = useState<{ type: string; status: string; accountEmail?: string | null }[]>([]);
+  const [pipelinePhase, setPipelinePhase] = useState<string | null>(null);
+  const [resumptionSummary, setResumptionSummary] = useState<string | null>(null);
 
   // Mutable refs for the current session
   const conversationIdRef = useRef(generateId());
@@ -127,6 +130,8 @@ export default function AgentChat() {
     updateScheduledRef.current = false;
     retryCountRef.current = 0;
     retryIntervalRef.current = DEFAULT_RETRY_MS;
+    setResumptionSummary(null);
+    setPipelinePhase(null);
 
     if (activeId) {
       // ── Load existing conversation from DB ──
@@ -155,6 +160,20 @@ export default function AgentChat() {
           setMessages(chatMessages);
           if (chatMessages.some((m) => m.role === "user")) {
             setHasUserSentMessage(true);
+          }
+
+          // Fetch resumption summary for returning users
+          try {
+            const summaryRes = await fetch(
+              `/api/trpc/conversation.getResumptionSummary?input=${encodeURIComponent(
+                JSON.stringify({ conversationId: activeId }),
+              )}`,
+            );
+            const summaryData = await summaryRes.json();
+            const summary = summaryData?.result?.data?.summary;
+            if (summary) setResumptionSummary(summary);
+          } catch {
+            // Non-critical — ignore
           }
         } catch (err) {
           console.error("Failed to load conversation:", err);
@@ -526,6 +545,19 @@ export default function AgentChat() {
     return () => window.removeEventListener("leadsens:accounts-selected", handler);
   }, [handleSend]);
 
+  // ─── Campaign launch preview event listener ────────────
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ action: string; message: string }>).detail;
+      if (detail?.message) {
+        handleSend(detail.message);
+      }
+    };
+    window.addEventListener("leadsens:campaign-launch", handler);
+    return () => window.removeEventListener("leadsens:campaign-launch", handler);
+  }, [handleSend]);
+
   // ─── Derived state ────────────────────────────────────
 
   const isLoadingGreeting = !isLoadingHistory && messages.length === 0;
@@ -551,15 +583,19 @@ export default function AgentChat() {
       <div className="flex h-dvh" aria-label="Agent chat">
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
-          <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm shrink-0">
+          <header className="relative z-50 flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur-sm shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="size-7 rounded-lg overflow-hidden bg-white">
                 <img src="/L.svg" alt="LeadSens" className="size-7" />
               </div>
               <h1 className="text-sm font-semibold">LeadSens</h1>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <AutonomySelector />
+              <ThemeToggle />
+            </div>
           </header>
+
 
           <AgentRuntimeProvider
             messages={messages}
@@ -567,6 +603,17 @@ export default function AgentChat() {
             onSend={handleSend}
             onCancel={handleCancel}
           >
+            {/* Resumption summary banner */}
+            {resumptionSummary && !isStreaming && (
+              <div className="px-4 pt-2">
+                <div className="max-w-[720px] mx-auto">
+                  <p className="text-xs text-muted-foreground italic bg-muted/30 rounded-lg px-3 py-2 border border-border/30">
+                    {resumptionSummary}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {isLoadingHistory ? (
               <GreetingLoader />
             ) : isLoadingGreeting ? (
@@ -577,7 +624,7 @@ export default function AgentChat() {
                 integrations={integrations}
               />
             ) : (
-              <LeadSensThread isStreaming={isStreaming} />
+              <LeadSensThread isStreaming={isStreaming} pipelinePhase={pipelinePhase} />
             )}
           </AgentRuntimeProvider>
         </div>
