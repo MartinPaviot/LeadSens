@@ -23,6 +23,7 @@ interface QualityGateContext {
   leadCompany?: string | null;
   step: number;
   icpDescription?: string;
+  enrichmentCompleteness?: number | null;
 }
 
 const SUBJECT_MAX_WORDS = 5;
@@ -209,6 +210,8 @@ export async function draftWithQualityGate(params: {
       !aiTellScan.flagged
     ) {
       // Return current clean result, not bestResult — bestResult may have violations
+      // Add thin-data warning (non-blocking, informational only)
+      addThinDataWarning(score, params.context);
       return { ...draft, qualityScore: score };
     }
 
@@ -219,5 +222,25 @@ export async function draftWithQualityGate(params: {
   }
 
   // Return best attempt even if below threshold
+  addThinDataWarning(bestResult!.qualityScore, params.context);
   return bestResult!;
+}
+
+const THIN_DATA_THRESHOLD = 0.4;
+
+/**
+ * Adds an informational warning when enrichment data is thin (< 40% fields filled).
+ * Non-blocking — doesn't trigger retry or penalize score. Just informs the agent.
+ */
+function addThinDataWarning(score: QualityScore, context: QualityGateContext): void {
+  if (
+    context.enrichmentCompleteness != null &&
+    context.enrichmentCompleteness < THIN_DATA_THRESHOLD
+  ) {
+    const pct = Math.round(context.enrichmentCompleteness * 100);
+    score.issues = [
+      ...(score.issues ?? []),
+      `Thin enrichment data (${pct}% completeness). Email may lack personalization — consider re-enriching or using broader signals.`,
+    ];
+  }
 }

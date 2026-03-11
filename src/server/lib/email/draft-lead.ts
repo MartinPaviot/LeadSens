@@ -130,7 +130,7 @@ export async function draftEmailsForLead(
           patternRanking: patternRanking || undefined,
           tier: (lead.icpBreakdown as Record<string, unknown> | null)?.tier as LeadTier | undefined,
         }),
-      context: { leadName, leadJobTitle: lead.jobTitle, leadCompany: lead.company, step },
+      context: { leadName, leadJobTitle: lead.jobTitle, leadCompany: lead.company, step, enrichmentCompleteness: lead.enrichmentCompleteness },
       workspaceId,
     });
 

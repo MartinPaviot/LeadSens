@@ -258,7 +258,7 @@
   - Test unitaire vérifie qu'aucune section ne déborde et que careers/press ne sont pas perdus
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **ENR-COMPL-01** Enrichment completeness score stored on lead **(MEDIUM — 2h)**
+- [x] **ENR-COMPL-01** Enrichment completeness score stored on lead ✅ *2026-03-11: computeEnrichmentCompleteness() pure function (18 raw fields, excludes narrative/derived). enrichmentCompleteness Float? on Lead + migration. Written in both batch + single enrichment. Quality gate non-blocking warning if <40%. 14 tests in enrichment-completeness.test.ts.*
   **Fichiers:** `src/server/lib/enrichment/summarizer.ts`, `src/server/lib/tools/enrichment-tools.ts`, `prisma/schema.prisma`
   **Réf:** RESEARCH-LEAD-ENRICHMENT E3.3, audit-enrichment.md ISSUE 6
   **Impact:** Quality gate ne peut pas détecter les emails rédigés avec des données minces. Leads avec 3/18 champs = emails génériques.

@@ -588,6 +588,8 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[csv]** : `parseCSV()` delimiter detection priority: tab > semicolon > comma. When tab present in header, everything between tabs is one column — mixed delimiters get consumed. French headers (prénom, entreprise, poste, pays) mapped to canonical fields. Rows without `email` silently skipped.
 - **[lead-status]** : `VALID_TRANSITIONS` has 8 source states. Terminal states (MEETING_BOOKED, NOT_INTERESTED, BOUNCED, UNSUBSCRIBED, SKIPPED) return `undefined` from the map — any transition from them is invalid. `isValidTransition(from, to)` = `VALID_TRANSITIONS[from]?.includes(to) ?? false`.
 - **[insights]** : `buildInsightSuggestions()` uses strict `>` for bounce threshold (not `>=`), so exactly 5% does NOT trigger. Industry threshold is `> overallRate * 1.5`. Low rate suggestion requires BOTH `< 5%` AND `>= 50` sent.
+- **[enrichment]** : `computeEnrichmentCompleteness()` counts 18 raw data fields (6 strings + 12 arrays). Excludes 4 narrative/derived fields (enrichmentContext/LinkedIn/Signals/Diagnostic) and generic `signals` catch-all. Returns 0-1. Stored on Lead as `enrichmentCompleteness Float?`.
+- **[quality-gate]** : Two warning categories: blocking (spam, filler, word count, subject length, AI tells) = score -1 + retry trigger. Non-blocking (thin enrichment data < 40%) = informational issue only, no score penalty, no retry. `addThinDataWarning()` runs after retry loop on final result.
 
 ## 12. Playwright MCP — Utilisation maximale
 

@@ -1,3 +1,26 @@
+=== ITERATION 33 | 2026-03-11 03:15 UTC ===
+TASK: ENR-COMPL-01 — Enrichment completeness score stored on lead
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: prisma/schema.prisma (enrichmentCompleteness Float?), prisma/migrations/20260311100000_add_enrichment_completeness/ (NEW), src/server/lib/tools/enrichment-tools.ts (computeEnrichmentCompleteness + wired in batch + single), src/server/lib/email/quality-gate.ts (thin-data warning), src/server/lib/tools/email-tools.ts (pass completeness to quality gate), src/server/lib/email/draft-lead.ts (pass completeness to quality gate), tests/enrichment-completeness.test.ts (NEW)
+TESTS: 994/994 passed (42 test files, +14 net new tests)
+COMMIT: feat(enrichment): enrichment completeness score stored on lead (ENR-COMPL-01)
+CHANGES:
+- Pure function `computeEnrichmentCompleteness(data)` counts 18 raw data fields (6 strings + 12 arrays), returns 0-1
+- Excludes narrative/derived fields (enrichmentContext, enrichmentLinkedin, enrichmentSignals, enrichmentDiagnostic) and generic catch-all `signals`
+- `COMPLETENESS_FIELD_COUNT` exported constant = 18
+- `enrichmentCompleteness Float?` added to Lead model in Prisma + migration
+- Written in both `enrich_leads_batch` and `enrich_single_lead` update calls
+- Quality gate: `addThinDataWarning()` adds non-blocking informational issue when completeness < 0.4 (40%)
+- Warning doesn't penalize score or trigger retry — it just informs the agent
+- `QualityGateContext.enrichmentCompleteness` optional field, passed from all 3 callers (batch, single, draft-lead)
+- 14 tests: 0 fields=0, all fields=1.0, single string, single array, empty string/array, partial (web-only), rich (web+LinkedIn+Apollo), no narrative fields, no generic signals, sparse object, rounding, 40% threshold boundary
+LEARNINGS:
+- Quality gate warnings split into two categories: blocking (spam, filler, word count, subject length, AI tells) and non-blocking (thin data). Blocking triggers retry + score penalty. Non-blocking only adds issue for agent visibility.
+- 18 raw data fields is the right count — excludes 4 narrative fields (derived from raw data, double-counting) and 1 generic catch-all (`signals` which is a dump for uncategorized items).
+- Rounding to 2 decimal places (Math.round(x * 100) / 100) gives clean display values (0.39, 0.44) instead of floating point noise.
+NEXT: PIPE-CRM-01 (enrich CRM contact) or PERF-N1-01 (batch DB writes) or AUDIT-04 (A/B winner propagation)
+
 === ITERATION 32 | 2026-03-11 02:30 UTC ===
 TASK: PIPE-TEST-01 — Unit tests for lead-status state machine + CSV parser + insights
 STATUS: DONE

@@ -168,6 +168,41 @@ export function summarizeEnrichmentQuality(enrichment: Record<string, unknown> |
   return { quality, has, missing };
 }
 
+/**
+ * 18 raw data fields tracked for enrichment completeness.
+ * Excludes narrative/derived fields (enrichmentContext, enrichmentLinkedin, enrichmentSignals, enrichmentDiagnostic)
+ * and the generic catch-all `signals` array.
+ */
+const COMPLETENESS_FIELDS = {
+  string: ["companySummary", "targetMarket", "valueProposition", "teamSize", "linkedinHeadline", "industry"] as const,
+  array: ["products", "painPoints", "recentNews", "techStack", "hiringSignals", "fundingSignals", "productLaunches", "leadershipChanges", "publicPriorities", "techStackChanges", "recentLinkedInPosts", "careerHistory"] as const,
+};
+
+export const COMPLETENESS_FIELD_COUNT =
+  COMPLETENESS_FIELDS.string.length + COMPLETENESS_FIELDS.array.length; // 18
+
+/**
+ * Computes enrichment completeness as a 0-1 score.
+ * Counts non-null/non-empty fields out of 18 raw data fields.
+ */
+export function computeEnrichmentCompleteness(
+  data: Record<string, unknown>,
+): number {
+  let filled = 0;
+
+  for (const field of COMPLETENESS_FIELDS.string) {
+    const val = data[field];
+    if (typeof val === "string" && val.length > 0) filled++;
+  }
+
+  for (const field of COMPLETENESS_FIELDS.array) {
+    const val = data[field];
+    if (Array.isArray(val) && val.length > 0) filled++;
+  }
+
+  return Math.round((filled / COMPLETENESS_FIELD_COUNT) * 100) / 100;
+}
+
 /** Map find_decision_makers tool args to Apollo search params (pure, testable). */
 export function mapToolArgsToApolloParams(args: {
   titles: string[];
@@ -552,6 +587,11 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             tier: signalBoost.tier,
           };
 
+          // Enrichment completeness: 0-1 score of filled fields
+          const completeness = enrichmentTyped
+            ? computeEnrichmentCompleteness(enrichmentTyped)
+            : 0;
+
           await prisma.lead.update({
             where: { id: lead.id },
             data: {
@@ -563,6 +603,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               ...flatFields,
               icpScore: signalBoost.combinedScore,
               icpBreakdown: updatedBreakdown as unknown as Prisma.InputJsonValue,
+              enrichmentCompleteness: completeness,
               enrichedAt: new Date(),
               status: "ENRICHED",
             },
@@ -810,6 +851,11 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           tier: signalBoost.tier,
         };
 
+        // Enrichment completeness: 0-1 score of filled fields
+        const completeness = enrichmentTyped
+          ? computeEnrichmentCompleteness(enrichmentTyped)
+          : 0;
+
         await prisma.lead.update({
           where: { id: lead.id },
           data: {
@@ -821,6 +867,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             ...flatFields,
             icpScore: signalBoost.combinedScore,
             icpBreakdown: updatedBreakdown as unknown as Prisma.InputJsonValue,
+            enrichmentCompleteness: completeness,
             enrichedAt: new Date(),
             status: "ENRICHED",
           },

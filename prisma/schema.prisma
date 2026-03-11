@@ -160,6 +160,7 @@ model Lead {
   espListId       String?
   enrichmentData  Json?
   enrichedAt      DateTime?
+  enrichmentCompleteness Float?
   icpScore        Int?
   icpBreakdown    Json?
   campaignId      String?

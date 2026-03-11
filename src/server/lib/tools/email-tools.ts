@@ -157,6 +157,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                     leadJobTitle: lead.jobTitle,
                     leadCompany: lead.company,
                     step,
+                    enrichmentCompleteness: lead.enrichmentCompleteness,
                   },
                   workspaceId: ctx.workspaceId,
                 });
@@ -400,6 +401,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
             leadJobTitle: lead.jobTitle,
             leadCompany: lead.company,
             step: args.step,
+            enrichmentCompleteness: lead.enrichmentCompleteness,
           },
           workspaceId: ctx.workspaceId,
         });
