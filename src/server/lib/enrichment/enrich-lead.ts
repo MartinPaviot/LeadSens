@@ -16,6 +16,7 @@ import { getOrScrapeCompany, extractDomain } from "@/server/lib/enrichment/compa
 import { scrapeLinkedInViaApify, type LinkedInProfileData } from "@/server/lib/connectors/apify";
 import { enrichPerson, type ApolloPersonResult } from "@/server/lib/connectors/apollo";
 import { summarizeCompanyContext, enrichmentDataSchema, extractFlatEnrichmentFields, type LinkedInContext } from "@/server/lib/enrichment/summarizer";
+import { extractCareersSection, extractHiringSignals, mergeHiringSignals } from "@/server/lib/enrichment/hiring-signal-extractor";
 import { getApolloApiKey } from "@/server/lib/providers";
 import { logger } from "@/lib/logger";
 
@@ -144,7 +145,15 @@ export async function enrichSingleLead(
     if (markdown) {
       try {
         const linkedinCtx = extractLinkedInContext(enrichment as Record<string, unknown> | null);
-        const companyData = await summarizeCompanyContext(markdown, workspaceId, linkedinCtx);
+        let companyData = await summarizeCompanyContext(markdown, workspaceId, linkedinCtx);
+        // Deterministic careers page extraction — supplements LLM signals at zero cost
+        const careersSection = extractCareersSection(markdown);
+        if (careersSection) {
+          const extracted = extractHiringSignals(careersSection);
+          if (extracted.length > 0) {
+            companyData = { ...companyData, hiringSignals: mergeHiringSignals(companyData.hiringSignals ?? [], extracted) };
+          }
+        }
         enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
       } catch (err) {
         logger.warn("[enrich-bg] Summarization failed", { leadId, error: err instanceof Error ? err.message : String(err) });

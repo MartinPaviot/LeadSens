@@ -5,11 +5,31 @@ import { scoreLead, computeSignalBoost } from "@/server/lib/enrichment/icp-score
 import { getOrScrapeCompany, extractDomain as extractDomainFromUrl } from "@/server/lib/enrichment/company-cache";
 import { scrapeLinkedInViaApify, type LinkedInProfileData } from "@/server/lib/connectors/apify";
 import { enrichPerson, searchPeople, getApiUsageStats, getEnrichmentLimits, type ApolloPersonResult, type ApolloSearchPeopleParams } from "@/server/lib/connectors/apollo";
-import { summarizeCompanyContext, enrichmentDataSchema, extractFlatEnrichmentFields, type LinkedInContext } from "@/server/lib/enrichment/summarizer";
+import { summarizeCompanyContext, enrichmentDataSchema, extractFlatEnrichmentFields, type LinkedInContext, type EnrichmentData } from "@/server/lib/enrichment/summarizer";
+import { extractCareersSection, extractHiringSignals, mergeHiringSignals } from "@/server/lib/enrichment/hiring-signal-extractor";
 import { getApolloApiKey } from "@/server/lib/providers";
 import { logger } from "@/lib/logger";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
+
+/**
+ * Enhances LLM-extracted enrichment data with deterministic careers page signals.
+ * Extracts the CAREERS section from the combined markdown, parses job titles
+ * and growth signals, then merges with the LLM's hiringSignals.
+ * Zero additional LLM cost.
+ */
+export function enhanceWithCareersSignals(companyData: EnrichmentData, markdown: string): EnrichmentData {
+  const careersSection = extractCareersSection(markdown);
+  if (!careersSection) return companyData;
+
+  const extracted = extractHiringSignals(careersSection);
+  if (extracted.length === 0) return companyData;
+
+  return {
+    ...companyData,
+    hiringSignals: mergeHiringSignals(companyData.hiringSignals ?? [], extracted),
+  };
+}
 
 /** Batch DB writes: flush every N leads instead of 1-by-1 */
 export const DB_FLUSH_SIZE = 20;
@@ -580,7 +600,10 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             if (markdown) {
               try {
                 const linkedinCtx = extractLinkedInContext(enrichment as Record<string, unknown> | null);
-                const companyData = await summarizeCompanyContext(markdown, ctx.workspaceId, linkedinCtx);
+                const companyData = enhanceWithCareersSignals(
+                  await summarizeCompanyContext(markdown, ctx.workspaceId, linkedinCtx),
+                  markdown,
+                );
                 // LinkedIn raw fields win over summarizer's null/[] defaults
                 enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
               } catch (err) {
@@ -863,7 +886,10 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           if (markdown) {
             try {
               const linkedinCtx = extractLinkedInContext(enrichment as Record<string, unknown> | null);
-              const companyData = await summarizeCompanyContext(markdown, ctx.workspaceId, linkedinCtx);
+              const companyData = enhanceWithCareersSignals(
+                await summarizeCompanyContext(markdown, ctx.workspaceId, linkedinCtx),
+                markdown,
+              );
               // LinkedIn raw fields win over summarizer's null/[] defaults
               enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
             } catch (err) {
