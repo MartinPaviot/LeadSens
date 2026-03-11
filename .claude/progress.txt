@@ -1,3 +1,24 @@
+=== ITERATION 21 | 2026-03-11 00:30 UTC ===
+TASK: WEBHOOK-DEDUP-01 — Add isDuplicateReply to webhook reply_received handler
+STATUS: DONE
+DURATION: ~8 min
+FILES CHANGED: src/app/api/webhooks/instantly/route.ts
+TESTS: 680/680 passed (34 test files)
+COMMIT: pending
+CHANGES:
+- Imported isDuplicateReply from pipeline-tools.ts into webhook route
+- reply_received handler now checks for duplicate before creating Reply record
+- Uses same logic as classify_reply: body prefix (100 chars) + 5-min window + same direction
+- Prevents duplicate Reply records from webhook retry delivery or webhook×classify_reply race
+- Also marked 3 already-implemented tasks in BACKLOG: RES-04, AB-REPORT-01, FL-DRY-01
+LEARNINGS:
+- RES-04 (benchmarks), AB-REPORT-01 (variant breakdown), FL-DRY-01 (shared sync) were all
+  implemented in previous iterations but never checked off in BACKLOG. Always verify BACKLOG
+  status after batch implementations.
+- isDuplicateReply is already well-tested (11 tests in classify-reply-dedup.test.ts). Reusing
+  the exported function avoids duplicating logic — same dedup window, same body prefix length.
+NEXT: RES-05 (Subject line pattern tracking) or DEDUP-CROSS-01 (Cross-campaign dedup)
+
 === ITERATION 20 | 2026-03-11 00:17 UTC ===
 TASK: CAD-TEST-01 — Unit tests for framework definitions, delays, CTA selection
 STATUS: DONE

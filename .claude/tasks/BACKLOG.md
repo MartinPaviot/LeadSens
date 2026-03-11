@@ -138,7 +138,7 @@
   - Ne bloque PAS si ZeroBounce pas connecté (graceful degradation)
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **RES-04** Industry benchmarks dans reporting **(MEDIUM — Research R6.1)**
+- [x] **RES-04** Industry benchmarks dans reporting ✅ *Already implemented: benchmarks.ts with 20 industries + fuzzy matching + aliases. getBenchmarkContext() integrated in getCampaignReport(). 11 tests in benchmarks.test.ts.*
   **Fichiers:** `src/server/lib/analytics/insights.ts`
   **Réf:** RESEARCH-LANDSCAPE §6, RESEARCH-DELIVERABILITY §10.2
   **Impact:** L'utilisateur comprend si ses performances sont bonnes ou mauvaises
@@ -325,7 +325,7 @@
 
 - [x] **AB-CORR-01** Correlator query for subject variant performance ✅ *2026-03-09: getReplyRateBySubjectVariant() in correlator.ts — groups by variantIndex, joins DraftedEmail for subject text. Pure helpers: getSubjectForVariant() + toVariantPerformanceRows(). CampaignReport.variantBreakdown added to insights.ts. subject_variant dimension in insights + analytics tools. 15 new tests in correlator.test.ts (36 total).*
 
-- [ ] **AB-REPORT-01** Variant performance in campaign report **(MEDIUM — 1h)**
+- [x] **AB-REPORT-01** Variant performance in campaign report ✅ *Already implemented: variantBreakdown in CampaignReport with subject text labels via VariantPerformanceRow. Surfaced in campaign_performance_report tool. Variant insight built from data.*
   **Fichiers:** `src/server/lib/analytics/insights.ts`, `src/server/lib/tools/analytics-tools.ts`
   **Réf:** audit-ab-testing.md ISSUE 9
   **Dépend de:** AB-CORR-01
@@ -421,7 +421,7 @@
   - Test unitaire for pure function (below threshold, at threshold, above threshold)
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **FL-DRY-01** Extract shared analytics sync logic **(LOW — 1h)**
+- [x] **FL-DRY-01** Extract shared analytics sync logic ✅ *Already implemented during Inngest migration: syncSingleCampaign() in analytics/sync.ts used by both inngest cron and analytics-tools.ts. No duplication.*
   **Fichiers:** `src/server/lib/analytics/sync.ts` (NEW), `src/queue/analytics-sync-worker.ts`, `src/server/lib/tools/analytics-tools.ts`
   **Réf:** audit-feedback-loop.md ISSUE 5
   **Impact:** Eliminates copy-paste between worker (117 lines) and tool (124 lines). Bug fixes apply to both paths automatically.
@@ -653,7 +653,7 @@
   - `getStyleSamples()` callers in email-tools.ts pass relevant category filter
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **WEBHOOK-DEDUP-01** Add isDuplicateReply check to webhook reply_received handler **(MEDIUM — 15 min)**
+- [x] **WEBHOOK-DEDUP-01** Add isDuplicateReply check to webhook reply_received handler ✅ *2026-03-11: Imported isDuplicateReply from pipeline-tools.ts. Reply record creation now gated by dedup check (same body prefix 100 chars + 5-min window). Prevents duplicate Reply records from webhook retry/race condition. 680/680 tests pass.*
   **Fichiers:** `src/app/api/webhooks/instantly/route.ts`
   **Réf:** audit v5, same pattern as classify_reply in pipeline-tools.ts
   **Impact:** Duplicate webhook delivery → duplicate Reply records. classify_reply has dedup, webhook does not.

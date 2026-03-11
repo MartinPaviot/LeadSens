@@ -39,6 +39,7 @@ import {
   webhookVariantToIndex,
   webhookEventSchema,
 } from "@/server/lib/webhooks/instantly-utils";
+import { isDuplicateReply } from "@/server/lib/tools/pipeline-tools";
 
 const SIGNATURE_HEADER = "x-instantly-signature";
 
@@ -165,21 +166,25 @@ export async function POST(req: Request) {
         },
       });
 
-      // Store reply
-      await prisma.reply.create({
-        data: {
-          threadId: thread.id,
-          direction: "INBOUND",
-          fromEmail: event.from_email,
-          toEmail: lead.email,
-          subject: event.subject ?? null,
-          body: event.body_preview ?? "",
-          preview: event.body_preview?.slice(0, 200) ?? "",
-          isAutoReply: event.is_auto_reply ?? false,
-          aiInterest: event.ai_interest_value ?? null,
-          sentAt: event.timestamp ? new Date(event.timestamp) : new Date(),
-        },
-      });
+      // Store reply (skip if duplicate from webhook retry / race condition — WEBHOOK-DEDUP-01)
+      const replyBody = event.body_preview ?? "";
+      const duplicate = await isDuplicateReply(thread.id, replyBody, "INBOUND");
+      if (!duplicate) {
+        await prisma.reply.create({
+          data: {
+            threadId: thread.id,
+            direction: "INBOUND",
+            fromEmail: event.from_email,
+            toEmail: lead.email,
+            subject: event.subject ?? null,
+            body: replyBody,
+            preview: replyBody.slice(0, 200),
+            isAutoReply: event.is_auto_reply ?? false,
+            aiInterest: event.ai_interest_value ?? null,
+            sentAt: event.timestamp ? new Date(event.timestamp) : new Date(),
+          },
+        });
+      }
 
       // Transition lead: PUSHED/SENT → REPLIED
       await safeTransition(lead.id, "REPLIED");
