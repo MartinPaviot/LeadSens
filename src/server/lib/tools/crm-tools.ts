@@ -7,11 +7,11 @@ import type { Lead } from "@prisma/client";
 
 // ─── Pure function: build enrichment properties for CRM ──
 
-interface LeadForCRM extends Pick<Lead,
+type LeadForCRM = Pick<Lead,
   | "industry" | "website" | "linkedinUrl" | "country" | "companySize"
   | "icpScore" | "companyOneLiner" | "painPointsFlat" | "buyingSignals"
   | "linkedinHeadline" | "techStackFlat" | "valueProp" | "careerHistory"
-> {}
+>;
 
 /**
  * Builds CRM-compatible enrichment properties from lead data.

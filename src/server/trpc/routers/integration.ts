@@ -17,7 +17,7 @@ export const integrationRouter = router({
   }),
 
   disconnect: protectedProcedure
-    .input(z.object({ type: z.enum(["INSTANTLY", "HUBSPOT"]) }))
+    .input(z.object({ type: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       await prisma.integration.deleteMany({
         where: { workspaceId: ctx.workspaceId!, type: input.type },

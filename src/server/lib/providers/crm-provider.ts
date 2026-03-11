@@ -33,7 +33,7 @@ export interface SearchContactsResult {
 // ─── Interface ───────────────────────────────────────────
 
 export interface CRMProvider {
-  readonly name: "hubspot" | "pipedrive" | "salesforce";
+  readonly name: string;
 
   /** Search contacts by email addresses (batch) */
   searchContacts(emails: string[]): Promise<CRMContact[]>;

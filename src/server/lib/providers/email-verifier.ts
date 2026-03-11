@@ -33,7 +33,7 @@ export interface VerifyBatchResult {
 // ─── Interface ───────────────────────────────────────────
 
 export interface EmailVerifier {
-  readonly name: "zerobounce" | "dropcontact";
+  readonly name: string;
 
   /** Verify a batch of emails */
   verifyBatch(emails: string[]): Promise<VerifyBatchResult>;

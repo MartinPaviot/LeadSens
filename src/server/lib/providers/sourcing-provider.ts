@@ -79,7 +79,7 @@ export interface SourcedLead {
 // ─── Interface ───────────────────────────────────────────
 
 export interface SourcingProvider {
-  readonly name: "instantly" | "apollo";
+  readonly name: string;
 
   /** Count available leads matching filters */
   countLeads(filters: NormalizedSearchFilters | Record<string, unknown>): Promise<number>;
