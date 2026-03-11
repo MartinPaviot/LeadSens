@@ -12,7 +12,12 @@ import { prisma } from "@/lib/prisma";
 import { getESPProvider, getESPType } from "@/server/lib/providers";
 import { getEmailVerifier } from "@/server/lib/providers";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
-import { buildLeadCustomVars, checkVerificationGate } from "./tool-utils";
+import {
+  buildLeadCustomVars,
+  checkVerificationGate,
+  ALREADY_CONTACTED_STATUSES,
+  analyzeCrossCampaignDedup,
+} from "./tool-utils";
 import { computeLeadTier, type LeadTier } from "@/server/lib/enrichment/icp-scorer";
 import type { ToolDefinition, ToolContext } from "./types";
 
@@ -167,6 +172,7 @@ export function createESPTools(ctx: ToolContext): Record<string, ToolDefinition>
       parameters: z.object({
         campaign_id: z.string(),
         lead_ids: z.array(z.string()),
+        skip_dedup_check: z.boolean().optional().describe("Skip cross-campaign dedup check after user confirmed overlap is intentional"),
       }),
       isSideEffect: true,
       async execute(args) {
@@ -184,16 +190,58 @@ export function createESPTools(ctx: ToolContext): Record<string, ToolDefinition>
           },
         });
 
-        // Filter out leads already pushed (prevent spam / double-push)
-        const alreadyPushed = leads.filter((l) => l.status === "PUSHED");
-        const safeToPush = leads.filter((l) => l.status !== "PUSHED");
+        // Filter out leads already in active outreach (PUSHED, SENT, REPLIED, etc.)
+        const alreadyActive = leads.filter((l) => ALREADY_CONTACTED_STATUSES.has(l.status));
+        const safeToPush = leads.filter((l) => !ALREADY_CONTACTED_STATUSES.has(l.status));
 
         if (safeToPush.length === 0) {
           return {
             added: 0,
-            skipped_already_pushed: alreadyPushed.length,
-            warning: "All leads have already been pushed to a campaign.",
+            skipped_already_active: alreadyActive.length,
+            warning: "All leads have already been pushed or are in active outreach.",
           };
+        }
+
+        // Cross-campaign dedup: check if any lead emails were already contacted in OTHER active campaigns
+        if (!args.skip_dedup_check) {
+          const emails = safeToPush.map((l) => l.email);
+          const perfInOther = await prisma.emailPerformance.findMany({
+            where: {
+              email: { in: emails },
+              campaignId: { not: args.campaign_id },
+              campaign: {
+                workspaceId: ctx.workspaceId,
+                status: { in: ["PUSHED", "ACTIVE"] },
+              },
+            },
+            select: {
+              email: true,
+              campaignId: true,
+              campaign: { select: { name: true } },
+            },
+          });
+
+          if (perfInOther.length > 0) {
+            const dedup = analyzeCrossCampaignDedup(
+              emails,
+              perfInOther.map((p) => ({
+                email: p.email,
+                campaignId: p.campaignId,
+                campaignName: p.campaign.name,
+              })),
+            );
+
+            return {
+              cross_campaign_warning: `⚠️ ${dedup.duplicateCount} leads are already being contacted in active campaigns: ${dedup.campaignNames.join(", ")}. Push ${dedup.safeEmails.length} safe leads only, or re-run with skip_dedup_check to push all.`,
+              duplicates: dedup.duplicates.map((d) => ({
+                email: d.email,
+                active_campaign: d.campaignName,
+              })),
+              safe_count: dedup.safeEmails.length,
+              duplicate_count: dedup.duplicateCount,
+              total_leads: safeToPush.length,
+            };
+          }
         }
 
         // Pre-push verification gate
@@ -253,7 +301,7 @@ export function createESPTools(ctx: ToolContext): Record<string, ToolDefinition>
         return {
           added: result.added,
           ...(result.skipped ? { skipped: result.skipped } : {}),
-          ...(alreadyPushed.length > 0 ? { skipped_already_pushed: alreadyPushed.length } : {}),
+          ...(alreadyActive.length > 0 ? { skipped_already_active: alreadyActive.length } : {}),
           ...(gate.warning ? { verification_warning: gate.warning } : {}),
           ...(result.errors?.length ? { errors: result.errors } : {}),
         };

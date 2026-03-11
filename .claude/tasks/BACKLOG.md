@@ -558,7 +558,7 @@
 
 - [x] **WEBHOOK-EXPAND-01** Handle additional Instantly webhook events ✅ *2026-03-10: 11 event types (was 4). email_sent→PUSHED→SENT (resolves PIPE-SENT-01), email_opened→openCount/timestamps, link_clicked→clickCount, lead_meeting_booked→MEETING_BOOKED, lead_interested→INTERESTED, lead_not_interested→NOT_INTERESTED, account_error→log. sentAt+sentStep on EmailPerformance. REPLIED→MEETING_BOOKED transition. 21 tests.*
 
-- [ ] **DEDUP-CROSS-01** Cross-campaign lead dedup before push **(MEDIUM — 2h)**
+- [x] **DEDUP-CROSS-01** Cross-campaign lead dedup before push ✅ *2026-03-11: analyzeCrossCampaignDedup() pure function in tool-utils.ts. add_leads_to_campaign queries EmailPerformance for matching emails in other active campaigns. skip_dedup_check parameter for user-confirmed overlap. Also expanded status filter from PUSHED-only to all 8 post-push statuses (ALREADY_CONTACTED_STATUSES). 16 tests in cross-campaign-dedup.test.ts.*
   **Fichiers:** `src/server/lib/tools/instantly-tools.ts`
   **Réf:** research-refresh.md §13, tl;dv 6-layer architecture 2026
   **Impact:** Without cross-campaign dedup, same prospect receives outreach from multiple campaigns. Damages deliverability and reputation as campaign count grows.

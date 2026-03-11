@@ -1,3 +1,31 @@
+=== ITERATION 24 | 2026-03-11 01:05 UTC ===
+TASK: DEDUP-CROSS-01 — Cross-campaign lead dedup before push
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: src/server/lib/tools/tool-utils.ts, src/server/lib/tools/esp-tools.ts, tests/cross-campaign-dedup.test.ts (NEW)
+TESTS: 731/731 passed (36 test files, +16 new tests)
+COMMIT: pending
+CHANGES:
+- NEW `analyzeCrossCampaignDedup()` pure function in tool-utils.ts
+  - Takes lead emails + performance records from other campaigns
+  - Returns duplicates (with campaign names), safe emails, campaign names list
+  - Case-insensitive email matching, deduplicates per-email across multiple campaigns
+- NEW `ALREADY_CONTACTED_STATUSES` set — 8 post-push statuses (PUSHED, SENT, REPLIED, INTERESTED, NOT_INTERESTED, MEETING_BOOKED, BOUNCED, UNSUBSCRIBED)
+- `add_leads_to_campaign` in esp-tools.ts:
+  - Expanded status filter from `=== "PUSHED"` to `ALREADY_CONTACTED_STATUSES.has(status)` — prevents re-pushing leads in SENT/REPLIED/INTERESTED etc.
+  - Added cross-campaign dedup: queries EmailPerformance for matching emails in other PUSHED/ACTIVE campaigns
+  - Returns warning with campaign names + safe/duplicate counts when overlap found
+  - Added `skip_dedup_check` boolean parameter for user-confirmed intentional overlap
+- 16 new tests: ALREADY_CONTACTED_STATUSES (3), analyzeCrossCampaignDedup (13) — no overlap, full overlap, partial, multi-campaign, case insensitivity, large batch, edge cases
+LEARNINGS:
+- @@unique([workspaceId, email]) prevents duplicate Lead records per workspace. Cross-campaign
+  dedup must use EmailPerformance (preserves historical campaign data even after lead reassignment).
+- Original status filter only caught "PUSHED" — leads in SENT/REPLIED/INTERESTED could be
+  re-pushed. The expanded filter catches all 8 post-push statuses.
+- Dedup check queries by email (not leadId) on EmailPerformance — more resilient to lead
+  reassignment scenarios where campaignId was updated but perf records remain.
+NEXT: RES-07 (Style learner categorized) or ENR-TEST-01 (Jina scraper tests)
+
 === ITERATION 23 | 2026-03-11 00:55 UTC ===
 TASK: RES-06 — A/B auto-pause with z-test statistical significance
 STATUS: DONE
