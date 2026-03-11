@@ -6,10 +6,10 @@
 
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
-import { updateLeadInterestStatus } from "@/server/lib/connectors/instantly";
+import { getESPProvider } from "@/server/lib/providers";
+import { isPositiveReply } from "@/server/lib/analytics/correlator";
 import type { ToolDefinition, ToolContext } from "./types";
 
 // ─── Reply Dedup ────────────────────────────────────────
@@ -45,14 +45,6 @@ export async function isDuplicateReply(
 
 // ─── Helpers ────────────────────────────────────────────
 
-async function getInstantlyApiKey(workspaceId: string): Promise<string | null> {
-  const integration = await prisma.integration.findUnique({
-    where: { workspaceId_type: { workspaceId, type: "INSTANTLY" } },
-  });
-  if (!integration?.apiKey || integration.status !== "ACTIVE") return null;
-  return decrypt(integration.apiKey);
-}
-
 async function resolveCampaign(workspaceId: string, campaignId?: string) {
   if (campaignId) {
     return prisma.campaign.findFirst({
@@ -65,49 +57,41 @@ async function resolveCampaign(workspaceId: string, campaignId?: string) {
   });
 }
 
-// ─── Instantly Sequence Removal ─────────────────────────
+// ─── ESP Sequence Removal ───────────────────────────────
+
+const REASON_MAP: Record<string, "interested" | "not_interested" | "meeting_booked"> = {
+  INTERESTED: "interested",
+  NOT_INTERESTED: "not_interested",
+  MEETING_BOOKED: "meeting_booked",
+};
 
 /**
- * Map LeadSens terminal status to Instantly interest status number.
- * See docs/INSTANTLY-API.md §4.2 for enum values.
- */
-export function mapToInstantlyInterestStatus(
-  status: "INTERESTED" | "NOT_INTERESTED" | "MEETING_BOOKED",
-): number {
-  const map: Record<string, number> = {
-    INTERESTED: 1,
-    NOT_INTERESTED: -1,
-    MEETING_BOOKED: 2,
-  };
-  return map[status];
-}
-
-/**
- * Remove lead from Instantly sequence by setting interest status.
+ * Remove lead from ESP sequence via the ESPProvider abstraction.
  * Best-effort: failure doesn't block LeadSens status transition.
  */
-async function removeFromInstantlySequence(
+async function removeFromESPSequence(
   workspaceId: string,
-  lead: { instantlyLeadId: string | null },
+  lead: { email: string; espLeadId: string | null },
+  campaign: { espCampaignId: string | null },
   targetStatus: "INTERESTED" | "NOT_INTERESTED" | "MEETING_BOOKED",
 ): Promise<{ removed: boolean; error?: string }> {
-  if (!lead.instantlyLeadId) {
-    return { removed: false, error: "No Instantly lead ID" };
+  if (!campaign.espCampaignId) {
+    return { removed: false, error: "No ESP campaign ID" };
   }
 
-  const apiKey = await getInstantlyApiKey(workspaceId);
-  if (!apiKey) {
-    return { removed: false, error: "Instantly not connected" };
+  const esp = await getESPProvider(workspaceId);
+  if (!esp) {
+    return { removed: false, error: "No ESP connected" };
   }
 
   try {
-    await updateLeadInterestStatus(apiKey, {
-      leadId: lead.instantlyLeadId,
-      interestStatus: mapToInstantlyInterestStatus(targetStatus),
+    const result = await esp.removeFromSequence({
+      leadEmail: lead.espLeadId ?? lead.email,
+      campaignId: campaign.espCampaignId,
+      reason: REASON_MAP[targetStatus],
     });
-    return { removed: true };
+    return result;
   } catch (err) {
-    // Best-effort: log but don't block
     const message = err instanceof Error ? err.message : String(err);
     return { removed: false, error: message };
   }
@@ -255,7 +239,7 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
               workspaceId: ctx.workspaceId,
               leadId: lead.id,
               campaignId: campaign.id,
-              instantlyThreadId: args.thread_id ?? null,
+              espThreadId: args.thread_id ?? null,
               interestScore: result.interest_score,
               classifiedAt: new Date(),
               status: result.interest_level === "interested" ? "INTERESTED"
@@ -282,7 +266,7 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
                 toEmail: lead.email,
                 body: args.reply_content,
                 preview: args.reply_content.slice(0, 200),
-                instantlyEmailId: null,
+                espEmailId: null,
                 aiInterest: result.interest_score,
                 sentAt: new Date(),
               },
@@ -292,24 +276,31 @@ meeting_intent: true if the reply mentions scheduling, meeting, call, demo, or c
 
         // Transition lead status based on classification
         let sequenceRemoved = false;
+        const campaignForRemoval = campaign ? { espCampaignId: campaign.espCampaignId } : null;
         try {
           if (lead.status === "SENT" || lead.status === "PUSHED") {
             await transitionLeadStatus(lead.id, "REPLIED");
           }
           if (result.interest_level === "interested" && lead.status === "REPLIED") {
             await transitionLeadStatus(lead.id, "INTERESTED");
-            const removal = await removeFromInstantlySequence(ctx.workspaceId, lead, "INTERESTED");
-            sequenceRemoved = removal.removed;
+            if (campaignForRemoval) {
+              const removal = await removeFromESPSequence(ctx.workspaceId, lead, campaignForRemoval, "INTERESTED");
+              sequenceRemoved = removal.removed;
+            }
           }
           if (result.interest_level === "not_interested" && lead.status === "REPLIED") {
             await transitionLeadStatus(lead.id, "NOT_INTERESTED");
-            const removal = await removeFromInstantlySequence(ctx.workspaceId, lead, "NOT_INTERESTED");
-            sequenceRemoved = removal.removed;
+            if (campaignForRemoval) {
+              const removal = await removeFromESPSequence(ctx.workspaceId, lead, campaignForRemoval, "NOT_INTERESTED");
+              sequenceRemoved = removal.removed;
+            }
           }
           if (result.meeting_intent && lead.status === "INTERESTED") {
             await transitionLeadStatus(lead.id, "MEETING_BOOKED");
-            const removal = await removeFromInstantlySequence(ctx.workspaceId, lead, "MEETING_BOOKED");
-            sequenceRemoved = removal.removed;
+            if (campaignForRemoval) {
+              const removal = await removeFromESPSequence(ctx.workspaceId, lead, campaignForRemoval, "MEETING_BOOKED");
+              sequenceRemoved = removal.removed;
+            }
           }
         } catch {
           // Transition may fail if status already advanced — non-blocking
@@ -405,71 +396,59 @@ Draft a reply (plain text, no subject needed):`,
 
     reply_to_email: {
       name: "reply_to_email",
-      description: "Send a reply to a lead via Instantly Unibox API. Requires the thread/email ID from Instantly.",
+      description: "Send a reply to a lead via your connected ESP. Requires the thread/email ID.",
       parameters: z.object({
-        instantly_email_id: z.string().describe("The Instantly email ID to reply to"),
+        email_id: z.string().describe("The ESP email ID to reply to"),
         body: z.string().describe("The reply body text (HTML or plain text)"),
         lead_id: z.string().optional().describe("Lead ID for tracking"),
         campaign_id: z.string().optional().describe("Campaign ID"),
       }),
       isSideEffect: true,
       async execute(args) {
-        ctx.onStatus?.("Sending reply via Instantly...");
+        ctx.onStatus?.("Sending reply...");
 
-        const apiKey = await getInstantlyApiKey(ctx.workspaceId);
-        if (!apiKey) return { error: "Instantly not connected." };
+        const esp = await getESPProvider(ctx.workspaceId);
+        if (!esp) return { error: "No ESP connected." };
 
-        // Call Instantly reply API
-        const response = await fetch("https://api.instantly.ai/api/v2/emails/reply", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            reply_to_uuid: args.instantly_email_id,
-            body: args.body,
-          }),
+        const campaign = await resolveCampaign(ctx.workspaceId, args.campaign_id);
+        const espCampaignId = campaign?.espCampaignId ?? "";
+
+        const result = await esp.replyToEmail({
+          emailId: args.email_id,
+          campaignId: espCampaignId,
+          body: args.body,
         });
 
-        if (!response.ok) {
-          const errText = await response.text().catch(() => "");
-          return { error: `Failed to send reply: ${response.status} ${errText.slice(0, 200)}` };
-        }
-
-        const data = await response.json();
+        if (result.error) return { error: result.error };
 
         // Track outbound reply in thread
-        if (args.lead_id) {
+        if (args.lead_id && campaign) {
           const lead = await prisma.lead.findFirst({
             where: { id: args.lead_id, workspaceId: ctx.workspaceId },
             select: { email: true },
           });
-          const campaign = await resolveCampaign(ctx.workspaceId, args.campaign_id);
-          if (campaign) {
-            const thread = await prisma.replyThread.findUnique({
-              where: { leadId_campaignId: { leadId: args.lead_id, campaignId: campaign.id } },
+          const thread = await prisma.replyThread.findUnique({
+            where: { leadId_campaignId: { leadId: args.lead_id, campaignId: campaign.id } },
+          });
+          if (thread) {
+            await prisma.reply.create({
+              data: {
+                threadId: thread.id,
+                direction: "OUTBOUND",
+                fromEmail: "",
+                toEmail: lead?.email ?? "",
+                body: args.body,
+                preview: args.body.slice(0, 200),
+                espEmailId: result.id ?? null,
+                sentAt: new Date(),
+              },
             });
-            if (thread) {
-              await prisma.reply.create({
-                data: {
-                  threadId: thread.id,
-                  direction: "OUTBOUND",
-                  fromEmail: "", // TODO: resolve sending account email from Instantly
-                  toEmail: lead?.email ?? "",
-                  body: args.body,
-                  preview: args.body.slice(0, 200),
-                  instantlyEmailId: data.id ?? null,
-                  sentAt: new Date(),
-                },
-              });
-            }
           }
         }
 
         return {
           sent: true,
-          email_id: data.id ?? null,
+          email_id: result.id ?? null,
           lead_id: args.lead_id ?? null,
         };
       },
@@ -629,15 +608,15 @@ Draft a reply (plain text, no subject needed):`,
 
           if (!byIndustry[industry]) byIndustry[industry] = { sent: 0, replied: 0 };
           byIndustry[industry].sent++;
-          if (perf.replyCount > 0) byIndustry[industry].replied++;
+          if (isPositiveReply(perf.replyCount, perf.replyAiInterest)) byIndustry[industry].replied++;
 
           if (!byCompanySize[size]) byCompanySize[size] = { sent: 0, replied: 0 };
           byCompanySize[size].sent++;
-          if (perf.replyCount > 0) byCompanySize[size].replied++;
+          if (isPositiveReply(perf.replyCount, perf.replyAiInterest)) byCompanySize[size].replied++;
 
           if (!byCountry[country]) byCountry[country] = { sent: 0, replied: 0 };
           byCountry[country].sent++;
-          if (perf.replyCount > 0) byCountry[country].replied++;
+          if (isPositiveReply(perf.replyCount, perf.replyAiInterest)) byCountry[country].replied++;
         }
 
         // Step analytics (from DB)
@@ -656,7 +635,7 @@ Draft a reply (plain text, no subject needed):`,
           .slice(0, 5);
 
         const totalSent = performances.length;
-        const totalReplied = performances.filter((p) => p.replyCount > 0).length;
+        const totalReplied = performances.filter((p) => isPositiveReply(p.replyCount, p.replyAiInterest)).length;
         const totalBounced = performances.filter((p) => p.bounced).length;
         const avgInterest = performances.filter((p) => p.replyAiInterest != null)
           .reduce((sum, p) => sum + (p.replyAiInterest ?? 0), 0) /

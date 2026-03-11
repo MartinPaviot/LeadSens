@@ -8,9 +8,11 @@ import {
   prepareMessagesForLLM,
   estimateTokens,
 } from "@/server/lib/llm/context-manager";
-import type { ChatMessage, StreamEvent } from "@/server/lib/llm/types";
+import type { ChatMessage, StreamEvent, AutonomyLevel } from "@/server/lib/llm/types";
 import type { WorkspaceWithIntegrations } from "@/server/lib/tools/types";
 import { parseCompanyDna } from "@/server/lib/enrichment/company-analyzer";
+import { rateLimitByIp } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 import { z } from "zod/v4";
 
 export const maxDuration = 300;
@@ -55,9 +57,9 @@ ICP VALIDATION — check for: Role/Department, Industry, Geography.
 If any missing, ask ONE question. If all present, proceed. Optional criteria (size, revenue) are not blockers.
 
 PHASE 1 — PARSING + ESTIMATION (no credits)
-Tools: parse_icp → instantly_count_leads → instantly_preview_leads
+Tools: parse_icp → count_leads → preview_leads
 - Pass search_filters AS-IS between tools. Never modify, remove fields, or trim job_titles.
-- After parse_icp, ALWAYS present the human_summary to the user for confirmation before calling instantly_count_leads. Example: "Here are the filters: {human_summary}. Does this look right?"
+- After parse_icp, ALWAYS present the human_summary to the user for confirmation before calling count_leads. Example: "Here are the filters: {human_summary}. Does this look right?"
 - If filter_approximations is returned, ALWAYS explain each approximation to the user. Instantly uses fixed ranges (e.g. $1M-10M, $10M-50M) so exact thresholds like ">$5M" cannot be applied precisely. Be transparent about this limitation.
 - Preview renders automatically. Never repeat lead data in text.
 - One count call only. Default preview: 5 leads.
@@ -65,7 +67,7 @@ STOP: "~X leads available. How many do you want to source? (this uses Instantly 
 
 TRANSITION: confirmation/number → Phase 2. New criteria → re-run Phase 1. Never re-run if user just confirms.
 
-AFTER SOURCING (same turn): When instantly_source_leads returns lead_ids + campaign_id:
+AFTER SOURCING (same turn): When source_leads returns lead_ids + campaign_id:
 1. If HubSpot is connected, call crm_check_duplicates with the lead_ids first to skip existing contacts.
 2. Then call score_leads_batch (pass lead_ids, campaign_id, and the original icp_description).
 3. Then continue to enrich_leads_batch. Do NOT pause between sourcing → scoring → enrichment.`;
@@ -73,7 +75,7 @@ AFTER SOURCING (same turn): When instantly_source_leads returns lead_ids + campa
 // Phase 2: post-sourcing — score + enrich (never re-source)
 const PHASE_SOURCING = `
 CURRENT PHASE: SCORING + ENRICHMENT
-Leads are ALREADY sourced. NEVER call instantly_source_leads again — dedup will return 0 new leads.
+Leads are ALREADY sourced. NEVER call source_leads again — dedup will return 0 new leads.
 - Call score_leads_batch with campaign_id and icp_description. You can omit lead_ids — it auto-finds all SOURCED leads in the campaign.
 - After sourcing, NEVER reference preview data. Only describe leads from the sourcing result (sourced_leads_summary). Preview leads and sourced leads are DIFFERENT.
 - After scoring, continue to enrich_leads_batch with the qualified lead_ids. Do NOT pause.
@@ -106,10 +108,10 @@ ENRICHMENT RESULTS — how to interpret:
 const PHASE_PUSHING = `
 CURRENT PHASE: CAMPAIGN SETUP
 Step 0 (if ZeroBounce connected): verify_emails to check email validity before pushing.
-Step 1: instantly_list_accounts (account picker renders automatically). STOP: wait for user selection.
-Step 2: instantly_create_campaign with selected email_accounts.
-Step 3: instantly_add_leads_to_campaign.
-Say: "Campaign created as draft with X leads. Let me know when you want to activate."
+Step 1: list_accounts (account picker renders automatically). STOP: wait for user selection.
+Step 2: Call preview_campaign_launch to show the user a visual preview before creating the campaign.
+Step 3: After user confirms from the preview, call create_campaign with selected email_accounts.
+Step 4: add_leads_to_campaign.
 STOP: wait for explicit activation request. Never offer to activate.`;
 
 // Phase 5: active — monitoring + reply management + analytics
@@ -128,7 +130,7 @@ When user asks "what should I do differently?" or "what's working best?":
 
 REPLY MANAGEMENT:
 When user asks about replies or you detect new replies:
-1. Call instantly_get_replies to fetch recent replies
+1. Call get_replies to fetch recent replies
 2. For each meaningful reply (not auto-reply), call classify_reply with the lead_id and reply content
 3. Based on classification:
    - interested → Call draft_reply, show draft to user, wait for approval before reply_to_email
@@ -218,8 +220,22 @@ interface PipelineState {
   leadsPushed: number;
 }
 
+// ─── Autonomy Cursor Directives ────────────────────────
+
+function getAutonomyDirective(level: AutonomyLevel): string {
+  switch (level) {
+    case "AUTO":
+      return "\nAUTONOMY: Full auto. Execute all actions immediately. Report completed actions.";
+    case "MANUAL":
+      return "\nAUTONOMY: Manual mode. Every tool that modifies data requires confirmation. When a tool returns __confirmation_required, present the action clearly and ask: 'Proceed?'. Also ask before batch scoring, enrichment, and drafting.";
+    case "SUPERVISED":
+    default:
+      return "\nAUTONOMY: Supervised mode. When a tool returns __confirmation_required, present the action clearly and ask: 'Go ahead?'. Only side-effect actions (sending, campaign creation, CRM writes) need confirmation.";
+  }
+}
+
 function buildSystemPrompt(
-  workspace: WorkspaceWithIntegrations,
+  workspace: WorkspaceWithIntegrations & { autonomyLevel?: string },
   memories: Array<{ key: string; value: string }>,
   styleCorrections: string[],
   campaign: PipelineState | null,
@@ -228,7 +244,8 @@ function buildSystemPrompt(
   const campaignStatus = campaign?.status as CampaignPhase | null;
   const phasePrompt = getPhasePrompt(hasCompanyDna, campaignStatus);
 
-  const parts = [CORE_PROMPT, phasePrompt, PIPELINE_RULES];
+  const autonomyLevel = (workspace.autonomyLevel ?? "SUPERVISED") as AutonomyLevel;
+  const parts = [CORE_PROMPT, getAutonomyDirective(autonomyLevel), phasePrompt, PIPELINE_RULES];
 
   if (workspace.companyDna) {
     const parsedDna = parseCompanyDna(workspace.companyDna);
@@ -313,37 +330,37 @@ function buildSystemPrompt(
 
 function buildGreeting(workspace: WorkspaceWithIntegrations, firstName?: string): string {
   const hasCompanyDna = !!workspace.companyDna;
-  const hasInstantly = workspace.integrations.some(
-    (i) => i.type === "INSTANTLY" && i.status === "ACTIVE",
+  const hasESP = workspace.integrations.some(
+    (i) => ["INSTANTLY", "SMARTLEAD", "LEMLIST"].includes(i.type) && i.status === "ACTIVE",
   );
 
   const name = firstName ? ` ${firstName}` : "";
 
   // Case 1: Nothing configured — full onboarding
-  if (!hasCompanyDna && !hasInstantly) {
+  if (!hasCompanyDna && !hasESP) {
     return `Hey${name}, welcome to LeadSens! 👋
 
-I'm your prospecting copilot. Describe your target, and I'll handle the rest: sourcing, enrichment, email drafting, and pushing everything into Instantly.
+I'm your prospecting copilot. Describe your target, and I'll handle the rest: sourcing, enrichment, email drafting, and campaign management.
 
 To get started, I need two things:
 
 1. **Your website URL** so I can analyze your offer and personalize every email
-2. **Your Instantly account**: connect it in *Settings > Integrations* with your API V2 key
+2. **Your email platform**: connect Instantly, Smartlead, or Lemlist in *Settings > Integrations*
 
 Start by giving me your website URL, and we'll go step by step.`;
   }
 
-  // Case 2: Has Instantly but no company DNA
-  if (!hasCompanyDna && hasInstantly) {
-    return `Hey${name}, Instantly is connected, perfect! ⚡
+  // Case 2: Has ESP but no company DNA
+  if (!hasCompanyDna && hasESP) {
+    return `Hey${name}, your email platform is connected, perfect! ⚡
 
 I just need **your website URL** to understand what you sell. I'll analyze your homepage, pricing, about page and extract the key arguments for your emails.
 
 Send me your URL and we'll move on.`;
   }
 
-  // Case 3: Has company DNA but no Instantly
-  if (hasCompanyDna && !hasInstantly) {
+  // Case 3: Has company DNA but no ESP
+  if (hasCompanyDna && !hasESP) {
     const parsedDna = parseCompanyDna(workspace.companyDna);
     const oneLiner =
       parsedDna && typeof parsedDna === "object" && "oneLiner" in parsedDna
@@ -352,7 +369,7 @@ Send me your URL and we'll move on.`;
 
     return `Hey${name}! ${oneLiner ? `I have your offer in mind: *${oneLiner}*` : "Your offer is configured."}
 
-I just need **Instantly** to start sourcing and sending. Connect your account in *Settings > Integrations* with your API V2 key.
+I just need an **email platform** to start sourcing and sending. Connect Instantly, Smartlead, or Lemlist in *Settings > Integrations*.
 
 Once that's done, we'll launch your first campaign.`;
   }
@@ -431,6 +448,22 @@ function streamEventToSSE(
 // ─── POST Handler ────────────────────────────────────────
 
 export async function POST(req: Request) {
+  // 0. Rate limiting — 30 req/min per IP
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+  const rl = await rateLimitByIp(ip);
+  if (!rl.success) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(rl.resetInSeconds),
+      },
+    });
+  }
+
   // 1. Auth — required for everything
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) {
@@ -491,7 +524,7 @@ export async function POST(req: Request) {
         },
       });
     } catch {
-      console.error("Failed to persist greeting");
+      logger.error("Failed to persist greeting", { conversationId });
     }
 
     return new Response(
@@ -564,7 +597,7 @@ export async function POST(req: Request) {
   );
   const chatMessages = contextResult.messages;
 
-  console.log(
+  logger.debug(
     `[context] Raw ~${contextResult.rawTokens}tok → Clean ~${contextResult.cleanTokens}tok` +
       (contextResult.markersStripped > 0
         ? ` (stripped ${contextResult.markersStripped} markers)`
@@ -608,7 +641,7 @@ export async function POST(req: Request) {
       });
     }
   } catch {
-    console.error("Failed to pre-save conversation");
+    logger.error("Failed to pre-save conversation");
   }
 
   // 10. Stream response
@@ -662,9 +695,10 @@ export async function POST(req: Request) {
           workspaceId,
           userId: user.id,
           temperature: 0.7,
-          maxSteps: 15,
+          maxSteps: 5,
           onStatus: toolCtx.onStatus,
           signal: req.signal,
+          autonomyLevel: (workspace.autonomyLevel ?? "SUPERVISED") as AutonomyLevel,
         });
 
         for await (const event of generator) {
@@ -743,7 +777,7 @@ export async function POST(req: Request) {
             data: { updatedAt: new Date() },
           });
         } catch {
-          console.error("Failed to save assistant response to DB");
+          logger.error("Failed to save assistant response to DB");
         }
 
         controller.close();
