@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 const BASE_URL = "https://api.instantly.ai/api/v2";
 const MAX_RETRIES = 3;
@@ -284,7 +285,7 @@ export interface InstantlyCampaign {
       delay: number;
       delay_unit?: string;
       pre_delay_unit?: string;
-      variants: Array<{ subject: string; body: string }>;
+      variants: Array<{ subject: string; body: string; v_disabled?: boolean }>;
     }>;
   }>;
   timestamp_created?: string;
@@ -347,16 +348,24 @@ async function instantlyFetch<T>(
 }
 
 // ─── Revenue Mapping ─────────────────────────────────────
-// Internal values use "$1M - 10M" format, but API expects "$1 - 10M" (no M on first number)
+// Internal values use "$1M - 10M" format, but API expects "$1 - 10M" (no M on first number).
+// Identity mappings included explicitly so every VALID_REVENUE value is covered.
 const REVENUE_TO_API: Record<string, string> = {
+  "$0 - 1M": "$0 - 1M",
   "$1M - 10M": "$1 - 10M",
   "$10M - 50M": "$10 - 50M",
   "$50M - 100M": "$50 - 100M",
   "$100M - 250M": "$100 - 250M",
   "$250M - 500M": "$250 - 500M",
+  "$500M - 1B": "$500M - 1B",
+  "> $1B": "> $1B",
 };
-function mapRevenueToAPI(v: string): string {
-  return REVENUE_TO_API[v] ?? v;
+export function mapRevenueToAPI(v: string): string {
+  const mapped = REVENUE_TO_API[v];
+  if (!mapped) {
+    logger.warn(`[instantly] unmapped revenue value: "${v}" — passing through as-is`);
+  }
+  return mapped ?? v;
 }
 
 // ─── Level → Title fallback ─────────────────────────────
@@ -471,7 +480,7 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): PreparedFilters 
     const generated = levelToTitles(filters.level, filters.department);
     if (generated.length > 0) {
       effectiveJobTitles = generated;
-      console.log(`[prepareFiltersForAPI] Converted level ${JSON.stringify(filters.level)} → title ${JSON.stringify(generated)}`);
+      logger.debug(`[prepareFiltersForAPI] Converted level ${JSON.stringify(filters.level)} → title ${JSON.stringify(generated)}`);
     }
   }
 
@@ -548,7 +557,7 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): PreparedFilters 
       }
 
       if (unresolved.length > 0) {
-        console.warn(`[Instantly] Could not resolve locations: ${unresolved.join(", ")}. Skipped.`);
+        logger.warn(`[Instantly] Could not resolve locations: ${unresolved.join(", ")}. Skipped.`);
         warnings.push(`Location filter ignored — could not resolve: ${unresolved.join(", ")}. Leads will NOT be filtered by location.`);
       }
 
@@ -606,8 +615,8 @@ function prepareFiltersForAPI(filters: InstantlySearchFilters): PreparedFilters 
     api.show_one_lead_per_company = filters.show_one_lead_per_company;
   }
 
-  console.log("[prepareFiltersForAPI] Sending to Instantly:", JSON.stringify(api).slice(0, 1000));
-  if (warnings.length > 0) console.warn("[prepareFiltersForAPI] Warnings:", warnings);
+  logger.debug(`[prepareFiltersForAPI] Sending to Instantly: ${JSON.stringify(api).slice(0, 1000)}`);
+  if (warnings.length > 0) logger.warn("[prepareFiltersForAPI] Warnings", { warnings });
   return { api, warnings };
 }
 
@@ -622,7 +631,7 @@ export async function countLeads(
     search_filters: api,
   });
 
-  console.log("[countLeads] Raw API response:", JSON.stringify(res).slice(0, 500));
+  logger.debug(`[countLeads] Raw API response: ${JSON.stringify(res).slice(0, 500)}`);
 
   // The API may return { count }, { total_count }, { total }, or a nested structure
   const count = (res.number_of_leads ?? res.count ?? res.total_count ?? res.total ?? 0) as number;
@@ -951,12 +960,7 @@ export async function getCampaign(
 export async function updateCampaign(
   apiKey: string,
   campaignId: string,
-  data: Partial<{
-    name: string;
-    campaign_schedule: CampaignSchedule;
-    daily_limit: number;
-    email_list: string[];
-  }>,
+  data: Record<string, unknown>,
 ): Promise<InstantlyCampaign> {
   return instantlyFetch(apiKey, "PATCH", `/campaigns/${campaignId}`, data);
 }

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { syncSingleCampaign } from "@/server/lib/analytics/sync";
+import { checkAndPauseLosingVariant } from "@/server/lib/analytics/ab-testing";
 import { getESPProvider } from "@/server/lib/providers";
 import { inngest } from "./client";
 
@@ -63,6 +64,23 @@ export const analyticsSyncCron = inngest.createFunction(
             campaign.espCampaignId,
             campaign.workspaceId,
           );
+
+          // Check for A/B variant auto-pause after syncing performance data
+          try {
+            const abResult = await checkAndPauseLosingVariant(campaign.id);
+            if (abResult.paused) {
+              logger.info("[analytics-cron] A/B variant auto-paused", {
+                campaignId: campaign.id,
+                message: abResult.message,
+              });
+            }
+          } catch (abErr) {
+            logger.warn("[analytics-cron] A/B check failed (non-blocking)", {
+              campaignId: campaign.id,
+              error: abErr instanceof Error ? abErr.message : String(abErr),
+            });
+          }
+
           return { status: "synced" as const, ...syncResult };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

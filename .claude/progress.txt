@@ -1,3 +1,61 @@
+=== ITERATION 23 | 2026-03-11 00:55 UTC ===
+TASK: RES-06 — A/B auto-pause with z-test statistical significance
+STATUS: DONE
+DURATION: ~20 min
+FILES CHANGED: src/server/lib/analytics/ab-testing.ts (NEW), tests/ab-testing.test.ts (NEW), src/inngest/functions.ts, src/server/lib/connectors/instantly.ts, src/server/lib/providers/index.ts
+TESTS: 715/715 passed (35 test files, +27 new tests)
+COMMIT: pending
+CHANGES:
+- NEW `ab-testing.ts` module with pure z-test functions + auto-pause integration
+  - `calculateZTest(n1, x1, n2, x2)` — two-proportion z-test, returns z-score + significance boolean
+  - `canRunZTest(variants, campaignCreatedAt)` — eligibility check (100+ sends/variant, 5+ days old)
+  - `findLosingVariant(variants, campaignCreatedAt)` — pairwise comparison, returns winner/loser/zTest
+  - `checkAndPauseLosingVariant(campaignId)` — DB + API integration with autonomy level respect
+  - `disableVariantViaESP()` — gets campaign sequences, sets v_disabled: true, PATCHes campaign
+- Analytics sync cron (inngest) now calls `checkAndPauseLosingVariant()` after each campaign sync
+  - Non-blocking: failure doesn't affect sync result
+- Autonomy level respected: AUTO = auto-pause + notify, SUPERVISED/MANUAL = notify only
+- Chat notification stored as assistant message (same pattern as bounce-guard/reply-guard)
+- Instantly connector: added v_disabled to variant type, widened updateCampaign data type
+- Exported getActiveIntegration from providers/index.ts for use by ab-testing module
+- 27 new tests: calculateZTest (10), canRunZTest (6), findLosingVariant (8), edge cases (3)
+LEARNINGS:
+- Z-test is symmetric: swapping variants gives same |z|. Good property for correctness verification.
+- At n=200 each, 10% vs 5% reply rate (z≈1.898) is NOT significant at 95% CI — need larger samples
+  or bigger differences. This confirms the 100-send minimum is reasonable but conservative.
+- Instantly campaign PATCH accepts partial sequences array to update variant v_disabled fields.
+  Must include full sequences structure (not just the modified variant).
+- getActiveIntegration was private in providers/index.ts — exported it since ab-testing needs
+  direct Instantly API access for variant management (not abstractable through ESPProvider).
+NEXT: DEDUP-CROSS-01 (Cross-campaign lead dedup) or T3-QUAL-03 (Style learner avancé)
+
+=== ITERATION 22 | 2026-03-11 00:40 UTC ===
+TASK: RES-05 — Subject line pattern tracking
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: prisma/schema.prisma, prisma/migrations/20260311100000_add_subject_pattern/migration.sql, src/server/lib/tools/email-tools.ts, src/server/lib/analytics/correlator.ts, src/server/lib/analytics/insights.ts, tests/subject-pattern.test.ts
+TESTS: 688/688 passed (34 test files, +9 new tests)
+COMMIT: feat(analytics): store subjectPattern on DraftedEmail for data-driven pattern optimization (RES-05)
+CHANGES:
+- Added subjectPattern String? column to DraftedEmail schema + migration
+- buildDraftMetadata() now accepts subject param, calls detectSubjectPattern() at draft time
+  (deterministic, zero LLM cost — better than asking LLM to self-report)
+- getReplyRateBySubjectPattern() now prefers stored subjectPattern field, falls back to
+  heuristic detectSubjectPattern() for old records without the field
+- New SQL-based getReplyRateBySubjectPatternSQL() for efficient correlation queries
+  (7th dimension alongside signal_type, framework, quality_score, enrichment_depth, industry, word_count)
+- subject_pattern added to PerformanceInsight dimension type + workspace insights
+- 9 new tests: all-patterns-reachable, deterministic, edge cases, rate computation, SQL export
+LEARNINGS:
+- Deterministic pattern detection at draft time > LLM self-reporting. detectSubjectPattern()
+  is already tested (19 tests), deterministic, and zero cost. LLM self-reporting would add
+  schema complexity and unreliable classification.
+- Storing the pattern at draft time freezes the classification — prevents heuristic drift
+  from changing historical correlations. Old records fall back gracefully to heuristic.
+- "re: " after trim() becomes "re:" which doesn't match ^re:\s regex — correct behavior,
+  an empty re: prefix without content is meaningfully different from "re: your funding round".
+NEXT: RES-06 (A/B auto-pause with z-test) or DEDUP-CROSS-01 (Cross-campaign lead dedup)
+
 === ITERATION 21 | 2026-03-11 00:30 UTC ===
 TASK: WEBHOOK-DEDUP-01 — Add isDuplicateReply to webhook reply_received handler
 STATUS: DONE

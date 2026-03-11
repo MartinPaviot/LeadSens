@@ -71,7 +71,7 @@
 - [ ] **T3-SCORE-02** Filtres broadening → scoring signals — RESTE À FAIRE
 - [ ] **T3-SCORE-03** Scraping page careers (signal hiring) — *Audit 2026-03-09: careers page IS scraped (jina.ts:85) mais hiringSignals extraction basic*
 - [x] **T3-INTEL-01** Campaign insights tool ✅ *Audit 2026-03-09: campaign_insights + performance_insights tools*
-- [ ] **T3-INTEL-02** A/B auto-pause — RESTE À FAIRE (variantes envoyées mais pas de winner propagation)
+- [x] **T3-INTEL-02** A/B auto-pause ✅ *2026-03-11: Implemented via RES-06. Z-test significance + auto-pause via Instantly v_disabled. Autonomy-aware.*
 - [x] **T3-INTEL-03** ICP refinement suggestions ✅ *Audit v2 2026-03-09: Feedback loop implémenté — alerte si >70% leads score <5, enrichment-tools.ts:308-317*
 
 ---
@@ -148,7 +148,7 @@
   - Message type: "Your 6% reply rate in SaaS is below the 8-12% industry benchmark"
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **RES-05** Subject line pattern tracking **(MEDIUM — Research R6.2)**
+- [x] **RES-05** Subject line pattern tracking ✅ *2026-03-11: subjectPattern String? on DraftedEmail, detectSubjectPattern() at draft time (deterministic), getReplyRateBySubjectPatternSQL() as 7th correlation dimension, stored field preferred over heuristic in getReplyRateBySubjectPattern(). subject_pattern in workspace insights. 28 tests.*
   **Fichiers:** `src/server/lib/tools/email-tools.ts`, `src/server/lib/analytics/correlator.ts`
   **Réf:** RESEARCH-LANDSCAPE §6
   **Impact:** Data-driven pattern selection pour optimiser open rate
@@ -158,8 +158,8 @@
   - Correlator a une query `getReplyRateBySubjectPattern()`
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **RES-06** A/B auto-pause avec z-test statistique **(MEDIUM — Research R6.3)**
-  **Fichiers:** `src/server/lib/analytics/ab-testing.ts` (NEW), `src/queue/analytics-sync-worker.ts`
+- [x] **RES-06** A/B auto-pause avec z-test statistique ✅ *2026-03-11: ab-testing.ts — calculateZTest() pure z-test, findLosingVariant() pairwise comparison, checkAndPauseLosingVariant() respects autonomy level (AUTO=pause, SUPERVISED/MANUAL=notify). Integrated in inngest analytics cron. disableVariantViaESP() sets v_disabled:true via Instantly PATCH. 27 tests.*
+  **Fichiers:** `src/server/lib/analytics/ab-testing.ts` (NEW), `src/inngest/functions.ts`
   **Réf:** RESEARCH-LANDSCAPE §6, RESEARCH-DELIVERABILITY §11.1
   **Impact:** Concentration du volume sur les variantes gagnantes
   **PASS IF:**

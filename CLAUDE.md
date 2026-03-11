@@ -14,7 +14,7 @@ LeadSens n'est pas un outil. C'est le **chef d'orchestre** des outils du user. C
 
 La valeur est dans les **décisions entre les appels API** : scoring pré-enrichissement (~40% d'économie), Company DNA, frameworks copywriting hardcodés, clustering par segments, style learner, curseur d'autonomie.
 
-### Score actuel : 6.9/10 (audit v4+ 2026-03-10, était 6.8 → 6.7 → 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
+### Score actuel : 7.0/10 (audit v4+ 2026-03-11, était 6.9 → 6.8 → 6.7 → 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
 
 Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
 
@@ -119,7 +119,7 @@ NON IMPLÉMENTÉ (post-launch) :
 | ICP Scoring | **7/10** | 7/10 | §7.3.3 |
 | Email Copywriting | **8/10** | 8/10 | §7.1.2-1.4 |
 | Subject Lines | **6/10** | 6/10 | §7.2.1 |
-| A/B Testing | **5/10** | 5/10 | §7.2.1 |
+| A/B Testing | **6/10** | 5/10 | §7.2.1 |
 | Cadence & Séquence | **7.5/10** | 7/10 | §7.2.2-2.4 |
 | Feedback Loop | **5.5/10** | 5/10 | §7.3.2 |
 | Pipeline post-launch | **7/10** | 5/10 | §11 |
@@ -549,7 +549,8 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[email]** : maxWords per step: [85, 65, 70, 65, 50, 45] — compromises between STRATEGY targets and framework needs. Research consensus: <80 words = highest reply rates.
 - **[email]** : Connection bridge 3-step: (1) signal → (2) WHY it implies pain (reasoning step) → (3) solution with timeline proof. BAD/GOOD example in prompt. Signal mention = +15-20%, signal→pain reasoning = 2x that.
 - **[quality-gate]** : Filler phrase detection via `scanForFillerPhrases()` — checks first 2 sentences after greeting only (opener problem, not body). Threshold = 1 (any single filler = -1 penalty + retry), stricter than spam words (threshold = 3). `extractOpener()` strips Hi/Hey/Hello/Dear lines before sentence extraction. 35 phrases across 6 categories.
-- **[analytics]** : Variant attribution via `syncVariantAttribution()` — fetches sent emails (ue_type=1) from Instantly, matches subject to DraftedEmail variants via `matchVariantIndex()`. Stores `variantIndex` (0=primary, 1/2=variants) on EmailPerformance. Only sets when null (idempotent). Step 0 attribution prioritized (earliest sent email per lead).
+- **[analytics]** : Variant attribution via `syncVariantAttribution()` — fetches sent emails via ESPProvider.getEmails({emailType:"sent"}), matches subject to DraftedEmail variants via `matchVariantIndex()`. Stores `variantIndex` (0=primary, 1/2=variants) on EmailPerformance. Only sets when null (idempotent). Step 0 attribution prioritized (earliest sent email per lead).
+- **[analytics]** : `syncSingleCampaign()` accepts `ESPProvider` (not raw apiKey). Analytics module (sync.ts + variant-attribution.ts) is fully ESP-agnostic — no imports from connectors/instantly. Inngest cron uses `getESPProvider(workspaceId)` per campaign. ESPProvider interface has `getStepAnalytics()` + `getLeadsPerformance()` for all 3 connectors.
 - **[instantly]** : `getEmails()` supports `starting_after` pagination. Response field is `lead` (not `lead_email`) — handle both. `email_type: "1"` filters for campaign-sent emails.
 - **[analytics]** : `getReplyRateBySubjectVariant()` separates SQL aggregation (EmailPerformance grouped by variantIndex) from subject text resolution (DraftedEmail.findFirst). Cleaner than JSON field JOIN in SQL. Pure helpers `getSubjectForVariant()` + `toVariantPerformanceRows()` are fully testable.
 - **[analytics]** : CampaignReport.variantBreakdown is always `VariantPerformanceRow[]` (empty if no data). Frontend safe — no null checks needed.
@@ -567,6 +568,13 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[email]** : Subject word count constraint is "2-5 words" everywhere (drafting.ts, prompt-builder.ts, quality-gate.ts). Gate enforces at SUBJECT_MAX_WORDS=5. Never give LLM a soft target (e.g., "2-4") with a hidden tolerance — causes retry waste.
 - **[email]** : buildPreviousEmailsSection() truncates at 1500 chars (was 500). Step 0 PAS emails (~350-400 chars) preserved fully for follow-up coherence.
 - **[sourcing]** : source_leads enrichment polling has 30×5s=150s timeout. Returns graceful message with resourceId on timeout. Leaves 150s margin within Vercel 300s function timeout.
+- **[analytics]** : `getReplyRateBySubjectPattern()` now accepts optional `campaignId`. All callers pass it to prevent cross-campaign contamination in Thompson Sampling. Performance matching uses `.find(p => p.campaignId === email.campaignId)`, NOT `[0]` (which grabbed data from any campaign).
+- **[regex]** : `\b` word boundary fails after non-word chars like `:`. `^(re:)\b` never matches because `:` → ` ` is non-word→non-word (no boundary). Use explicit `^re:\s` instead.
+- **[analytics]** : `subjectPattern` stored at draft time via `detectSubjectPattern(subject)` — deterministic classification into 5 patterns (Question/Observation/Curiosity/Direct/Personalized). `getReplyRateBySubjectPattern()` prefers stored field, falls back to heuristic for old records. 7th correlation dimension in workspace insights.
+- **[analytics]** : `getReplyRateBySubjectPatternSQL()` = pure SQL aggregation (efficient, DB-level). `getReplyRateBySubjectPattern()` = JS-level with heuristic fallback (needed for Thompson Sampling on mixed old+new data). Both coexist.
+- **[ab-testing]** : A/B auto-pause via `ab-testing.ts` — pure z-test functions + Instantly v_disabled integration. `calculateZTest(n1,x1,n2,x2)` returns z-score + significance. `findLosingVariant()` pairwise comparison of VariantPerformanceRow[]. `checkAndPauseLosingVariant()` respects autonomy level (AUTO=pause, SUPERVISED/MANUAL=notify). Runs from inngest analytics cron after each sync. Thresholds: 100+ sends/variant, 5+ days, |z|>1.96.
+- **[ab-testing]** : Instantly variant disable via `v_disabled: true` in sequences PATCH. Must GET full campaign sequences first, modify specific variant, then PATCH with full sequences array. Step 0 variants targeted (primary A/B testing step).
+- **[providers]** : `getActiveIntegration()` exported from `providers/index.ts` — needed by ab-testing for direct Instantly API access (variant management not abstractable through ESPProvider).
 
 ## 12. Playwright MCP — Utilisation maximale
 
