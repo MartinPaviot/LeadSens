@@ -53,7 +53,9 @@
       "Read(//c/Users/marti/.claude/projects/C--Users-marti-LeadSens/**)",
       "Bash(python3:*)",
       "Bash(ls \"C:\\\\Users\\\\marti\\\\LeadSens\\\\src\\\\app/\\(dashboard\\)/settings/integrations/\")",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm vitest:*)"
     ]
   }
 }

@@ -42,16 +42,26 @@ export function createFetchWithRetry(options: FetchRetryOptions) {
     const extraHeaders = reqOptions?.headers ?? {};
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await fetch(`${baseUrl}${path}`, {
-        method,
-        headers: {
-          ...defaultHeaders,
-          ...extraHeaders,
-          ...(body ? { "Content-Type": "application/json" } : {}),
-        },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-        signal: AbortSignal.timeout(timeout),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${baseUrl}${path}`, {
+          method,
+          headers: {
+            ...defaultHeaders,
+            ...extraHeaders,
+            ...(body ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+          signal: AbortSignal.timeout(timeout),
+        });
+      } catch (err) {
+        // Network error or timeout — retry if attempts remain
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * BASE_DELAY_MS));
+          continue;
+        }
+        throw new Error(`${name} ${method} ${path} failed: ${err instanceof Error ? err.message : "network error"}`);
+      }
 
       if (res.ok) {
         const contentType = res.headers.get("content-type");
