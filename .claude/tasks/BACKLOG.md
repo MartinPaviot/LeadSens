@@ -608,14 +608,7 @@
 
 #### HIGH — Fix before next release
 
-- [ ] **ROUTE-PHASE-01** Add MONITORING phase to getPhasePrompt and PHASE_TOOLS **(HIGH — 30 min)**
-  **Fichiers:** `src/app/api/agents/chat/route.ts`, `src/server/lib/tools/index.ts`
-  **Réf:** audit v5
-  **Impact:** If campaign reaches MONITORING status, agent loses most tools and gets wrong phase prompt.
-  **PASS IF:**
-  - `getPhasePrompt` has a MONITORING case (returns PHASE_ACTIVE or a new PHASE_MONITORING)
-  - `PHASE_TOOLS` has a MONITORING entry with analytics + reply management tools
-  - `pnpm typecheck && pnpm test` passent
+- [x] **ROUTE-PHASE-01** Add MONITORING phase to getPhasePrompt and PHASE_TOOLS ✅ *2026-03-10: MONITORING case in getPhasePrompt→PHASE_ACTIVE. MONITORING entry in PHASE_TOOLS with full reply mgmt + analytics + CRM tools.*
 
 - [ ] **ANALYTICS-ESP-01** Route sync_campaign_analytics through ESPProvider or gate to Instantly **(HIGH — 30 min)**
   **Fichiers:** `src/server/lib/tools/analytics-tools.ts` (lines 39-44)
@@ -625,7 +618,7 @@
   - `sync_campaign_analytics` uses ESPProvider or is gated to INSTANTLY integration type
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **INSIGHTS-METRIC-01** Filter positive replies in campaign overview stats **(HIGH — 20 min)**
+- [x] **INSIGHTS-METRIC-01** Filter positive replies in campaign overview stats ✅ *2026-03-10: getCampaignReport() now queries EmailPerformance with positive-reply filter (replyAiInterest IS NULL OR >= 5) for both overview and step breakdown. StepAnalytics used only for sent/opened/bounced.*
   **Fichiers:** `src/server/lib/analytics/insights.ts` (lines 134-141)
   **Réf:** audit v5, same convention as correlator
   **Impact:** Overview reply rate includes negative replies (from StepAnalytics raw count). Inconsistent with correlator positive-reply metrics.
@@ -633,22 +626,9 @@
   - `getCampaignReport` overview `replied` count filters for positive replies (use EmailPerformance with isPositiveReply condition, not StepAnalytics.replied)
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **PROMPT-TRUNC-01** Increase previous email body truncation from 500 to 1500 chars **(HIGH — 15 min)**
-  **Fichiers:** `src/server/lib/email/prompt-builder.ts`
-  **Réf:** STRATEGY §7.2.3 "body complet des steps précédents"
-  **Impact:** 500 chars cuts Step 0 PAS emails mid-narrative. Follow-ups can't build coherent story.
-  **PASS IF:**
-  - `buildPreviousEmailsSection()` truncation increased to 1500 chars (or removed if token budget allows)
-  - Test updated
-  - `pnpm typecheck && pnpm test` passent
+- [x] **PROMPT-TRUNC-01** Increase previous email body truncation from 500 to 1500 chars ✅ *2026-03-10: buildPreviousEmailsSection() truncation 500→1500. Follow-ups can now reference full Step 0 narrative.*
 
-- [ ] **SUBJ-CONSISTENCY-01** Align subject word count constraint to single value **(HIGH — 15 min)**
-  **Fichiers:** `src/server/lib/email/drafting.ts`, `src/server/lib/email/prompt-builder.ts`, `src/server/lib/email/quality-gate.ts`
-  **Réf:** audit v5
-  **Impact:** LLM sees "2-4 words" (prompt) vs quality gate allows 5. Conflicting instructions.
-  **PASS IF:**
-  - All 3 locations state same constraint (recommended: "2-5 words" everywhere, or "2-4 words" with gate at 5 as documented tolerance)
-  - `pnpm typecheck && pnpm test` passent
+- [x] **SUBJ-CONSISTENCY-01** Align subject word count constraint to single value ✅ *2026-03-10: All 4 locations (drafting.ts×2, prompt-builder.ts, quality-gate.ts scorer+enforcement+comment) aligned to "2-5 words". Gate SUBJECT_MAX_WORDS=5 unchanged.*
 
 - [ ] **CORR-CAMPAIGN-01** Filter getReplyRateBySubjectPattern to same campaign **(HIGH — 30 min)**
   **Fichiers:** `src/server/lib/analytics/correlator.ts` (lines 373-411)
@@ -658,14 +638,7 @@
   - `getReplyRateBySubjectPattern` joins performance filtered by same campaignId as the DraftedEmail
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **SOURCE-TIMEOUT-01** Add polling timeout to source_leads enrichment wait **(HIGH — 15 min)**
-  **Fichiers:** `src/server/lib/tools/sourcing-tools.ts` (lines 264-271)
-  **Réf:** audit v5
-  **Impact:** Hung Instantly enrichment job → polls until Vercel 300s timeout → generic stream error.
-  **PASS IF:**
-  - Polling loop has max iterations (e.g., 30 × 5s = 150s) or AbortSignal timeout
-  - On timeout, return partial results with warning message
-  - `pnpm typecheck && pnpm test` passent
+- [x] **SOURCE-TIMEOUT-01** Add polling timeout to source_leads enrichment wait ✅ *2026-03-10: 30 polls × 5s = 150s max. Returns graceful timeout with resourceId for retry. Progress counter in status updates.*
 
 #### MEDIUM — Optimize
 

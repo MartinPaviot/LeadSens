@@ -6,9 +6,11 @@ import {
   getReplyRateByIndustry,
   getReplyRateByWordCount,
   getReplyRateBySubjectVariant,
+  POSITIVE_REPLY_INTEREST_THRESHOLD,
   type CorrelationRow,
   type VariantPerformanceRow,
 } from "./correlator";
+import { getBenchmarkContext } from "./benchmarks";
 import { prisma } from "@/lib/prisma";
 
 export interface PerformanceInsight {
@@ -115,6 +117,7 @@ export interface CampaignReport {
     replyCount: number;
   }>;
   insights: PerformanceInsight[];
+  benchmarkContext: string | null;
 }
 
 const FRAMEWORK_NAMES = [
@@ -123,36 +126,63 @@ const FRAMEWORK_NAMES = [
 ];
 
 export async function getCampaignReport(workspaceId: string, campaignId: string): Promise<CampaignReport> {
-  // Overview from StepAnalytics aggregate
+  // StepAnalytics for sent/opened/bounced (reliable counts from Instantly)
   const steps = await prisma.stepAnalytics.findMany({
     where: { campaignId },
     orderBy: { step: "asc" },
   });
 
+  // Positive-only reply counts from EmailPerformance (consistent with correlator)
+  const positiveReplyRows = await prisma.$queryRaw<Array<{ sentStep: number | null; count: bigint }>>`
+    SELECT
+      ep."sentStep",
+      COUNT(*) AS count
+    FROM "email_performance" ep
+    JOIN "lead" l ON ep."leadId" = l.id
+    WHERE ep."campaignId" = ${campaignId}
+      AND l."workspaceId" = ${workspaceId}
+      AND ep."replyCount" > 0
+      AND (ep."replyAiInterest" IS NULL OR ep."replyAiInterest" >= ${POSITIVE_REPLY_INTEREST_THRESHOLD})
+    GROUP BY ep."sentStep"
+  `;
+
+  // Build a map of step → positive reply count
+  const positiveReplyByStep = new Map<number, number>();
+  let totalPositiveReplies = 0;
+  for (const row of positiveReplyRows) {
+    const count = Number(row.count);
+    totalPositiveReplies += count;
+    if (row.sentStep !== null) {
+      positiveReplyByStep.set(row.sentStep, count);
+    }
+  }
+
   const overview = steps.reduce(
     (acc, s) => ({
       sent: acc.sent + s.sent,
       opened: acc.opened + s.opened,
-      replied: acc.replied + s.replied,
       bounced: acc.bounced + s.bounced,
     }),
-    { sent: 0, opened: 0, replied: 0, bounced: 0 },
+    { sent: 0, opened: 0, bounced: 0 },
   );
 
   const openRate = overview.sent > 0 ? (overview.opened / overview.sent) * 100 : 0;
-  const replyRate = overview.sent > 0 ? (overview.replied / overview.sent) * 100 : 0;
+  const replyRate = overview.sent > 0 ? (totalPositiveReplies / overview.sent) * 100 : 0;
   const bounceRate = overview.sent > 0 ? (overview.bounced / overview.sent) * 100 : 0;
 
-  // Step breakdown
-  const stepBreakdown = steps.map((s) => ({
-    step: s.step,
-    framework: FRAMEWORK_NAMES[s.step] ?? `Step ${s.step}`,
-    sent: s.sent,
-    opened: s.opened,
-    replied: s.replied,
-    openRate: s.openRate ?? (s.sent > 0 ? (s.opened / s.sent) * 100 : 0),
-    replyRate: s.replyRate ?? (s.sent > 0 ? (s.replied / s.sent) * 100 : 0),
-  }));
+  // Step breakdown — use positive reply counts per step
+  const stepBreakdown = steps.map((s) => {
+    const stepReplied = positiveReplyByStep.get(s.step) ?? 0;
+    return {
+      step: s.step,
+      framework: FRAMEWORK_NAMES[s.step] ?? `Step ${s.step}`,
+      sent: s.sent,
+      opened: s.opened,
+      replied: stepReplied,
+      openRate: s.openRate ?? (s.sent > 0 ? (s.opened / s.sent) * 100 : 0),
+      replyRate: s.sent > 0 ? (stepReplied / s.sent) * 100 : 0,
+    };
+  });
 
   // Top leads (by replies, then opens)
   const topLeads = await prisma.emailPerformance.findMany({
@@ -191,8 +221,19 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
     if (variantInsight) insights.push(variantInsight);
   }
 
+  // Benchmark context — find the dominant industry from campaign leads
+  const dominantIndustry = await prisma.lead.groupBy({
+    by: ["industry"],
+    where: { campaignId, industry: { not: null } },
+    _count: { industry: true },
+    orderBy: { _count: { industry: "desc" } },
+    take: 1,
+  });
+  const industryName = dominantIndustry[0]?.industry ?? null;
+  const benchmarkContext = getBenchmarkContext(industryName, replyRate);
+
   return {
-    overview: { ...overview, openRate, replyRate, bounceRate },
+    overview: { ...overview, replied: totalPositiveReplies, openRate, replyRate, bounceRate },
     stepBreakdown,
     variantBreakdown,
     topLeads: topLeads.map((p) => ({
@@ -203,5 +244,6 @@ export async function getCampaignReport(workspaceId: string, campaignId: string)
       replyCount: p.replyCount,
     })),
     insights,
+    benchmarkContext,
   };
 }

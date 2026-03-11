@@ -1,3 +1,51 @@
+=== ITERATION 17 | 2026-03-10 23:50 UTC ===
+TASK: INSIGHTS-METRIC-01 — Filter positive replies in campaign overview stats
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: src/server/lib/analytics/insights.ts
+TESTS: 619/619 passed (32 test files)
+COMMIT: pending
+CHANGES:
+- getCampaignReport() overview `replied` count now comes from EmailPerformance
+  with positive-reply filter (replyAiInterest IS NULL OR >= 5) instead of raw
+  StepAnalytics.replied. Consistent with correlator convention.
+- Step breakdown `replied` and `replyRate` also use positive-only counts via
+  positiveReplyByStep map (keyed by sentStep from EmailPerformance).
+- Same SQL pattern as all 6 correlator queries — no new logic, just consistent
+  data source.
+LEARNINGS:
+- StepAnalytics stores raw Instantly counts (includes negative replies).
+  EmailPerformance has replyAiInterest for classification. Always use
+  EmailPerformance for reply metrics, StepAnalytics for sent/opened/bounced.
+- sentStep on EmailPerformance may be null (set by email_sent webhook). Replies
+  with null sentStep still count toward total but can't be attributed to a step.
+NEXT: ANALYTICS-ESP-01 or CORR-CAMPAIGN-01 (remaining HIGH tasks from audit v5)
+
+=== ITERATION 16 | 2026-03-10 23:45 UTC ===
+TASK: ROUTE-PHASE-01 + PROMPT-TRUNC-01 + SUBJ-CONSISTENCY-01 + SOURCE-TIMEOUT-01 (4 HIGH fixes from audit v5)
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: route.ts, tools/index.ts, prompt-builder.ts, quality-gate.ts, drafting.ts, sourcing-tools.ts
+TESTS: 619/619 passed (32 test files)
+COMMIT: fix: 4 HIGH correctness bugs (ROUTE-PHASE-01, PROMPT-TRUNC-01, SUBJ-CONSISTENCY-01, SOURCE-TIMEOUT-01)
+CHANGES:
+- ROUTE-PHASE-01: MONITORING case added to getPhasePrompt (→PHASE_ACTIVE) and PHASE_TOOLS
+  (full toolset: reply mgmt + analytics + CRM + new pipeline). Previously fell to DISCOVERY
+  prompt with only ICP tools — agent was effectively broken in MONITORING phase.
+- PROMPT-TRUNC-01: buildPreviousEmailsSection() truncation 500→1500 chars. Step 0 PAS emails
+  (~300-400 chars) now fully preserved for follow-up context. STRATEGY §7.2.3 compliance.
+- SUBJ-CONSISTENCY-01: Subject word count aligned to "2-5 words" across all 4 locations
+  (drafting.ts system prompt ×2, prompt-builder.ts constraints, quality-gate.ts scorer prompt).
+  Gate SUBJECT_MAX_WORDS=5 unchanged. LLM no longer receives conflicting "2-4" vs "max 5" instructions.
+- SOURCE-TIMEOUT-01: source_leads enrichment polling now has 30×5s=150s timeout (was infinite).
+  Returns graceful timeout message with resourceId for retry. Progress counter in status updates.
+LEARNINGS:
+- MONITORING phase is distinct from ACTIVE — represents "campaign sending complete, still processing replies." Same tools needed.
+- Subject constraints: better to give LLM the enforced max (5) than a soft target (4) with a hidden tolerance. Reduces retry waste.
+- Previous email truncation at 500 chars was especially harmful for Step 0 PAS frameworks which tend to be ~350-400 chars — the truncation cut right at the solution/CTA, making follow-ups unable to reference the pitch.
+- Polling timeouts should account for Vercel function timeout (300s) with margin — 150s leaves 150s for the rest of the tool execution.
+NEXT: ANALYTICS-ESP-01 or INSIGHTS-METRIC-01 or CORR-CAMPAIGN-01 (remaining HIGH tasks from audit v5)
+
 === ITERATION 15 | 2026-03-10 23:35 UTC ===
 TASK: PIPE-METRIC-01 + ROUTE-STEPS-01 + WEBHOOK-ATTR-01 (3 CRITICAL fixes from audit v5)
 STATUS: DONE

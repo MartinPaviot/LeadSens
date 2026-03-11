@@ -553,6 +553,7 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[instantly]** : `getEmails()` supports `starting_after` pagination. Response field is `lead` (not `lead_email`) — handle both. `email_type: "1"` filters for campaign-sent emails.
 - **[analytics]** : `getReplyRateBySubjectVariant()` separates SQL aggregation (EmailPerformance grouped by variantIndex) from subject text resolution (DraftedEmail.findFirst). Cleaner than JSON field JOIN in SQL. Pure helpers `getSubjectForVariant()` + `toVariantPerformanceRows()` are fully testable.
 - **[analytics]** : CampaignReport.variantBreakdown is always `VariantPerformanceRow[]` (empty if no data). Frontend safe — no null checks needed.
+- **[analytics]** : CampaignReport overview+stepBreakdown `replied` counts come from EmailPerformance (positive-only filter), NOT StepAnalytics. StepAnalytics stores raw Instantly counts including negative replies. Use StepAnalytics for sent/opened/bounced only.
 - **[webhook]** : Instantly webhook `variant` field is 1-indexed (1=primary, 2=v2, 3=v3). Convert with `webhookVariantToIndex(variant)` → 0-indexed. `step` field also available. Native attribution replaces `syncVariantAttribution()` polling for new events; keep sync as historical backfill.
 - **[pipeline]** : `classify_reply` has `isSideEffect: true` — requires user confirmation. Reply dedup via `isDuplicateReply()`: body prefix (100 chars) + 5-min window + same direction. Prevents webhook × classify_reply race condition creating duplicate Reply records.
 - **[webhook]** : 11 event types handled: reply_received, email_bounced, lead_unsubscribed, campaign_completed, email_sent, email_opened, link_clicked, lead_meeting_booked, lead_interested, lead_not_interested, account_error. All validated via Zod discriminatedUnion.
@@ -562,6 +563,10 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[enrichment]** : `hiringSignals`/`fundingSignals` are now `StructuredSignal[]` (`{detail, date, source}`) — backward-compat Zod parsing auto-converts legacy `string[]` from DB. `signalAge(date)` returns recency multiplier: <3mo=1.0, 3-6mo=0.7, 6-12mo=0.3, >12mo=0.1, null=0.5. `computeSignalBoost()` uses `weightedSignalCount()` for hiring/funding.
 - **[prisma]** : Upsert update path always overwrites fields — no built-in "set only if null". For conditional-null-only updates, use separate `updateMany({ where: { field: null }, data: { field: value } })` after the upsert.
 - **[analytics]** : `campaign_insights` tool now uses `isPositiveReply()` for all segment reply counts (industry, companySize, country, total). Convention: NEVER use raw `replyCount > 0` anywhere — always filter by `replyAiInterest`.
+- **[phases]** : MONITORING phase is a valid CampaignPhase — uses PHASE_ACTIVE prompt and same tools as ACTIVE (reply mgmt + analytics + CRM + new pipeline). Represents "campaign sending complete, still processing replies."
+- **[email]** : Subject word count constraint is "2-5 words" everywhere (drafting.ts, prompt-builder.ts, quality-gate.ts). Gate enforces at SUBJECT_MAX_WORDS=5. Never give LLM a soft target (e.g., "2-4") with a hidden tolerance — causes retry waste.
+- **[email]** : buildPreviousEmailsSection() truncates at 1500 chars (was 500). Step 0 PAS emails (~350-400 chars) preserved fully for follow-up coherence.
+- **[sourcing]** : source_leads enrichment polling has 30×5s=150s timeout. Returns graceful message with resourceId on timeout. Leaves 150s margin within Vercel 300s function timeout.
 
 ## 12. Playwright MCP — Utilisation maximale
 
