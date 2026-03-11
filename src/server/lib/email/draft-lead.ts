@@ -12,7 +12,7 @@
 import { prisma } from "@/lib/prisma";
 import { draftEmail } from "@/server/lib/email/drafting";
 import { draftWithQualityGate } from "@/server/lib/email/quality-gate";
-import { getStyleSamples, getWinningEmailPatterns, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
+import { getStyleSamples, getWinningEmailPatterns, getWinningSubjects, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
 import { getDataDrivenWeights, getStepAnnotation } from "@/server/lib/analytics/adaptive";
 import { getReplyRateBySubjectPattern } from "@/server/lib/analytics/correlator";
 import { formatPatternRanking } from "@/server/lib/analytics/thompson-sampling";
@@ -88,11 +88,12 @@ export async function draftEmailsForLead(
     ? (campaign.angle as unknown as CampaignAngle)
     : undefined;
 
-  const [styleSamples, subjectStyleSamples, signalWeights, winningPatterns, patternStats] = await Promise.all([
+  const [styleSamples, subjectStyleSamples, signalWeights, winningPatterns, winningSubjects, patternStats] = await Promise.all([
     getStyleSamples(workspaceId, 5, BODY_STYLE_CATEGORIES),
     getStyleSamples(workspaceId, 3, "subject"),
     getDataDrivenWeights(workspaceId),
     getWinningEmailPatterns(workspaceId),
+    getWinningSubjects(workspaceId),
     getReplyRateBySubjectPattern(workspaceId, campaignId),
   ]);
   const patternRanking = formatPatternRanking(patternStats);
@@ -128,6 +129,7 @@ export async function draftEmailsForLead(
           stepAnnotation: stepAnnotation ?? undefined,
           winningPatterns: winningPatterns.length > 0 ? winningPatterns : undefined,
           patternRanking: patternRanking || undefined,
+          winningSubjects: winningSubjects.length > 0 ? winningSubjects : undefined,
           tier: (lead.icpBreakdown as Record<string, unknown> | null)?.tier as LeadTier | undefined,
         }),
       context: { leadName, leadJobTitle: lead.jobTitle, leadCompany: lead.company, step, enrichmentCompleteness: lead.enrichmentCompleteness },

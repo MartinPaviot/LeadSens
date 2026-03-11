@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { draftEmail } from "@/server/lib/email/drafting";
 import { draftWithQualityGate } from "@/server/lib/email/quality-gate";
-import { getStyleSamples, getWinningEmailPatterns, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
+import { getStyleSamples, getWinningEmailPatterns, getWinningSubjects, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
 import { getDataDrivenWeights, getStepAnnotation } from "@/server/lib/analytics/adaptive";
 import { getReplyRateBySubjectPattern } from "@/server/lib/analytics/correlator";
 import { formatPatternRanking } from "@/server/lib/analytics/thompson-sampling";
@@ -98,11 +98,12 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
         });
 
         // Load style + adaptive data + pattern performance in parallel
-        const [styleSamples, subjectStyleSamples, signalWeights, winningPatterns, patternStats] = await Promise.all([
+        const [styleSamples, subjectStyleSamples, signalWeights, winningPatterns, winningSubjects, patternStats] = await Promise.all([
           getStyleSamples(ctx.workspaceId, 5, BODY_STYLE_CATEGORIES),
           getStyleSamples(ctx.workspaceId, 3, "subject"),
           getDataDrivenWeights(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
+          getWinningSubjects(ctx.workspaceId),
           getReplyRateBySubjectPattern(ctx.workspaceId, args.campaign_id),
         ]);
         const patternRanking = formatPatternRanking(patternStats);
@@ -150,6 +151,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                       stepAnnotation: stepAnnotation ?? undefined,
                       winningPatterns: winningPatterns.length > 0 ? winningPatterns : undefined,
                       patternRanking: patternRanking || undefined,
+                      winningSubjects: winningSubjects.length > 0 ? winningSubjects : undefined,
                       tier: (lead.icpBreakdown as Record<string, unknown> | null)?.tier as LeadTier | undefined,
                     }),
                   context: {
@@ -353,11 +355,12 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
         }
 
         // Load style + adaptive data + pattern perf in parallel
-        const [styleSamples, subjectStyleSamples, singleWeights, singleWinning, singleStepAnnotation, previousDrafts, singlePatternStats] = await Promise.all([
+        const [styleSamples, subjectStyleSamples, singleWeights, singleWinning, singleWinningSubjects, singleStepAnnotation, previousDrafts, singlePatternStats] = await Promise.all([
           getStyleSamples(ctx.workspaceId, 5, BODY_STYLE_CATEGORIES),
           getStyleSamples(ctx.workspaceId, 3, "subject"),
           getDataDrivenWeights(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
+          getWinningSubjects(ctx.workspaceId),
           getStepAnnotation(ctx.workspaceId, args.step),
           prisma.draftedEmail.findMany({
             where: { leadId: lead.id, step: { lt: args.step } },
@@ -394,6 +397,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
               stepAnnotation: singleStepAnnotation ?? undefined,
               winningPatterns: singleWinning.length > 0 ? singleWinning : undefined,
               patternRanking: singlePatternRanking || undefined,
+              winningSubjects: singleWinningSubjects.length > 0 ? singleWinningSubjects : undefined,
               tier: (lead.icpBreakdown as Record<string, unknown> | null)?.tier as LeadTier | undefined,
             }),
           context: {

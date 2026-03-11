@@ -1,6 +1,6 @@
 import { mistralClient } from "@/server/lib/llm/mistral-client";
 import { buildEmailPrompt } from "./prompt-builder";
-import type { StepPerformanceAnnotation, WinningPattern } from "./prompt-builder";
+import type { StepPerformanceAnnotation, WinningPattern, WinningSubject } from "./prompt-builder";
 import type { CompanyDna } from "@/server/lib/enrichment/company-analyzer";
 import type { CampaignAngle } from "./campaign-angle";
 import type { LeadTier } from "@/server/lib/enrichment/icp-scorer";
@@ -31,6 +31,8 @@ export async function draftEmail(params: {
   winningPatterns?: WinningPattern[];
   /** Thompson-ranked subject line patterns */
   patternRanking?: string;
+  /** Winning subject lines from past campaigns (A/B winner propagation) */
+  winningSubjects?: WinningSubject[];
   /** Lead tier for tone adaptation */
   tier?: LeadTier;
 }): Promise<{ subject: string; subjects?: string[]; body: string }> {
@@ -47,6 +49,7 @@ export async function draftEmail(params: {
     stepAnnotation: params.stepAnnotation,
     winningPatterns: params.winningPatterns,
     patternRanking: params.patternRanking,
+    winningSubjects: params.winningSubjects,
     tier: params.tier,
   });
 

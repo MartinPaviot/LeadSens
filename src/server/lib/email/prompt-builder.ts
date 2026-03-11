@@ -479,6 +479,28 @@ export interface WinningPattern {
   replyRate: number;
 }
 
+/** Winning subject line from a past campaign that got a positive reply */
+export interface WinningSubject {
+  subject: string;
+  pattern: string;
+  step: number;
+  replies: number;
+}
+
+/**
+ * Format winning subjects from past campaigns for injection into the prompt.
+ * Gives the LLM concrete examples of subjects that actually got replies.
+ */
+export function buildWinningSubjectsSection(subjects: WinningSubject[]): string {
+  if (!subjects.length) return "";
+  const lines = ["\n### WINNING SUBJECTS (from past campaigns that got replies)"];
+  for (const s of subjects) {
+    lines.push(`- "${s.subject}" (${s.pattern}, step ${s.step}, ${s.replies} ${s.replies === 1 ? "reply" : "replies"})`);
+  }
+  lines.push("Use these as INSPIRATION — adapt to the current prospect, don't copy verbatim.");
+  return lines.join("\n");
+}
+
 /**
  * Builds a structured email drafting prompt.
  * 6-step sequence with signal intelligence and timeline hooks.
@@ -501,6 +523,8 @@ export function buildEmailPrompt(params: {
   winningPatterns?: WinningPattern[];
   /** Thompson-ranked subject line patterns (replaces default pattern table) */
   patternRanking?: string;
+  /** Winning subject lines from past campaigns (A/B winner propagation) */
+  winningSubjects?: WinningSubject[];
   /** Lead tier for tone adaptation */
   tier?: LeadTier;
 }): string {
@@ -622,7 +646,7 @@ ${params.patternRanking ? params.patternRanking : `## SUBJECT LINE PATTERNS (pic
 
 Include a concrete number when available (stat, %, count) — numbers in subjects boost open rates by +45%.
 Each variant in "subjects" MUST use a DIFFERENT pattern from this table. Never repeat the same pattern across variants.
-${params.subjectStyleSamples?.length ? `\n### Subject line corrections from user:\n${params.subjectStyleSamples.join("\n")}\nApply these preferences to ALL subject variants.` : ""}
+${params.winningSubjects?.length ? buildWinningSubjectsSection(params.winningSubjects) : ""}${params.subjectStyleSamples?.length ? `\n### Subject line corrections from user:\n${params.subjectStyleSamples.join("\n")}\nApply these preferences to ALL subject variants.` : ""}
 ## PROVEN CTAs FOR STEP ${params.step} (pick one, adapt naturally)
 ${(CTA_LIBRARY[params.step] ?? CTA_LIBRARY[0]).map((c) => `- "${c}"`).join("\n")}
 Do NOT invent a new CTA structure. Adapt one of the above to the prospect's context.

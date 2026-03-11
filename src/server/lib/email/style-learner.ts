@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import type { WinningPattern } from "./prompt-builder";
+import type { WinningPattern, WinningSubject } from "./prompt-builder";
 import { POSITIVE_REPLY_INTEREST_THRESHOLD } from "@/server/lib/analytics/correlator";
 
 // ─── Category Detection ─────────────────────────────────
@@ -128,6 +128,23 @@ export async function getStyleSamples(
   );
 }
 
+// ─── Variant Resolution ─────────────────────────────────
+
+/**
+ * Resolve the actual subject text based on which variant was sent.
+ * variantIndex: 0 = primary subject, 1 = first alt (variants[0]), 2 = second alt (variants[1]).
+ * Falls back to primary if variantIndex is null or out of range.
+ */
+export function resolveVariantSubject(
+  primary: string,
+  variants: unknown,
+  variantIndex: number | null,
+): string {
+  if (variantIndex === null || variantIndex === 0) return primary;
+  const arr = Array.isArray(variants) ? variants : [];
+  return (typeof arr[variantIndex - 1] === "string" ? arr[variantIndex - 1] : null) ?? primary;
+}
+
 // ─── Winning Pattern Helpers ────────────────────────────
 
 export interface WinningEmailData {
@@ -231,4 +248,87 @@ export async function getWinningEmailPatterns(
 
   // Sort by frequency and return top 3
   return rankPatterns(patternCounts);
+}
+
+// ─── Winning Subject Propagation ────────────────────────
+
+// WinningSubject is imported from prompt-builder.ts and re-exported
+export type { WinningSubject } from "./prompt-builder";
+
+/**
+ * Retrieves subject lines from past campaigns that received positive replies.
+ * Resolves the actual variant text that was sent using variantIndex attribution.
+ * Returns deduplicated subjects sorted by reply count (most proven first).
+ */
+export async function getWinningSubjects(
+  workspaceId: string,
+  limit: number = 6,
+): Promise<WinningSubject[]> {
+  const emails = await prisma.draftedEmail.findMany({
+    where: {
+      lead: {
+        workspaceId,
+        performance: {
+          some: {
+            replyCount: { gt: 0 },
+            OR: [
+              { replyAiInterest: null },
+              { replyAiInterest: { gte: POSITIVE_REPLY_INTEREST_THRESHOLD } },
+            ],
+          },
+        },
+      },
+    },
+    select: {
+      subject: true,
+      subjectVariants: true,
+      subjectPattern: true,
+      step: true,
+      lead: {
+        select: {
+          performance: {
+            where: {
+              replyCount: { gt: 0 },
+              OR: [
+                { replyAiInterest: null },
+                { replyAiInterest: { gte: POSITIVE_REPLY_INTEREST_THRESHOLD } },
+              ],
+            },
+            select: { variantIndex: true },
+          },
+        },
+      },
+    },
+    take: 100, // Cap query size
+  });
+
+  // Resolve actual subject text per replied email, deduplicate
+  const subjectMap = new Map<string, { subject: string; pattern: string; step: number; count: number }>();
+
+  for (const email of emails) {
+    for (const perf of email.lead.performance) {
+      const actualSubject = resolveVariantSubject(
+        email.subject,
+        email.subjectVariants,
+        perf.variantIndex,
+      );
+      const key = actualSubject.toLowerCase();
+      const existing = subjectMap.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        subjectMap.set(key, {
+          subject: actualSubject,
+          pattern: email.subjectPattern ?? "unknown",
+          step: email.step,
+          count: 1,
+        });
+      }
+    }
+  }
+
+  return [...subjectMap.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+    .map(({ count, ...rest }) => ({ ...rest, replies: count }));
 }
