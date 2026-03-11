@@ -7,6 +7,9 @@ import { POSITIVE_REPLY_INTEREST_THRESHOLD } from "@/server/lib/analytics/correl
 
 export type StyleCategory = "subject" | "tone" | "cta" | "opener" | "length" | "general";
 
+/** Categories relevant to email body drafting (everything except subject) */
+export const BODY_STYLE_CATEGORIES: StyleCategory[] = ["tone", "opener", "cta", "length", "general"];
+
 /**
  * Split text into sentences (non-empty, trimmed).
  */
@@ -95,22 +98,23 @@ export async function captureStyleCorrection(
 
 /**
  * Retrieves recent style corrections to include in email prompts.
- * Optionally filter by category for targeted injection.
+ * Optionally filter by single category or array of categories.
  */
 export async function getStyleSamples(
   workspaceId: string,
   limit = 5,
-  category?: StyleCategory,
+  category?: StyleCategory | StyleCategory[],
 ): Promise<string[]> {
+  const categoryFilter = category
+    ? Array.isArray(category)
+      ? { OR: category.map((c) => ({ metadata: { path: ["category"], equals: c } })) }
+      : { metadata: { path: ["category"], equals: category } }
+    : {};
+
   const where: Prisma.AgentFeedbackWhereInput = {
     workspaceId,
     type: "USER_EDIT",
-    ...(category ? {
-      metadata: {
-        path: ["category"],
-        equals: category,
-      },
-    } : {}),
+    ...categoryFilter,
   };
 
   const corrections = await prisma.agentFeedback.findMany({

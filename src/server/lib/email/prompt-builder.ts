@@ -490,6 +490,8 @@ export function buildEmailPrompt(params: {
   campaignAngle?: CampaignAngle;
   previousEmails?: DraftedEmailRef[];
   styleSamples?: string[];
+  /** Subject line style corrections from user edits */
+  subjectStyleSamples?: string[];
   icpDescription?: string;
   /** Data-driven signal weights (from correlator) */
   signalWeights?: Record<string, number>;
@@ -620,7 +622,7 @@ ${params.patternRanking ? params.patternRanking : `## SUBJECT LINE PATTERNS (pic
 
 Include a concrete number when available (stat, %, count) — numbers in subjects boost open rates by +45%.
 Each variant in "subjects" MUST use a DIFFERENT pattern from this table. Never repeat the same pattern across variants.
-
+${params.subjectStyleSamples?.length ? `\n### Subject line corrections from user:\n${params.subjectStyleSamples.join("\n")}\nApply these preferences to ALL subject variants.` : ""}
 ## PROVEN CTAs FOR STEP ${params.step} (pick one, adapt naturally)
 ${(CTA_LIBRARY[params.step] ?? CTA_LIBRARY[0]).map((c) => `- "${c}"`).join("\n")}
 Do NOT invent a new CTA structure. Adapt one of the above to the prospect's context.

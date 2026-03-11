@@ -292,6 +292,46 @@ describe("buildEmailPrompt", () => {
       expect(prompt).toContain("22.5% reply rate");
     });
 
+    it("includes subject style corrections near subject patterns section", () => {
+      const prompt = buildEmailPrompt({
+        lead: baseLead,
+        step: 0,
+        companyDna,
+        subjectStyleSamples: [
+          'Original: "quick question"\nCorrected: "scaling ops at ShipFast"',
+        ],
+      });
+      expect(prompt).toContain("Subject line corrections from user");
+      expect(prompt).toContain("scaling ops at ShipFast");
+      expect(prompt).toContain("Apply these preferences to ALL subject variants");
+    });
+
+    it("does NOT include subject corrections section when empty", () => {
+      const prompt = buildEmailPrompt({
+        lead: baseLead,
+        step: 0,
+        companyDna,
+        subjectStyleSamples: [],
+      });
+      expect(prompt).not.toContain("Subject line corrections from user");
+    });
+
+    it("separates body style from subject style", () => {
+      const prompt = buildEmailPrompt({
+        lead: baseLead,
+        step: 0,
+        companyDna,
+        styleSamples: ['Original: "formal tone"\nCorrected: "casual tone"'],
+        subjectStyleSamples: ['Original: "question"\nCorrected: "observation"'],
+      });
+      // Body style in Style guide section
+      expect(prompt).toContain("Style guide");
+      expect(prompt).toContain("casual tone");
+      // Subject style near subject patterns
+      expect(prompt).toContain("Subject line corrections from user");
+      expect(prompt).toContain("observation");
+    });
+
     it("includes step annotation when provided", () => {
       const prompt = buildEmailPrompt({
         lead: baseLead,
@@ -316,7 +356,7 @@ describe("buildEmailPrompt", () => {
     it("matches expected patterns table", () => {
       const prompt = buildEmailPrompt({ lead: baseLead, step: 0, companyDna });
       const startMarker = "## SUBJECT LINE PATTERNS";
-      const endMarker = "## Constraints";
+      const endMarker = "## PROVEN CTAs";
       const start = prompt.indexOf(startMarker);
       const end = prompt.indexOf(endMarker);
       const patternsSection = prompt.slice(start, end).trim();

@@ -20,6 +20,8 @@ export async function draftEmail(params: {
   workspaceId: string;
   previousEmails?: DraftedEmailRef[];
   styleSamples?: string[];
+  /** Subject line style corrections from user edits */
+  subjectStyleSamples?: string[];
   icpDescription?: string;
   /** Data-driven signal weights from correlator */
   signalWeights?: Record<string, number>;
@@ -39,6 +41,7 @@ export async function draftEmail(params: {
     campaignAngle: params.campaignAngle,
     previousEmails: params.previousEmails,
     styleSamples: params.styleSamples,
+    subjectStyleSamples: params.subjectStyleSamples,
     icpDescription: params.icpDescription,
     signalWeights: params.signalWeights,
     stepAnnotation: params.stepAnnotation,

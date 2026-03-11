@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectCategory } from "@/server/lib/email/style-learner";
+import { detectCategory, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
 import type { StyleCategory } from "@/server/lib/email/style-learner";
 
 describe("detectCategory", () => {
@@ -224,5 +224,20 @@ describe("detectCategory", () => {
         "New opener. Same middle. Same end. Plus many extra words added to make this significantly longer than the original version.";
       expect(detectCategory(original, edit)).toBe("length");
     });
+  });
+});
+
+describe("BODY_STYLE_CATEGORIES", () => {
+  it("contains all categories except subject", () => {
+    expect(BODY_STYLE_CATEGORIES).toContain("tone");
+    expect(BODY_STYLE_CATEGORIES).toContain("opener");
+    expect(BODY_STYLE_CATEGORIES).toContain("cta");
+    expect(BODY_STYLE_CATEGORIES).toContain("length");
+    expect(BODY_STYLE_CATEGORIES).toContain("general");
+    expect(BODY_STYLE_CATEGORIES).not.toContain("subject");
+  });
+
+  it("has exactly 5 categories", () => {
+    expect(BODY_STYLE_CATEGORIES).toHaveLength(5);
   });
 });

@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
 import { draftEmail } from "@/server/lib/email/drafting";
 import { draftWithQualityGate } from "@/server/lib/email/quality-gate";
-import { getStyleSamples, getWinningEmailPatterns } from "@/server/lib/email/style-learner";
+import { getStyleSamples, getWinningEmailPatterns, BODY_STYLE_CATEGORIES } from "@/server/lib/email/style-learner";
 import { getDataDrivenWeights, getStepAnnotation } from "@/server/lib/analytics/adaptive";
 import { getReplyRateBySubjectPattern } from "@/server/lib/analytics/correlator";
 import { formatPatternRanking } from "@/server/lib/analytics/thompson-sampling";
@@ -98,8 +98,9 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
         });
 
         // Load style + adaptive data + pattern performance in parallel
-        const [styleSamples, signalWeights, winningPatterns, patternStats] = await Promise.all([
-          getStyleSamples(ctx.workspaceId),
+        const [styleSamples, subjectStyleSamples, signalWeights, winningPatterns, patternStats] = await Promise.all([
+          getStyleSamples(ctx.workspaceId, 5, BODY_STYLE_CATEGORIES),
+          getStyleSamples(ctx.workspaceId, 3, "subject"),
           getDataDrivenWeights(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
           getReplyRateBySubjectPattern(ctx.workspaceId, args.campaign_id),
@@ -143,6 +144,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                       workspaceId: ctx.workspaceId,
                       previousEmails,
                       styleSamples,
+                      subjectStyleSamples,
                       icpDescription: campaign.icpDescription ?? undefined,
                       signalWeights: signalWeights ?? undefined,
                       stepAnnotation: stepAnnotation ?? undefined,
@@ -350,8 +352,9 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
         }
 
         // Load style + adaptive data + pattern perf in parallel
-        const [styleSamples, singleWeights, singleWinning, singleStepAnnotation, previousDrafts, singlePatternStats] = await Promise.all([
-          getStyleSamples(ctx.workspaceId),
+        const [styleSamples, subjectStyleSamples, singleWeights, singleWinning, singleStepAnnotation, previousDrafts, singlePatternStats] = await Promise.all([
+          getStyleSamples(ctx.workspaceId, 5, BODY_STYLE_CATEGORIES),
+          getStyleSamples(ctx.workspaceId, 3, "subject"),
           getDataDrivenWeights(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
           getStepAnnotation(ctx.workspaceId, args.step),
@@ -384,6 +387,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
               workspaceId: ctx.workspaceId,
               previousEmails: previousDrafts.map((d) => ({ step: d.step, subject: d.subject, body: d.userEdit ?? d.body })),
               styleSamples,
+              subjectStyleSamples,
               icpDescription,
               signalWeights: singleWeights ?? undefined,
               stepAnnotation: singleStepAnnotation ?? undefined,
