@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { scrapeViaJina, scrapeLeadCompany } from "@/server/lib/connectors/jina";
+import { scrapeViaJina, scrapeLeadCompany, SECTION_BUDGETS } from "@/server/lib/connectors/jina";
 
 // ─── Mock global fetch + eliminate rate-limit delays ─────
 
@@ -264,9 +264,9 @@ describe("scrapeLeadCompany", () => {
     expect(result).toContain("--- PRESS/NEWS ---");
   });
 
-  it("truncates combined output at 15000 chars", async () => {
-    const bigPage = "x".repeat(5000);
-    // All pages succeed with large content
+  it("truncates each section independently to its budget", async () => {
+    const bigPage = "x".repeat(10000);
+    // All pages succeed with content exceeding their individual budgets
     mockFetch.mockResolvedValueOnce(okResponse(bigPage)); // homepage
     mockFetch.mockResolvedValueOnce(okResponse(bigPage)); // about
     mockFetch.mockResolvedValueOnce(okResponse(bigPage)); // blog
@@ -276,7 +276,70 @@ describe("scrapeLeadCompany", () => {
     const result = await scrapeLeadCompany("https://example.com");
 
     expect(result).not.toBeNull();
-    expect(result!.length).toBeLessThanOrEqual(15000);
+    // Each section: "--- LABEL ---\n" + budgeted content
+    // Total should be sum of budgets + label overhead, NOT a naive 15K slice
+    const totalBudget = Object.values(SECTION_BUDGETS).reduce((a, b) => a + b, 0);
+    // Content portion (minus labels) should not exceed total budget
+    for (const [label, budget] of Object.entries(SECTION_BUDGETS)) {
+      const sectionStart = result!.indexOf(`--- ${label} ---\n`);
+      expect(sectionStart).toBeGreaterThanOrEqual(0);
+      const contentStart = sectionStart + `--- ${label} ---\n`.length;
+      const nextSection = result!.indexOf("\n\n--- ", contentStart);
+      const contentEnd = nextSection === -1 ? result!.length : nextSection;
+      const sectionContent = result!.slice(contentStart, contentEnd);
+      expect(sectionContent.length).toBeLessThanOrEqual(budget);
+    }
+  });
+
+  it("preserves careers and press when homepage is large", async () => {
+    // Homepage is huge (10K) — old code would eat the budget leaving nothing for careers/press
+    const hugeHomepage = "H".repeat(10000);
+    const careersContent = "C".repeat(2000);
+    const pressContent = "P".repeat(2000);
+    mockFetch.mockResolvedValueOnce(okResponse(hugeHomepage)); // homepage
+    // About + blog fail
+    for (let i = 0; i < 7; i++) {
+      mockFetch.mockResolvedValueOnce(errorResponse(404));
+    }
+    mockFetch.mockResolvedValueOnce(okResponse(careersContent)); // /careers
+    // Remaining career paths not tried (first succeeded)
+    mockFetch.mockResolvedValueOnce(okResponse(pressContent)); // /press
+
+    const result = await scrapeLeadCompany("https://example.com");
+
+    expect(result).not.toBeNull();
+    expect(result).toContain("--- CAREERS ---");
+    expect(result).toContain("--- PRESS/NEWS ---");
+    // Careers content should be fully present (2000 < 2500 budget)
+    expect(result).toContain("C".repeat(2000));
+    // Press content should be fully present (2000 < 2500 budget)
+    expect(result).toContain("P".repeat(2000));
+    // Homepage should be truncated to its 4K budget
+    const homepageLabel = "--- HOMEPAGE ---\n";
+    const homepageStart = result!.indexOf(homepageLabel) + homepageLabel.length;
+    const nextSection = result!.indexOf("\n\n--- ", homepageStart);
+    const homepageContent = result!.slice(homepageStart, nextSection);
+    expect(homepageContent.length).toBe(SECTION_BUDGETS["HOMEPAGE"]);
+  });
+
+  it("does not truncate sections within their budget", async () => {
+    // Each section is under budget — no truncation should happen
+    const smallContent = "a".repeat(200);
+    mockFetch.mockResolvedValueOnce(okResponse(smallContent));
+    mockFetch.mockResolvedValueOnce(okResponse(smallContent));
+    mockFetch.mockResolvedValueOnce(okResponse(smallContent));
+    mockFetch.mockResolvedValueOnce(okResponse(smallContent));
+    mockFetch.mockResolvedValueOnce(okResponse(smallContent));
+
+    const result = await scrapeLeadCompany("https://example.com");
+
+    expect(result).not.toBeNull();
+    // Each 200-char section should be fully preserved
+    const sectionCount = (result!.match(/--- [A-Z/]+ ---/g) ?? []).length;
+    expect(sectionCount).toBe(5);
+    // Count 'a' chars — should be 5 * 200 = 1000
+    const contentChars = (result!.match(/a/g) ?? []).length;
+    expect(contentChars).toBe(1000);
   });
 
   it("normalizes URL without protocol (adds https://)", async () => {

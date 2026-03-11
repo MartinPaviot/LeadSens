@@ -85,10 +85,22 @@ const LEAD_BLOG_PATHS = ["/blog", "/blog/", "/articles", "/resources"];
 const LEAD_CAREERS_PATHS = ["/careers", "/jobs", "/recrutement", "/nous-rejoindre"];
 const LEAD_PRESS_PATHS = ["/press", "/news", "/actualites", "/newsroom"];
 
+// Per-section char budgets — truncate each section independently to preserve
+// signal-rich pages (careers = hiring signals, press = triggers) that would
+// otherwise be cut off by naive post-concat truncation.
+export const SECTION_BUDGETS: Record<string, number> = {
+  HOMEPAGE: 4000,
+  ABOUT: 3000,
+  BLOG: 3000,
+  CAREERS: 2500,
+  "PRESS/NEWS": 2500,
+};
+
 /**
  * Multi-page scraper for lead enrichment.
  * Scrapes homepage + about + blog + careers + press (with fallbacks).
- * Returns combined markdown (max 15K chars) or null on total failure.
+ * Each section is independently truncated to its char budget (total ~15K).
+ * Returns combined markdown or null on total failure.
  */
 export async function scrapeLeadCompany(url: string): Promise<string | null> {
   const baseUrl = normalizeBaseUrl(url);
@@ -110,11 +122,15 @@ export async function scrapeLeadCompany(url: string): Promise<string | null> {
     { label: "BLOG", content: blog },
     { label: "CAREERS", content: careers },
     { label: "PRESS/NEWS", content: press },
-  ].filter((s) => s.content);
+  ].filter((s): s is { label: string; content: string } => s.content != null);
 
   const combined = sections
-    .map((s) => `--- ${s.label} ---\n${s.content}`)
+    .map((s) => {
+      const budget = SECTION_BUDGETS[s.label] ?? 3000;
+      const truncated = s.content.length > budget ? s.content.slice(0, budget) : s.content;
+      return `--- ${s.label} ---\n${truncated}`;
+    })
     .join("\n\n");
 
-  return combined.slice(0, 15000);
+  return combined;
 }
