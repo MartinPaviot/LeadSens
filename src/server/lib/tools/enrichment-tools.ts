@@ -4,9 +4,10 @@ import { Prisma } from "@prisma/client";
 import { scoreLead, computeSignalBoost } from "@/server/lib/enrichment/icp-scorer";
 import { getOrScrapeCompany, extractDomain as extractDomainFromUrl } from "@/server/lib/enrichment/company-cache";
 import { scrapeLinkedInViaApify, type LinkedInProfileData } from "@/server/lib/connectors/apify";
-import { enrichPerson, type ApolloPersonResult } from "@/server/lib/connectors/apollo";
+import { enrichPerson, searchPeople, getApiUsageStats, getEnrichmentLimits, type ApolloPersonResult, type ApolloSearchPeopleParams } from "@/server/lib/connectors/apollo";
 import { summarizeCompanyContext, enrichmentDataSchema, extractFlatEnrichmentFields, type LinkedInContext } from "@/server/lib/enrichment/summarizer";
 import { getApolloApiKey } from "@/server/lib/providers";
+import { logger } from "@/lib/logger";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
 
@@ -14,7 +15,7 @@ import { resolveCampaignId } from "./resolve-campaign";
  * Merges Apify LinkedIn profile data directly into enrichment result.
  * Skips the summarizer — structured data goes straight in.
  */
-function mergeLinkedInData(
+export function mergeLinkedInData(
   enrichment: Record<string, unknown> | null,
   linkedin: LinkedInProfileData,
 ): Record<string, unknown> {
@@ -35,7 +36,7 @@ function mergeLinkedInData(
  * Merges Apollo person enrichment data into the enrichment result.
  * Apollo provides fresher email verification, phone numbers, and org data.
  */
-function mergeApolloData(
+export function mergeApolloData(
   enrichment: Record<string, unknown> | null,
   apollo: ApolloPersonResult,
 ): Record<string, unknown> {
@@ -65,7 +66,7 @@ function mergeApolloData(
  * Priority: lead.website > guessed domain from company name.
  * Ensures https:// prefix for Jina Reader.
  */
-function resolveLeadUrl(
+export function resolveLeadUrl(
   lead: { companyDomain?: string | null; website?: string | null; company?: string | null },
   linkedinCompanyUrl?: string | null,
 ): string | null {
@@ -86,7 +87,7 @@ function resolveLeadUrl(
   // Priority 3: company website from LinkedIn profile (Apify)
   const liUrl = linkedinCompanyUrl?.trim();
   if (liUrl) {
-    console.log(`[enrich] Using LinkedIn-sourced company URL: ${liUrl}`);
+    logger.debug(`[enrich] Using LinkedIn-sourced company URL: ${liUrl}`);
     if (liUrl.startsWith("http://") || liUrl.startsWith("https://")) return liUrl;
     return `https://${liUrl}`;
   }
@@ -101,7 +102,7 @@ const extractDomain = extractDomainFromUrl;
 /**
  * Extracts LinkedIn context from enrichment for passing to the summarizer.
  */
-function extractLinkedInContext(enrichment: Record<string, unknown> | null): LinkedInContext | null {
+export function extractLinkedInContext(enrichment: Record<string, unknown> | null): LinkedInContext | null {
   if (!enrichment) return null;
   const headline = enrichment.linkedinHeadline as string | null;
   const career = enrichment.careerHistory as string[] | null;
@@ -114,7 +115,7 @@ function extractLinkedInContext(enrichment: Record<string, unknown> | null): Lin
  * Summarizes enrichment quality in a format that survives LLM compression.
  * The agent sees this instead of raw enrichmentData (which is stripped).
  */
-function summarizeEnrichmentQuality(enrichment: Record<string, unknown> | null): {
+export function summarizeEnrichmentQuality(enrichment: Record<string, unknown> | null): {
   quality: "rich" | "partial" | "minimal" | "none";
   has: string[];
   missing: string[];
@@ -165,6 +166,39 @@ function summarizeEnrichmentQuality(enrichment: Record<string, unknown> | null):
   else quality = "none";
 
   return { quality, has, missing };
+}
+
+/** Map find_decision_makers tool args to Apollo search params (pure, testable). */
+export function mapToolArgsToApolloParams(args: {
+  titles: string[];
+  seniorities?: string[];
+  company_domains?: string[];
+  industries?: string[];
+  employee_range?: string;
+  person_locations?: string[];
+  company_locations?: string[];
+  tech_stack?: string[];
+  hiring_for?: string[];
+  strict_titles?: boolean;
+  max_results?: number;
+}): ApolloSearchPeopleParams {
+  const params: ApolloSearchPeopleParams = {};
+  if (args.titles.length) params.person_titles = args.titles;
+  if (args.seniorities?.length) params.person_seniorities = args.seniorities;
+  if (args.company_domains?.length) params.q_organization_domains_list = args.company_domains;
+  if (args.industries?.length) params.q_organization_keyword_tags = args.industries;
+  if (args.employee_range) params.organization_num_employees_ranges = [args.employee_range];
+  if (args.person_locations?.length) params.person_locations = args.person_locations;
+  if (args.company_locations?.length) params.organization_locations = args.company_locations;
+  if (args.tech_stack?.length) {
+    params.currently_using_any_of_technology_uids = args.tech_stack.map(
+      (t) => t.replace(/[\s.]/g, "_").toLowerCase(),
+    );
+  }
+  if (args.hiring_for?.length) params.q_organization_job_titles = args.hiring_for;
+  params.include_similar_titles = !(args.strict_titles ?? false);
+  params.per_page = args.max_results ?? 25;
+  return params;
 }
 
 export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefinition> {
@@ -274,7 +308,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               skipped++;
             }
           } catch (err) {
-            console.error(`[score] Failed to score lead ${lead.id} (${lead.email}):`, err);
+            logger.error(`[score] Failed to score lead ${lead.id} (${lead.email}):`, { error: err instanceof Error ? err.message : String(err) });
             errors++;
           }
         }
@@ -388,6 +422,30 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         // Check if Apollo is connected (optional enrichment step)
         const apolloApiKey = await getApolloApiKey(ctx.workspaceId);
 
+        // Apollo rate limit pre-check (graceful — skip if unavailable)
+        let apolloRateLimitWarning: string | undefined;
+        let apolloUsageSummary: string | undefined;
+        if (apolloApiKey) {
+          try {
+            const stats = await getApiUsageStats(apolloApiKey);
+            if (stats) {
+              const limits = getEnrichmentLimits(stats);
+              if (limits) {
+                apolloUsageSummary = `Apollo: ${limits.day.consumed}/${limits.day.limit} enrichments used today`;
+                if (limits.day.leftOver < leads.length) {
+                  apolloRateLimitWarning = `⚠️ Apollo rate limit: ${limits.day.leftOver} enrichments remaining today (need ${leads.length}). Batch will be partially processed.`;
+                }
+                if (limits.minute.leftOver < 5) {
+                  apolloRateLimitWarning = (apolloRateLimitWarning ? apolloRateLimitWarning + " " : "") +
+                    `⚠️ Apollo minute rate limit nearly exhausted (${limits.minute.leftOver} left). Adding delays between enrichments.`;
+                }
+              }
+            }
+          } catch {
+            // Graceful degradation — skip rate limit check
+          }
+        }
+
         for (let i = 0; i < leads.length; i++) {
           const lead = leads[i];
           ctx.onStatus?.(`Enriching lead ${i + 1}/${leads.length}...`);
@@ -414,7 +472,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
                 apolloEnriched++;
               }
             } catch (err) {
-              console.warn(`[enrich] Apollo enrichment failed for ${lead.email}:`, err);
+              logger.warn(`[enrich] Apollo enrichment failed for ${lead.email}:`, { error: err instanceof Error ? err.message : String(err) });
             }
           }
 
@@ -444,6 +502,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               domain,
               url,
               (msg) => ctx.onStatus?.(msg),
+              ctx.workspaceId,
             );
 
             if (markdown) {
@@ -453,15 +512,15 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
                 // LinkedIn raw fields win over summarizer's null/[] defaults
                 enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
               } catch (err) {
-                console.warn(`[enrich] Summarization failed for ${lead.company ?? lead.email}:`, err);
+                logger.warn(`[enrich] Summarization failed for ${lead.company ?? lead.email}:`, { error: err instanceof Error ? err.message : String(err) });
               }
               scraped++;
             } else {
-              console.warn(`[enrich] Scrape failed for ${lead.company ?? lead.email} (url: ${url})`);
+              logger.warn(`[enrich] Scrape failed for ${lead.company ?? lead.email} (url: ${url})`);
               scrapeFailed++;
             }
           } else {
-            console.warn(`[enrich] No URL for ${lead.company ?? lead.email} — skipping scrape`);
+            logger.warn(`[enrich] No URL for ${lead.company ?? lead.email} — skipping scrape`);
             noUrl++;
             scrapeFailed++;
           }
@@ -473,7 +532,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               const companyData = await summarizeCompanyContext("", ctx.workspaceId, linkedinOnly);
               enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
             } catch (err) {
-              console.warn(`[enrich] LinkedIn-only summarization failed for ${lead.company ?? lead.email}:`, err);
+              logger.warn(`[enrich] LinkedIn-only summarization failed for ${lead.company ?? lead.email}:`, { error: err instanceof Error ? err.message : String(err) });
             }
           }
 
@@ -490,6 +549,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             intentScore: signalBoost.intentScore,
             timingScore: signalBoost.timingScore,
             signals: signalBoost.signals,
+            tier: signalBoost.tier,
           };
 
           await prisma.lead.update({
@@ -564,6 +624,8 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           scraped,
           scrape_failed: scrapeFailed,
           apollo_enriched: apolloEnriched,
+          ...(apolloRateLimitWarning ? { apollo_rate_limit_warning: apolloRateLimitWarning } : {}),
+          ...(apolloUsageSummary ? { apollo_usage: apolloUsageSummary } : {}),
           total: leads.length,
           lead_ids: enrichedIds,
           enrichment_summary,
@@ -681,7 +743,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               );
             }
           } catch (err) {
-            console.warn(`[enrich] Apollo enrichment failed for ${lead.email}:`, err);
+            logger.warn(`[enrich] Apollo enrichment failed for ${lead.email}:`, { error: err instanceof Error ? err.message : String(err) });
           }
         }
 
@@ -704,7 +766,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         if (url) {
           const domain = extractDomain(url);
           // Persistent cache: checks Prisma CompanyCache (TTL 7d), scrapes on miss
-          const markdown = await getOrScrapeCompany(domain, url);
+          const markdown = await getOrScrapeCompany(domain, url, undefined, ctx.workspaceId);
           if (markdown) {
             try {
               const linkedinCtx = extractLinkedInContext(enrichment as Record<string, unknown> | null);
@@ -729,7 +791,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             const companyData = await summarizeCompanyContext("", ctx.workspaceId, linkedinOnly);
             enrichment = { ...(companyData as Record<string, unknown>), ...(enrichment as Record<string, unknown> | null) };
           } catch (err) {
-            console.warn(`[enrich] LinkedIn-only summarization failed for ${lead.company ?? lead.email}:`, err);
+            logger.warn(`[enrich] LinkedIn-only summarization failed for ${lead.company ?? lead.email}:`, { error: err instanceof Error ? err.message : String(err) });
           }
         }
 
@@ -745,6 +807,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           intentScore: signalBoost.intentScore,
           timingScore: signalBoost.timingScore,
           signals: signalBoost.signals,
+          tier: signalBoost.tier,
         };
 
         await prisma.lead.update({
@@ -784,6 +847,73 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
               enrichment: enrichment as Record<string, unknown> | null,
             }],
           },
+        };
+      },
+    },
+
+    find_decision_makers: {
+      name: "find_decision_makers",
+      description:
+        "Find decision makers at target companies using Apollo's 275M+ people database (FREE, no credits). " +
+        "Search by title, seniority, industry, company size, tech stack, and hiring signals. " +
+        "Does NOT return emails — use enrichment for that.",
+      parameters: z.object({
+        titles: z.array(z.string()).describe("Job titles to search for, e.g. ['VP of Sales', 'Head of Revenue']"),
+        seniorities: z.array(z.enum(["owner", "founder", "c_suite", "partner", "vp", "head", "director", "manager", "senior", "entry"])).optional()
+          .describe("Seniority levels to filter by"),
+        company_domains: z.array(z.string()).max(100).optional()
+          .describe("Specific company domains to search within, e.g. ['notion.so', 'stripe.com']"),
+        industries: z.array(z.string()).optional()
+          .describe("Industry keywords, e.g. ['SaaS', 'fintech']"),
+        employee_range: z.string().optional()
+          .describe("Employee count range like '50,200' or '201,500'"),
+        person_locations: z.array(z.string()).optional()
+          .describe("Where the person lives, e.g. ['New York, NY', 'california']"),
+        company_locations: z.array(z.string()).optional()
+          .describe("Company HQ locations (different from person location)"),
+        tech_stack: z.array(z.string()).optional()
+          .describe("Technologies the company uses, e.g. ['salesforce', 'hubspot']. Use underscores for spaces."),
+        hiring_for: z.array(z.string()).optional()
+          .describe("Roles the company is actively hiring for (hiring signal)"),
+        strict_titles: z.boolean().optional().default(false)
+          .describe("Set true for exact title matching only"),
+        max_results: z.number().int().min(1).max(100).optional().default(25),
+      }),
+      async execute(args) {
+        const apolloApiKey = await getApolloApiKey(ctx.workspaceId);
+        if (!apolloApiKey) {
+          return { error: "Apollo not connected. Add your Apollo API key in Settings > Integrations." };
+        }
+
+        ctx.onStatus?.("Searching Apollo for decision makers...");
+
+        const params = mapToolArgsToApolloParams(args);
+        const result = await searchPeople(apolloApiKey, params);
+
+        if (!result) {
+          return { error: "Apollo People Search returned no results. Try broadening your search criteria." };
+        }
+
+        const showing = result.people.length;
+        const table = result.people.map((p) => ({
+          name: p.name ?? [p.firstName, p.lastName].filter(Boolean).join(" ") ?? "—",
+          title: p.title ?? "—",
+          company: p.organizationName ?? "—",
+          domain: p.organizationDomain ?? "—",
+          location: [p.city, p.state, p.country].filter(Boolean).join(", ") || "—",
+          seniority: p.seniority ?? "—",
+          linkedin: p.linkedinUrl ?? null,
+        }));
+
+        return {
+          total_found: result.totalEntries,
+          showing,
+          page: result.currentPage,
+          total_pages: result.totalPages,
+          people: table,
+          suggestion: showing > 0
+            ? "To get emails/phones for these contacts, ask me to enrich the top candidates."
+            : undefined,
         };
       },
     },
