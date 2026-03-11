@@ -6,6 +6,7 @@ import {
   getReplyRateByIndustry,
   getReplyRateByWordCount,
   getReplyRateBySubjectVariant,
+  getReplyRateBySubjectPatternSQL,
   POSITIVE_REPLY_INTEREST_THRESHOLD,
   type CorrelationRow,
   type VariantPerformanceRow,
@@ -14,7 +15,7 @@ import { getBenchmarkContext } from "./benchmarks";
 import { prisma } from "@/lib/prisma";
 
 export interface PerformanceInsight {
-  dimension: "signal_type" | "framework" | "quality_score" | "enrichment_depth" | "industry" | "word_count" | "subject_variant";
+  dimension: "signal_type" | "framework" | "quality_score" | "enrichment_depth" | "industry" | "word_count" | "subject_variant" | "subject_pattern";
   topPerformer: { label: string; replyRate: number; sampleSize: number };
   bottomPerformer: { label: string; replyRate: number; sampleSize: number };
   recommendation: string;
@@ -50,6 +51,7 @@ function buildInsight(
     industry: (t, b) => `"${t.dimension}" industry responds best (${t.replyRate.toFixed(1)}% reply rate). "${b.dimension}" is weakest (${b.replyRate.toFixed(1)}%).`,
     word_count: (t, b) => `Emails in the ${t.dimension} word range get ${t.replyRate.toFixed(1)}% reply rate. ${b.dimension} words underperforms at ${b.replyRate.toFixed(1)}%.`,
     subject_variant: (t, b) => `Subject "${t.dimension}" gets ${t.replyRate.toFixed(1)}% reply rate vs "${b.dimension}" at ${b.replyRate.toFixed(1)}%. Consider using this pattern for future campaigns.`,
+    subject_pattern: (t, b) => `"${t.dimension}" subject pattern gets ${t.replyRate.toFixed(1)}% reply rate vs "${b.dimension}" at ${b.replyRate.toFixed(1)}%. Prioritize this pattern in future campaigns.`,
   };
 
   return {
@@ -62,13 +64,14 @@ function buildInsight(
 }
 
 export async function getWorkspaceInsights(workspaceId: string): Promise<PerformanceInsight[]> {
-  const [signalType, step, qualityScore, enrichmentDepth, industry, wordCount] = await Promise.all([
+  const [signalType, step, qualityScore, enrichmentDepth, industry, wordCount, subjectPattern] = await Promise.all([
     getReplyRateBySignalType(workspaceId),
     getReplyRateByStep(workspaceId),
     getReplyRateByQualityScore(workspaceId),
     getReplyRateByEnrichmentDepth(workspaceId),
     getReplyRateByIndustry(workspaceId),
     getReplyRateByWordCount(workspaceId),
+    getReplyRateBySubjectPatternSQL(workspaceId),
   ]);
 
   const insights: PerformanceInsight[] = [];
@@ -79,6 +82,7 @@ export async function getWorkspaceInsights(workspaceId: string): Promise<Perform
     ["enrichment_depth", enrichmentDepth],
     ["industry", industry],
     ["word_count", wordCount],
+    ["subject_pattern", subjectPattern],
   ];
 
   for (const [dim, rows] of pairs) {

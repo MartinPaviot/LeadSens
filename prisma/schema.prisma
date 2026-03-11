@@ -69,20 +69,23 @@ model Verification {
 }
 
 model Workspace {
-  id             String          @id @default(cuid())
-  name           String
-  slug           String          @unique
-  companyUrl     String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  companyDna     Json?
-  agentFeedbacks AgentFeedback[]
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique
+  companyUrl      String?
+  autonomyLevel   String          @default("SUPERVISED") // MANUAL | SUPERVISED | AUTO
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  companyDna              Json?
+  onboardingCompletedAt   DateTime?
+  agentFeedbacks  AgentFeedback[]
   agentMemories  AgentMemory[]
   aiEvents       AIEvent[]
   campaigns      Campaign[]
   conversations  Conversation[]
   integrations   Integration[]
   leads          Lead[]
+  companyCaches  CompanyCache[]
   replyThreads   ReplyThread[]
   users          User[]
 
@@ -153,8 +156,8 @@ model Lead {
   country         String?
   companySize     String?
   industry        String?
-  instantlyLeadId String?
-  instantlyListId String?
+  espLeadId       String?
+  espListId       String?
   enrichmentData  Json?
   enrichedAt      DateTime?
   icpScore        Int?
@@ -200,8 +203,9 @@ model Campaign {
   icpFilters          Json
   tone                String?
   stepsCount          Int            @default(6)
-  instantlyCampaignId String?
-  instantlyListId     String?
+  espCampaignId       String?
+  espListId           String?
+  espType             String?
   leadsTotal          Int            @default(0)
   leadsScored         Int            @default(0)
   leadsEnriched       Int            @default(0)
@@ -249,6 +253,7 @@ model DraftedEmail {
   enrichmentDepth String?  // "rich" | "partial" | "minimal" | "none"
   bodyWordCount   Int?
   leadIndustry    String?  // denormalized for fast queries
+  subjectPattern  String?  // "Question" | "Observation" | "Curiosity" | "Direct" | "Personalized"
 
   campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
@@ -258,11 +263,14 @@ model DraftedEmail {
 }
 
 model CompanyCache {
-  id        String   @id @default(cuid())
-  domain    String   @unique
-  markdown  String?  @db.Text
-  scrapedAt DateTime @default(now())
+  id          String     @id @default(cuid())
+  domain      String     @unique
+  workspaceId String?
+  markdown    String?    @db.Text
+  scrapedAt   DateTime   @default(now())
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  @@index([domain, workspaceId])
   @@map("company_cache")
 }
 
@@ -371,7 +379,7 @@ model ReplyThread {
   workspaceId     String
   leadId          String
   campaignId      String
-  instantlyThreadId String?
+  espThreadId       String?
   subject         String?
   status          ReplyThreadStatus @default(OPEN)
   interestScore   Float?
@@ -398,7 +406,7 @@ model Reply {
   subject     String?
   body        String
   preview     String?
-  instantlyEmailId String?
+  espEmailId       String?
   isAutoReply Boolean     @default(false)
   aiInterest  Float?
   sentAt      DateTime

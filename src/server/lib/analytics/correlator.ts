@@ -246,6 +246,205 @@ export async function getReplyRateByWordCount(
   return toCorrelationRows(rows);
 }
 
+/**
+ * Reply rate by stored subject pattern (Question/Observation/Curiosity/Direct/Personalized).
+ * Uses the subjectPattern field populated at draft time. Only includes records
+ * where subjectPattern is stored (new drafts); old records without the field are excluded.
+ */
+export async function getReplyRateBySubjectPatternSQL(
+  workspaceId: string,
+  campaignId?: string,
+): Promise<CorrelationRow[]> {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT
+      de."subjectPattern"                                     AS dimension,
+      COUNT(*)                                                AS sent,
+      SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END) AS replied
+    ${baseFrom(workspaceId, campaignId)}
+      AND de."subjectPattern" IS NOT NULL
+    GROUP BY de."subjectPattern"
+    ORDER BY replied DESC
+  `;
+  return toCorrelationRows(rows);
+}
+
+// ---------------------------------------------------------------------------
+// ICP Backtesting queries
+// ---------------------------------------------------------------------------
+
+/**
+ * Reply rate by ICP score bucket.
+ * Validates which ICP score ranges perform best — useful for tuning the scoring threshold.
+ */
+export async function getReplyRateByIcpScore(
+  workspaceId: string,
+  campaignId?: string,
+): Promise<CorrelationRow[]> {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT
+      CASE
+        WHEN l."icpScore" BETWEEN 5 AND 6 THEN '5-6'
+        WHEN l."icpScore" BETWEEN 7 AND 8 THEN '7-8'
+        WHEN l."icpScore" >= 9           THEN '9-10'
+        ELSE 'below-5'
+      END                                                   AS dimension,
+      COUNT(*)                                              AS sent,
+      SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)    AS opened,
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)   AS replied
+    ${baseFrom(workspaceId, campaignId)}
+      AND l."icpScore" IS NOT NULL
+    GROUP BY
+      CASE
+        WHEN l."icpScore" BETWEEN 5 AND 6 THEN '5-6'
+        WHEN l."icpScore" BETWEEN 7 AND 8 THEN '7-8'
+        WHEN l."icpScore" >= 9           THEN '9-10'
+        ELSE 'below-5'
+      END
+    ORDER BY dimension
+  `;
+  return toCorrelationRows(rows);
+}
+
+/**
+ * Reply rate by job title — identifies which roles respond best.
+ * Returns top 10 by volume (filtered to minimum 5 sent).
+ */
+export async function getReplyRateByJobTitle(
+  workspaceId: string,
+  campaignId?: string,
+): Promise<CorrelationRow[]> {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT
+      COALESCE(l."jobTitle", 'Unknown')                       AS dimension,
+      COUNT(*)                                                AS sent,
+      SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)      AS opened,
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)     AS replied
+    ${baseFrom(workspaceId, campaignId)}
+    GROUP BY l."jobTitle"
+    ORDER BY sent DESC
+    LIMIT 10
+  `;
+  return toCorrelationRows(rows);
+}
+
+/**
+ * Reply rate by company size bucket.
+ * Useful for identifying which company sizes convert best.
+ */
+export async function getReplyRateByCompanySize(
+  workspaceId: string,
+  campaignId?: string,
+): Promise<CorrelationRow[]> {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT
+      COALESCE(l."companySize", 'Unknown')                    AS dimension,
+      COUNT(*)                                                AS sent,
+      SUM(CASE WHEN ep."openCount" > 0 THEN 1 ELSE 0 END)      AS opened,
+      SUM(CASE WHEN ${POSITIVE_REPLY_SQL} THEN 1 ELSE 0 END)     AS replied
+    ${baseFrom(workspaceId, campaignId)}
+    GROUP BY l."companySize"
+    ORDER BY sent DESC
+    LIMIT 10
+  `;
+  return toCorrelationRows(rows);
+}
+
+// ---------------------------------------------------------------------------
+// Subject pattern correlation (for Thompson Sampling)
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect which subject line pattern a subject uses.
+ * Heuristic-based classification matching the 5 documented patterns.
+ */
+export function detectSubjectPattern(subject: string): string {
+  const lower = subject.toLowerCase().trim();
+
+  // Question — ends with ? or starts with question words
+  if (lower.endsWith("?") || /^(how|what|why|when|where|who|is|are|do|does|can|could|would|should|quick question)\b/.test(lower)) {
+    return "Question";
+  }
+
+  // Personalized — starts with re:, congrats, following, saw your
+  if (/^re:\s/.test(lower) || /^(congrats|following|saw your|noticed your|about your)\b/.test(lower)) {
+    return "Personalized";
+  }
+
+  // Observation — contains noticed, saw, spotted + company/signal reference
+  if (/\b(noticed|saw|spotted|observed)\b/.test(lower)) {
+    return "Observation";
+  }
+
+  // Curiosity gap — contains idea, number+%, what X changed
+  if (/\b(idea|what .* changed|shift|secret|surprising)\b/.test(lower) || /\d+%/.test(lower)) {
+    return "Curiosity";
+  }
+
+  // Direct — short and to the point (everything else)
+  return "Direct";
+}
+
+/**
+ * Get reply rate by detected subject pattern.
+ * Used for Thompson Sampling to rank patterns for new emails.
+ *
+ * When `campaignId` is provided, only emails from that campaign are counted.
+ * Performance data is always matched to the same campaign as the DraftedEmail
+ * to prevent cross-campaign contamination.
+ */
+export async function getReplyRateBySubjectPattern(
+  workspaceId: string,
+  campaignId?: string,
+): Promise<Array<{ name: string; sent: number; replied: number }>> {
+  // Get all drafted emails with performance data
+  const emails = await prisma.draftedEmail.findMany({
+    where: {
+      lead: { workspaceId },
+      step: 0, // Only step 0 subjects (primary emails)
+      ...(campaignId ? { campaignId } : {}),
+    },
+    select: {
+      subject: true,
+      subjectPattern: true,
+      campaignId: true,
+      lead: {
+        select: {
+          performance: {
+            select: {
+              campaignId: true,
+              replyCount: true,
+              replyAiInterest: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Group by pattern — prefer stored subjectPattern, fall back to heuristic for old records
+  const patternStats = new Map<string, { sent: number; replied: number }>();
+  for (const email of emails) {
+    const pattern = email.subjectPattern ?? detectSubjectPattern(email.subject);
+    const stats = patternStats.get(pattern) ?? { sent: 0, replied: 0 };
+    stats.sent++;
+    // Match performance to SAME campaign as the drafted email (prevents cross-campaign noise)
+    const perf = email.lead.performance.find(
+      (p) => p.campaignId === email.campaignId,
+    );
+    if (perf && isPositiveReply(perf.replyCount, perf.replyAiInterest)) {
+      stats.replied++;
+    }
+    patternStats.set(pattern, stats);
+  }
+
+  return [...patternStats.entries()].map(([name, stats]) => ({
+    name,
+    sent: stats.sent,
+    replied: stats.replied,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Subject variant correlation (A/B testing)
 // ---------------------------------------------------------------------------
