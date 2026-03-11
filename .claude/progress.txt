@@ -1,3 +1,98 @@
+=== ITERATION 20 | 2026-03-11 00:17 UTC ===
+TASK: CAD-TEST-01 — Unit tests for framework definitions, delays, CTA selection
+STATUS: DONE
+DURATION: ~12 min
+FILES CHANGED: prompt-builder.ts (exports added), esp-tools.ts (TIER_CADENCES exported), tests/cadence-sequence.test.ts (NEW)
+TESTS: 680/680 passed (34 test files, +41 new tests)
+COMMIT: pending
+CHANGES:
+- Exported 4 symbols from prompt-builder.ts: selectCta, buildPreviousEmailsSection,
+  buildStepAnnotation, CTA_LIBRARY — previously private, now testable.
+- Exported TIER_CADENCES from esp-tools.ts for delay testing.
+- 41 tests in cadence-sequence.test.ts covering:
+  - getFramework(0..5): name, maxWords, instructions, objective for each step (12 tests)
+  - getFramework default/negative step fallback to step 0 (2 tests)
+  - Framework snapshot regression guard (1 inline snapshot test)
+  - maxWords bounds and trend validation (2 tests)
+  - selectCta: medium commitment for steps 0,2; low for 1,3,4,5; fallback; URL; empty (5 tests)
+  - buildPreviousEmailsSection: empty, single, multi, truncation at 1500 chars, no-truncation (6 tests)
+  - buildStepAnnotation: below threshold, at threshold, top/bottom, sample size edge (5 tests)
+  - CTA_LIBRARY: all 6 steps have entries, step 5 low-pressure validation (2 tests)
+  - TIER_CADENCES: default [0,2,5,9,14,21], 6 delays each, start at 0, monotonic, tier ordering (6 tests)
+  - getPredominantTier: empty, high scores, low scores (3 tests)
+LEARNINGS:
+- prompt-builder.ts had 4 key functions with 0 tests. All were private — exporting them
+  is the right tradeoff (test access > encapsulation for pure functions).
+- TIER_CADENCES is a good abstraction: 3 tiers (aggressive/standard/patient) maps cleanly
+  to lead quality. The default Tier 2 = [0,2,5,9,14,21] matches STRATEGY exactly.
+- getPredominantTier returns 2 for empty array — safe default.
+NEXT: RES-04 (Industry benchmarks in reporting) — next MEDIUM-priority feature task
+
+=== ITERATION 19 | 2026-03-11 00:08 UTC ===
+TASK: ANALYTICS-ESP-01 — Make analytics sync ESP-agnostic via ESPProvider
+STATUS: DONE
+DURATION: ~20 min
+FILES CHANGED: esp-provider.ts, instantly-esp.ts, smartlead.ts, lemlist.ts, sync.ts, variant-attribution.ts, functions.ts, analytics-tools.ts
+TESTS: 639/639 passed (33 test files)
+COMMIT: refactor(analytics): make sync ESP-agnostic via ESPProvider (ANALYTICS-ESP-01)
+CHANGES:
+- Added getStepAnalytics() and getLeadsPerformance() to ESPProvider interface
+  with StepAnalytics, LeadPerformance, LeadPerformancePage types.
+- Implemented both methods in all 3 ESP connectors (Instantly, Smartlead, Lemlist).
+- sync.ts: parameter changed from apiKey:string to esp:ESPProvider. Uses
+  esp.getCampaignAnalytics(), esp.getStepAnalytics(), esp.getLeadsPerformance().
+  Return uses analytics.sent/opened/replied/bounced (normalized by CampaignAnalytics).
+- variant-attribution.ts: fetchSentEmails() now uses esp.getEmails({emailType:"sent"})
+  instead of raw getEmails(apiKey, {email_type:"1"}). Type changed from InstantlyEmail
+  to ESPEmail. getLeadEmail() reads .to instead of .lead/.lead_email.
+- inngest/functions.ts: removed apiKeyMap pattern (was fetching all Instantly API keys
+  upfront). Each campaign now gets its own ESPProvider via getESPProvider(workspaceId).
+  Removed decrypt import.
+- analytics-tools.ts: sync_campaign_analytics tool uses getESPProvider() instead of
+  querying for INSTANTLY integration directly. Error message updated to mention all ESPs.
+  Removed decrypt import.
+- analytics module (sync.ts + variant-attribution.ts) no longer imports from
+  connectors/instantly — fully decoupled from any specific ESP.
+LEARNINGS:
+- ESPProvider.getCampaignAnalytics() returns normalized CampaignAnalytics (sent/opened/
+  replied as optional numbers), while raw Instantly returns emails_sent/emails_read.
+  Callers must use the interface field names, not the raw ones.
+- variant-attribution: ESPEmail uses .to for recipient, InstantlyEmail used .lead/.lead_email.
+  Abstracting cleans up the field name confusion.
+- Inngest cron: getting ESP provider per-campaign (inside step.run) is actually better —
+  each step is durable, so if one workspace's ESP fails, others continue. Previous pattern
+  fetched all keys upfront and skipped the entire campaign on missing key.
+NEXT: RES-04 or CAD-TEST-01 (next MEDIUM-priority tasks from backlog)
+
+=== ITERATION 18 | 2026-03-11 00:00 UTC ===
+TASK: CORR-CAMPAIGN-01 — Filter getReplyRateBySubjectPattern to same campaign
+STATUS: DONE
+DURATION: ~12 min
+FILES CHANGED: correlator.ts, email-tools.ts, draft-lead.ts, tests/subject-pattern.test.ts (NEW)
+TESTS: 639/639 passed (33 test files)
+COMMIT: pending
+CHANGES:
+- getReplyRateBySubjectPattern() now accepts optional campaignId parameter.
+  When provided, DraftedEmails filtered to that campaign only.
+- Performance matching fixed: was `email.lead.performance[0]` (random campaign),
+  now `performance.find(p => p.campaignId === email.campaignId)` — always matches
+  same campaign as the drafted email. This was the core cross-campaign contamination bug.
+- All 3 callers updated to pass campaignId:
+  - draft_emails_batch: args.campaign_id
+  - draft_single_email: lead.campaignId
+  - draftEmailsForLead (Inngest bg): campaignId parameter
+- Fixed detectSubjectPattern regex for "Re:" subjects — `\b` after colon fails
+  (non-word boundary between two non-word chars). Split into separate `^re:\s` test.
+- 19 new tests for detectSubjectPattern: Question (4), Personalized (5),
+  Observation (3), Curiosity (4), Direct (3), priority ordering (2).
+LEARNINGS:
+- `lead.performance[0]` is a common anti-pattern when a lead has multiple EmailPerformance
+  records across campaigns. Always match by campaignId.
+- Regex `\b` doesn't work after non-word chars like `:`. Use explicit space check instead.
+- Thompson Sampling data quality depends on correct campaign scoping — patterns that work
+  for SaaS outreach may not work for HR outreach. Campaign filtering eliminates noise.
+NEXT: ANALYTICS-ESP-01 (last HIGH task from audit v5)
+
 === ITERATION 17 | 2026-03-10 23:50 UTC ===
 TASK: INSIGHTS-METRIC-01 — Filter positive replies in campaign overview stats
 STATUS: DONE

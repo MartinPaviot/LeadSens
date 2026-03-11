@@ -372,7 +372,7 @@
   - Test unitaire: 150-word body at Step 4 (maxWords=50) triggers word count violation
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **CAD-TEST-01** Unit tests for framework definitions, delays, CTA selection **(MEDIUM — 1.5h)**
+- [x] **CAD-TEST-01** Unit tests for framework definitions, delays, CTA selection ✅ *2026-03-11: 41 tests covering getFramework, selectCta, buildPreviousEmailsSection, buildStepAnnotation, CTA_LIBRARY, TIER_CADENCES, getPredominantTier. Inline snapshot for framework regression. tests/cadence-sequence.test.ts.*
   **Fichiers:** `tests/cadence-sequence.test.ts` (NEW)
   **Réf:** audit-cadence-sequence.md Test Coverage Assessment
   **Impact:** Zero unit tests for framework definitions, delay logic, CTA selection, step annotations. A framework regression would go undetected.
@@ -610,13 +610,7 @@
 
 - [x] **ROUTE-PHASE-01** Add MONITORING phase to getPhasePrompt and PHASE_TOOLS ✅ *2026-03-10: MONITORING case in getPhasePrompt→PHASE_ACTIVE. MONITORING entry in PHASE_TOOLS with full reply mgmt + analytics + CRM tools.*
 
-- [ ] **ANALYTICS-ESP-01** Route sync_campaign_analytics through ESPProvider or gate to Instantly **(HIGH — 30 min)**
-  **Fichiers:** `src/server/lib/tools/analytics-tools.ts` (lines 39-44)
-  **Réf:** audit v5, STRATEGY §4.2 Multi-ESP
-  **Impact:** Non-Instantly users trigger sync and get silent failure. Tool should be gated or use abstraction.
-  **PASS IF:**
-  - `sync_campaign_analytics` uses ESPProvider or is gated to INSTANTLY integration type
-  - `pnpm typecheck && pnpm test` passent
+- [x] **ANALYTICS-ESP-01** Route sync_campaign_analytics through ESPProvider ✅ *2026-03-11: Full ESP abstraction — sync.ts, variant-attribution.ts, inngest cron all use ESPProvider. Added getStepAnalytics() + getLeadsPerformance() to interface. All 3 connectors (Instantly/Smartlead/Lemlist) implement both. Analytics module fully decoupled from instantly.ts.*
 
 - [x] **INSIGHTS-METRIC-01** Filter positive replies in campaign overview stats ✅ *2026-03-10: getCampaignReport() now queries EmailPerformance with positive-reply filter (replyAiInterest IS NULL OR >= 5) for both overview and step breakdown. StepAnalytics used only for sent/opened/bounced.*
   **Fichiers:** `src/server/lib/analytics/insights.ts` (lines 134-141)
@@ -630,7 +624,7 @@
 
 - [x] **SUBJ-CONSISTENCY-01** Align subject word count constraint to single value ✅ *2026-03-10: All 4 locations (drafting.ts×2, prompt-builder.ts, quality-gate.ts scorer+enforcement+comment) aligned to "2-5 words". Gate SUBJECT_MAX_WORDS=5 unchanged.*
 
-- [ ] **CORR-CAMPAIGN-01** Filter getReplyRateBySubjectPattern to same campaign **(HIGH — 30 min)**
+- [x] **CORR-CAMPAIGN-01** Filter getReplyRateBySubjectPattern to same campaign ✅ *2026-03-10: Added optional campaignId param. Performance now matched per-email to same campaign (was [0] grab-bag). All 3 callers pass campaignId. Fixed re: pattern detection regex. 19 tests in subject-pattern.test.ts.*
   **Fichiers:** `src/server/lib/analytics/correlator.ts` (lines 373-411)
   **Réf:** audit v5
   **Impact:** Cross-campaign contamination feeds Thompson Sampling with noisy data. Pattern rankings may be wrong.

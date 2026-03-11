@@ -264,7 +264,7 @@ function findRelevantCaseStudy(
 
 // ─── CTA Library (proven patterns per step) ─────────────
 
-const CTA_LIBRARY: Record<number, string[]> = {
+export const CTA_LIBRARY: Record<number, string[]> = {
   0: ["Worth a quick look?", "Does this resonate?", "Relevant for Q[X]?"],
   1: ["Want me to send it over?", "Interested in the benchmark?", "Useful?"],
   2: ["Would [X result] be relevant for [company]?", "Seen similar results?", "Worth exploring?"],
@@ -296,7 +296,7 @@ const TIER_TONE_INSTRUCTIONS: Record<LeadTier, string> = {
 
 // ─── CTA Selection ──────────────────────────────────────
 
-function selectCta(
+export function selectCta(
   ctas: NonNullable<CompanyDna["ctas"]>,
   step: number,
 ): string | null {
@@ -415,7 +415,7 @@ function buildWhoYouAre(
 
 // ─── Previous Emails Section ────────────────────────────
 
-function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
+export function buildPreviousEmailsSection(previousEmails: DraftedEmailRef[]): string {
   if (!previousEmails.length) return "";
 
   const lines = ["## Previous emails (DO NOT repeat, ADVANCE the conversation)"];
@@ -453,7 +453,7 @@ function buildStyleSection(
   return parts.join("\n");
 }
 
-function buildStepAnnotation(
+export function buildStepAnnotation(
   annotation: StepPerformanceAnnotation,
   step: number,
 ): string {
