@@ -201,7 +201,7 @@
 
 - [x] **ENR-BUG-01** Fix Apollo domain parameter bug ✅ *2026-03-09: Fixed body.organization_name → body.domain in apollo.ts:177. 16 tests in apollo-connector.test.ts (enrichPerson, enrichOrganization, testApolloConnection).*
 
-- [ ] **ENR-RECENCY-01** Signal recency weighting **(HIGH — 1 jour)**
+- [x] **ENR-RECENCY-01** Signal recency weighting ✅ *2026-03-10: hiringSignals/fundingSignals migrated from string[] to {detail,date,source}[]. signalAge() decay function. computeSignalBoost() recency-weighted. Backward-compat Zod parsing. 33 tests in signal-boost.test.ts.*
   **Fichiers:** `src/server/lib/enrichment/summarizer.ts`, `src/server/lib/enrichment/icp-scorer.ts`, `src/server/lib/email/prompt-builder.ts`
   **Réf:** RESEARCH-LEAD-ENRICHMENT E3.1, audit-enrichment.md ISSUE 2
   **Impact:** Triggers périmés dans les openers email nuisent à la crédibilité. Triggers récents (<3 mois) = 3-5x plus de replies.
@@ -301,7 +301,7 @@
   - Test unitaire vérifie la détection de long subjects
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **SUBJ-NUM-01** Add numbers guidance to subject patterns **(LOW — 15 min)**
+- [x] **SUBJ-NUM-01** Add numbers guidance to subject patterns ✅ *2026-03-10: Observation + Curiosity gap examples updated with number variants. "+45% open rate" guidance note added. Snapshot test updated. prompt-builder.ts:572-578.*
   **Fichiers:** `src/server/lib/email/prompt-builder.ts`
   **Réf:** audit-subject-lines.md ISSUE 6, RESEARCH-DELIVERABILITY §7.4 (+45% open rate), RESEARCH-LANDSCAPE §R2.3 (+113% lift)
   **Impact:** Research shows numbers in subjects significantly boost open rates.
@@ -318,9 +318,8 @@
 ### Tâches ajoutées par audit A/B testing 2026-03-09
 
 > Source: `.claude/findings/audit-ab-testing.md`
-> The A/B component is **write-only** — variants go out, zero data comes back.
-> AB-ATTR-01 is the #1 blocker: without variant-to-lead attribution, all downstream A/B optimization is impossible.
-> Dependency chain: AB-ATTR-01 → AB-CORR-01 → AB-REPORT-01 + RES-06 + AUDIT-04
+> **Score: 5/10 (target 5/10 ✅ atteint)** — variant attribution + correlation done. Missing: auto-pause + winner propagation.
+> Dependency chain: ~~AB-ATTR-01~~ ✅ → ~~AB-CORR-01~~ ✅ → AB-REPORT-01 + RES-06 + AUDIT-04
 
 - [x] **AB-ATTR-01** Variant-to-lead attribution via email sync ✅ *2026-03-09: variant-attribution.ts — matchVariantIndex() pure function + syncVariantAttribution(). Fetches sent emails (ue_type=1), matches subject to DraftedEmail variants (normalized: case-insensitive, Re:/Fwd: stripping). variantIndex Int? on EmailPerformance. Integrated in sync worker + tool. 22 tests.*
 
@@ -480,7 +479,7 @@
   - Test: mock Instantly API call, verify it's called after INTERESTED transition
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **PIPE-SIDE-01** Add isSideEffect to classify_reply + prevent duplicate Replies **(MEDIUM — 30 min)**
+- [x] **PIPE-SIDE-01** Add isSideEffect to classify_reply + prevent duplicate Replies ✅ *2026-03-09: isSideEffect: true on classify_reply. isDuplicateReply() checks body prefix (100 chars) within 5-min window. 11 tests in classify-reply-dedup.test.ts.*
   **Fichiers:** `src/server/lib/tools/pipeline-tools.ts`
   **Réf:** audit-pipeline-post-launch.md ISSUE 4
   **Impact:** classify_reply changes lead state without user confirmation. Duplicate Reply records from webhook + classify_reply race condition.
@@ -489,7 +488,7 @@
   - Before creating Reply record, check if a Reply with matching body (first 100 chars) exists in the thread within last 5 minutes — skip if duplicate
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **PIPE-DATA-01** Fix empty fromEmail/toEmail in Reply records **(MEDIUM — 15 min)**
+- [x] **PIPE-DATA-01** Fix empty fromEmail/toEmail in Reply records ✅ *2026-03-09: classify_reply sets toEmail=lead.email (INBOUND), reply_to_email fetches lead for toEmail (OUTBOUND). fromEmail OUTBOUND remains TODO (needs Instantly sending account resolution).*
   **Fichiers:** `src/server/lib/tools/pipeline-tools.ts`
   **Réf:** audit-pipeline-post-launch.md ISSUE 5
   **Impact:** Data integrity — Reply records from classify_reply and reply_to_email have empty email fields.
@@ -498,15 +497,7 @@
   - `reply_to_email` line 365: `toEmail` set to lead's email (fetch from DB)
   - `pnpm typecheck && pnpm test` passent
 
-- [ ] **PIPE-SENT-01** Resolve phantom SENT status **(MEDIUM — 30 min)**
-  **Fichiers:** `src/server/lib/lead-status.ts`, `src/queue/analytics-sync-worker.ts`
-  **Réf:** audit-pipeline-post-launch.md ISSUE 2
-  **Impact:** SENT status is defined in state machine but never triggered by any code path. Phantom state.
-  **PASS IF:**
-  - Option A: analytics-sync-worker transitions PUSHED→SENT when first EmailPerformance is created
-  - OR Option B: remove SENT, add PUSHED→REPLIED as valid transition
-  - No phantom states remain
-  - `pnpm typecheck && pnpm test` passent
+- [x] **PIPE-SENT-01** Resolve phantom SENT status ✅ *2026-03-10: Resolved by WEBHOOK-EXPAND-01 — email_sent webhook event transitions PUSHED→SENT. No more phantom state.*
 
 - [ ] **PIPE-CRM-01** Enrich CRM contact with pipeline data **(MEDIUM — 1h)**
   **Fichiers:** `src/server/lib/tools/crm-tools.ts`
@@ -528,4 +519,178 @@
   - Test CSV parser: comma/semicolon/tab detection, field mapping, dedup, empty rows, missing email
   - Test `buildInsightSuggestions()`: bounce >5%, reply <5%, high performer
   - Minimum 25 tests
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR RESEARCH REFRESH 2026-03-09 -->
+
+### Tâches ajoutées par research refresh 2026-03-09
+
+> Source: `.claude/findings/2026-03-09-research-refresh.md`
+> Sources: Reddit r/coldemail (Mar 8-9), LeadsMonky (Mar 4), Instantly blog (Feb 24)
+
+- [x] **QG-FILLER-01** Filler phrase detection in quality gate ✅ *2026-03-09: 35 filler phrases in filler-phrases.ts, scanForFillerPhrases() checks first 2 sentences (after greeting). Integrated in draftWithQualityGate() before LLM scoring — any match = -1 penalty + retry. 24 tests in filler-phrases.test.ts.*
+  **Fichiers:** `src/server/lib/email/filler-phrases.ts` (NEW), `src/server/lib/email/quality-gate.ts`
+  **Réf:** research-refresh.md §8, Reddit r/coldemail 2026-03-09
+  **Impact:** Generic opener phrases ("I came across your profile", "I admire what you're building") are actively harmful — prospects pattern-match them as templates. Zero-cost deterministic check, same pattern as spam-words.ts.
+  **PASS IF:**
+  - Blocklist of 15+ known filler phrases in `filler-phrases.ts`
+  - `scanForFillerPhrases(body)` returns matches found in first 2 sentences
+  - Integrated in `draftWithQualityGate()` BEFORE LLM scoring (zero cost)
+  - If filler detected → score -1, issue added, forces retry
+  - Test unitaire: body with "I came across your profile" triggers detection
+  - `pnpm typecheck && pnpm test` passent
+
+- [x] **PROMPT-BRIDGE-01** Strengthen signal-to-pain connection in prompt ✅ *2026-03-09: Connection bridge now demands signal→pain REASONING (not just mention). BAD/GOOD example added. 3-step bridge: signal → WHY it implies pain → solution with timeline proof. 25 tests pass. prompt-builder.ts:533-544.*
+
+- [x] **SCORE-STACK-01** Compound signal scoring (multiplicative, not additive) ✅ *2026-03-10: Compound bonus +1/+2/+3 for 3/4/5+ distinct signal types. CombinedScoreBreakdown.compoundBonus field added. 21 tests (8 new) in signal-boost.test.ts.*
+  **Fichiers:** `src/server/lib/enrichment/icp-scorer.ts`
+  **Réf:** research-refresh.md §12, Prospeo/Amplemarket 2026 (accounts with 3+ signals = 2.4x conversion)
+  **Impact:** Current `computeSignalBoost()` adds weights independently. 3+ concurrent signals (hiring + funding + tech change) should multiply — these leads are significantly hotter than single-signal leads.
+  **PASS IF:**
+  - When 3+ non-zero signal types are present, apply a compound multiplier (e.g., 1.5x)
+  - `computeSignalBoost()` returns higher score for multi-signal leads
+  - Test unitaire: 3 signals scores > 3 × (1 signal score) / 3
+  - `pnpm typecheck && pnpm test` passent
+
+- [x] **WEBHOOK-VAR-01** Use webhook `variant` field for native A/B attribution ✅ *2026-03-09: webhookVariantToIndex() pure function in route.ts. All 3 lead events (reply, bounce, unsub) extract variant field and set variantIndex on EmailPerformance. syncVariantAttribution() kept as backfill. 15 tests in webhook-variant.test.ts.*
+
+- [x] **WEBHOOK-EXPAND-01** Handle additional Instantly webhook events ✅ *2026-03-10: 11 event types (was 4). email_sent→PUSHED→SENT (resolves PIPE-SENT-01), email_opened→openCount/timestamps, link_clicked→clickCount, lead_meeting_booked→MEETING_BOOKED, lead_interested→INTERESTED, lead_not_interested→NOT_INTERESTED, account_error→log. sentAt+sentStep on EmailPerformance. REPLIED→MEETING_BOOKED transition. 21 tests.*
+
+- [ ] **DEDUP-CROSS-01** Cross-campaign lead dedup before push **(MEDIUM — 2h)**
+  **Fichiers:** `src/server/lib/tools/instantly-tools.ts`
+  **Réf:** research-refresh.md §13, tl;dv 6-layer architecture 2026
+  **Impact:** Without cross-campaign dedup, same prospect receives outreach from multiple campaigns. Damages deliverability and reputation as campaign count grows.
+  **PASS IF:**
+  - Before `instantly_add_leads_to_campaign`, check if any lead email exists in another ACTIVE campaign (status PUSHED/SENT/REPLIED)
+  - If duplicates found → warning: "X leads already in active campaigns: [campaign names]. Remove duplicates?"
+  - Does NOT auto-remove (user decides, respects curseur d'autonomie)
+  - `pnpm typecheck && pnpm test` passent
+
+---
+
+<!-- TÂCHES AJOUTÉES PAR AUDIT v5 2026-03-10 -->
+
+### Tâches ajoutées par audit v5 2026-03-10
+
+> Source: Audit v5 full codebase vs STRATEGY.md vs research vs .claude/findings/
+> 3 CRITICAL, 7 HIGH, 12 MEDIUM issues found. Score: 6.9/10 (unchanged).
+> Priority: C1-C3 are quick fixes (30 min total) that fix data correctness bugs.
+
+#### CRITICAL — Fix immediately
+
+- [x] **PIPE-METRIC-01** Fix raw `replyCount > 0` in pipeline-tools.ts campaign_insights ✅ *2026-03-10: Replaced 4 occurrences with isPositiveReply(replyCount, replyAiInterest). Consistent with correlator positive-reply-only convention.*
+  **Fichiers:** `src/server/lib/tools/pipeline-tools.ts` (lines 610, 614, 618, 637)
+  **Réf:** CLAUDE.md analytics convention, audit-feedback-loop.md FL-METRIC-01
+  **Impact:** Agent sees inflated reply rates from `campaign_insights` (counts negative replies) vs correlator tools (positive-only). Inconsistent analytics = bad agent decisions.
+  **PASS IF:**
+  - All `replyCount > 0` in `buildInsightSuggestions()` and `campaign_insights` tool replaced with positive reply filter (replyAiInterest IS NULL OR >= 5)
+  - Import `isPositiveReply` or `POSITIVE_REPLY_INTEREST_THRESHOLD` from correlator
+  - `pnpm typecheck && pnpm test` passent
+
+- [x] **ROUTE-STEPS-01** Reduce maxSteps from 15 to 5 in chat route ✅ *2026-03-10: maxSteps: 15 → 5. Enforces CLAUDE.md §5 convention.*
+  **Fichiers:** `src/app/api/agents/chat/route.ts` (line 698)
+  **Réf:** CLAUDE.md §5 convention "Max 5 steps per message"
+  **Impact:** LLM can spiral through 15 tool calls per message, burning ~$0.15+ in Mistral tokens. Cost safety + convention violation.
+  **PASS IF:**
+  - `maxSteps: 15` changed to `maxSteps: 5`
+  - `pnpm typecheck && pnpm test` passent
+
+- [x] **WEBHOOK-ATTR-01** Add variantIndex null-guard to reply_received webhook ✅ *2026-03-10: Replaced unconditional spread with conditional updateMany(where: variantIndex null). Prevents overwrite on repeated replies.*
+  **Fichiers:** `src/app/api/webhooks/instantly/route.ts` (line 143)
+  **Réf:** audit v5, same pattern as email_sent (line 268)
+  **Impact:** Repeated replies overwrite variantIndex — corrupts A/B attribution data. email_sent already has the guard, reply_received does not.
+  **PASS IF:**
+  - `reply_received` update only sets `variantIndex` when current value is null (same pattern as email_sent)
+  - Test: second reply_received for same lead does not overwrite variantIndex
+  - `pnpm typecheck && pnpm test` passent
+
+#### HIGH — Fix before next release
+
+- [ ] **ROUTE-PHASE-01** Add MONITORING phase to getPhasePrompt and PHASE_TOOLS **(HIGH — 30 min)**
+  **Fichiers:** `src/app/api/agents/chat/route.ts`, `src/server/lib/tools/index.ts`
+  **Réf:** audit v5
+  **Impact:** If campaign reaches MONITORING status, agent loses most tools and gets wrong phase prompt.
+  **PASS IF:**
+  - `getPhasePrompt` has a MONITORING case (returns PHASE_ACTIVE or a new PHASE_MONITORING)
+  - `PHASE_TOOLS` has a MONITORING entry with analytics + reply management tools
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **ANALYTICS-ESP-01** Route sync_campaign_analytics through ESPProvider or gate to Instantly **(HIGH — 30 min)**
+  **Fichiers:** `src/server/lib/tools/analytics-tools.ts` (lines 39-44)
+  **Réf:** audit v5, STRATEGY §4.2 Multi-ESP
+  **Impact:** Non-Instantly users trigger sync and get silent failure. Tool should be gated or use abstraction.
+  **PASS IF:**
+  - `sync_campaign_analytics` uses ESPProvider or is gated to INSTANTLY integration type
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **INSIGHTS-METRIC-01** Filter positive replies in campaign overview stats **(HIGH — 20 min)**
+  **Fichiers:** `src/server/lib/analytics/insights.ts` (lines 134-141)
+  **Réf:** audit v5, same convention as correlator
+  **Impact:** Overview reply rate includes negative replies (from StepAnalytics raw count). Inconsistent with correlator positive-reply metrics.
+  **PASS IF:**
+  - `getCampaignReport` overview `replied` count filters for positive replies (use EmailPerformance with isPositiveReply condition, not StepAnalytics.replied)
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **PROMPT-TRUNC-01** Increase previous email body truncation from 500 to 1500 chars **(HIGH — 15 min)**
+  **Fichiers:** `src/server/lib/email/prompt-builder.ts`
+  **Réf:** STRATEGY §7.2.3 "body complet des steps précédents"
+  **Impact:** 500 chars cuts Step 0 PAS emails mid-narrative. Follow-ups can't build coherent story.
+  **PASS IF:**
+  - `buildPreviousEmailsSection()` truncation increased to 1500 chars (or removed if token budget allows)
+  - Test updated
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **SUBJ-CONSISTENCY-01** Align subject word count constraint to single value **(HIGH — 15 min)**
+  **Fichiers:** `src/server/lib/email/drafting.ts`, `src/server/lib/email/prompt-builder.ts`, `src/server/lib/email/quality-gate.ts`
+  **Réf:** audit v5
+  **Impact:** LLM sees "2-4 words" (prompt) vs quality gate allows 5. Conflicting instructions.
+  **PASS IF:**
+  - All 3 locations state same constraint (recommended: "2-5 words" everywhere, or "2-4 words" with gate at 5 as documented tolerance)
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **CORR-CAMPAIGN-01** Filter getReplyRateBySubjectPattern to same campaign **(HIGH — 30 min)**
+  **Fichiers:** `src/server/lib/analytics/correlator.ts` (lines 373-411)
+  **Réf:** audit v5
+  **Impact:** Cross-campaign contamination feeds Thompson Sampling with noisy data. Pattern rankings may be wrong.
+  **PASS IF:**
+  - `getReplyRateBySubjectPattern` joins performance filtered by same campaignId as the DraftedEmail
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **SOURCE-TIMEOUT-01** Add polling timeout to source_leads enrichment wait **(HIGH — 15 min)**
+  **Fichiers:** `src/server/lib/tools/sourcing-tools.ts` (lines 264-271)
+  **Réf:** audit v5
+  **Impact:** Hung Instantly enrichment job → polls until Vercel 300s timeout → generic stream error.
+  **PASS IF:**
+  - Polling loop has max iterations (e.g., 30 × 5s = 150s) or AbortSignal timeout
+  - On timeout, return partial results with warning message
+  - `pnpm typecheck && pnpm test` passent
+
+#### MEDIUM — Optimize
+
+- [ ] **PERF-N1-01** Batch DB writes in score_leads_batch and enrich_leads_batch **(MEDIUM — 2h)**
+  **Fichiers:** `src/server/lib/tools/enrichment-tools.ts`
+  **Réf:** audit v5
+  **Impact:** 100 leads = 200 sequential DB roundtrips. Prisma $transaction or bulk UPDATE would be 10-50x faster.
+  **PASS IF:**
+  - score_leads_batch uses batched update (e.g., $transaction with grouped updates)
+  - enrich_leads_batch uses batched upsert
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **STYLE-WIRE-01** Wire style category filter to getStyleSamples callers **(MEDIUM — 30 min)**
+  **Fichiers:** `src/server/lib/tools/email-tools.ts`
+  **Réf:** audit v5, RES-07
+  **Impact:** detectCategory() works but callers ignore it. Subject corrections injected into body context.
+  **PASS IF:**
+  - `getStyleSamples()` callers in email-tools.ts pass relevant category filter
+  - `pnpm typecheck && pnpm test` passent
+
+- [ ] **WEBHOOK-DEDUP-01** Add isDuplicateReply check to webhook reply_received handler **(MEDIUM — 15 min)**
+  **Fichiers:** `src/app/api/webhooks/instantly/route.ts`
+  **Réf:** audit v5, same pattern as classify_reply in pipeline-tools.ts
+  **Impact:** Duplicate webhook delivery → duplicate Reply records. classify_reply has dedup, webhook does not.
+  **PASS IF:**
+  - Before creating Reply record in reply_received handler, check for duplicate (same body prefix + 5-min window)
+  - Import isDuplicateReply from pipeline-tools or extract to shared util
   - `pnpm typecheck && pnpm test` passent

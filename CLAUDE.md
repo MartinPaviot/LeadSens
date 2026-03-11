@@ -14,7 +14,7 @@ LeadSens n'est pas un outil. C'est le **chef d'orchestre** des outils du user. C
 
 La valeur est dans les **décisions entre les appels API** : scoring pré-enrichissement (~40% d'économie), Company DNA, frameworks copywriting hardcodés, clustering par segments, style learner, curseur d'autonomie.
 
-### Score actuel : 6.7/10 (audit v3 2026-03-09, était 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
+### Score actuel : 6.9/10 (audit v4+ 2026-03-10, était 6.8 → 6.7 → 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
 
 Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
 
@@ -32,7 +32,7 @@ Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélior
 | Chat UI | assistant-ui | `@assistant-ui/react` `@assistant-ui/react-markdown` |
 | Icons | Phosphor | `@phosphor-icons/react` |
 | DB | Prisma 6 + PostgreSQL (Supabase) | `prisma` `@prisma/client` |
-| Queue | BullMQ + Redis | `bullmq` `ioredis` |
+| Background jobs | Inngest (cron + event-driven) | `inngest` |
 | Auth | Better Auth | `better-auth` |
 | API layer | tRPC + TanStack Query | `@trpc/*` `@tanstack/react-query` |
 | LLM | Mistral (Large + Small) | `@mistralai/mistralai` |
@@ -97,7 +97,7 @@ NON IMPLÉMENTÉ (pre-launch) :
 
 IMPLÉMENTÉ (post-launch) :
   ✅ LeadStatus étendu (8 statuts post-PUSHED) + state machine
-  ✅ Webhook Instantly (reply, bounce, unsub, completed)
+  ✅ Webhook Instantly (11 events: sent, opened, clicked, reply, bounce, unsub, meeting, interested, not_interested, completed, account_error)
   ✅ Sync campaign performance (EmailPerformance + StepAnalytics, worker 30min)
   ✅ Reply classification (Mistral Small, 6 interest levels)
   ✅ Reply drafting + sending (Unibox API)
@@ -119,10 +119,10 @@ NON IMPLÉMENTÉ (post-launch) :
 | ICP Scoring | **7/10** | 7/10 | §7.3.3 |
 | Email Copywriting | **8/10** | 8/10 | §7.1.2-1.4 |
 | Subject Lines | **6/10** | 6/10 | §7.2.1 |
-| A/B Testing | **4/10** | 5/10 | §7.2.1 |
+| A/B Testing | **5/10** | 5/10 | §7.2.1 |
 | Cadence & Séquence | **7.5/10** | 7/10 | §7.2.2-2.4 |
 | Feedback Loop | **5.5/10** | 5/10 | §7.3.2 |
-| Pipeline post-launch | **6.5/10** | 5/10 | §11 |
+| Pipeline post-launch | **7/10** | 5/10 | §11 |
 
 ### 3.3 Bugs connus
 
@@ -162,7 +162,7 @@ NON IMPLÉMENTÉ (post-launch) :
 2. **Validation** — Zod sur tous les inputs : routes API, tools, env vars, LLM JSON outputs
 3. **Streaming** — SSE via `fetch()` + `ReadableStream` pour le chat. RAF batch update. Pattern : `docs/SPEC-CHAT.md` section 10
 4. **Tool loop** — Max 5 steps (rounds de tool calling) par message user
-5. **Workers** — Graceful shutdown (SIGTERM/SIGINT) sur les workers BullMQ. Pattern : `docs/SPEC-BACKEND.md` section 7.1
+5. **Background jobs** — Inngest functions (cron + event-driven) via `src/inngest/`. Served at `/api/inngest`. No long-running workers.
 6. **Side effects** — Les tools qui consomment des crédits Instantly sont wrappés avec confirmation. Pattern : `docs/SPEC-BACKEND.md` section 8.5
 7. **Error handling** — Hiérarchie d'erreurs typées. Pattern : `docs/SPEC-BACKEND.md` section 8.3
 8. **AI logging** — Chaque appel LLM est loggé (model, tokens, cost, latency). Pattern : `docs/SPEC-BACKEND.md` section 8.4
@@ -249,6 +249,7 @@ leadsens/
 │   │   │   ├── integrations/instantly/route.ts
 │   │   │   ├── integrations/hubspot/{auth,callback}/route.ts
 │   │   │   ├── webhooks/instantly/route.ts        ← À implémenter (Phase 1)
+│   │   │   ├── inngest/route.ts                   ← Inngest serve handler
 │   │   │   └── trpc/[trpc]/route.ts
 │   │   ├── (dashboard)/
 │   │   │   ├── page.tsx
@@ -319,10 +320,9 @@ leadsens/
 │   │   ├── auth-client.ts
 │   │   ├── trpc-client.ts
 │   │   └── inline-component-registry.ts
-│   └── queue/
-│       ├── factory.ts
-│       ├── enrichment-worker.ts
-│       └── email-draft-worker.ts
+│   └── inngest/
+│       ├── client.ts                              ← Inngest client
+│       └── functions.ts                           ← Cron + event-driven functions
 ├── prisma/
 │   └── schema.prisma
 ├── .env.example
@@ -522,6 +522,7 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[email]** : 5 subject line patterns (question/observation/curiosity/direct/personalized) — each variant must use a different pattern
 - **[scoring]** : ICP feedback loop alerts agent when >70% leads eliminated — prevents silent empty campaigns
 - **[scoring]** : Two-phase scoring — LLM fit pre-enrichment (cheap filter) → deterministic signal boost post-enrichment (0 LLM cost, uses hiringSignals/fundingSignals/leadershipChanges/techStackChanges/publicPriorities/LinkedIn activity)
+- **[scoring]** : Compound bonus for 3+ distinct signal types: +1 (3 types), +2 (4 types), +3 (5+ types, cap). `signals.length` == distinct type count. Research: 2.4x conversion with 3+ active signals.
 - **[providers]** : Adapter pattern at SDK boundaries — `as any` acceptable with eslint-disable at `SourcingProvider`/Mistral SDK interface
 - **[enrichment]** : Dual TTL cache — null markdown (failed scrape) = 1h TTL, successful scrape = 7d TTL. No schema change needed, just check `cached.markdown === null` to select TTL.
 
@@ -546,7 +547,120 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[quality-gate]** : Deterministic word count enforcement at 130% of `maxWords`. Uses `getFramework(step)` inside the retry loop. On violation: score penalized -1, issue added, forces retry. Returns the first clean passing result, NOT bestResult (which may have violations).
 - **[quality-gate]** : Subject line length validation via `checkSubjectLength()` — max 5 words, max 50 chars. Checks primary subject + all variants. Same penalty pattern as word count and spam checks (score -1, issue, block clean pass). Runs before LLM scoring (zero cost).
 - **[email]** : maxWords per step: [85, 65, 70, 65, 50, 45] — compromises between STRATEGY targets and framework needs. Research consensus: <80 words = highest reply rates.
+- **[email]** : Connection bridge 3-step: (1) signal → (2) WHY it implies pain (reasoning step) → (3) solution with timeline proof. BAD/GOOD example in prompt. Signal mention = +15-20%, signal→pain reasoning = 2x that.
+- **[quality-gate]** : Filler phrase detection via `scanForFillerPhrases()` — checks first 2 sentences after greeting only (opener problem, not body). Threshold = 1 (any single filler = -1 penalty + retry), stricter than spam words (threshold = 3). `extractOpener()` strips Hi/Hey/Hello/Dear lines before sentence extraction. 35 phrases across 6 categories.
 - **[analytics]** : Variant attribution via `syncVariantAttribution()` — fetches sent emails (ue_type=1) from Instantly, matches subject to DraftedEmail variants via `matchVariantIndex()`. Stores `variantIndex` (0=primary, 1/2=variants) on EmailPerformance. Only sets when null (idempotent). Step 0 attribution prioritized (earliest sent email per lead).
 - **[instantly]** : `getEmails()` supports `starting_after` pagination. Response field is `lead` (not `lead_email`) — handle both. `email_type: "1"` filters for campaign-sent emails.
 - **[analytics]** : `getReplyRateBySubjectVariant()` separates SQL aggregation (EmailPerformance grouped by variantIndex) from subject text resolution (DraftedEmail.findFirst). Cleaner than JSON field JOIN in SQL. Pure helpers `getSubjectForVariant()` + `toVariantPerformanceRows()` are fully testable.
 - **[analytics]** : CampaignReport.variantBreakdown is always `VariantPerformanceRow[]` (empty if no data). Frontend safe — no null checks needed.
+- **[webhook]** : Instantly webhook `variant` field is 1-indexed (1=primary, 2=v2, 3=v3). Convert with `webhookVariantToIndex(variant)` → 0-indexed. `step` field also available. Native attribution replaces `syncVariantAttribution()` polling for new events; keep sync as historical backfill.
+- **[pipeline]** : `classify_reply` has `isSideEffect: true` — requires user confirmation. Reply dedup via `isDuplicateReply()`: body prefix (100 chars) + 5-min window + same direction. Prevents webhook × classify_reply race condition creating duplicate Reply records.
+- **[webhook]** : 11 event types handled: reply_received, email_bounced, lead_unsubscribed, campaign_completed, email_sent, email_opened, link_clicked, lead_meeting_booked, lead_interested, lead_not_interested, account_error. All validated via Zod discriminatedUnion.
+- **[webhook]** : `email_sent` resolves phantom SENT status (PIPE-SENT-01) — transitions PUSHED→SENT on real send. `sentAt` + `sentStep` stored on EmailPerformance.
+- **[webhook]** : `email_opened` updates openCount + firstOpenAt/lastOpenAt. `link_clicked` increments clickCount. Both support variant attribution.
+- **[lead-status]** : REPLIED→MEETING_BOOKED is a valid transition — meetings can be booked directly from reply without classify_reply step first.
+- **[enrichment]** : `hiringSignals`/`fundingSignals` are now `StructuredSignal[]` (`{detail, date, source}`) — backward-compat Zod parsing auto-converts legacy `string[]` from DB. `signalAge(date)` returns recency multiplier: <3mo=1.0, 3-6mo=0.7, 6-12mo=0.3, >12mo=0.1, null=0.5. `computeSignalBoost()` uses `weightedSignalCount()` for hiring/funding.
+- **[prisma]** : Upsert update path always overwrites fields — no built-in "set only if null". For conditional-null-only updates, use separate `updateMany({ where: { field: null }, data: { field: value } })` after the upsert.
+- **[analytics]** : `campaign_insights` tool now uses `isPositiveReply()` for all segment reply counts (industry, companySize, country, total). Convention: NEVER use raw `replyCount > 0` anywhere — always filter by `replyAiInterest`.
+
+## 12. Playwright MCP — Utilisation maximale
+
+### Navigation & recherche web
+
+```
+- Dire "use playwright mcp" au premier appel de chaque session
+- browser_navigate pour aller sur une URL
+- browser_click sur les liens, boutons, onglets pour naviguer dans un site
+- browser_type pour taper dans les barres de recherche
+- browser_press_key "Enter" pour lancer une recherche
+- Ne JAMAIS se limiter au premier résultat Google — cliquer sur 3-5 résultats pertinents
+- Sur chaque site : naviguer vers les pages internes (about, pricing, features, blog, docs, changelog, API reference)
+```
+
+### Multi-onglets
+
+```
+- browser_tab_new pour ouvrir un nouvel onglet
+- browser_tab_list pour voir les onglets ouverts
+- browser_tab_select pour basculer entre les onglets
+- Workflow : concurrent dans tab 1, notre doc dans tab 2, comparer
+```
+
+### Extraction de données
+
+```
+- browser_snapshot pour lire le contenu structuré (accessibility tree, 2-5KB — rapide et fiable)
+- browser_get_text pour le texte visible
+- browser_get_html pour le HTML brut (tableaux de pricing, structures de données)
+- browser_run_javascript pour extraire des données spécifiques du DOM :
+  "async (page) => { return await page.$$eval('table tr', rows => rows.map(r => r.textContent)) }"
+- TOUJOURS préférer browser_snapshot à browser_take_screenshot pour l'extraction de données
+```
+
+### Screenshots & analyse visuelle
+
+```
+- browser_take_screenshot pour capturer l'état visuel
+- fullPage=true pour la page complète (pas juste le viewport)
+- element + ref pour capturer un composant spécifique (bouton, card, section)
+- Sauvegarder dans .claude/findings/screenshots/ avec nom descriptif
+- Prendre des screenshots des UX concurrents : onboarding flows, chat UI, dashboards, pricing pages
+- Les screenshots servent UNIQUEMENT pour l'analyse visuelle — utiliser snapshot pour les données
+```
+
+### Formulaires & interactions
+
+```
+- browser_click + browser_type + browser_select_option pour remplir des formulaires
+- browser_choose_file pour upload
+- browser_hover pour menus dropdown et tooltips
+- browser_type avec slowly=true pour déclencher les handlers JavaScript
+```
+
+### Debugging & réseau
+
+```
+- browser_console pour lire les erreurs console d'une page
+- browser_network pour voir les requêtes réseau (comprendre les APIs des concurrents)
+- browser_wait pour attendre qu'une page charge complètement
+```
+
+### Export
+
+```
+- browser_save_as_pdf pour sauvegarder un article ou une doc en PDF dans les findings
+```
+
+### Analyse concurrents (sans login)
+
+```
+- Pages features/pricing/changelog des concurrents → screenshots + snapshot
+- YouTube : chercher "[concurrent] demo 2026" → regarder les démos vidéo
+- G2.com et Capterra : reviews avec screenshots des dashboards
+- Reddit et Twitter : "[concurrent] review" pour les retours users réels
+- Documentation API publique des concurrents
+- GitHub : repos open source, changelogs, issues
+```
+
+### Workflow de recherche optimal
+
+```
+1. browser_navigate vers Google
+2. browser_type la requête + browser_press_key Enter
+3. browser_snapshot pour lire les résultats
+4. browser_click sur le résultat #1
+5. browser_snapshot pour lire le contenu
+6. Naviguer dans le site (browser_click sur les liens internes pertinents)
+7. browser_take_screenshot des éléments UX intéressants
+8. browser_tab_new pour le résultat #2 (garder le #1 ouvert pour comparer)
+9. Répéter pour 3-5 résultats
+10. Synthétiser dans un finding avec URLs sources exactes
+```
+
+### Performance
+
+```
+- Playwright lit l'accessibility tree (2-5KB) pas des screenshots (500KB) — préférer snapshot
+- Chaque tool call coûte du contexte — regrouper les actions quand possible
+- Ne pas screenshot chaque page — seulement les éléments visuellement intéressants (UX, design)
+```
