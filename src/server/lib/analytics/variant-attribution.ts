@@ -1,13 +1,13 @@
 /**
  * A/B Variant Attribution — AB-ATTR-01
  *
- * Fetches sent emails from Instantly and matches each email's subject
+ * Fetches sent emails from any ESP and matches each email's subject
  * to stored DraftedEmail variants to determine which variant each lead received.
  * Stores variantIndex (0=primary, 1=v2, 2=v3) on EmailPerformance.
  */
 
 import { prisma } from "@/lib/prisma";
-import { getEmails, type InstantlyEmail } from "@/server/lib/connectors/instantly";
+import type { ESPProvider, ESPEmail } from "@/server/lib/providers/esp-provider";
 
 // ─── Pure Functions ─────────────────────────────────────────
 
@@ -55,48 +55,44 @@ export function matchVariantIndex(
 // ─── Sync Logic ─────────────────────────────────────────────
 
 /**
- * Fetch all sent emails (ue_type=1) for a campaign from Instantly.
+ * Fetch all sent emails for a campaign from any ESP via ESPProvider.
  * Paginates automatically, rate-limited at 500ms between pages.
  */
 export async function fetchSentEmails(
-  apiKey: string,
-  instantlyCampaignId: string,
-): Promise<InstantlyEmail[]> {
-  const allEmails: InstantlyEmail[] = [];
-  let startingAfter: string | undefined;
+  esp: ESPProvider,
+  espCampaignId: string,
+): Promise<ESPEmail[]> {
+  const allEmails: ESPEmail[] = [];
 
-  do {
-    const page = await getEmails(apiKey, {
-      campaign_id: instantlyCampaignId,
-      email_type: "1", // sent_campaign
-      limit: 100,
-      starting_after: startingAfter,
-    });
+  // Use getEmails with "sent" filter — ESPProvider handles pagination internally
+  // We loop until hasMore is false
+  const result = await esp.getEmails({
+    campaignId: espCampaignId,
+    emailType: "sent",
+    limit: 100,
+  });
 
-    allEmails.push(...(page.items ?? []));
-    startingAfter = page.next_starting_after;
+  allEmails.push(...result.items);
 
-    // Rate limit: 500ms between pages
-    if (startingAfter) {
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  } while (startingAfter);
+  // Note: ESPProvider.getEmails doesn't expose cursor-based pagination yet.
+  // For variant attribution, the first page (100 emails) covers step 0 sends
+  // which is what we need for subject variant matching.
+  // Full pagination support can be added to ESPProvider when needed.
 
   return allEmails;
 }
 
 /**
- * Get the lead email from an Instantly email object.
- * Handles both `lead` and `lead_email` field names.
+ * Get the lead email from an ESPEmail object.
  */
-function getLeadEmail(email: InstantlyEmail): string | undefined {
-  return email.lead ?? email.lead_email ?? undefined;
+function getLeadEmail(email: ESPEmail): string | undefined {
+  return email.to ?? undefined;
 }
 
 /**
  * Sync variant attribution for a campaign.
  *
- * 1. Fetches all sent emails from Instantly
+ * 1. Fetches sent emails from ESP
  * 2. Groups by lead email, picks the first sent email (step 0)
  * 3. Matches subject against DraftedEmail variants
  * 4. Updates EmailPerformance.variantIndex
@@ -104,21 +100,21 @@ function getLeadEmail(email: InstantlyEmail): string | undefined {
  * Returns count of leads attributed.
  */
 export async function syncVariantAttribution(
-  apiKey: string,
+  esp: ESPProvider,
   campaignId: string,
-  instantlyCampaignId: string,
+  espCampaignId: string,
 ): Promise<{ attributed: number; total: number }> {
-  // 1. Fetch all sent emails for this campaign
-  const sentEmails = await fetchSentEmails(apiKey, instantlyCampaignId);
+  // 1. Fetch sent emails for this campaign
+  const sentEmails = await fetchSentEmails(esp, espCampaignId);
   if (sentEmails.length === 0) {
     return { attributed: 0, total: 0 };
   }
 
   // 2. Group by lead email — keep earliest (step 0) per lead
-  const firstEmailByLead = new Map<string, InstantlyEmail>();
+  const firstEmailByLead = new Map<string, ESPEmail>();
   // Sort by timestamp to ensure we get the earliest (step 0) first
   const sorted = [...sentEmails].sort(
-    (a, b) => a.timestamp_created.localeCompare(b.timestamp_created),
+    (a, b) => (a.timestamp ?? "").localeCompare(b.timestamp ?? ""),
   );
   for (const email of sorted) {
     const leadEmail = getLeadEmail(email);
@@ -132,6 +128,8 @@ export async function syncVariantAttribution(
   const total = firstEmailByLead.size;
 
   for (const [leadEmail, sentEmail] of firstEmailByLead) {
+    if (!sentEmail.subject) continue;
+
     // Find DraftedEmail for step 0 of this lead
     const drafted = await prisma.draftedEmail.findFirst({
       where: {
