@@ -31,18 +31,23 @@ const CONNECTORS: ConnectorConfig[] = [
     brandColor: "#3B82F6",
     tier: 1,
     testConnection: async (apiKey) => {
-      const res = await fetch("https://api.instantly.ai/api/v2/accounts", {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) return { ok: false, error: "Invalid API key" };
-      const accounts = (await res.json()) as { email?: string }[];
-      return {
-        ok: true,
-        meta: {
-          accountEmail: accounts?.[0]?.email,
-          accounts: accounts?.length ?? 0,
-        },
-      };
+      try {
+        const res = await fetch("https://api.instantly.ai/api/v2/accounts", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!res.ok) return { ok: false, error: "Invalid API key" };
+        const accounts = (await res.json()) as { email?: string }[];
+        return {
+          ok: true,
+          meta: {
+            accountEmail: accounts?.[0]?.email,
+            accounts: accounts?.length ?? 0,
+          },
+        };
+      } catch {
+        return { ok: false, error: "Could not reach Instantly API. Check your connection." };
+      }
     },
   },
   {
@@ -320,13 +325,12 @@ const CONNECTORS: ConnectorConfig[] = [
     testConnection: async (apiKey) => {
       const ok = await testZeroBounceConnection(apiKey);
       if (!ok) return { ok: false, error: "Invalid API key" };
-      let credits = 0;
       try {
-        credits = await getZeroBounceCredits(apiKey);
+        const credits = await getZeroBounceCredits(apiKey);
+        return { ok: true, meta: { credits } };
       } catch {
-        // Non-blocking — key is already validated
+        return { ok: true, meta: {} };
       }
-      return { ok: true, meta: { credits } };
     },
   },
   {
@@ -342,13 +346,12 @@ const CONNECTORS: ConnectorConfig[] = [
     testConnection: async (apiKey) => {
       const ok = await testNeverBounceConnection(apiKey);
       if (!ok) return { ok: false, error: "Invalid API key" };
-      let credits = 0;
       try {
-        credits = await getNeverBounceCredits(apiKey);
+        const credits = await getNeverBounceCredits(apiKey);
+        return { ok: true, meta: { credits } };
       } catch {
-        // Non-blocking — key is already validated
+        return { ok: true, meta: {} };
       }
-      return { ok: true, meta: { credits } };
     },
   },
   {
@@ -364,13 +367,12 @@ const CONNECTORS: ConnectorConfig[] = [
     testConnection: async (apiKey) => {
       const ok = await testDeBounceConnection(apiKey);
       if (!ok) return { ok: false, error: "Invalid API key" };
-      let credits = 0;
       try {
-        credits = await getDeBounceCredits(apiKey);
+        const credits = await getDeBounceCredits(apiKey);
+        return { ok: true, meta: { credits } };
       } catch {
-        // Non-blocking — key is already validated
+        return { ok: true, meta: {} };
       }
-      return { ok: true, meta: { credits } };
     },
   },
   {
@@ -386,13 +388,12 @@ const CONNECTORS: ConnectorConfig[] = [
     testConnection: async (apiKey) => {
       const ok = await testMillionVerifierConnection(apiKey);
       if (!ok) return { ok: false, error: "Invalid API key" };
-      let credits = 0;
       try {
-        credits = await getMillionVerifierCredits(apiKey);
+        const credits = await getMillionVerifierCredits(apiKey);
+        return { ok: true, meta: { credits } };
       } catch {
-        // Non-blocking — key is already validated
+        return { ok: true, meta: {} };
       }
-      return { ok: true, meta: { credits } };
     },
   },
 

@@ -1,7 +1,12 @@
+import { z } from "zod/v4";
 import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/encryption";
 import { prisma } from "@/lib/prisma";
 import { getConnectorConfig } from "./registry";
+
+const apiKeyInputSchema = z.object({
+  apiKey: z.string().min(1, "API key required"),
+});
 
 /**
  * Generic handler for API key-based integration connect.
@@ -40,12 +45,12 @@ export async function handleApiKeyConnect(
     );
   }
 
-  // 3. Parse & validate input
-  const body = (await req.json()) as { apiKey?: unknown };
-  const apiKey = body.apiKey;
-  if (!apiKey || typeof apiKey !== "string") {
-    return Response.json({ error: "API key required" }, { status: 400 });
+  // 3. Parse & validate input (Zod)
+  const parsed = apiKeyInputSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message ?? "API key required" }, { status: 400 });
   }
+  const { apiKey } = parsed.data;
 
   // 4. Test connection (if connector has a test function)
   if (config.testConnection) {
