@@ -3,6 +3,80 @@ import { prisma } from "@/lib/prisma";
 import { searchContacts } from "@/server/lib/connectors/hubspot";
 import { getCRMProvider } from "@/server/lib/providers";
 import type { ToolDefinition, ToolContext } from "./types";
+import type { Lead } from "@prisma/client";
+
+// ─── Pure function: build enrichment properties for CRM ──
+
+interface LeadForCRM extends Pick<Lead,
+  | "industry" | "website" | "linkedinUrl" | "country" | "companySize"
+  | "icpScore" | "companyOneLiner" | "painPointsFlat" | "buyingSignals"
+  | "linkedinHeadline" | "techStackFlat" | "valueProp" | "careerHistory"
+> {}
+
+/**
+ * Builds CRM-compatible enrichment properties from lead data.
+ * Returns standard CRM fields + a `description` field with enrichment notes.
+ * Pure function — no DB calls, no side effects.
+ */
+export function buildCRMEnrichmentProperties(lead: LeadForCRM): Record<string, string> {
+  const props: Record<string, string> = {};
+
+  // Standard CRM fields
+  if (lead.industry) props.industry = lead.industry;
+  if (lead.website) props.website = lead.website;
+  if (lead.country) props.country = lead.country;
+  if (lead.companySize) props.numberofemployees = lead.companySize;
+
+  // Build enrichment notes for description field
+  const notes = buildEnrichmentNotes(lead);
+  if (notes) props.description = notes;
+
+  return props;
+}
+
+/**
+ * Builds a human-readable enrichment summary for CRM notes/description.
+ * Pure function.
+ */
+export function buildEnrichmentNotes(lead: LeadForCRM): string {
+  const sections: string[] = [];
+
+  if (lead.icpScore != null) {
+    sections.push(`ICP Score: ${lead.icpScore}/10`);
+  }
+
+  if (lead.linkedinHeadline) {
+    sections.push(`LinkedIn: ${lead.linkedinHeadline}`);
+  }
+
+  if (lead.companyOneLiner) {
+    sections.push(`Company: ${lead.companyOneLiner}`);
+  }
+
+  if (lead.painPointsFlat) {
+    sections.push(`Pain Points: ${lead.painPointsFlat}`);
+  }
+
+  if (lead.buyingSignals) {
+    sections.push(`Buying Signals: ${lead.buyingSignals}`);
+  }
+
+  if (lead.valueProp) {
+    sections.push(`Value Proposition: ${lead.valueProp}`);
+  }
+
+  if (lead.techStackFlat) {
+    sections.push(`Tech Stack: ${lead.techStackFlat}`);
+  }
+
+  if (lead.careerHistory) {
+    sections.push(`Career: ${lead.careerHistory}`);
+  }
+
+  if (sections.length === 0) return "";
+
+  return `--- LeadSens Enrichment ---\n${sections.join("\n")}`;
+}
 
 export function createCrmTools(ctx: ToolContext): Record<string, ToolDefinition> {
   return {
@@ -72,6 +146,18 @@ export function createCrmTools(ctx: ToolContext): Record<string, ToolDefinition>
           phone: lead.phone ?? undefined,
         });
 
+        // Push enrichment data to CRM contact (best-effort)
+        const enrichmentProps = buildCRMEnrichmentProperties(lead);
+        let enrichmentPushed = false;
+        if (Object.keys(enrichmentProps).length > 0) {
+          try {
+            await crm.updateContact(contact.id, enrichmentProps);
+            enrichmentPushed = true;
+          } catch {
+            // Enrichment push is best-effort — some CRMs may reject unknown properties
+          }
+        }
+
         // Store CRM contact ID on lead
         await prisma.lead.update({
           where: { id: lead.id },
@@ -85,6 +171,8 @@ export function createCrmTools(ctx: ToolContext): Record<string, ToolDefinition>
           lead_id: lead.id,
           lead_name: `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim(),
           company: lead.company,
+          enrichment_pushed: enrichmentPushed,
+          enrichment_fields: Object.keys(enrichmentProps),
         };
       },
     },
