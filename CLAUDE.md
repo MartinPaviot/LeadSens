@@ -597,6 +597,8 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[testing]** : `instantlyFetch` retry backoff uses real `setTimeout` (2s, 4s). Retry tests take ~10s total. Timer mocking possible but not worth it for 3 tests.
 - **[connector]** : Instantly API response shapes vary wildly — `getCampaignStepAnalytics` handles 4 response shapes: `{ steps: [...] }`, raw `[...]`, and two sets of field name variants (`step`/`step_number`, `sent`/`emails_sent`, `opened`/`emails_read`/`emails_opened`, `replied`/`replies`, `bounced`/`bounces`).
 - **[console.log]** : Server code has 0 raw console.log (all use logger.ts). 5 remaining in client-side React components (agent-chat.tsx:4, email-preview-card.tsx:1) — legitimate since logger.ts is server-only. 1 in config.ts at startup — pre-logger, also legitimate.
+- **[email-tools]** : `classifyEnrichmentDepth()` counts 10 independent fields but all 4 signal arrays (signals, hiringSignals, fundingSignals, leadershipChanges) coalesce into 1 combined field. Empty arrays and empty strings don't count. Thresholds: rich≥5, partial≥3, minimal≥1, none=0.
+- **[email-tools]** : `buildDraftMetadata()` industry priority: `lead.industry` > `enrichmentData.industry` > null. `detectSubjectPattern()` priority: Question > Personalized > Observation > Curiosity > Direct. "Noticed your" matches Personalized before Observation.
 
 ## 12. Playwright MCP — Utilisation maximale
 

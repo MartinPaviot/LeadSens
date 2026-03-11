@@ -1,3 +1,29 @@
+=== ITERATION 38 | 2026-03-11 10:30 UTC ===
+TASK: DEBT-06 (partial) — Unit tests for email-tools.ts pure functions (672 lines)
+STATUS: DONE
+DURATION: ~12 min
+FILES CHANGED: src/server/lib/tools/email-tools.ts (export 2 functions), tests/email-tools.test.ts (NEW)
+TESTS: 1161/1161 passed (47 test files, +37 net new tests)
+COMMIT: test(tools): add 37 unit tests for email-tools.ts pure functions (DEBT-06 partial)
+CHANGES:
+- Exported `classifyEnrichmentDepth()` and `buildDraftMetadata()` from email-tools.ts
+- 37 tests covering both pure functions:
+  - classifyEnrichmentDepth (21): null, undefined, empty object, 4 depth levels (none/minimal/partial/rich),
+    boundary values (exactly 3 = partial, exactly 5 = rich), empty arrays ignored, empty strings ignored,
+    signal type coalescing (hiringSignals + fundingSignals + leadershipChanges + signals = 1 combined field)
+  - buildDraftMetadata (16): framework name mapping (all 6 steps), body word count (single/multi/whitespace),
+    industry priority (lead.industry > enrichmentData.industry > null), subject pattern detection
+    (Question/Personalized/Observation), signal extraction (null when no data, type + count),
+    enrichmentDepth integration, metadata shape snapshot
+LEARNINGS:
+- classifyEnrichmentDepth counts 10 independent fields but signals (4 arrays: signals, hiringSignals,
+  fundingSignals, leadershipChanges) are coalesced into 1 field. Rich=5+, partial=3-4, minimal=1-2, none=0.
+- detectSubjectPattern priority order matters: "noticed your" matches Personalized before Observation
+  because Personalized checks `/^noticed your/` before Observation checks `/\b(noticed|saw|spotted)\b/`.
+- body.split(/\s+/).filter(Boolean).length accurately handles leading/trailing whitespace.
+- Partial EnrichmentData objects with <3 fields need `as unknown as EnrichmentData` for typecheck.
+NEXT: DEBT-06 continues with pipeline-tools.ts or sourcing-tools.ts (remaining untested tool files)
+
 === ITERATION 37 | 2026-03-11 08:20 UTC ===
 TASK: DEBT-06 (partial) — Unit tests for Instantly connector (instantly.ts, 1248 lines)
 STATUS: DONE
