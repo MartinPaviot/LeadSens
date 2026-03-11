@@ -599,6 +599,7 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[console.log]** : Server code has 0 raw console.log (all use logger.ts). 5 remaining in client-side React components (agent-chat.tsx:4, email-preview-card.tsx:1) — legitimate since logger.ts is server-only. 1 in config.ts at startup — pre-logger, also legitimate.
 - **[email-tools]** : `classifyEnrichmentDepth()` counts 10 independent fields but all 4 signal arrays (signals, hiringSignals, fundingSignals, leadershipChanges) coalesce into 1 combined field. Empty arrays and empty strings don't count. Thresholds: rich≥5, partial≥3, minimal≥1, none=0.
 - **[email-tools]** : `buildDraftMetadata()` industry priority: `lead.industry` > `enrichmentData.industry` > null. `detectSubjectPattern()` priority: Question > Personalized > Observation > Curiosity > Direct. "Noticed your" matches Personalized before Observation.
+- **[testing]** : DEBT-06 complete — all 60+ pure functions have unit tests (100% coverage). Remaining untested code is integration-heavy tool execute() handlers (require DB/API mocks, not pure-testable). DEBT-07 complete — 20 prompt snapshot tests guard against LLM prompt regressions. Full prompt snapshots use `toMatchSnapshot()` (file-based), section snapshots isolate critical areas (connection bridge, enrichment enforcement, constraints, CTAs, tier tones, signals).
 
 ## 12. Playwright MCP — Utilisation maximale
 

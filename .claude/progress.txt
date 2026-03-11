@@ -1,3 +1,32 @@
+=== ITERATION 39 | 2026-03-11 15:40 UTC ===
+TASK: DEBT-07 — Snapshot tests for LLM email prompts
+STATUS: DONE
+DURATION: ~12 min
+FILES CHANGED: tests/prompt-builder.test.ts (+20 snapshot tests), tests/__snapshots__/prompt-builder.test.ts.snap (NEW, 1095 lines)
+TESTS: 1181/1181 passed (47 test files, +20 net new tests)
+COMMIT: test(prompts): add 20 snapshot tests for LLM email prompts (DEBT-07)
+CHANGES:
+- 6 full prompt snapshots covering critical paths:
+  - Step 0 with rich enrichment (most critical — 58-79% of replies)
+  - Step 0 with minimal lead (graceful degradation path)
+  - Step 1 with previous emails (reply-style Value-add)
+  - Step 5 breakup (shortest framework)
+  - Step 0 with all optional features (style, winning subjects, annotation, tier)
+  - Step 2 with Thompson-ranked pattern override
+- 14 section-level snapshots:
+  - Connection bridge instructions (core differentiator)
+  - Constraints for step 0 + step 5 (word limits differ)
+  - Enrichment enforcement: rich data (mandatory) + limited data (fallback)
+  - CTA sections for all 6 steps
+  - Tier tone instructions (tier 1 aggressive + tier 3 nurture)
+  - Buying signals section with stacking alert
+LEARNINGS:
+- Full prompt snapshots are 3000+ chars — file-based snapshots (toMatchSnapshot) better than inline for these.
+- Section-level snapshots complement full prompt snapshots: easier to review diffs when only one section changes.
+- The connection bridge and enrichment enforcement sections are the most critical for reply rate quality.
+- DEBT-06 pure function coverage is 100% (60+ functions). Remaining untested code is integration-heavy tool handlers.
+NEXT: DEBT-06 can be marked as done (pure functions 100%), or continue with T3-SCORE-02 / DEBT-02
+
 === ITERATION 38 | 2026-03-11 10:30 UTC ===
 TASK: DEBT-06 (partial) — Unit tests for email-tools.ts pure functions (672 lines)
 STATUS: DONE
