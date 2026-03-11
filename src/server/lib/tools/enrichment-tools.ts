@@ -11,6 +11,28 @@ import { logger } from "@/lib/logger";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
 
+/** Batch DB writes: flush every N leads instead of 1-by-1 */
+export const DB_FLUSH_SIZE = 20;
+
+export type PendingLeadUpdate = {
+  id: string;
+  data: Prisma.LeadUncheckedUpdateInput;
+};
+
+/**
+ * Flush accumulated lead updates in a single Prisma transaction.
+ * Reduces N round-trips to ceil(N/DB_FLUSH_SIZE) transactions.
+ */
+export async function flushLeadUpdates(pending: PendingLeadUpdate[]): Promise<void> {
+  if (pending.length === 0) return;
+  await prisma.$transaction(
+    pending.map((u) =>
+      prisma.lead.update({ where: { id: u.id }, data: u.data }),
+    ),
+  );
+  pending.length = 0;
+}
+
 /**
  * Merges Apify LinkedIn profile data directly into enrichment result.
  * Skips the summarizer — structured data goes straight in.
@@ -319,6 +341,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         let skipped = 0;
         let errors = 0;
         const qualifiedIds: string[] = [];
+        const pendingScoreUpdates: PendingLeadUpdate[] = [];
 
         for (let i = 0; i < leads.length; i++) {
           const lead = leads[i];
@@ -327,8 +350,8 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           try {
             const result = await scoreLead(lead, args.icp_description, ctx.workspaceId);
 
-            await prisma.lead.update({
-              where: { id: lead.id },
+            pendingScoreUpdates.push({
+              id: lead.id,
               data: {
                 icpScore: result.score,
                 icpBreakdown: result.breakdown as unknown as Prisma.InputJsonValue,
@@ -342,11 +365,16 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             } else {
               skipped++;
             }
+
+            if (pendingScoreUpdates.length >= DB_FLUSH_SIZE) {
+              await flushLeadUpdates(pendingScoreUpdates);
+            }
           } catch (err) {
             logger.error(`[score] Failed to score lead ${lead.id} (${lead.email}):`, { error: err instanceof Error ? err.message : String(err) });
             errors++;
           }
         }
+        await flushLeadUpdates(pendingScoreUpdates);
 
         // Update campaign stats (workspace-scoped)
         if (campaignId) {
@@ -481,6 +509,8 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           }
         }
 
+        const pendingEnrichUpdates: PendingLeadUpdate[] = [];
+
         for (let i = 0; i < leads.length; i++) {
           const lead = leads[i];
           ctx.onStatus?.(`Enriching lead ${i + 1}/${leads.length}...`);
@@ -592,8 +622,8 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             ? computeEnrichmentCompleteness(enrichmentTyped)
             : 0;
 
-          await prisma.lead.update({
-            where: { id: lead.id },
+          pendingEnrichUpdates.push({
+            id: lead.id,
             data: {
               ...(enrichment ? {
                 enrichmentData: enrichment as unknown as Prisma.InputJsonValue,
@@ -610,7 +640,12 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           });
           enriched++;
           enrichedIds.push(lead.id);
+
+          if (pendingEnrichUpdates.length >= DB_FLUSH_SIZE) {
+            await flushLeadUpdates(pendingEnrichUpdates);
+          }
         }
+        await flushLeadUpdates(pendingEnrichUpdates);
 
         // Update campaign stats (workspace-scoped)
         if (campaignId) {
