@@ -93,7 +93,7 @@
 - [x] **AUDIT-01** Cache Prisma persistant CompanyCache (TTL 7j) ✅ *Fait: T1-ENR-02, company-cache.ts*
 - [x] **AUDIT-02** Subject line pattern library formelle ✅ *Fait: T2-SUBJ-01, prompt-builder.ts:565-574*
 - [x] **AUDIT-03** ICP scoring feedback loop ✅ *Fait: enrichment-tools.ts:308-317, alerte si >70% éliminés*
-- [ ] **AUDIT-04** A/B winner propagation — corrélation variante → reply rate, auto-promote best variant
+- [x] **AUDIT-04** A/B winner propagation — corrélation variante → reply rate, auto-promote best variant ✅ *2026-03-11: resolveVariantSubject() maps variantIndex to actual subject text. getWinningSubjects() queries DraftedEmails with positive replies, deduplicates. buildWinningSubjectsSection() injects winning subject examples into prompt. Wired into all 3 callers (batch, single, Inngest). 18 tests in winner-propagation.test.ts.*
   **Priorité:** MEDIUM
   **Impact:** Subject line optimization automatique
 
@@ -499,7 +499,7 @@
 
 - [x] **PIPE-SENT-01** Resolve phantom SENT status ✅ *2026-03-10: Resolved by WEBHOOK-EXPAND-01 — email_sent webhook event transitions PUSHED→SENT. No more phantom state.*
 
-- [ ] **PIPE-CRM-01** Enrich CRM contact with pipeline data **(MEDIUM — 1h)**
+- [x] **PIPE-CRM-01** Enrich CRM contact with pipeline data ✅ *2026-03-11: buildCRMEnrichmentProperties() pure function maps 4 standard CRM fields (industry, website, country, numberofemployees) + buildEnrichmentNotes() formats 8 enrichment sections into description. updateContact() called after creation (best-effort). 22 tests in crm-enrichment.test.ts.*
   **Fichiers:** `src/server/lib/tools/crm-tools.ts`
   **Réf:** STRATEGY §11.3 Phase 6 ("toutes les données enrichies"), audit-pipeline-post-launch.md ISSUE 6
   **Impact:** Sales team receives enrichment intelligence with the CRM contact.
@@ -636,7 +636,7 @@
 
 #### MEDIUM — Optimize
 
-- [ ] **PERF-N1-01** Batch DB writes in score_leads_batch and enrich_leads_batch **(MEDIUM — 2h)**
+- [x] **PERF-N1-01** Batch DB writes in score_leads_batch and enrich_leads_batch ✅ *2026-03-11: flushLeadUpdates() with DB_FLUSH_SIZE=20. Both score_leads_batch and enrich_leads_batch accumulate PendingLeadUpdate[] and flush via prisma.$transaction(). 100 leads = 5 txns instead of 100. 13 tests in batch-flush.test.ts.*
   **Fichiers:** `src/server/lib/tools/enrichment-tools.ts`
   **Réf:** audit v5
   **Impact:** 100 leads = 200 sequential DB roundtrips. Prisma $transaction or bulk UPDATE would be 10-50x faster.

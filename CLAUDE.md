@@ -105,8 +105,8 @@ IMPLÉMENTÉ (post-launch) :
   ✅ Campaign insights + adaptive drafting + winning patterns
 
 NON IMPLÉMENTÉ (post-launch) :
-  ❌ A/B auto-pause variantes faibles
-  ❌ Winner propagation automatique
+  ✅ A/B auto-pause variantes faibles (z-test, ab-testing.ts)
+  ✅ Winner propagation automatique (getWinningSubjects → prompt injection)
   ✅ Style learner catégorisé (6 categories: subject/tone/cta/opener/length/general)
   ❌ Multi-ESP routing
 ```
@@ -119,7 +119,7 @@ NON IMPLÉMENTÉ (post-launch) :
 | ICP Scoring | **7/10** | 7/10 | §7.3.3 |
 | Email Copywriting | **8/10** | 8/10 | §7.1.2-1.4 |
 | Subject Lines | **6/10** | 6/10 | §7.2.1 |
-| A/B Testing | **6/10** | 5/10 | §7.2.1 |
+| A/B Testing | **7/10** | 5/10 | §7.2.1 |
 | Cadence & Séquence | **7.5/10** | 7/10 | §7.2.2-2.4 |
 | Feedback Loop | **5.5/10** | 5/10 | §7.3.2 |
 | Pipeline post-launch | **7/10** | 5/10 | §11 |
@@ -590,6 +590,9 @@ NEXT: T1-ENR-02 Cache par domaine
 - **[insights]** : `buildInsightSuggestions()` uses strict `>` for bounce threshold (not `>=`), so exactly 5% does NOT trigger. Industry threshold is `> overallRate * 1.5`. Low rate suggestion requires BOTH `< 5%` AND `>= 50` sent.
 - **[enrichment]** : `computeEnrichmentCompleteness()` counts 18 raw data fields (6 strings + 12 arrays). Excludes 4 narrative/derived fields (enrichmentContext/LinkedIn/Signals/Diagnostic) and generic `signals` catch-all. Returns 0-1. Stored on Lead as `enrichmentCompleteness Float?`.
 - **[quality-gate]** : Two warning categories: blocking (spam, filler, word count, subject length, AI tells) = score -1 + retry trigger. Non-blocking (thin enrichment data < 40%) = informational issue only, no score penalty, no retry. `addThinDataWarning()` runs after retry loop on final result.
+- **[crm]** : `buildCRMEnrichmentProperties(lead)` pure function maps 4 standard CRM fields (industry, website, country, numberofemployees) + `buildEnrichmentNotes()` formats 8 enrichment sections into description text. `updateContact()` called best-effort after `createContact()` — failure doesn't block. Standard HubSpot props: industry, website, country, numberofemployees, jobtitle, phone. Non-standard data goes into `description` text field.
+- **[perf]** : `flushLeadUpdates()` batches DB writes — accumulates `PendingLeadUpdate[]` and flushes via `prisma.$transaction()` every `DB_FLUSH_SIZE=20` leads. Used by `score_leads_batch` and `enrich_leads_batch`. 100 leads = 5 transactions instead of 100. Prisma PrismaPromises are lazy — don't execute until `$transaction()` runs.
+- **[ab-testing]** : Winner propagation = 4th layer of A/B feedback loop: generate → attribute → pause losers → propagate winners. `getWinningSubjects(workspaceId)` queries DraftedEmails with positive replies, resolves actual variant via `resolveVariantSubject(primary, variants, variantIndex)`. variantIndex 0=primary, 1=variants[0], 2=variants[1]. Section injected into prompt as `### WINNING SUBJECTS` between pattern ranking and style corrections. All 3 drafting callers (batch, single, Inngest) load winning subjects in parallel.
 
 ## 12. Playwright MCP — Utilisation maximale
 

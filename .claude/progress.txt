@@ -1,3 +1,69 @@
+=== ITERATION 36 | 2026-03-11 07:10 UTC ===
+TASK: AUDIT-04 — A/B winner propagation (winning subjects fed to new campaigns)
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: src/server/lib/email/style-learner.ts (resolveVariantSubject + getWinningSubjects), src/server/lib/email/prompt-builder.ts (WinningSubject + buildWinningSubjectsSection), src/server/lib/email/drafting.ts (passthrough), src/server/lib/tools/email-tools.ts (wired batch + single), src/server/lib/email/draft-lead.ts (wired Inngest), tests/winner-propagation.test.ts (NEW)
+TESTS: 1047/1047 passed (45 test files, +18 net new tests)
+COMMIT: feat(ab-testing): A/B winner propagation — winning subjects fed to new campaigns (AUDIT-04)
+CHANGES:
+- resolveVariantSubject(primary, variants, variantIndex) — pure function resolving actual subject text from variant index (0=primary, 1=alt1, 2=alt2, null=primary fallback, out-of-range=primary fallback)
+- getWinningSubjects(workspaceId, limit=6) — queries DraftedEmails joined with positive-reply EmailPerformance, resolves actual variant used via variantIndex, deduplicates by case-insensitive subject, returns top N by reply count
+- buildWinningSubjectsSection(subjects) — formats as "### WINNING SUBJECTS" prompt section with quotes, pattern type, step, reply count, and "adapt don't copy" guidance
+- WinningSubject interface in prompt-builder.ts, re-exported from style-learner.ts (avoids duplicate)
+- buildEmailPrompt() gains optional winningSubjects param, injected between pattern table and style corrections
+- draftEmail() in drafting.ts passes winningSubjects through to buildEmailPrompt()
+- All 3 callers (draft_emails_batch, draft_single_email, draftEmailsForLead) load winning subjects in parallel via getWinningSubjects()
+LEARNINGS:
+- Winner propagation is the final piece of the A/B feedback loop: generate → attribute → analyze → pause losers → PROPAGATE winners. Without it, each campaign reinvents the wheel.
+- Resolving the actual variant subject is non-trivial — variantIndex 0 = primary, but 1/2 index into subjectVariants[] which doesn't include the primary. Off-by-one risk.
+- The winning subjects section is intentionally "inspiration" not "mandate" — showing winning examples guides the LLM without constraining creativity.
+- Deduplication by lowercase key prevents the same subject appearing multiple times if it was used across campaigns.
+- The query uses the same positive-reply filter as the rest of the feedback loop (replyAiInterest >= 5 OR NULL).
+NEXT: AUDIT-08 (replace console.log) or DEBT-06 (unit tests for tools) or DEBT-02 (Zod validation on API routes)
+
+=== ITERATION 35 | 2026-03-11 04:55 UTC ===
+TASK: PERF-N1-01 — Batch DB writes in score_leads_batch and enrich_leads_batch
+STATUS: DONE
+DURATION: ~15 min
+FILES CHANGED: src/server/lib/tools/enrichment-tools.ts (flushLeadUpdates + PendingLeadUpdate + DB_FLUSH_SIZE), tests/batch-flush.test.ts (NEW)
+TESTS: 1029/1029 passed (44 test files, +13 net new tests)
+COMMIT: perf(tools): batch DB writes in score_leads_batch and enrich_leads_batch (PERF-N1-01)
+CHANGES:
+- Extracted `flushLeadUpdates(pending)` helper — wraps N updates in a single `prisma.$transaction()`
+- `DB_FLUSH_SIZE = 20` — flushes every 20 leads instead of 1-by-1
+- `score_leads_batch`: accumulates `PendingLeadUpdate[]`, flushes every 20 leads + final flush after loop
+- `enrich_leads_batch`: same pattern — accumulates enrichment updates, flushes in batches
+- 100 leads: was 100 sequential DB roundtrips → now 5 transactions (20x fewer roundtrips)
+- Error handling preserved: failed leads are not added to batch, don't block other updates
+- 13 tests: empty flush (no-op), single update, multiple updates, array cleared, correct data, error propagation, enrichment-style data, multiple flushes, 45-lead integration (3 txns), exact boundary, under boundary, error skip pattern
+LEARNINGS:
+- Prisma `$transaction([...])` with array of PrismaPromises is lazy — queries don't execute until the transaction runs. Perfect for batching.
+- Trade-off: if transaction fails, all updates in the batch roll back (vs individual writes where only one fails). Acceptable because the data per lead is already computed — DB writes rarely fail.
+- The bottleneck in both tools is the LLM/network I/O (scoring, scraping), not DB writes. But reducing 100 roundtrips to 5 still saves ~2-3s on a batch.
+NEXT: AUDIT-04 (A/B winner propagation) or DEBT-06 (unit tests for tools)
+
+=== ITERATION 34 | 2026-03-11 03:40 UTC ===
+TASK: PIPE-CRM-01 — Enrich CRM contact with pipeline data
+STATUS: DONE
+DURATION: ~10 min
+FILES CHANGED: src/server/lib/tools/crm-tools.ts, tests/crm-enrichment.test.ts (NEW)
+TESTS: 1016/1016 passed (43 test files, +22 net new tests)
+COMMIT: feat(crm): enrich CRM contact with pipeline data (PIPE-CRM-01)
+CHANGES:
+- Pure function `buildCRMEnrichmentProperties(lead)` → `Record<string, string>` with 4 standard CRM fields:
+  - industry → industry, website → website, country → country, companySize → numberofemployees
+- Pure function `buildEnrichmentNotes(lead)` → formatted text with 8 sections:
+  - ICP Score, LinkedIn headline, company one-liner, pain points, buying signals, value prop, tech stack, career history
+- Notes wrapped in "--- LeadSens Enrichment ---" header for easy identification in CRM
+- `crm_create_contact` now calls `updateContact(contact.id, enrichmentProps)` after creation (best-effort, failure doesn't block)
+- Tool return now includes `enrichment_pushed` boolean and `enrichment_fields` array for agent visibility
+- 22 tests: buildCRMEnrichmentProperties (10: empty, each field mapping, rich lead, no linkedinUrl property) + buildEnrichmentNotes (12: empty, each section, header, ordering, ICP 0, full 8 sections)
+LEARNINGS:
+- CRM enrichment push is best-effort after creation — some CRM properties may not exist in the user's CRM instance. Silent failure is the right behavior.
+- Standard HubSpot contact properties: industry, website, country, numberofemployees, jobtitle, phone. Non-standard fields go into description text.
+- updateContact after createContact is cleaner than extending the CRMProvider interface — keeps the interface minimal and works for all CRM providers.
+NEXT: PERF-N1-01 (batch DB writes) or AUDIT-04 (A/B winner propagation) or DEBT-06 (unit tests for tools)
+
 === ITERATION 33 | 2026-03-11 03:15 UTC ===
 TASK: ENR-COMPL-01 — Enrichment completeness score stored on lead
 STATUS: DONE
