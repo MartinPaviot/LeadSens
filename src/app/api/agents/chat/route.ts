@@ -112,7 +112,13 @@ Step 1: list_accounts (account picker renders automatically). STOP: wait for use
 Step 2: Call preview_campaign_launch to show the user a visual preview before creating the campaign.
 Step 3: After user confirms from the preview, call create_campaign with selected email_accounts.
 Step 4: add_leads_to_campaign.
-STOP: wait for explicit activation request. Never offer to activate.`;
+STOP: wait for explicit activation request. Never offer to activate.
+
+DELIVERABILITY PRE-FLIGHT (mention once before pushing):
+- Custom tracking domain configured? Shared tracking domains hurt reputation.
+- Sending accounts warmed up 2+ weeks? New accounts need gradual ramp (10→50/day over 4 weeks).
+- SPF/DKIM/DMARC set up? Non-compliant domains go straight to spam.
+- Keep volume under 100 emails/day per sending account.`;
 
 // Phase 5: active — monitoring + reply management + analytics
 const PHASE_ACTIVE = `
@@ -145,9 +151,10 @@ When a lead is classified as INTERESTED:
 - Always wait for user confirmation before CRM actions
 
 PROACTIVE INSIGHTS:
-- If bounce rate > 5%, alert the user
+- If bounce rate > 3% after 50+ sends, recommend pausing to check list quality
 - If reply rate < 2% after 7+ days, suggest reviewing email copy or ICP
 - If a specific segment has 3x+ better reply rate, mention it
+- If user hasn't set up custom tracking domain, mention it improves deliverability
 
 If user describes a new ICP, start a new pipeline from Phase 1.`;
 
