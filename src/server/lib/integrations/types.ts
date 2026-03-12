@@ -63,6 +63,8 @@ export interface ConnectorConfig {
   providerInterface: ProviderInterface;
   /** Validates the credential and returns ok/error */
   testConnection?: (credential: string) => Promise<TestConnectionResult>;
+  /** Called after successful connect — e.g. auto-create webhooks. Returns setup info for user. */
+  onConnect?: (credential: string) => Promise<OnConnectResult>;
   baseUrl?: string;
   capabilities?: string[];
   brandColor?: string;
@@ -86,6 +88,15 @@ export interface ConnectorMeta {
   placeholder?: string;
   description?: string;
   tier: 1 | 2 | 3;
+}
+
+// ─── Post-connect result ────────────────────────────────
+
+export interface OnConnectResult {
+  /** Actions taken during setup */
+  actions: string[];
+  /** Warnings user should know about (e.g. existing webhooks) */
+  warnings: string[];
 }
 
 // ─── Integration type validator (replaces Prisma enum) ──

@@ -69,9 +69,25 @@ function ApiKeyCard({
           body: JSON.stringify({ apiKey }),
         },
       );
-      const data = await res.json();
+      const data = (await res.json()) as {
+        error?: string;
+        setup_actions?: string[];
+        setup_warnings?: string[];
+      };
       if (res.ok) {
         toast.success(`${connector.name} connected`);
+        // Show setup actions (e.g. "Webhook auto-configured")
+        if (data.setup_actions) {
+          for (const action of data.setup_actions) {
+            toast.info(action);
+          }
+        }
+        // Show warnings (e.g. "3 existing webhooks found")
+        if (data.setup_warnings) {
+          for (const warning of data.setup_warnings) {
+            toast.warning(warning, { duration: 8000 });
+          }
+        }
         setIntegrations((prev) => [
           ...prev.filter((i) => i.type !== connector.id),
           { type: connector.id, status: "ACTIVE" },

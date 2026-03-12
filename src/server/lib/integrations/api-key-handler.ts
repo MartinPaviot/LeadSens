@@ -91,7 +91,22 @@ export async function handleApiKeyConnect(
       },
     });
 
-    return Response.json({ connected: true, ...result.meta });
+    // 6. Post-connect hook (e.g. auto-create webhooks)
+    let setup: { actions?: string[]; warnings?: string[] } = {};
+    if (config.onConnect) {
+      try {
+        setup = await config.onConnect(apiKey);
+      } catch {
+        // Non-blocking — connection is already saved
+      }
+    }
+
+    return Response.json({
+      connected: true,
+      ...result.meta,
+      ...(setup.actions?.length ? { setup_actions: setup.actions } : {}),
+      ...(setup.warnings?.length ? { setup_warnings: setup.warnings } : {}),
+    });
   }
 
   // No test function — store directly (for future connectors without validation)
