@@ -273,11 +273,11 @@ export function createWoodpeckerESP(apiKey: string): ESPProvider {
 
     async addLeads(campaignId: string, leads: ESPLeadData[]): Promise<AddLeadsResult> {
       const prospects = leads.map((lead) => ({
+        ...(lead.customVariables ?? {}),
         email: lead.email,
         first_name: lead.firstName ?? "",
         last_name: lead.lastName ?? "",
         company: lead.company ?? "",
-        ...(lead.customVariables ?? {}),
       }));
 
       const result = (await wpFetch(apiKey, `/campaigns/${campaignId}/prospects`, "POST", {
