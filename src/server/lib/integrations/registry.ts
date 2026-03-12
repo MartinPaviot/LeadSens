@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { testApolloConnection } from "@/server/lib/connectors/apollo";
 import { testLemlistConnection } from "@/server/lib/connectors/lemlist";
 import { testSmartleadConnection } from "@/server/lib/connectors/smartlead";
@@ -48,6 +49,69 @@ const CONNECTORS: ConnectorConfig[] = [
       } catch {
         return { ok: false, error: "Could not reach Instantly API. Check your connection." };
       }
+    },
+    onConnect: async (apiKey) => {
+      const actions: string[] = [];
+      const warnings: string[] = [];
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const webhookUrl = `${appUrl}/api/webhooks/instantly`;
+
+      try {
+        // List existing webhooks
+        const listRes = await fetch("https://api.instantly.ai/api/v2/webhooks", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(10_000),
+        });
+
+        if (listRes.ok) {
+          const webhooks = (await listRes.json()) as { target_hook_url?: string; name?: string; event_type?: string }[];
+
+          // Check if LeadSens webhook already exists
+          const existing = webhooks.find((w) => w.target_hook_url === webhookUrl);
+          if (existing) {
+            actions.push("Webhook already configured — no changes made");
+            logger.info("[instantly] Webhook already configured", { webhookUrl });
+            return { actions, warnings };
+          }
+
+          // Warn about other webhooks (user might have Zapier, etc.)
+          const otherWebhooks = webhooks.filter((w) => w.target_hook_url && w.target_hook_url !== webhookUrl);
+          if (otherWebhooks.length > 0) {
+            warnings.push(
+              `${otherWebhooks.length} existing webhook(s) found in your Instantly account (${otherWebhooks.map((w) => w.name ?? w.target_hook_url).join(", ")}). They will not be modified.`,
+            );
+          }
+        }
+
+        // Create LeadSens webhook for all events
+        const createRes = await fetch("https://api.instantly.ai/api/v2/webhooks", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            target_hook_url: webhookUrl,
+            event_type: "all_events",
+            name: "LeadSens Pipeline",
+          }),
+          signal: AbortSignal.timeout(10_000),
+        });
+
+        if (createRes.ok) {
+          actions.push("Webhook auto-configured — LeadSens will receive real-time events (replies, bounces, opens, clicks)");
+          logger.info("[instantly] Webhook auto-created", { webhookUrl });
+        } else {
+          const text = await createRes.text().catch(() => "");
+          warnings.push("Could not auto-create webhook. You can set it up manually in Instantly → Settings → Webhooks.");
+          logger.warn("[instantly] Failed to auto-create webhook", { status: createRes.status, text: text.slice(0, 200) });
+        }
+      } catch (err) {
+        warnings.push("Webhook auto-setup failed. You can set it up manually in Instantly → Settings → Webhooks.");
+        logger.warn("[instantly] Webhook auto-setup failed", { error: err instanceof Error ? err.message : "unknown" });
+      }
+
+      return { actions, warnings };
     },
   },
   {

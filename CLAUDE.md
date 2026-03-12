@@ -31,7 +31,7 @@ Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélior
 | UI | shadcn/ui + Radix | `@radix-ui/*` |
 | Chat UI | assistant-ui | `@assistant-ui/react` `@assistant-ui/react-markdown` |
 | Icons | Phosphor | `@phosphor-icons/react` |
-| DB | Prisma 6 + PostgreSQL (Supabase) | `prisma` `@prisma/client` |
+| DB | Prisma 6 + PostgreSQL (Neon) | `prisma` `@prisma/client` |
 | Background jobs | Inngest (cron + event-driven) | `inngest` |
 | Auth | Better Auth | `better-auth` |
 | API layer | tRPC + TanStack Query | `@trpc/*` `@tanstack/react-query` |
