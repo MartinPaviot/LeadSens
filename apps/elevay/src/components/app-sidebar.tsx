@@ -26,27 +26,22 @@ import {
   SidebarMenuAction,
   SidebarRail,
   useSidebar,
-} from "@/components/ui/sidebar";
-import { useSession, signOut } from "@/lib/auth-client";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Button,
+  Input,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -55,7 +50,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@leadsens/ui";
+import { useSession, signOut } from "@/lib/auth-client";
 import {
   useConversations,
   type ConversationSummary,

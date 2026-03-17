@@ -1,7 +1,7 @@
 "use client";
 
 import { useThreadRuntime } from "@assistant-ui/react";
-import { useAgentActivity } from "./agent-chat";
+import { useAgentActivity } from "@leadsens/ui";
 
 interface ChipDef {
   label: string;

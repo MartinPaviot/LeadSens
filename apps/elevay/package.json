@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@leadsens/db": "workspace:*",
+    "@leadsens/ui": "workspace:*",
     "@assistant-ui/react": "^0.12.14",
     "@assistant-ui/react-markdown": "^0.12.5",
     "@mistralai/mistralai": "^1.14.1",

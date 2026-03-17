@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, Badge } from "@leadsens/ui";
 import { Hand, ShieldCheck, Robot } from "@phosphor-icons/react";
 import { useOnboarding, type AutonomyLevel } from "../onboarding-context";
 

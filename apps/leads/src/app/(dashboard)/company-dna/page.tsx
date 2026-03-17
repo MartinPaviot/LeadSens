@@ -15,10 +15,7 @@ import {
   Quotes,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
+import { Button, Input, Textarea, Card } from "@leadsens/ui";
 import { trpc } from "@/lib/trpc-client";
 
 // ─── Types ──────────────────────────────────────────────

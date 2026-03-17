@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@leadsens/ui";
 import { Spinner, CheckCircle, WarningCircle } from "@phosphor-icons/react";
 import { useOnboarding } from "../onboarding-context";
 

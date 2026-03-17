@@ -2,9 +2,7 @@
 
 import { ComposerPrimitive, useThreadRuntime } from "@assistant-ui/react";
 import { PaperPlaneRight, Stop } from "@phosphor-icons/react/dist/ssr";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useAgentActivity } from "./agent-chat";
+import { Button, cn, useAgentActivity } from "@leadsens/ui";
 
 export function ElevayComposer() {
   const { isStreaming } = useAgentActivity();

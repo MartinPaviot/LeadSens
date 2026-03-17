@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Badge, Card } from "@leadsens/ui";
 
 interface AccountData {
   email: string;

@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, type ReactNode } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, Button } from "@leadsens/ui";
 import { useSession } from "@/lib/auth-client";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@phosphor-icons/react";
 import {
   OnboardingProvider,

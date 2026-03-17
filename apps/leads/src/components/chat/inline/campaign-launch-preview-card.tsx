@@ -1,7 +1,7 @@
 "use client";
 
 import { Rocket, PencilSimple, X, EnvelopeSimple, Users, CalendarBlank } from "@phosphor-icons/react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@leadsens/ui";
 
 interface TimelineStep {
   day: number;

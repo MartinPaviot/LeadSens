@@ -7,8 +7,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+  Input,
+} from "@leadsens/ui";
 
 interface SearchResult {
   id: string;

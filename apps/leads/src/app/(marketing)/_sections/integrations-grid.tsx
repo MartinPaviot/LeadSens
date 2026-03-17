@@ -10,12 +10,7 @@ import {
   CATEGORY_LABELS,
   type IntegrationItem,
 } from "../_data/integrations";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@leadsens/ui";
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as IntegrationItem["category"][];
 

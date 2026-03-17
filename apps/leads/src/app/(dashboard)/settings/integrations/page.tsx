@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Button, Card, Input, Badge } from "@leadsens/ui";
 import { toast } from "sonner";
 import { FileArrowUp } from "@phosphor-icons/react";
 import type { ConnectorMeta, ConnectorCategory } from "@/server/lib/integrations/types";

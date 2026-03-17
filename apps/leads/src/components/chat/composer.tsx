@@ -4,15 +4,7 @@ import { useRef, useCallback } from "react";
 import { ComposerPrimitive, useThreadRuntime } from "@assistant-ui/react";
 import { PaperPlaneRight, Stop } from "@phosphor-icons/react/dist/ssr";
 import { Plus, FileText } from "@phosphor-icons/react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { useAgentActivity } from "./agent-chat";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn, useAgentActivity } from "@leadsens/ui";
 import { toast } from "sonner";
 
 export function LeadSensComposer() {
