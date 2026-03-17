@@ -1,8 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "regions": ["cdg1"],
-  "buildCommand": "pnpm --filter @leadsens/leads build",
-  "installCommand": "pnpm install",
-  "outputDirectory": "apps/leads/.next"
-}
