@@ -91,7 +91,7 @@ export async function GET(
       if (format === "csv") {
         // Flatten emails into columns for CSV
         for (let step = 0; step < 6; step++) {
-          const email = l.emails.find((em) => em.step === step);
+          const email = l.emails.find((em: typeof l.emails[number]) => em.step === step);
           row[`Step ${step} Subject`] = email?.subject ?? "";
           row[`Step ${step} Body`] = email?.body ?? "";
         }
