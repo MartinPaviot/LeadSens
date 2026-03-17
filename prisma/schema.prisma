@@ -83,6 +83,7 @@ model Workspace {
   aiEvents       AIEvent[]
   campaigns      Campaign[]
   conversations  Conversation[]
+  draftedEmails  DraftedEmail[]
   integrations   Integration[]
   leads          Lead[]
   companyCaches  CompanyCache[]
@@ -193,6 +194,7 @@ model Lead {
 
   @@unique([workspaceId, email])
   @@index([campaignId, status])
+  @@index([campaignId, workspaceId, status])
   @@map("lead")
 }
 
@@ -238,6 +240,7 @@ model DraftedEmail {
   id              String   @id @default(cuid())
   leadId          String
   campaignId      String
+  workspaceId     String
   step            Int
   subject         String
   subjectVariants Json?
@@ -257,11 +260,17 @@ model DraftedEmail {
   bodyWordCount   Int?
   leadIndustry    String?  // denormalized for fast queries
   subjectPattern  String?  // "Question" | "Observation" | "Curiosity" | "Direct" | "Personalized"
+  ctaUsed         String?  // CTA phrase extracted post-generation for Thompson Sampling
 
-  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([leadId, step])
+  @@index([campaignId, leadId])
+  @@index([campaignId, step])
+  @@index([workspaceId, signalType])
+  @@index([workspaceId, step, ctaUsed])
   @@map("drafted_email")
 }
 
@@ -354,6 +363,9 @@ model EmailPerformance {
 
   @@unique([leadId, campaignId])
   @@index([campaignId])
+  @@index([campaignId, bounced])
+  @@index([email, campaignId])
+  @@index([campaignId, variantIndex])
   @@map("email_performance")
 }
 
