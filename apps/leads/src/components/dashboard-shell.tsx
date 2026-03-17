@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@leadsens/ui";
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarEdgeTrigger } from "@/components/sidebar-edge-trigger";
+import { SidebarEdgeTrigger } from "@leadsens/ui";
 import { ConversationProvider } from "@/components/conversation-provider";
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
 

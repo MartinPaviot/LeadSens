@@ -1,6 +1,6 @@
 "use client";
 
-import { useAgentActivity } from "./agent-chat";
+import { useAgentActivity } from "@leadsens/ui";
 
 export function ActivityBar({ isStreaming }: { isStreaming: boolean }) {
   const { label } = useAgentActivity();

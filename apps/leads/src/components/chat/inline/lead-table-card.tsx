@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Badge, Button, Card } from "@leadsens/ui";
 import { DownloadSimple, CaretDown } from "@phosphor-icons/react";
 import { escapeCsv, downloadBlob } from "@/lib/csv-utils";
 

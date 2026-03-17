@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, DM_Sans } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@leadsens/ui";
+import { ThemeProvider } from "@leadsens/ui";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@leadsens/ui";
 import {
   Confetti,
   CheckCircle,

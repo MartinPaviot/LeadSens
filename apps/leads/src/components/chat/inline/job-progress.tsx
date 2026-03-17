@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Card } from "@/components/ui/card";
+import { Card } from "@leadsens/ui";
 
 interface JobProgressProps {
   jobId: string;

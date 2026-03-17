@@ -1,6 +1,6 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
+import { Card } from "@leadsens/ui";
 
 interface CampaignAnalyticsCardProps {
   campaign_id: string;

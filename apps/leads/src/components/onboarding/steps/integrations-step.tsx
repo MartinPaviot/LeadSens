@@ -2,9 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input, Button, Badge } from "@leadsens/ui";
 import { CheckCircle, Spinner } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useOnboarding, type StepAction } from "../onboarding-context";

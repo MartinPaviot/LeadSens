@@ -1,21 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { MessagePrimitive, useMessage } from "@assistant-ui/react";
-import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import Markdown from "react-markdown";
-import { Copy, Check, ThumbsUp, ThumbsDown, ArrowClockwise } from "@phosphor-icons/react";
 import { getInlineComponent } from "@/lib/inline-component-registry";
-import { useMessageActions } from "./message-actions-context";
-
-const MARKDOWN_CLASS =
-  "text-[13.5px] leading-relaxed prose prose-sm dark:prose-invert max-w-none " +
-  "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 " +
-  "[&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5 " +
-  "[&_strong]:font-semibold [&_em]:italic " +
-  "[&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-medium " +
-  "[&_code]:text-xs [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded " +
-  "[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground";
+import { MARKDOWN_CLASS, StreamingMarkdownText, ActionBar } from "@leadsens/ui";
 
 // ─── Marker pattern for inline components ─────────────────
 const INLINE_PATTERN = /@@INLINE@@([\s\S]*?)@@END@@/g;
@@ -28,11 +17,6 @@ const SINGLETON_COMPONENTS = new Set([
   "progress-bar",
   "enrichment",
 ]);
-
-// ─── Streaming markdown (assistant-ui with smooth typing) ──
-function StreamingMarkdownText() {
-  return <MarkdownTextPrimitive smooth className={MARKDOWN_CLASS} />;
-}
 
 // ─── Static markdown (react-markdown for split segments) ───
 function StaticMarkdownText({ text }: { text: string }) {
@@ -147,82 +131,6 @@ function getCleanText(raw: string): string {
   return raw.replace(/\n*@@INLINE@@[\s\S]*?@@END@@\n*/g, "").trim();
 }
 
-// ─── Action bar ────────────────────────────────────────────
-function ActionBar({ rawText, messageId }: { rawText: string; messageId: string }) {
-  const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
-  const { onRegenerate, onFeedback } = useMessageActions();
-
-  const handleCopy = useCallback(async () => {
-    const clean = getCleanText(rawText);
-    if (!clean) return;
-    await navigator.clipboard.writeText(clean);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [rawText]);
-
-  const handleThumbsUp = useCallback(() => {
-    const newState = feedback === "up" ? null : "up";
-    setFeedback(newState);
-    if (newState && messageId) onFeedback(messageId, "THUMBS_UP");
-  }, [feedback, messageId, onFeedback]);
-
-  const handleThumbsDown = useCallback(() => {
-    const newState = feedback === "down" ? null : "down";
-    setFeedback(newState);
-    if (newState && messageId) onFeedback(messageId, "THUMBS_DOWN");
-  }, [feedback, messageId, onFeedback]);
-
-  const handleRegenerate = useCallback(() => {
-    if (messageId) onRegenerate(messageId);
-  }, [messageId, onRegenerate]);
-
-  return (
-    <div className="flex items-center gap-0.5 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button
-        onClick={handleCopy}
-        className="size-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-        aria-label="Copy message"
-      >
-        {copied ? (
-          <Check className="size-3" weight="bold" />
-        ) : (
-          <Copy className="size-3" />
-        )}
-      </button>
-      <button
-        onClick={handleThumbsUp}
-        className={`size-6 flex items-center justify-center rounded-md transition-colors ${
-          feedback === "up"
-            ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-        }`}
-        aria-label="Good response"
-      >
-        <ThumbsUp className="size-3" weight={feedback === "up" ? "fill" : "regular"} />
-      </button>
-      <button
-        onClick={handleThumbsDown}
-        className={`size-6 flex items-center justify-center rounded-md transition-colors ${
-          feedback === "down"
-            ? "text-red-600 bg-red-50 dark:bg-red-500/10"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-        }`}
-        aria-label="Bad response"
-      >
-        <ThumbsDown className="size-3" weight={feedback === "down" ? "fill" : "regular"} />
-      </button>
-      <button
-        onClick={handleRegenerate}
-        className="size-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-        aria-label="Regenerate response"
-      >
-        <ArrowClockwise className="size-3" />
-      </button>
-    </div>
-  );
-}
-
 // ─── Main component ────────────────────────────────────────
 export function AssistantMessage() {
   const message = useMessage();
@@ -260,7 +168,7 @@ export function AssistantMessage() {
             />
           )}
         </div>
-        <ActionBar rawText={rawText} messageId={messageId} />
+        <ActionBar rawText={rawText} messageId={messageId} cleanText={getCleanText} />
       </div>
     </MessagePrimitive.Root>
   );
