@@ -149,7 +149,7 @@ export async function GET(
     const headers = Object.keys(leadsRows[0]);
     const csvLines = [
       headers.map(escapeCsvField).join(","),
-      ...leadsRows.map((row) => headers.map((h) => escapeCsvField(row[h] ?? "")).join(",")),
+      ...leadsRows.map((row: Record<string, string>) => headers.map((h) => escapeCsvField(row[h] ?? "")).join(",")),
     ];
 
     return new Response("\uFEFF" + csvLines.join("\n"), {
