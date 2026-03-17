@@ -4,13 +4,5 @@
   "regions": ["cdg1"],
   "buildCommand": "pnpm --filter @leadsens/leads build",
   "installCommand": "pnpm install",
-  "outputDirectory": "apps/leads/.next",
-  "functions": {
-    "apps/leads/src/app/api/agents/chat/route.ts": {
-      "maxDuration": 300
-    },
-    "apps/leads/src/app/api/inngest/route.ts": {
-      "maxDuration": 300
-    }
-  }
+  "outputDirectory": "apps/leads/.next"
 }
