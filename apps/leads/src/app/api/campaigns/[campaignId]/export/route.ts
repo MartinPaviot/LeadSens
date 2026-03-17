@@ -58,7 +58,7 @@ export async function GET(
     });
 
     // Build leads sheet data — flat enrichment columns read directly from DB
-    const leadsRows = leads.map((l) => {
+    const leadsRows = leads.map((l: typeof leads[number]) => {
       const row: Record<string, string> = {
         "First Name": str(l.firstName),
         "Last Name": str(l.lastName),
