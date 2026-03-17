@@ -58,7 +58,7 @@ export async function GET(
     });
 
     // Build leads sheet data — flat enrichment columns read directly from DB
-    const leadsRows = leads.map((l) => {
+    const leadsRows = leads.map((l: typeof leads[number]) => {
       const row: Record<string, string> = {
         "First Name": str(l.firstName),
         "Last Name": str(l.lastName),
@@ -91,7 +91,7 @@ export async function GET(
       if (format === "csv") {
         // Flatten emails into columns for CSV
         for (let step = 0; step < 6; step++) {
-          const email = l.emails.find((em) => em.step === step);
+          const email = l.emails.find((em: typeof l.emails[number]) => em.step === step);
           row[`Step ${step} Subject`] = email?.subject ?? "";
           row[`Step ${step} Body`] = email?.body ?? "";
         }
@@ -149,7 +149,7 @@ export async function GET(
     const headers = Object.keys(leadsRows[0]);
     const csvLines = [
       headers.map(escapeCsvField).join(","),
-      ...leadsRows.map((row) => headers.map((h) => escapeCsvField(row[h] ?? "")).join(",")),
+      ...leadsRows.map((row: Record<string, string>) => headers.map((h) => escapeCsvField(row[h] ?? "")).join(",")),
     ];
 
     return new Response("\uFEFF" + csvLines.join("\n"), {

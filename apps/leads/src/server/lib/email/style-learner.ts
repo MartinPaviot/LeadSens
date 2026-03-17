@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@leadsens/db";
 import type { WinningPattern, WinningSubject } from "./prompt-builder";
 import { POSITIVE_REPLY_INTEREST_THRESHOLD } from "@/server/lib/analytics/correlator";
 import { cacheGet, cacheSet, cacheInvalidatePattern } from "@/lib/cache";

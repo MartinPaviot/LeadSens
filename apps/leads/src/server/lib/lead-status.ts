@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { LeadStatus, Prisma, PrismaClient } from "@prisma/client";
+import type { LeadStatus, Prisma, PrismaClient } from "@leadsens/db";
 
 /** Prisma client or interactive transaction client */
 export type PrismaClientOrTx = PrismaClient | Prisma.TransactionClient;

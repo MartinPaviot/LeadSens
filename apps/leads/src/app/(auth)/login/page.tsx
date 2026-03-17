@@ -5,16 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { GoogleLogo } from "@/components/icons/google-logo";
+import { Button, Input, Card, CardContent, CardDescription, CardHeader, CardTitle, GoogleLogo } from "@leadsens/ui";
 
 export default function LoginPage() {
   const router = useRouter();

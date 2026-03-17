@@ -5,8 +5,6 @@ import {
   useRef,
   useState,
   useEffect,
-  createContext,
-  useContext,
   useMemo,
 } from "react";
 import { createParser } from "eventsource-parser";
@@ -15,10 +13,8 @@ import { ElevayThread } from "./thread";
 import { GreetingLoader } from "./greeting-loader";
 import { GreetingScreen } from "./greeting-screen";
 import { ThemeToggle } from "./theme-toggle";
-import { MessageActionsProvider, type MessageActions } from "./message-actions-context";
+import { MessageActionsProvider, type MessageActions, AgentActivityContext, type AgentActivityContextValue, type ThinkingStep, useSidebar, Button } from "@leadsens/ui";
 import { useConversations } from "@/components/conversation-provider";
-import { useSidebar } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
 import { SidebarSimple } from "@phosphor-icons/react";
 import type { SSEEventName, SSEEventPayload } from "@/lib/sse";
 
@@ -28,32 +24,6 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-}
-
-export interface ThinkingStep {
-  id: string;
-  label: string;
-  status: "running" | "done" | "error";
-}
-
-interface AgentActivityContextValue {
-  label: string | null;
-  steps: ThinkingStep[];
-  isThinking: boolean;
-  isStreaming: boolean;
-  setLabel: (label: string | null) => void;
-}
-
-export const AgentActivityContext = createContext<AgentActivityContextValue>({
-  label: null,
-  steps: [],
-  isThinking: false,
-  isStreaming: false,
-  setLabel: () => {},
-});
-
-export function useAgentActivity() {
-  return useContext(AgentActivityContext);
 }
 
 // ─── Constants ────────────────────────────────────────────

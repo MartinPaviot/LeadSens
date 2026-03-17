@@ -15,7 +15,7 @@ import { z } from "zod/v4";
 import { randomBytes, createHash } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@leadsens/db";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { getConnectorConfig } from "./registry";
 import { invalidateIntegrationCache } from "@/server/lib/providers";

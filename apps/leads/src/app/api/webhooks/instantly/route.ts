@@ -30,7 +30,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { LeadStatus } from "@prisma/client";
+import type { LeadStatus } from "@leadsens/db";
 import { checkAndPauseCampaign } from "@/server/lib/analytics/bounce-guard";
 import { checkAndPauseOnNegativeReplies, NEGATIVE_REPLY_AI_INTEREST_MAX } from "@/server/lib/analytics/reply-guard";
 import { logger } from "@/lib/logger";

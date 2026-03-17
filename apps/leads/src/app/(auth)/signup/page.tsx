@@ -5,17 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUp, signIn } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button, Input, Card, CardContent, CardDescription, CardHeader, CardTitle, GoogleLogo } from "@leadsens/ui";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
-import { GoogleLogo } from "@/components/icons/google-logo";
 
 export default function SignupPage() {
   const router = useRouter();

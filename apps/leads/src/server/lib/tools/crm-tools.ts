@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { searchContacts } from "@/server/lib/connectors/hubspot";
 import { getCRMProvider } from "@/server/lib/providers";
 import type { ToolDefinition, ToolContext } from "./types";
-import type { Lead } from "@prisma/client";
+import type { Lead } from "@leadsens/db";
 
 // ─── Pure function: build enrichment properties for CRM ──
 

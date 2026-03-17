@@ -127,7 +127,36 @@ cd apps/elevay && npx shadcn@latest add <component>
 
 ---
 
-## 8. Fichiers clés
+## 8. Zones interdites (IMPORTANT)
+
+> **Elevay vit dans `apps/elevay/`. Ne jamais toucher au reste du monorepo sans coordination.**
+
+```
+INTERDIT sans review de Martin :
+- apps/leads/          ← LeadSens, ne JAMAIS modifier
+- packages/db/         ← Schema Prisma partagé, coordination obligatoire
+- CLAUDE.md (racine)   ← Config Claude Code pour LeadSens
+- package.json (racine)← Scripts monorepo
+- pnpm-workspace.yaml  ← Structure workspace
+
+LIBRE (ton terrain de jeu) :
+- apps/elevay/         ← Tout le code Elevay
+```
+
+### Prisma : comment ajouter une table pour Elevay
+1. **Parles-en d'abord à Martin** — le schema est partagé, une erreur casse les 2 apps
+2. Préfixe tes tables Elevay : `ElevayAgent`, `ElevayTemplate`, etc.
+3. Crée une branche `feat/elevay-*`, push, et ouvre une PR
+4. Martin review le changement schema → merge
+
+### Workflow git obligatoire
+1. **Jamais push sur main** — toujours une branche `feat/elevay-*`
+2. Ouvre une PR → si ça touche UNIQUEMENT `apps/elevay/`, merge libre
+3. Si ça touche `packages/db/` ou autre → Martin doit review (CODEOWNERS)
+
+---
+
+## 9. Fichiers clés
 
 | Quoi | Où |
 |------|-----|

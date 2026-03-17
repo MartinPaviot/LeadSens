@@ -9,7 +9,7 @@
 
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@leadsens/db";
 import { getInstantlyClient, normalizePreviewLead, normalizeStoredLead } from "@/server/lib/connectors/instantly";
 import { parseICPv2, buildFilterSummary } from "./icp-parser";
 import { logger } from "@/lib/logger";

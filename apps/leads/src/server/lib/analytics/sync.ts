@@ -7,7 +7,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@leadsens/db";
 import type { ESPProvider } from "@/server/lib/providers/esp-provider";
 import { syncVariantAttribution } from "@/server/lib/analytics/variant-attribution";
 import { cacheInvalidatePattern } from "@/lib/cache";
