@@ -2,11 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["cdg1"],
+  "buildCommand": "pnpm --filter @leadsens/leads build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/leads/.next",
   "functions": {
-    "src/app/api/agents/chat/route.ts": {
+    "apps/leads/src/app/api/agents/chat/route.ts": {
       "maxDuration": 300
     },
-    "src/app/api/inngest/route.ts": {
+    "apps/leads/src/app/api/inngest/route.ts": {
       "maxDuration": 300
     }
   }
