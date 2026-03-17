@@ -1,0 +1,16 @@
+# CODEOWNERS — qui doit review quoi
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Martin reviews everything in LeadSens app and shared packages
+/apps/leads/                    @MartinPaviot
+/packages/                      @MartinPaviot
+/prisma/                        @MartinPaviot
+
+# Root config files need Martin's review
+/CLAUDE.md                      @MartinPaviot
+/package.json                   @MartinPaviot
+/pnpm-workspace.yaml            @MartinPaviot
+/.gitignore                     @MartinPaviot
+
+# Elevay — co-founder can work freely
+# /apps/elevay/                 (no owner = no required review)
