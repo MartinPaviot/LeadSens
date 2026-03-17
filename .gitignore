@@ -24,6 +24,13 @@ node_modules
 .DS_Store
 *.pem
 .claude/settings.local.json
+.claude/chat-audit/
+.claude/research/
+.claude/lp-research/
+.claude/integration-tests/
+
+# playwright MCP logs & screenshots
+.playwright-mcp/
 
 # debug
 npm-debug.log*

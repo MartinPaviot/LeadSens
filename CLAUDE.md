@@ -242,6 +242,61 @@ Review this plan thoroughly before making any code changes. For every issue or r
 
 ---
 
+## 9B. Cognitive Modes (slash commands)
+
+> **Key principle:** Explicitly declare which cognitive mode you're in before starting work.
+> Planning is not review. Review is not shipping. Product taste is not engineering rigor.
+> Different tasks require different brains. Use the right one.
+
+### Mode Map
+
+| Command | Mode | Brain | When to use |
+|---------|------|-------|-------------|
+| `/plan-product` | Product strategist | Find the 10-star version. Prospect empathy. Reply rate impact. | Before building any new feature. "Are we building the right thing?" |
+| `/plan-eng` | Staff engineer | Architecture, diagrams, failure modes, test matrices. Force diagrams. | After product direction is locked. "Can we build this safely?" |
+| `/review-paranoid` | Paranoid reviewer | Hunt production bugs. N+1, races, trust boundaries, prompt injection. | Before shipping. "What can still break?" |
+| `/ship-it` | Release engineer | Sync, test, push, PR. Mechanical execution. No ideation. | When the branch is ready. "Land the plane." |
+| `/retro` | Engineering manager | Commit analysis, velocity, pipeline progress, streak tracking. | Weekly. "What actually happened?" |
+
+### Existing Modes (unchanged)
+
+| Command | Mode | When to use |
+|---------|------|-------------|
+| `/audit` | Strategic auditor | Codebase vs STRATEGY.md gap analysis |
+| `/audit-prompts` | Prompt auditor | LLM prompts vs STRATEGY.md specifications |
+| `/challenge [module]` | Deep challenger | Challenge every decision in a module |
+| `/implement-next` | Autonomous implementer | Execute next BACKLOG task |
+| `/loop` | Autonomous loop | Multi-task improvement session |
+| `/status` | Status reporter | Current state of the system |
+| `/research [topic]` | Research analyst | Best practices + integration |
+
+### Typical Feature Flow
+
+```
+1. /plan-product     "What is the REAL feature? What's the 10-star version?"
+2. /plan-eng         "Architecture, data flow, failure modes, test matrix."
+3. [implement]       Write the code.
+4. /review-paranoid  "What can still break in production?"
+5. [fix issues]      Address findings.
+6. /ship-it          "Sync, test, push, PR."
+7. /retro            "What did we ship this week? What's the velocity?"
+```
+
+Not every feature needs all modes. Quick fixes: implement -> /review-paranoid -> /ship-it.
+New pipeline stages: full flow starting from /plan-product.
+
+### Rules
+
+- **Declare your mode.** Before starting work, state which cognitive mode you're operating in.
+- **Don't blend modes.** /plan-product is not the place for architecture diagrams.
+  /review-paranoid is not the place for product ideation. Stay in lane.
+- **Modes are sequential, not parallel.** Finish planning before implementing.
+  Finish implementing before reviewing. Finish reviewing before shipping.
+- **Each mode has its own definition file** in `.claude/commands/`. The prompts there
+  are the source of truth for how each mode operates.
+
+---
+
 ## 10. Autonomous Improvement Loop
 
 > LeadSens est à **4.2/10**. L'objectif est **8/10** et **18% reply rate**.
@@ -272,7 +327,16 @@ Claude Code agit comme un **staff engineer autonome** qui :
 | Task state | `.claude/tasks/BACKLOG.md` (done/pending) |
 | Learnings | Section 11 de ce fichier |
 
-### 10.4 Commandes : `/implement-next`, `/audit`, `/audit-prompts`, `/challenge [module]`, `/status`, `scripts/loop.sh` (autonome)
+### 10.4 Commandes
+
+**Cognitive modes (section 9B) :**
+`/plan-product`, `/plan-eng`, `/review-paranoid`, `/ship-it`, `/retro`
+
+**Autonomous loop :**
+`/implement-next`, `/audit`, `/audit-prompts`, `/challenge [module]`, `/status`, `/loop`, `scripts/loop.sh`
+
+**Research :**
+`/research [topic]`
 
 ### 10.5 Règles de la boucle
 
