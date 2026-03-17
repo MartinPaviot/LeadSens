@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@leadsens/db";
 import { prisma } from "./prisma";
 
 // ─── Mistral Pricing (per 1M tokens, USD) ─────────────────

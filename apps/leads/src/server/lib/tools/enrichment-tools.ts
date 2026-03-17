@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@leadsens/db";
 import { scoreLead, computeSignalBoost } from "@/server/lib/enrichment/icp-scorer";
 import { getOrScrapeCompany, extractDomain as extractDomainFromUrl } from "@/server/lib/enrichment/company-cache";
 import { scrapeLinkedInViaApify, type LinkedInProfileData } from "@/server/lib/connectors/apify";

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@leadsens/db";
 import { cacheGet, cacheSet } from "@/lib/cache";
 
 /** Cache TTL for correlator queries — matches analytics sync cron interval (30 min) */

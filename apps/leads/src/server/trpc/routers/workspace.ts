@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@leadsens/db";
 import {
   analyzeClientSite,
   companyDnaSchema,
