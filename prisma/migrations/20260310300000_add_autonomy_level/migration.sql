@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "workspace" ADD COLUMN IF NOT EXISTS "autonomyLevel" TEXT NOT NULL DEFAULT 'SUPERVISED';
