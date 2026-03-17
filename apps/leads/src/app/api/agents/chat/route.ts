@@ -568,7 +568,7 @@ export async function POST(req: Request) {
           },
         },
       })
-      .then((c) => c?.campaign ?? null),
+      .then((c: { campaign: PipelineState | null } | null) => c?.campaign ?? null),
   ]);
 
   // 6. Build system prompt

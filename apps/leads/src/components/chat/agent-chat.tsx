@@ -14,7 +14,7 @@ import { GreetingLoader } from "./greeting-loader";
 import { GreetingScreen } from "./greeting-screen";
 import { ThemeToggle } from "./theme-toggle";
 import { AutonomySelector } from "./autonomy-selector";
-import { MessageActionsProvider, type MessageActions, AgentActivityContext, type AgentActivityContextValue, type ThinkingStep, useSidebar, Button } from "@leadsens/ui";
+import { MessageActionsProvider, type MessageActions, AgentActivityContext, type ThinkingStep, useSidebar, Button } from "@leadsens/ui";
 import { useConversations } from "@/components/conversation-provider";
 import { SidebarSimple } from "@phosphor-icons/react";
 import type { SSEEventName, SSEEventPayload } from "@/lib/sse";
