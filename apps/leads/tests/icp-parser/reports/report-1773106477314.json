@@ -1,0 +1,625 @@
+{
+  "timestamp": "2026-03-10T01:34:37.310Z",
+  "totalTests": 12,
+  "passed": 12,
+  "failed": 0,
+  "passRate": 100,
+  "avgScore": 100,
+  "medianScore": 100,
+  "results": [
+    {
+      "testCase": {
+        "id": 1,
+        "description": "CFOs at SaaS companies with $10M-50M annual revenue, US and Canada",
+        "language": "en",
+        "sectorHint": "SaaS revenue targeting"
+      },
+      "filters": {
+        "job_titles": [
+          "CFO",
+          "Chief Financial Officer",
+          "DAF"
+        ],
+        "department": [
+          "Finance & Administration"
+        ],
+        "industries": [
+          "Software & Internet"
+        ],
+        "sub_industries": [
+          "Internet"
+        ],
+        "revenue": [
+          "$10M - 50M"
+        ],
+        "locations": [
+          "United States",
+          "Canada"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les criteres sont parfaitement couverts par les filtres generes. Les job titles correspondent au role demande, l'industrie et le sous-secteur sont corrects, le filtre de revenu est precise, et les locations sont exactes. Aucun over-broadening n'est presente.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2791,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 2,
+        "description": "On cherche des VP Sales dans des boites avec un CA supérieur à 100 millions, industrie manufacturière, Allemagne",
+        "language": "fr",
+        "sectorHint": "manufacturing revenue"
+      },
+      "filters": {
+        "job_titles": [
+          "VP Sales",
+          "VP of Sales",
+          "Vice President Sales"
+        ],
+        "department": [
+          "Sales"
+        ],
+        "industries": [
+          "Manufacturing"
+        ],
+        "revenue": [
+          "$100M - 250M",
+          "$250M - 500M",
+          "$500M - 1B",
+          "> $1B"
+        ],
+        "locations": [
+          "Germany"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les critères sont parfaitement couverts par les filtres générés. Les job titles correspondent exactement au rôle demandé, l'industrie est correctement identifiée, le filtre de revenu couvre la plage demandée, et la localisation est précise. Aucun filtre superflu n'est présent.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2725,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 3,
+        "description": "Founders of startups with less than $1M revenue, pre-seed or seed, anywhere",
+        "language": "en",
+        "sectorHint": "early stage revenue"
+      },
+      "filters": {
+        "job_titles": [
+          "Founder",
+          "Co-Founder",
+          "Fondateur"
+        ],
+        "employee_count": [
+          "0 - 25"
+        ],
+        "revenue": [
+          "$0 - 1M"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les criteres sont parfaitement couverts par les filtres generes. Les job_titles correspondent au role demande, l'absence d'industrie est correcte car le secteur est large, la taille d'entreprise et le revenu sont bien filtres, la location est absente car 'anywhere' est mentionne, et il n'y a pas de over-broadening.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2238,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 4,
+        "description": "CTOs at companies using Salesforce and HubSpot, 100-500 employees, North America",
+        "language": "en",
+        "sectorHint": "CRM tech stack"
+      },
+      "filters": {
+        "job_titles": [
+          "CTO",
+          "Chief Technology Officer",
+          "Chief Technical Officer"
+        ],
+        "department": [
+          "Engineering"
+        ],
+        "employee_count": [
+          "100 - 250",
+          "250 - 1000"
+        ],
+        "locations": [
+          "United States",
+          "Canada"
+        ],
+        "technologies": [
+          "Salesforce",
+          "HubSpot"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les criteres sont parfaitement couverts par les filtres generes.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2103,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 5,
+        "description": "Engineering leads at companies running Kubernetes and AWS, Series B+, global",
+        "language": "en",
+        "sectorHint": "cloud infrastructure tech"
+      },
+      "filters": {
+        "job_titles": [
+          "CTO",
+          "Chief Technology Officer",
+          "VP Engineering",
+          "VP of Engineering",
+          "Vice President Engineering",
+          "Engineering Director",
+          "Director of Engineering",
+          "Head of Engineering"
+        ],
+        "department": [
+          "Engineering"
+        ],
+        "employee_count": [
+          "100 - 250",
+          "250 - 1000",
+          "1K - 10K"
+        ],
+        "technologies": [
+          "Kubernetes",
+          "AWS"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les critères sont parfaitement couverts. Les job titles correspondent aux rôles demandés, les technologies sont correctement identifiées, et la taille de l'entreprise est bien définie pour une Series B+. L'absence de filtre géographique est correcte car la description mentionne 'global'.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2708,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 6,
+        "description": "Les DSI de boites qui utilisent SAP, plus de 1000 salariés, Europe",
+        "language": "fr",
+        "sectorHint": "SAP enterprise"
+      },
+      "filters": {
+        "job_titles": [
+          "CIO",
+          "Chief Information Officer",
+          "DSI"
+        ],
+        "department": [
+          "IT & IS"
+        ],
+        "employee_count": [
+          "1K - 10K",
+          "10K - 50K",
+          "50K - 100K",
+          "> 100K"
+        ],
+        "locations": [
+          "Europe"
+        ],
+        "technologies": [
+          "SAP"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les criteres sont parfaitement couverts par les filtres generes. Les job titles correspondent au role demande, l'industrie est correcte (absente car non specifiee), la taille d'entreprise couvre la plage demandee, la location est precise, et les technologies mentionnees sont incluses. Aucun over-broadening.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2593,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 7,
+        "description": "I need companies similar to Stripe, fintech space, any geo",
+        "language": "en",
+        "sectorHint": "fintech lookalike"
+      },
+      "filters": {
+        "job_titles": [],
+        "industries": [
+          "Financial Services",
+          "Software & Internet"
+        ],
+        "sub_industries": [
+          "Financial Services"
+        ],
+        "lookalike_domain": "stripe.com",
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Les filtres couvrent parfaitement la demande de lookalike fintech sans filtres superflus.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2190,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 8,
+        "description": "On veut des boites comme HubSpot ou Salesforce, SaaS marketing/sales, US",
+        "language": "fr",
+        "sectorHint": "SaaS lookalike"
+      },
+      "filters": {
+        "job_titles": [],
+        "industries": [
+          "Software & Internet"
+        ],
+        "sub_industries": [
+          "Internet"
+        ],
+        "company_names": {
+          "include": [
+            "Salesforce"
+          ]
+        },
+        "locations": [
+          "United States"
+        ],
+        "lookalike_domain": "hubspot.com",
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Les filtres couvrent parfaitement la description. Lookalike_domain est correct pour des entreprises similaires à HubSpot, et company_names inclut Salesforce. L'industrie et la localisation sont correctes.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 4552,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 9,
+        "description": "CEOs of companies that recently raised funding, Series A-C, US",
+        "language": "en",
+        "sectorHint": "recently funded"
+      },
+      "filters": {
+        "job_titles": [
+          "CEO",
+          "Chief Executive Officer"
+        ],
+        "employee_count": [
+          "0 - 25",
+          "25 - 100",
+          "100 - 250",
+          "250 - 1000"
+        ],
+        "locations": [
+          "United States"
+        ],
+        "news": [
+          "has_had_recent_funding"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les critères sont parfaitement couverts par les filtres générés. Les job titles correspondent au rôle demandé, l'industrie n'est pas spécifiée mais n'est pas nécessaire ici, la taille d'entreprise est couverte par les buckets sélectionnés, la localisation est correcte, et le critère de financement récent est couvert par le filtre news. Aucun over-broadening n'est présent.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2581,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 10,
+        "description": "VP HR at companies that just had layoffs, tech sector, 500+ employees",
+        "language": "en",
+        "sectorHint": "post-layoffs HR"
+      },
+      "filters": {
+        "job_titles": [
+          "VP HR",
+          "VP Human Resources",
+          "VP of People"
+        ],
+        "department": [
+          "Human Resources"
+        ],
+        "industries": [
+          "Software & Internet"
+        ],
+        "employee_count": [
+          "250 - 1000",
+          "1K - 10K",
+          "10K - 50K",
+          "50K - 100K",
+          "> 100K"
+        ],
+        "news": [
+          "has_had_recent_layoffs"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les critères sont parfaitement couverts par les filtres générés. Les job titles correspondent exactement au rôle demandé, l'industrie est correctement identifiée, la taille de l'entreprise est bien couverte, et les filtres supplémentaires comme les news et le département sont pertinents.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 3095,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 11,
+        "description": "Directeurs généraux de boites qui viennent de faire une acquisition, Europe",
+        "language": "fr",
+        "sectorHint": "post-acquisition"
+      },
+      "filters": {
+        "job_titles": [
+          "CEO",
+          "Chief Executive Officer",
+          "PDG",
+          "Directeur Général"
+        ],
+        "locations": [
+          "Europe"
+        ],
+        "news": [
+          "has_had_recent_acquisition_or_merger"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les criteres sont correctement couverts par les filtres generes. Les job_titles correspondent au role de Directeur Général, la location est correcte, et le filtre news capture l'acquisition recente.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2232,
+      "parseWarnings": []
+    },
+    {
+      "testCase": {
+        "id": 12,
+        "description": "Head of Product at companies that launched a new product in the last 6 months, SaaS",
+        "language": "en",
+        "sectorHint": "product launch"
+      },
+      "filters": {
+        "job_titles": [
+          "Head of Product",
+          "Product Director",
+          "Director of Product"
+        ],
+        "department": [
+          "Engineering"
+        ],
+        "industries": [
+          "Software & Internet"
+        ],
+        "sub_industries": [
+          "Internet"
+        ],
+        "news": [
+          "has_had_product_launch"
+        ],
+        "skip_owned_leads": true,
+        "show_one_lead_per_company": true
+      },
+      "judgeVerdict": {
+        "jobTitleScore": 10,
+        "industryScore": 10,
+        "employeeCountScore": 10,
+        "locationScore": 10,
+        "completenessScore": 10,
+        "overBroadeningScore": 10,
+        "totalScore": 100,
+        "reasoning": "Tous les critères sont parfaitement couverts par les filtres générés. Les job titles correspondent exactement au rôle demandé, l'industrie et le sous-secteur sont corrects, le filtre 'has_had_product_launch' couvre le critère de lancement de produit récent, et il n'y a pas de sur-élargissement.",
+        "criticalFailures": []
+      },
+      "structuralCheck": {
+        "noLevelField": true,
+        "skipOwnedLeads": true,
+        "validEnums": true,
+        "flatStructure": true,
+        "hasJobTitles": true,
+        "noLocationHallucination": true
+      },
+      "passed": true,
+      "durationMs": 2242,
+      "parseWarnings": []
+    }
+  ],
+  "failurePatterns": []
+}

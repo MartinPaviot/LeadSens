@@ -1,0 +1,131 @@
+import { z } from "zod/v4";
+
+// ─── Connector Categories ───────────────────────────────
+
+export const connectorCategorySchema = z.enum([
+  "esp",
+  "lead_database",
+  "enrichment",
+  "email_verification",
+  "warmup",
+  "crm",
+  "linkedin_outreach",
+  "scheduling",
+  "workflow",
+  "notification",
+  "export",
+]);
+export type ConnectorCategory = z.infer<typeof connectorCategorySchema>;
+
+// ─── Auth Methods ───────────────────────────────────────
+
+export const authMethodSchema = z.enum([
+  "api_key",
+  "oauth",
+  "composio",
+  "webhook_url",
+  "none",
+  "coming_soon",
+]);
+export type AuthMethod = z.infer<typeof authMethodSchema>;
+
+// ─── Provider Interfaces ────────────────────────────────
+
+export const providerInterfaceSchema = z.enum([
+  "esp",
+  "sourcing",
+  "crm",
+  "email_verifier",
+  "enrichment",
+  "scheduling",
+  "notification",
+  "export",
+  "workflow",
+  "none",
+]);
+export type ProviderInterface = z.infer<typeof providerInterfaceSchema>;
+
+// ─── Test Connection ────────────────────────────────────
+
+export interface TestConnectionResult {
+  ok: boolean;
+  error?: string;
+  meta?: Record<string, unknown>;
+}
+
+// ─── OAuth Config ───────────────────────────────────────
+
+export interface OAuthConfig {
+  /** Authorization URL (e.g. https://accounts.google.com/o/oauth2/v2/auth) */
+  authUrl: string;
+  /** Token exchange URL */
+  tokenUrl: string;
+  /** Required scopes */
+  scopes: string[];
+  /** Env var name for client ID */
+  clientIdEnvVar: string;
+  /** Env var name for client secret */
+  clientSecretEnvVar: string;
+  /** Use PKCE (Outreach, ZoomInfo) */
+  pkce?: boolean;
+  /** Extra params to add to auth URL */
+  extraAuthParams?: Record<string, string>;
+  /** Extra params to add to token exchange */
+  extraTokenParams?: Record<string, string>;
+}
+
+// ─── Connector Config ───────────────────────────────────
+
+export interface ConnectorConfig {
+  /** Unique ID, e.g. "INSTANTLY", "SALESHANDY" */
+  id: string;
+  /** Human-readable name, e.g. "Instantly" */
+  name: string;
+  category: ConnectorCategory;
+  authMethod: AuthMethod;
+  providerInterface: ProviderInterface;
+  /** Validates the credential and returns ok/error */
+  testConnection?: (credential: string) => Promise<TestConnectionResult>;
+  /** Called after successful connect — e.g. auto-create webhooks. Returns setup info for user. */
+  onConnect?: (credential: string) => Promise<OnConnectResult>;
+  /** OAuth configuration (only for authMethod: "oauth") */
+  oauthConfig?: OAuthConfig;
+  baseUrl?: string;
+  capabilities?: string[];
+  brandColor?: string;
+  /** Placeholder text for the API key input */
+  placeholder?: string;
+  /** Short description shown on the card */
+  description?: string;
+  /** Implementation priority: 1=shipped, 2=next, 3=future */
+  tier: 1 | 2 | 3;
+}
+
+// ─── Serializable Config (no functions, safe for client) ─
+
+export interface ConnectorMeta {
+  id: string;
+  name: string;
+  category: ConnectorCategory;
+  authMethod: AuthMethod;
+  providerInterface: ProviderInterface;
+  brandColor?: string;
+  placeholder?: string;
+  description?: string;
+  tier: 1 | 2 | 3;
+  /** Whether this connector uses OAuth (needed by client to show correct UI) */
+  hasOAuth?: boolean;
+}
+
+// ─── Post-connect result ────────────────────────────────
+
+export interface OnConnectResult {
+  /** Actions taken during setup */
+  actions: string[];
+  /** Warnings user should know about (e.g. existing webhooks) */
+  warnings: string[];
+}
+
+// ─── Integration type validator (replaces Prisma enum) ──
+
+export const integrationTypeSchema = z.string().min(1);
