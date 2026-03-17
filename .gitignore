@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -14,7 +14,7 @@
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
@@ -24,6 +24,13 @@
 .DS_Store
 *.pem
 .claude/settings.local.json
+.claude/chat-audit/
+.claude/research/
+.claude/lp-research/
+.claude/integration-tests/
+
+# playwright MCP logs & screenshots
+.playwright-mcp/
 
 # debug
 npm-debug.log*
@@ -31,8 +38,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
