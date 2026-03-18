@@ -661,7 +661,10 @@ export async function* chatStream(
       try {
         if (!toolDef) {
           output = { error: `Unknown tool: ${toolName}` };
-        } else if (shouldRequireConfirmation(toolDef, toolName, options.autonomyLevel)) {
+        } else if (
+          shouldRequireConfirmation(toolDef, toolName, options.autonomyLevel) &&
+          !options.confirmedTools?.has(toolName)
+        ) {
           // Autonomy cursor: return confirmation request instead of executing
           output = {
             __confirmation_required: true,

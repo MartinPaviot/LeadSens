@@ -286,7 +286,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
       description:
         "Find a lead by name, email, or company. " +
         "Use this BEFORE enrich_single_lead or draft_single_email when the user references a lead by name. " +
-        "Pass campaign_id if available; otherwise the most recent campaign is used automatically.",
+        "Pass campaign_id if available; otherwise it resolves from the current conversation.",
       parameters: z.object({
         query: z.string().describe("Lead name, email, or company to search for"),
         campaign_id: z.string().optional().describe("Campaign ID if known from context"),
@@ -296,7 +296,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         if (!query) return { error: "Query cannot be empty" };
 
         const campaignId = await resolveCampaignId(ctx, args.campaign_id);
-        if (!campaignId) return { error: "No campaign found" };
+        if (!campaignId) return { error: "No campaign found for this conversation. You must call source_leads first to create a campaign before scoring, enriching, or drafting." };
 
         // Campaign-scoped query: hits @@index([campaignId, status]),
         // then filters in-memory over the campaign's leads (typically 5-500).
@@ -351,7 +351,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
             where: { id: { in: args.lead_ids }, workspaceId: ctx.workspaceId, status: "SOURCED" },
           });
         } else {
-          if (!campaignId) return { error: "No campaign found" };
+          if (!campaignId) return { error: "No campaign found for this conversation. You must call source_leads first to create a campaign before scoring, enriching, or drafting." };
           leads = await prisma.lead.findMany({
             where: { campaignId, workspaceId: ctx.workspaceId, status: "SOURCED" },
           });
@@ -458,7 +458,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         "Two modes:\n" +
         "1. Explicit: pass lead_ids (from score_leads_batch in the SAME session)\n" +
         "2. Auto: omit lead_ids — finds all leads needing (re-)enrichment in the campaign\n" +
-        "Pass campaign_id if available; falls back to most recent campaign.\n" +
+        "Pass campaign_id if available; resolves from current conversation if omitted.\n" +
         "Batches >3 leads run in background with a live progress bar.",
       parameters: z.object({
         lead_ids: z.array(z.string()).optional().describe("Lead IDs if available from current session"),
@@ -466,7 +466,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
       }),
       async execute(args) {
         const campaignId = await resolveCampaignId(ctx, args.campaign_id);
-        if (!campaignId) return { error: "No campaign found" };
+        if (!campaignId) return { error: "No campaign found for this conversation. You must call source_leads first to create a campaign before scoring, enriching, or drafting." };
 
         // Fetch broadened fields for scoring boost
         const campaign = await prisma.campaign.findUnique({
@@ -790,7 +790,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
         "Enrich a single lead. Three ways to identify the lead (in priority order):\n" +
         "1. lead_id — if you have it from a previous tool call in the SAME session\n" +
         "2. lead_name or lead_email — resolved within the campaign\n" +
-        "3. Neither — auto-picks the single un-enriched lead in the most recent campaign\n" +
+        "3. Neither — auto-picks the single un-enriched lead in the current conversation's campaign\n" +
         "Advances to ENRICHED even if scraping fails.",
       parameters: z.object({
         lead_id: z.string().optional().describe("Lead ID if known"),
@@ -809,7 +809,7 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           });
         } else {
           const campaignId = await resolveCampaignId(ctx, args.campaign_id);
-          if (!campaignId) return { error: "No campaign found" };
+          if (!campaignId) return { error: "No campaign found for this conversation. You must call source_leads first to create a campaign before scoring, enriching, or drafting." };
 
           if (args.lead_name || args.lead_email) {
             // Mode 2: name/email lookup within campaign

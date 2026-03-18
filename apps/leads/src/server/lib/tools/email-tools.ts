@@ -253,7 +253,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           include: {
             emails: {
               where: { step: 0 },
-              select: { id: true, step: true, subject: true, body: true },
+              select: { id: true, step: true, subject: true, body: true, qualityScore: true, signalType: true, bodyWordCount: true, enrichmentDepth: true },
             },
           },
           take: 2,
@@ -261,18 +261,25 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
 
         const previewComponents = sampleLeads
           .filter((l) => l.emails.length > 0)
-          .map((l) => ({
-            component: "email-preview",
-            props: {
-              emailId: l.emails[0].id,
-              leadId: l.id,
-              step: 0,
-              subject: l.emails[0].subject,
-              body: l.emails[0].body,
-              leadName: `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim(),
-              leadCompany: l.company,
-            },
-          }));
+          .map((l) => {
+            const email = l.emails[0];
+            return {
+              component: "email-preview",
+              props: {
+                emailId: email.id,
+                leadId: l.id,
+                step: 0,
+                subject: email.subject,
+                body: email.body,
+                leadName: `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim(),
+                leadCompany: l.company,
+                qualityScore: email.qualityScore,
+                signalType: email.signalType,
+                wordCount: email.bodyWordCount,
+                enrichmentDepth: email.enrichmentDepth,
+              },
+            };
+          });
 
         return {
           drafted,
@@ -291,7 +298,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
         "Draft a single email for a lead. Three ways to identify the lead:\n" +
         "1. lead_id — if you have it from a previous tool call in the SAME session\n" +
         "2. lead_name or lead_email — resolved within the campaign\n" +
-        "3. Neither — auto-picks the single enriched lead in the most recent campaign",
+        "3. Neither — auto-picks the single enriched lead in the current conversation's campaign",
       parameters: z.object({
         lead_id: z.string().optional().describe("Lead ID if known"),
         lead_name: z.string().optional().describe("Lead name — resolved within campaign"),
@@ -326,7 +333,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           });
         } else {
           const campaignId = await resolveCampaignId(ctx, args.campaign_id);
-          if (!campaignId) return { error: "No campaign found" };
+          if (!campaignId) return { error: "No campaign found for this conversation. You must call source_leads first to create a campaign before drafting emails." };
 
           if (args.lead_name || args.lead_email) {
             const campaignLeads = await prisma.lead.findMany({
@@ -557,6 +564,10 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
             body: e.body,
             leadName: `${e.lead.firstName ?? ""} ${e.lead.lastName ?? ""}`.trim(),
             leadCompany: e.lead.company,
+            qualityScore: e.qualityScore,
+            signalType: e.signalType,
+            wordCount: e.bodyWordCount,
+            enrichmentDepth: e.enrichmentDepth,
           },
         }));
 

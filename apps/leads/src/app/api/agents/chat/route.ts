@@ -45,8 +45,11 @@ ON-DEMAND DISPLAY:
 // Phase 0: onboarding (no CompanyDNA yet)
 const PHASE_ONBOARDING = `
 CURRENT PHASE: ONBOARDING
-Ask for the website URL, call analyze_company_site. Never generate analysis from your own knowledge.
+Your first question should ALWAYS be "What's your website URL?" — not about integrations or tools.
+After the user provides a URL, call analyze_company_site immediately. Never generate analysis from your own knowledge.
 Present result (one-liner, personas, differentiators). Ask: "Does this look right?"
+After DNA is confirmed, suggest: "Now describe your ideal customer — I'll find some matches right away."
+Do NOT mention integrations until AFTER the user has their Company DNA set and has described an ICP.
 Never use save_memory for CompanyDNA.`;
 
 // Phases 0-1: ICP validation + parsing + estimation (no campaign yet)
@@ -65,12 +68,15 @@ Tools: parse_icp → count_leads → preview_leads
 - One count call only. Default preview: 5 leads.
 STOP: "~X leads available. How many do you want to source? (this uses Instantly credits)"
 
-TRANSITION: confirmation/number → Phase 2. New criteria → re-run Phase 1. Never re-run if user just confirms.
+TRANSITION: When user confirms or gives a number → call source_leads immediately. New criteria → re-run Phase 1.
 
-AFTER SOURCING (same turn): When source_leads returns lead_ids + campaign_id:
-1. If HubSpot is connected, call crm_check_duplicates with the lead_ids first to skip existing contacts.
-2. Then call score_leads_batch (pass lead_ids, campaign_id, and the original icp_description).
-3. Then continue to enrich_leads_batch. Do NOT pause between sourcing → scoring → enrichment.`;
+SOURCING STEP (CRITICAL — do not skip):
+When the user says "yes", "go ahead", "source X", or gives a number:
+1. Call source_leads with search_filters, limit, search_name, list_name, and icp_description.
+2. source_leads creates the campaign and returns lead_ids + campaign_id.
+3. ONLY AFTER source_leads returns, call score_leads_batch (pass lead_ids, campaign_id, icp_description).
+4. ONLY AFTER scoring, call enrich_leads_batch with the scored lead_ids.
+Do NOT call enrich_leads_batch or draft_emails_batch BEFORE source_leads. The pipeline MUST follow this order.`;
 
 // Phase 2: post-sourcing — score + enrich (never re-source)
 const PHASE_SOURCING = `
@@ -155,18 +161,23 @@ PROACTIVE INSIGHTS:
 - If reply rate < 2% after 7+ days, suggest reviewing email copy or ICP
 - If a specific segment has 3x+ better reply rate, mention it
 - If user hasn't set up custom tracking domain, mention it improves deliverability
+- When user returns or asks "what have you learned?", call learning_summary to show accumulated intelligence (winning patterns, style corrections, A/B results)
 
 If user describes a new ICP, start a new pipeline from Phase 1.`;
 
 // Pipeline rules (always included, but condensed)
 const PIPELINE_RULES = `
 PIPELINE RULES:
-- Pass lead_ids and campaign_id between tools when available. If you lost track of lead_ids or campaign_id, you can omit them — score_leads_batch and enrich_leads_batch auto-resolve from the most recent campaign.
-- Full chain: source → score → enrich → angle → draft → accounts → campaign → push.
+- ALWAYS pass lead_ids and campaign_id between tools. source_leads returns both — carry them through the entire chain. If you lose track, the tools will resolve campaign_id from the conversation link, but explicit IDs are more reliable.
+- Full chain: source_leads → score_leads_batch → enrich_leads_batch → generate_campaign_angle → draft_emails_batch → list_accounts → create_campaign → add_leads_to_campaign.
+- CRITICAL ORDERING: You MUST call source_leads BEFORE score_leads_batch. You MUST call score_leads_batch BEFORE enrich_leads_batch. You MUST call enrich_leads_batch BEFORE draft_emails_batch. NEVER skip a step in the chain.
+- When the user confirms sourcing (says "yes", "go ahead", gives a number), call source_leads FIRST. Do NOT call enrich_leads_batch or draft_emails_batch before source_leads has returned lead_ids and campaign_id.
 - Only 2 mandatory pauses: (1) before sourcing (credits), (2) account selection.
-- If a step fails, explain briefly and suggest an alternative. No loops, no retries.
+- If a step fails, explain the error clearly. No loops, no retries.
 - NEVER suggest "re-launching the search" or "criteria are too strict" when leads are already sourced. If a tool returned an error, explain that error.
-- If user describes a new ICP at any point, start Phase 1 fresh.`;
+- If user describes a new ICP at any point, start Phase 1 fresh.
+- Email sequence: ALWAYS 6 steps (PAS, Value-add, Social Proof, New Angle, Micro-value, Breakup). Never say 5.
+- HONESTY: Only report tool results that actually happened. If a tool returned an error, say so. Never claim "X leads sourced" unless source_leads actually returned them. Never claim "emails ready" unless draft_emails_batch actually succeeded.`;
 
 type CampaignPhase = "DRAFT" | "SOURCING" | "SCORING" | "ENRICHING" | "DRAFTING" | "READY" | "PUSHED" | "ACTIVE" | "MONITORING";
 
@@ -320,6 +331,16 @@ function buildSystemPrompt(
     `\n## Connected integrations\n${connected.length > 0 ? connected.join(", ") : "None yet"}`,
   );
 
+  // Demo mode directive — when no lead sourcing tool is connected
+  const hasLeadSourcing = connected.includes("INSTANTLY") || connected.includes("APOLLO");
+  if (!hasLeadSourcing) {
+    parts.push(
+      `\n## Demo Mode\nNo lead sourcing tool is connected. Use demo_search_leads to show the user sample leads matching their ICP.` +
+      ` After showing results, suggest: "Want more leads with verified emails? Connect your Apollo or Instantly account in Settings > Integrations."` +
+      ` Never say "you need to connect tools first" — always try the demo search.`,
+    );
+  }
+
   if (campaign) {
     parts.push(
       `\n## Pipeline state\nCampaign: "${campaign.name}" (${campaign.id})\n` +
@@ -344,27 +365,13 @@ function buildGreeting(workspace: WorkspaceWithIntegrations, firstName?: string)
 
   const name = firstName ? ` ${firstName}` : "";
 
-  // Case 1: Nothing configured — full onboarding
-  if (!hasCompanyDna && !hasESP) {
+  // Case 1: No Company DNA — URL-first onboarding (tools don't matter yet)
+  if (!hasCompanyDna) {
     return `Hey${name}, welcome to LeadSens! 👋
 
-I'm your prospecting copilot. Describe your target, and I'll handle the rest: sourcing, enrichment, email drafting, and campaign management.
+I'm your prospecting copilot. I'll handle sourcing, enrichment, email drafting, and campaign management — you just describe who to target.
 
-To get started, I need two things:
-
-1. **Your website URL** so I can analyze your offer and personalize every email
-2. **Your email platform**: connect Instantly, Smartlead, or Lemlist in *Settings > Integrations*
-
-Start by giving me your website URL, and we'll go step by step.`;
-  }
-
-  // Case 2: Has ESP but no company DNA
-  if (!hasCompanyDna && hasESP) {
-    return `Hey${name}, your email platform is connected, perfect! ⚡
-
-I just need **your website URL** to understand what you sell. I'll analyze your homepage, pricing, about page and extract the key arguments for your emails.
-
-Send me your URL and we'll move on.`;
+**What's your website URL?** I'll analyze your offer so every email is personalized to what you sell.`;
   }
 
   // Case 3: Has company DNA but no ESP
@@ -696,6 +703,31 @@ export async function POST(req: Request) {
           controller.enqueue(sse.encode("status", { label }));
         };
 
+        // Detect tools that the user has already confirmed from conversation history.
+        // When a tool returns __confirmation_required and the user's next message is affirmative,
+        // we add that tool to confirmedTools so it executes instead of re-prompting.
+        const confirmedTools = new Set<string>();
+        for (let i = chatMessages.length - 1; i >= 1; i--) {
+          const msg = chatMessages[i];
+          if (msg.role === "user") {
+            // Check if the previous assistant turn had a confirmation_required tool
+            const prevToolResults = chatMessages.slice(0, i).reverse();
+            for (const prev of prevToolResults) {
+              if (prev.role === "tool" && typeof prev.content === "string") {
+                try {
+                  const parsed = JSON.parse(prev.content);
+                  if (parsed?.__confirmation_required && parsed.tool) {
+                    confirmedTools.add(parsed.tool);
+                  }
+                } catch { /* not JSON */ }
+              }
+              // Stop at the first non-tool message (only check the immediately preceding tool results)
+              if (prev.role !== "tool") break;
+            }
+            break; // Only check the latest user message
+          }
+        }
+
         const generator = mistralClient.chatStream({
           system: systemPrompt,
           messages: chatMessages,
@@ -707,6 +739,7 @@ export async function POST(req: Request) {
           onStatus: toolCtx.onStatus,
           signal: req.signal,
           autonomyLevel: (workspace.autonomyLevel ?? "SUPERVISED") as AutonomyLevel,
+          confirmedTools: confirmedTools.size > 0 ? confirmedTools : undefined,
         });
 
         for await (const event of generator) {

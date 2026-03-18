@@ -61,6 +61,8 @@ export interface ChatStreamOptions {
   onStatus?: (label: string) => void;
   signal?: AbortSignal;
   autonomyLevel?: AutonomyLevel;
+  /** Tools the user has already confirmed — skip confirmation check for these */
+  confirmedTools?: Set<string>;
 }
 
 export interface CompleteOptions {
