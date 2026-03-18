@@ -134,17 +134,11 @@ const VERIFIER_CONNECTOR_MAP: Record<
 };
 
 // OAuth-based ESP connectors (need workspaceId, not apiKey)
+// Reserved for future OAuth-based ESPs
 const ESP_OAUTH_CONNECTOR_MAP: Record<
   string,
   (workspaceId: string) => Promise<ESPProvider>
-> = {
-  OUTREACH: async (workspaceId: string) => {
-    const { createOutreachESP } = await import(
-      "@/server/lib/connectors/outreach"
-    );
-    return createOutreachESP(workspaceId);
-  },
-};
+> = {};
 
 // OAuth-based Enrichment connectors
 const ENRICHMENT_OAUTH_CONNECTOR_MAP: Record<
@@ -195,6 +189,10 @@ const COMPOSIO_EXPORT_MAP: Record<string, () => Promise<ComposioFactory<ExportPr
   NOTION: () =>
     import("@/server/lib/connectors/notion-composio").then(
       (m) => m.createNotionComposioExport,
+    ),
+  GOOGLE_SHEETS: () =>
+    import("@/server/lib/connectors/google-sheets-composio").then(
+      (m) => m.createGoogleSheetsComposioExport,
     ),
 };
 
