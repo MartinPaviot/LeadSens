@@ -10,6 +10,9 @@ importers:
 
   apps/elevay:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.55.1
+        version: 0.55.1
       '@assistant-ui/react':
         specifier: ^0.12.14
         version: 0.12.14(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(use-sync-external-store@1.6.0(react@19.1.0))
@@ -19,9 +22,6 @@ importers:
       '@leadsens/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@leadsens/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@mistralai/mistralai':
         specifier: ^1.14.1
         version: 1.14.1
@@ -353,6 +353,10 @@ packages:
 
   '@antfu/ni@25.0.0':
     resolution: {integrity: sha512-9q/yCljni37pkMr4sPrI3G4jqdIk074+iukc5aFJl7kmDCCsiJrbZ6zKxnES1Gwg+i9RcDZwvktl23puGslmvA==}
+    hasBin: true
+
+  '@anthropic-ai/sdk@0.55.1':
+    resolution: {integrity: sha512-gjOMS4chmm8BxClKmCjNHmvf1FrO1Cn++CSX6K3YCZjz5JG4I9ZttQ/xEH4FBsz6HQyZvnUpiKlOAkmxaGmEaQ==}
     hasBin: true
 
   '@apify/consts@2.51.1':
@@ -9078,6 +9082,8 @@ snapshots:
       fzf: 0.5.2
       package-manager-detector: 1.6.0
       tinyexec: 1.0.2
+
+  '@anthropic-ai/sdk@0.55.1': {}
 
   '@apify/consts@2.51.1': {}
 

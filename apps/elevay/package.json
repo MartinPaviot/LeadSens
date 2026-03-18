@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.55.1",
     "@assistant-ui/react": "^0.12.14",
     "@assistant-ui/react-markdown": "^0.12.5",
     "@leadsens/db": "workspace:*",
