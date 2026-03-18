@@ -25,6 +25,7 @@ const AUTH_CONFIGS: Record<string, string | undefined> = {
   LEMLIST: process.env.COMPOSIO_AUTH_CONFIG_LEMLIST,
   INSTANTLY: process.env.COMPOSIO_AUTH_CONFIG_INSTANTLY,
   ZOOMINFO: process.env.COMPOSIO_AUTH_CONFIG_ZOOMINFO,
+  GOOGLE_SHEETS: process.env.COMPOSIO_AUTH_CONFIG_GOOGLE_SHEETS,
 };
 
 function getAuthConfigId(app: string): string {

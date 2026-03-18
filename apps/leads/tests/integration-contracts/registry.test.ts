@@ -66,9 +66,9 @@ describe("Integration Registry", () => {
     }
   });
 
-  it("HubSpot uses oauth auth method", () => {
+  it("HubSpot uses composio auth method", () => {
     const hubspot = getConnectorConfig("HUBSPOT");
-    expect(hubspot?.authMethod).toBe("oauth");
+    expect(hubspot?.authMethod).toBe("composio");
   });
 
   // ─── Phase 1A connectors (6 new) ─────────────────────

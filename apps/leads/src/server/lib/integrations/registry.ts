@@ -20,9 +20,6 @@ import { testGmassConnection } from "@/server/lib/connectors/gmass";
 import { testSnovIoConnection } from "@/server/lib/connectors/snov-io";
 import { testLushaConnection } from "@/server/lib/connectors/lusha";
 import { testSeamlessConnection } from "@/server/lib/connectors/seamless-ai";
-import { testAirtableConnection } from "@/server/lib/connectors/airtable";
-import { testNotionConnection } from "@/server/lib/connectors/notion";
-import { testPipedriveConnection } from "@/server/lib/connectors/pipedrive";
 import type { ConnectorConfig, ConnectorCategory, ConnectorMeta } from "./types";
 
 // ─── Full Connector Registry ────────────────────────────
@@ -144,16 +141,11 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "LEMLIST",
     name: "Lemlist",
     category: "esp",
-    authMethod: "api_key",
+    authMethod: "composio",
     providerInterface: "esp",
     description: "Email campaigns & outreach sequences",
-    placeholder: "Lemlist API Key",
     brandColor: "#8B5CF6",
     tier: 1,
-    testConnection: async (apiKey) => {
-      const ok = await testLemlistConnection(apiKey);
-      return ok ? { ok: true } : { ok: false, error: "Invalid API key" };
-    },
   },
   {
     id: "SALESHANDY",
@@ -291,24 +283,6 @@ const CONNECTORS: ConnectorConfig[] = [
     },
   },
   {
-    id: "OUTREACH",
-    name: "Outreach",
-    category: "esp",
-    authMethod: "oauth",
-    providerInterface: "esp",
-    description: "Enterprise sales engagement & sequences",
-    brandColor: "#5951FF",
-    tier: 2,
-    oauthConfig: {
-      authUrl: "https://api.outreach.io/oauth/authorize",
-      tokenUrl: "https://api.outreach.io/oauth/token",
-      scopes: ["prospects.read", "prospects.write", "sequences.read", "sequences.write", "sequenceSteps.read", "mailings.read"],
-      clientIdEnvVar: "OUTREACH_CLIENT_ID",
-      clientSecretEnvVar: "OUTREACH_CLIENT_SECRET",
-      pkce: true,
-    },
-  },
-  {
     id: "YESWARE",
     name: "Yesware",
     category: "esp",
@@ -366,18 +340,38 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "ZOOMINFO",
     name: "ZoomInfo",
     category: "lead_database",
-    authMethod: "oauth",
+    authMethod: "api_key",
     providerInterface: "enrichment",
     description: "Enterprise B2B intelligence (requires API license)",
+    placeholder: "client_id:client_secret",
     brandColor: "#7C3AED",
     tier: 2,
-    oauthConfig: {
-      authUrl: "https://api.zoominfo.com/authenticate",
-      tokenUrl: "https://api.zoominfo.com/authenticate",
-      scopes: [],
-      clientIdEnvVar: "ZOOMINFO_CLIENT_ID",
-      clientSecretEnvVar: "ZOOMINFO_CLIENT_SECRET",
-      pkce: true,
+    testConnection: async (apiKey) => {
+      const parts = apiKey.split(":");
+      if (parts.length < 2 || !parts[0] || !parts[1]) {
+        return { ok: false, error: "Format: client_id:client_secret" };
+      }
+      const [clientId, clientSecret] = parts;
+      try {
+        const res = await fetch("https://api.zoominfo.com/authenticate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!res.ok) return { ok: false, error: "Invalid client_id or client_secret" };
+        const data = (await res.json()) as { jwt?: string; expiresIn?: number };
+        if (!data.jwt) return { ok: false, error: "Authentication failed" };
+        return {
+          ok: true,
+          meta: {
+            accessToken: data.jwt,
+            expiresAt: Date.now() + (data.expiresIn ?? 86400) * 1000,
+          },
+        };
+      } catch {
+        return { ok: false, error: "Could not reach ZoomInfo API" };
+      }
     },
   },
   {
@@ -620,7 +614,7 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "HUBSPOT",
     name: "HubSpot",
     category: "crm",
-    authMethod: "oauth",
+    authMethod: "composio",
     providerInterface: "crm",
     description: "CRM, contacts & deal tracking",
     brandColor: "#F97316",
@@ -630,33 +624,21 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "SALESFORCE",
     name: "Salesforce",
     category: "crm",
-    authMethod: "oauth",
+    authMethod: "composio",
     providerInterface: "crm",
     description: "Enterprise CRM platform",
     brandColor: "#0EA5E9",
     tier: 2,
-    oauthConfig: {
-      authUrl: "https://login.salesforce.com/services/oauth2/authorize",
-      tokenUrl: "https://login.salesforce.com/services/oauth2/token",
-      scopes: ["api", "refresh_token"],
-      clientIdEnvVar: "SALESFORCE_CLIENT_ID",
-      clientSecretEnvVar: "SALESFORCE_CLIENT_SECRET",
-    },
   },
   {
     id: "PIPEDRIVE",
     name: "Pipedrive",
     category: "crm",
-    authMethod: "api_key",
+    authMethod: "composio",
     providerInterface: "crm",
     description: "Sales-focused CRM",
-    placeholder: "Pipedrive API Token",
     brandColor: "#22C55E",
     tier: 2,
-    testConnection: async (apiKey) => {
-      const ok = await testPipedriveConnection(apiKey);
-      return ok ? { ok: true } : { ok: false, error: "Invalid API token" };
-    },
   },
   {
     id: "CLOSE",
@@ -750,18 +732,11 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "CALENDLY",
     name: "Calendly",
     category: "scheduling",
-    authMethod: "oauth",
+    authMethod: "composio",
     providerInterface: "scheduling",
     description: "Meeting scheduling",
     brandColor: "#3B82F6",
     tier: 2,
-    oauthConfig: {
-      authUrl: "https://auth.calendly.com/oauth/authorize",
-      tokenUrl: "https://auth.calendly.com/oauth/token",
-      scopes: [],
-      clientIdEnvVar: "CALENDLY_CLIENT_ID",
-      clientSecretEnvVar: "CALENDLY_CLIENT_SECRET",
-    },
   },
   {
     id: "CAL_COM",
@@ -825,18 +800,11 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "SLACK",
     name: "Slack",
     category: "notification",
-    authMethod: "oauth",
+    authMethod: "composio",
     providerInterface: "notification",
     description: "Team notifications & alerts",
     brandColor: "#4A154B",
     tier: 2,
-    oauthConfig: {
-      authUrl: "https://slack.com/oauth/v2/authorize",
-      tokenUrl: "https://slack.com/api/oauth.v2.access",
-      scopes: ["chat:write", "channels:read"],
-      clientIdEnvVar: "SLACK_CLIENT_ID",
-      clientSecretEnvVar: "SLACK_CLIENT_SECRET",
-    },
   },
   {
     id: "DISCORD",
@@ -876,7 +844,7 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "GOOGLE_SHEETS",
     name: "Google Sheets",
     category: "export",
-    authMethod: "coming_soon",
+    authMethod: "composio",
     providerInterface: "export",
     description: "Export leads to spreadsheets",
     brandColor: "#34A853",
@@ -886,31 +854,21 @@ const CONNECTORS: ConnectorConfig[] = [
     id: "AIRTABLE",
     name: "Airtable",
     category: "export",
-    authMethod: "api_key",
+    authMethod: "composio",
     providerInterface: "export",
     description: "Flexible database & export",
-    placeholder: "Airtable Personal Access Token",
     brandColor: "#FCBF49",
     tier: 2,
-    testConnection: async (apiKey) => {
-      const ok = await testAirtableConnection(apiKey);
-      return ok ? { ok: true } : { ok: false, error: "Invalid token" };
-    },
   },
   {
     id: "NOTION",
     name: "Notion",
     category: "export",
-    authMethod: "api_key",
+    authMethod: "composio",
     providerInterface: "export",
     description: "All-in-one workspace export",
-    placeholder: "Notion Integration Token",
     brandColor: "#000000",
     tier: 2,
-    testConnection: async (apiKey) => {
-      const ok = await testNotionConnection(apiKey);
-      return ok ? { ok: true } : { ok: false, error: "Invalid token" };
-    },
   },
 ];
 
