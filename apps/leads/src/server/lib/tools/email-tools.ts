@@ -15,6 +15,7 @@ import { prioritizeSignals, getFramework } from "@/server/lib/email/prompt-build
 import { detectSubjectPattern } from "@/server/lib/analytics/correlator";
 import type { ToolDefinition, ToolContext } from "./types";
 import { resolveCampaignId } from "./resolve-campaign";
+import { logger } from "@/lib/logger";
 import { transitionLeadStatus } from "@/server/lib/lead-status";
 import { inngest } from "@/inngest/client";
 
@@ -58,22 +59,51 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
   return {
     draft_emails_batch: {
       name: "draft_emails_batch",
-      description: "Draft 6 personalized emails (PAS Timeline Hook, Value-add, Social Proof, New Angle, Micro-value, Breakup) for each lead. Batches >3 leads run in background with a live progress bar.",
+      description:
+        "Draft 6 personalized emails (PAS, Value-add, Social Proof, New Angle, Micro-value, Breakup) for leads.\n" +
+        "Two modes:\n" +
+        "1. Auto (preferred): pass campaign_id + count — pulls top N enriched leads from DB by ICP score\n" +
+        "2. Explicit: pass campaign_id + lead_ids\n" +
+        "Batches >3 leads run in background with a live progress bar.",
       parameters: z.object({
-        lead_ids: z.array(z.string()),
-        campaign_id: z.string(),
+        lead_ids: z.array(z.string()).optional().describe("Explicit lead IDs. Omit to auto-select top enriched leads."),
+        campaign_id: z.string().optional().describe("Campaign ID; falls back to conversation's campaign"),
+        count: z.coerce.number().int().min(1).max(50).optional().describe("Number of top leads to draft (used when lead_ids omitted). Default: 5"),
       }),
       async execute(args) {
+        // Resolve campaign
+        const campaignId = args.campaign_id ?? (await resolveCampaignId(ctx))!;
+        if (!campaignId) return { error: "No campaign found. Source leads first." };
+
+        // Resolve leads: explicit IDs or auto-select top N enriched
+        let leadIds: string[];
+        if (args.lead_ids?.length) {
+          leadIds = args.lead_ids;
+        } else {
+          const topLeads = await prisma.lead.findMany({
+            where: {
+              campaignId,
+              workspaceId: ctx.workspaceId,
+              status: "ENRICHED",
+            },
+            select: { id: true },
+            orderBy: { icpScore: { sort: "desc", nulls: "last" } },
+            take: args.count ?? 5,
+          });
+          if (topLeads.length === 0) return { error: "No enriched leads to draft. Run the pipeline: score → enrich → draft." };
+          leadIds = topLeads.map((l) => l.id);
+        }
+
         // ─── Background dispatch for large batches ───────────────
         const BACKGROUND_THRESHOLD = 3;
-        if (args.lead_ids.length > BACKGROUND_THRESHOLD) {
+        if (leadIds.length > BACKGROUND_THRESHOLD) {
           const jobId = crypto.randomUUID();
           await inngest.send({
             name: "leadsens/emails.draft",
             data: {
-              leadIds: args.lead_ids,
+              leadIds,
               workspaceId: ctx.workspaceId,
-              campaignId: args.campaign_id,
+              campaignId,
               jobId,
             },
           });
@@ -81,13 +111,13 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           return {
             status: "queued",
             jobId,
-            total: args.lead_ids.length,
-            message: `Drafting emails for ${args.lead_ids.length} leads in background.`,
+            total: leadIds.length,
+            message: `Drafting emails for ${leadIds.length} leads in background.`,
             __component: "job-progress",
             props: {
               jobId,
               label: "Drafting emails",
-              total: args.lead_ids.length,
+              total: leadIds.length,
             },
           };
         }
@@ -97,7 +127,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
             where: { id: ctx.workspaceId },
           }),
           prisma.campaign.findUniqueOrThrow({
-            where: { id: args.campaign_id },
+            where: { id: campaignId },
             select: { angle: true, icpDescription: true },
           }),
         ]);
@@ -120,7 +150,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
 
         const leads = await prisma.lead.findMany({
           where: {
-            id: { in: args.lead_ids },
+            id: { in: leadIds },
             workspaceId: ctx.workspaceId,
             status: "ENRICHED",
           },
@@ -133,7 +163,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           getSignalRanking(ctx.workspaceId),
           getWinningEmailPatterns(ctx.workspaceId),
           getWinningSubjects(ctx.workspaceId),
-          getReplyRateBySubjectPattern(ctx.workspaceId, args.campaign_id),
+          getReplyRateBySubjectPattern(ctx.workspaceId, campaignId),
         ]);
         const patternRanking = formatPatternRanking(patternStats);
 
@@ -204,7 +234,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
                   },
                   create: {
                     leadId: lead.id,
-                    campaignId: args.campaign_id,
+                    campaignId,
                     workspaceId: ctx.workspaceId,
                     step,
                     subject,
@@ -233,20 +263,25 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
 
           for (const r of results) {
             if (r.status === "fulfilled") drafted++;
-            else failed++;
+            else {
+              failed++;
+              logger.error("[draft_emails_batch] Lead draft failed:", {
+                error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+              });
+            }
           }
         }
 
         // Update campaign stats
         await prisma.campaign.update({
-          where: { id: args.campaign_id },
+          where: { id: campaignId },
           data: { leadsDrafted: drafted },
         });
 
         // Auto-render email previews for up to 2 sample leads (step 0 = first touch)
         const sampleLeads = await prisma.lead.findMany({
           where: {
-            id: { in: args.lead_ids },
+            id: { in: leadIds },
             workspaceId: ctx.workspaceId,
             status: "DRAFTED",
           },
@@ -304,7 +339,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
         lead_name: z.string().optional().describe("Lead name — resolved within campaign"),
         lead_email: z.string().optional().describe("Lead email — resolved within campaign"),
         campaign_id: z.string().optional().describe("Campaign ID if known; falls back to most recent"),
-        step: z.number().int().min(0).max(5),
+        step: z.coerce.number().int().min(0).max(5),
       }),
       async execute(args) {
         const workspace = await prisma.workspace.findUniqueOrThrow({
@@ -487,6 +522,24 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           leadCompany: lead.company,
           step: args.step,
           qualityScore: qualityScore.overall,
+          signalType: singleMeta.signalType,
+          wordCount: singleMeta.bodyWordCount,
+          enrichmentDepth: singleMeta.enrichmentDepth,
+          // Auto-render email preview card
+          __component: "email-preview",
+          props: {
+            emailId: lead.id + "-" + args.step,
+            leadId: lead.id,
+            step: args.step,
+            subject,
+            body,
+            leadName,
+            leadCompany: lead.company,
+            qualityScore: qualityScore.overall,
+            signalType: singleMeta.signalType,
+            wordCount: singleMeta.bodyWordCount,
+            enrichmentDepth: singleMeta.enrichmentDepth,
+          },
         };
       },
     },

@@ -477,12 +477,13 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
 
         let leads;
         if (args.lead_ids?.length) {
-          // Explicit mode: use provided IDs, allow both SCORED and failed ENRICHED (retry)
+          // Explicit mode: use provided IDs, allow SOURCED, SCORED, or failed ENRICHED (retry)
           leads = await prisma.lead.findMany({
             where: {
               id: { in: args.lead_ids },
               workspaceId: ctx.workspaceId,
               OR: [
+                { status: "SOURCED" },
                 { status: "SCORED", enrichedAt: null },
                 { status: "ENRICHED", enrichmentData: { equals: Prisma.DbNull } },
               ],
@@ -490,11 +491,13 @@ export function createEnrichmentTools(ctx: ToolContext): Record<string, ToolDefi
           });
         } else {
           // Auto mode: find all leads needing enrichment in the campaign
+          // Accept SOURCED leads too — scoring can be skipped for faster pipeline
           leads = await prisma.lead.findMany({
             where: {
               campaignId,
               workspaceId: ctx.workspaceId,
               OR: [
+                { status: "SOURCED" },
                 { status: "SCORED", enrichedAt: null },
                 { status: "ENRICHED", enrichmentData: { equals: Prisma.DbNull } },
               ],

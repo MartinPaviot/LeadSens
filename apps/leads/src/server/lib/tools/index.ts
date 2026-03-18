@@ -12,6 +12,7 @@ import { createPipelineTools } from "./pipeline-tools";
 import { createExportTools } from "./export-tools";
 import { createSchedulingTools } from "./scheduling-tools";
 import { createNotificationTools } from "./notification-tools";
+import { createDemoTools } from "./demo-tools";
 
 function hasIntegration(workspace: WorkspaceWithIntegrations, type: string): boolean {
   return workspace.integrations.some((i) => i.type === type && i.status === "ACTIVE");
@@ -53,6 +54,7 @@ export function buildToolSet(
   const hasExport = hasAnyIntegration(workspace, EXPORT_IDS);
   const hasScheduling = hasAnyIntegration(workspace, SCHEDULING_IDS);
   const hasNotification = hasAnyIntegration(workspace, NOTIFICATION_IDS);
+  const hasLeadSourcing = hasIntegration(workspace, "INSTANTLY") || hasIntegration(workspace, "APOLLO");
 
   return {
     ...createMemoryTools(ctx),
@@ -63,8 +65,8 @@ export function buildToolSet(
     ...(hasIntegration(workspace, "INSTANTLY") ? createSourcingTools(ctx) : {}),
     ...(hasCRM ? createCrmTools(ctx) : {}),
     ...(hasVerifier ? createVerificationTools(ctx) : {}),
-    // Analytics (Instantly-specific raw connector, requires Instantly)
-    ...(hasIntegration(workspace, "INSTANTLY") ? createAnalyticsTools(ctx) : {}),
+    // Analytics tools — most require ESP, but learning_summary always available
+    ...createAnalyticsTools(ctx),
     ...createEnrichmentTools(ctx),
     ...createEmailTools(ctx),
     ...createPipelineTools(ctx),
@@ -72,6 +74,8 @@ export function buildToolSet(
     ...(hasExport ? createExportTools(ctx) : {}),
     ...(hasScheduling ? createSchedulingTools(ctx) : {}),
     ...(hasNotification ? createNotificationTools(ctx) : {}),
+    // Demo tools — available only when no lead sourcing tool is connected
+    ...(!hasLeadSourcing ? createDemoTools(ctx) : {}),
   };
 }
 
@@ -86,11 +90,14 @@ const ALWAYS_AVAILABLE = new Set([
   "render_campaign_summary",
   "performance_insights",
   "icp_performance_analysis",
+  "learning_summary",
   "import_leads_csv",
   // Export/scheduling/notification available in all phases
   "export_leads",
   "get_scheduling_links",
   "send_notification",
+  // Demo tools always available (gated by buildToolSet, not phase)
+  "demo_search_leads",
 ]);
 
 const PHASE_TOOLS: Record<string, Set<string>> = {
@@ -118,7 +125,9 @@ const PHASE_TOOLS: Record<string, Set<string>> = {
     "find_decision_makers",
   ]),
   // Enriching/Drafting: enrich + angle + draft + verify
+  // score_leads_batch included: leads may reach ENRICHING phase before scoring completes
   ENRICHING: new Set([
+    "score_leads_batch",
     "enrich_leads_batch", "enrich_single_lead",
     "generate_campaign_angle",
     "draft_emails_batch", "draft_single_email",
@@ -246,6 +255,7 @@ const TOOL_LABELS: Record<string, string> = {
   import_leads_csv: "Importing leads from CSV...",
   preview_campaign_launch: "Preparing campaign preview...",
   campaign_insights: "Analyzing campaign patterns...",
+  learning_summary: "Reviewing what I've learned...",
   // CRM tools (extended)
   crm_create_contact: "Creating CRM contact...",
   crm_create_deal: "Creating CRM deal...",
@@ -254,6 +264,8 @@ const TOOL_LABELS: Record<string, string> = {
   export_leads: "Exporting leads...",
   get_scheduling_links: "Fetching scheduling links...",
   send_notification: "Sending notification...",
+  // Demo tools
+  demo_search_leads: "Searching for sample leads...",
 };
 
 export function getToolLabel(toolName: string): string {

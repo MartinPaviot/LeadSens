@@ -671,6 +671,7 @@ export async function* chatStream(
             tool: toolName,
             description: toolDef.description.slice(0, 100),
             args_summary: Object.keys(args as Record<string, unknown>).join(", "),
+            __saved_args: args,
           };
         } else {
           output = await toolDef.execute(args, {

@@ -7,6 +7,7 @@ import { getStyleSamples } from "@/server/lib/email/style-learner";
 import {
   prepareMessagesForLLM,
   estimateTokens,
+  compressToolOutput,
 } from "@/server/lib/llm/context-manager";
 import type { ChatMessage, StreamEvent, AutonomyLevel } from "@/server/lib/llm/types";
 import type { WorkspaceWithIntegrations } from "@/server/lib/tools/types";
@@ -703,35 +704,155 @@ export async function POST(req: Request) {
           controller.enqueue(sse.encode("status", { label }));
         };
 
-        // Detect tools that the user has already confirmed from conversation history.
-        // When a tool returns __confirmation_required and the user's next message is affirmative,
-        // we add that tool to confirmedTools so it executes instead of re-prompting.
-        const confirmedTools = new Set<string>();
-        for (let i = chatMessages.length - 1; i >= 1; i--) {
-          const msg = chatMessages[i];
-          if (msg.role === "user") {
-            // Check if the previous assistant turn had a confirmation_required tool
-            const prevToolResults = chatMessages.slice(0, i).reverse();
-            for (const prev of prevToolResults) {
-              if (prev.role === "tool" && typeof prev.content === "string") {
-                try {
-                  const parsed = JSON.parse(prev.content);
-                  if (parsed?.__confirmation_required && parsed.tool) {
-                    confirmedTools.add(parsed.tool);
+        // ── Auto-execute confirmed tools from previous turn ──
+        // Instead of relying on Mistral to re-call the tool (it can't — it doesn't
+        // remember tool calls from prior turns), we execute the tool server-side
+        // and inject the result into chatMessages before calling Mistral.
+        const CONFIRM_RE = /^(ok|oui|yes|go|sure|let'?s do it|parfait|go ahead|d'accord|c'est bon|allez|lance|vas-?y|fais-?le|envoie|do it|proceed|confirm|yep|yeah|yup|go for it|source|source them|let'?s go)[\s!.]*$/i;
+        const NUMBER_RE = /^(\d+)$/;
+        let autoExecuted = false;
+        {
+          const lastUserMsg = lastUserMessage?.content?.trim() ?? "";
+          const isConfirmation = CONFIRM_RE.test(lastUserMsg);
+          const numberMatch = NUMBER_RE.exec(lastUserMsg);
+
+          if (isConfirmation || numberMatch) {
+            const lastAssistant = await prisma.message.findFirst({
+              where: { conversationId, role: "ASSISTANT" },
+              orderBy: { createdAt: "desc" },
+              select: { content: true },
+            });
+
+            if (lastAssistant?.content) {
+              // New format: @@PENDING_CONFIRM@@toolName@@ARGS@@{json}@@END@@
+              const argsMatch = lastAssistant.content.match(
+                /@@PENDING_CONFIRM@@(\w+)@@ARGS@@([\s\S]*?)@@END@@/,
+              );
+              // Legacy format: @@PENDING_CONFIRM@@toolName@@END@@
+              const legacyMatch = !argsMatch
+                ? lastAssistant.content.match(/@@PENDING_CONFIRM@@(\w+)@@END@@/)
+                : null;
+
+              if (argsMatch) {
+                const pendingToolName = argsMatch[1];
+                const pendingArgsRaw = argsMatch[2];
+                const toolDef = tools[pendingToolName];
+
+                if (toolDef) {
+                  let parsedArgs: unknown;
+                  try {
+                    parsedArgs = JSON.parse(pendingArgsRaw);
+                  } catch {
+                    parsedArgs = null;
                   }
-                } catch { /* not JSON */ }
+
+                  if (parsedArgs && typeof parsedArgs === "object") {
+                    // Number confirmation overrides "limit" arg
+                    if (numberMatch && "limit" in (parsedArgs as Record<string, unknown>)) {
+                      (parsedArgs as Record<string, unknown>).limit = parseInt(numberMatch[1], 10);
+                    }
+
+                    // Emit SSE events so UI shows activity
+                    const fakeCallId = `auto-confirm-${Date.now()}`;
+                    controller.enqueue(
+                      sse.encode("tool-input-start", { toolCallId: fakeCallId, toolName: pendingToolName }),
+                    );
+                    controller.enqueue(
+                      sse.encode("status", { label: getToolLabel(pendingToolName) }),
+                    );
+                    controller.enqueue(
+                      sse.encode("tool-input-available", { toolCallId: fakeCallId, input: parsedArgs }),
+                    );
+
+                    // Execute the tool directly (pass full context including conversationId)
+                    let output: unknown;
+                    try {
+                      output = await toolDef.execute(parsedArgs, {
+                        workspaceId,
+                        userId: user.id,
+                        conversationId,
+                        onStatus: toolCtx.onStatus,
+                      });
+                    } catch (err) {
+                      output = { error: err instanceof Error ? err.message : "Tool execution failed" };
+                    }
+
+                    controller.enqueue(
+                      sse.encode("tool-output-available", { toolCallId: fakeCallId, output }),
+                    );
+
+                    // Handle inline component markers from tool output
+                    const toolOut = output as Record<string, unknown> | null;
+                    if (toolOut && typeof toolOut === "object") {
+                      if ("__component" in toolOut) {
+                        const compName = toolOut.__component as string;
+                        const marker = JSON.stringify({ component: compName, props: toolOut.props });
+                        fullAssistantContent = removePreviousMarkers(fullAssistantContent, compName);
+                        fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+                      }
+                      if ("__components" in toolOut && Array.isArray(toolOut.__components)) {
+                        for (const comp of toolOut.__components as Array<{ component: string; props: Record<string, unknown> }>) {
+                          if (comp?.component && comp?.props) {
+                            const marker = JSON.stringify({ component: comp.component, props: comp.props });
+                            fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+                          }
+                        }
+                      }
+                    }
+
+                    // Inject result into chatMessages so Mistral sees it and continues pipeline
+                    const compressed = compressToolOutput(output);
+                    const truncated = compressed.length > 4000
+                      ? compressed.slice(0, compressed.lastIndexOf("\n", 4000) || 4000)
+                      : compressed;
+                    chatMessages.push({
+                      role: "assistant",
+                      content: `I executed ${pendingToolName} as the user confirmed. The tool completed successfully. I should now continue the pipeline with the next step (e.g. score_leads_batch, enrich, or draft) — do NOT re-parse the ICP or re-source leads.`,
+                    });
+                    chatMessages.push({
+                      role: "user",
+                      content: `[SYSTEM: Tool result from ${pendingToolName} — already executed, do not call ${pendingToolName} or parse_icp again]\n${truncated}`,
+                    });
+
+                    autoExecuted = true;
+                    logger.info(`[auto-confirm] Executed ${pendingToolName} directly (user said: "${lastUserMsg}")`);
+                  }
+                }
+              } else if (legacyMatch) {
+                // Legacy marker without args — inject hint for Mistral (best-effort)
+                const pendingToolName = legacyMatch[1];
+                chatMessages.push({
+                  role: "user",
+                  content: `[SYSTEM: The user confirmed execution of ${pendingToolName}. Please call ${pendingToolName} now with the appropriate arguments from the conversation context.]`,
+                });
+                logger.info(`[auto-confirm] Legacy marker for ${pendingToolName}, injected hint`);
               }
-              // Stop at the first non-tool message (only check the immediately preceding tool results)
-              if (prev.role !== "tool") break;
             }
-            break; // Only check the latest user message
           }
         }
+
+        // When auto-executed, remove the completed tool + parse_icp from available tools
+        // so Mistral doesn't waste steps re-calling them
+        const streamTools = autoExecuted
+          ? Object.fromEntries(
+              Object.entries(tools).filter(([name]) =>
+                name !== "parse_icp" && name !== "count_leads" && name !== "preview_leads" &&
+                !chatMessages.some(m => m.content.includes(`Tool result from ${name} — already executed`))
+              ),
+            )
+          : tools;
+
+        // Pre-confirm side-effect tools when user's message explicitly authorizes the full pipeline
+        const PIPELINE_GO_RE = /\b(go|full pipeline|no questions|run everything|lance tout|execute|do it all)\b/i;
+        const userWantsFullPipeline = lastUserMessage?.content ? PIPELINE_GO_RE.test(lastUserMessage.content) : false;
+        const preConfirmedTools = userWantsFullPipeline
+          ? new Set(Object.keys(streamTools).filter(name => streamTools[name].isSideEffect))
+          : undefined;
 
         const generator = mistralClient.chatStream({
           system: systemPrompt,
           messages: chatMessages,
-          tools,
+          tools: streamTools,
           workspaceId,
           userId: user.id,
           temperature: 0.7,
@@ -739,54 +860,133 @@ export async function POST(req: Request) {
           onStatus: toolCtx.onStatus,
           signal: req.signal,
           autonomyLevel: (workspace.autonomyLevel ?? "SUPERVISED") as AutonomyLevel,
-          confirmedTools: confirmedTools.size > 0 ? confirmedTools : undefined,
+          confirmedTools: preConfirmedTools,
         });
 
-        for await (const event of generator) {
-          // Track assistant content for DB save
-          if (event.type === "text-delta") {
-            fullAssistantContent += event.delta;
-          }
+        // ── Auto-continue: when hitting step limit mid-pipeline, auto-start new turn ──
+        const MAX_AUTO_CONTINUES = 3;
+        let autoContinueCount = 0;
+        let currentGenerator = generator;
 
-          // Inline component markers — injected into content so they
-          // persist in DB and render on reload too
-          if (event.type === "tool-output-available") {
-            const out = event.output as Record<string, unknown> | null;
-            if (out && typeof out === "object") {
-              // Single component
-              if ("__component" in out) {
-                const compName = out.__component as string;
-                const marker = JSON.stringify({
-                  component: compName,
-                  props: out.props,
-                });
-                // Remove previous marker for singleton components (last wins)
-                fullAssistantContent = removePreviousMarkers(fullAssistantContent, compName);
-                fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
-              }
-              // Multiple components (e.g. draft_emails_batch returning email previews)
-              if ("__components" in out && Array.isArray(out.__components)) {
-                for (const comp of out.__components as Array<{ component: string; props: Record<string, unknown> }>) {
-                  if (comp?.component && comp?.props) {
-                    const marker = JSON.stringify({
-                      component: comp.component,
-                      props: comp.props,
-                    });
-                    fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          let hadToolCalls = false;
+          let hitStepLimit = false;
+          let hadConfirmation = false;
+
+          for await (const event of currentGenerator) {
+            // Track assistant content for DB save
+            if (event.type === "text-delta") {
+              fullAssistantContent += event.delta;
+            }
+
+            // Track tool activity
+            if (event.type === "tool-input-start") hadToolCalls = true;
+            if (event.type === "finish" && (event.finishReason === "length" || event.finishReason === "max_steps")) hitStepLimit = true;
+
+            // Inline component markers — injected into content so they
+            // persist in DB and render on reload too
+            if (event.type === "tool-output-available") {
+              const out = event.output as Record<string, unknown> | null;
+              if (out && typeof out === "object") {
+                // Track pending confirmation for next turn via hidden marker in content
+                if ("__confirmation_required" in out && out.tool) {
+                  hadConfirmation = true;
+                  const savedArgs = out.__saved_args;
+                  if (savedArgs) {
+                    const argsJson = JSON.stringify(savedArgs);
+                    fullAssistantContent += `\n@@PENDING_CONFIRM@@${out.tool}@@ARGS@@${argsJson}@@END@@`;
+                  } else {
+                    fullAssistantContent += `\n@@PENDING_CONFIRM@@${out.tool}@@END@@`;
+                  }
+                }
+                // Single component
+                if ("__component" in out) {
+                  const compName = out.__component as string;
+                  const marker = JSON.stringify({
+                    component: compName,
+                    props: out.props,
+                  });
+                  fullAssistantContent = removePreviousMarkers(fullAssistantContent, compName);
+                  fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+                }
+                // Multiple components (e.g. draft_emails_batch returning email previews)
+                if ("__components" in out && Array.isArray(out.__components)) {
+                  for (const comp of out.__components as Array<{ component: string; props: Record<string, unknown> }>) {
+                    if (comp?.component && comp?.props) {
+                      const marker = JSON.stringify({
+                        component: comp.component,
+                        props: comp.props,
+                      });
+                      fullAssistantContent += `\n\n@@INLINE@@${marker}@@END@@\n\n`;
+                    }
                   }
                 }
               }
             }
+
+            // Emit status labels for tool calls
+            if (event.type === "tool-input-start") {
+              const label = getToolLabel(event.toolName);
+              controller.enqueue(sse.encode("status", { label }));
+            }
+
+            // Forward all events to client as named SSE events
+            controller.enqueue(streamEventToSSE(sse, event));
           }
 
-          // Emit status labels for tool calls
-          if (event.type === "tool-input-start") {
-            const label = getToolLabel(event.toolName);
-            controller.enqueue(sse.encode("status", { label }));
-          }
+          // ── Auto-continue decision ──
+          // Continue if: hit step limit + had tool calls + no confirmation pending + under limit
+          const shouldContinue =
+            hadToolCalls &&
+            !hadConfirmation &&
+            autoContinueCount < MAX_AUTO_CONTINUES &&
+            (hitStepLimit || fullAssistantContent.trim().endsWith("?") === false);
 
-          // Forward all events to client as named SSE events
-          controller.enqueue(streamEventToSSE(sse, event));
+          // Heuristic: if the last text ends with a question or has no tool calls, stop
+          if (!hadToolCalls || hadConfirmation || autoContinueCount >= MAX_AUTO_CONTINUES) break;
+          if (!hitStepLimit) break; // Normal completion, no need to continue
+
+          // Auto-continue: save current content, inject continuation, start new turn
+          autoContinueCount++;
+          logger.info(`[auto-continue] Turn ${autoContinueCount}: continuing pipeline after step limit`);
+
+          controller.enqueue(
+            sse.encode("status", { label: "Continuing pipeline..." }),
+          );
+
+          // Build continuation messages from current conversation
+          const continueMessages: ChatMessage[] = [
+            ...chatMessages,
+            { role: "assistant", content: fullAssistantContent },
+            { role: "user", content: "[SYSTEM: The pipeline hit the tool step limit. Continue executing the next pipeline steps. Do NOT re-run completed steps. Do NOT ask for confirmation — the user already approved the full pipeline.]" },
+          ];
+
+          // Compress for the continuation
+          const contContext = prepareMessagesForLLM(
+            continueMessages,
+            systemTokens,
+            toolSchemaTokens,
+          );
+
+          // Pre-confirm all side-effect tools in auto-continue (user already approved pipeline)
+          const continueConfirmed = new Set(
+            Object.keys(tools).filter(name => tools[name].isSideEffect)
+          );
+
+          currentGenerator = mistralClient.chatStream({
+            system: systemPrompt,
+            messages: contContext.messages,
+            tools,
+            workspaceId,
+            userId: user.id,
+            temperature: 0.7,
+            maxSteps: 5,
+            onStatus: toolCtx.onStatus,
+            signal: req.signal,
+            autonomyLevel: (workspace.autonomyLevel ?? "SUPERVISED") as AutonomyLevel,
+            confirmedTools: continueConfirmed,
+          });
         }
 
         // Stream-end framing

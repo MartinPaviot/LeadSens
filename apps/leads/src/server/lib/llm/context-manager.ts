@@ -8,13 +8,23 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.7);
 }
 
-// ─── Strip @@INLINE@@ Markers ────────────────────────────
+// ─── Strip Hidden Markers ────────────────────────────────
 
 const INLINE_MARKER_RE = /\n*@@INLINE@@[\s\S]*?@@END@@\n*/g;
+const PENDING_CONFIRM_RE = /\n*@@PENDING_CONFIRM@@[\s\S]*?@@END@@\n*/g;
+const THINKING_MARKER_RE = /\n*@@THINKING@@[\s\S]*?@@END_THINKING@@\n*/g;
 
 /** Remove all @@INLINE@@...@@END@@ rendering markers from content. */
 export function stripInlineMarkers(content: string): string {
   return content.replace(INLINE_MARKER_RE, "");
+}
+
+/** Remove all hidden markers (inline, pending confirm, thinking) from content. */
+export function stripAllMarkers(content: string): string {
+  return content
+    .replace(INLINE_MARKER_RE, "")
+    .replace(PENDING_CONFIRM_RE, "")
+    .replace(THINKING_MARKER_RE, "");
 }
 
 // ─── Deep Compress (Level 2) ─────────────────────────────
@@ -377,15 +387,22 @@ export function prepareMessagesForLLM(
   );
   const rawTokens = systemTokens + toolSchemaTokens + rawMessageTokens;
 
-  // ── Level 1: Strip inline markers ──
+  // ── Level 1: Strip all hidden markers (inline, pending confirm, thinking) ──
   let markersStripped = 0;
   let level1 = messages.map((m) => {
-    if (m.role !== "assistant" || !m.content.includes("@@INLINE@@")) {
-      return m;
-    }
-    const count = (m.content.match(/@@INLINE@@/g) || []).length;
+    if (m.role !== "assistant") return m;
+    // Check for any marker type
+    const hasMarkers =
+      m.content.includes("@@INLINE@@") ||
+      m.content.includes("@@PENDING_CONFIRM@@") ||
+      m.content.includes("@@THINKING@@");
+    if (!hasMarkers) return m;
+    const count =
+      (m.content.match(/@@INLINE@@/g) || []).length +
+      (m.content.match(/@@PENDING_CONFIRM@@/g) || []).length +
+      (m.content.match(/@@THINKING@@/g) || []).length;
     markersStripped += count;
-    return { ...m, content: stripInlineMarkers(m.content) };
+    return { ...m, content: stripAllMarkers(m.content) };
   });
 
   // ── Level 2: Compress historical tool results ──

@@ -7,12 +7,15 @@ import { scanForAiTells } from "@/server/lib/email/ai-tell-scanner";
 import { getFramework } from "@/server/lib/email/prompt-builder";
 import { z } from "zod/v4";
 
+// LLM sometimes returns floats (7.5) instead of integers — round them
+const scoreField = z.number().min(1).max(10).transform(Math.round);
+
 const qualityScoreSchema = z.object({
-  relevance: z.number().int().min(1).max(10),
-  specificity: z.number().int().min(1).max(10),
-  formatting: z.number().int().min(1).max(10),
-  coherence: z.number().int().min(1).max(10),
-  overall: z.number().int().min(1).max(10),
+  relevance: scoreField,
+  specificity: scoreField,
+  formatting: scoreField,
+  coherence: scoreField,
+  overall: scoreField,
   issues: z.array(z.string()).optional(),
 });
 

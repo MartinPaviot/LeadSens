@@ -5,9 +5,11 @@ import { MessagePrimitive, useMessage } from "@assistant-ui/react";
 import Markdown from "react-markdown";
 import { getInlineComponent } from "@/lib/inline-component-registry";
 import { MARKDOWN_CLASS, StreamingMarkdownText, ActionBar } from "@leadsens/ui";
+import { CompletedThinkingBlock } from "./completed-thinking-block";
 
 // ─── Marker pattern for inline components ─────────────────
 const INLINE_PATTERN = /@@INLINE@@([\s\S]*?)@@END@@/g;
+const THINKING_PATTERN = /@@THINKING@@([\s\S]*?)@@END_THINKING@@/;
 
 // Components that should only appear once per message (last wins)
 const SINGLETON_COMPONENTS = new Set([
@@ -126,9 +128,35 @@ function InlineContent({ rawText }: { rawText: string }) {
   );
 }
 
-// ─── Strip inline markers for clipboard ────────────────────
+// ─── Strip inline + thinking + confirm markers for clipboard ──────────
 function getCleanText(raw: string): string {
-  return raw.replace(/\n*@@INLINE@@[\s\S]*?@@END@@\n*/g, "").trim();
+  return raw
+    .replace(/\n*@@INLINE@@[\s\S]*?@@END@@\n*/g, "")
+    .replace(/\n*@@THINKING@@[\s\S]*?@@END_THINKING@@\n*/g, "")
+    .replace(/\n*@@PENDING_CONFIRM@@[\s\S]*?@@END@@\n*/g, "")
+    .trim();
+}
+
+// ─── Extract thinking steps from raw text ───────────────────
+function extractThinkingSteps(rawText: string): {
+  steps: Array<{
+    label: string;
+    status: "running" | "done" | "error";
+    summary?: string;
+    startedAt?: number;
+    completedAt?: number;
+  }> | null;
+  cleanedText: string;
+} {
+  const match = THINKING_PATTERN.exec(rawText);
+  if (!match) return { steps: null, cleanedText: rawText };
+  try {
+    const steps = JSON.parse(match[1]);
+    const cleanedText = rawText.replace(THINKING_PATTERN, "").trim();
+    return { steps, cleanedText };
+  } catch {
+    return { steps: null, cleanedText: rawText };
+  }
 }
 
 // ─── Main component ────────────────────────────────────────
@@ -143,13 +171,22 @@ export function AssistantMessage() {
     }
   }
 
-  const hasText = rawText.trim().length > 0;
+  const { steps: thinkingSteps, cleanedText } = useMemo(
+    () => extractThinkingSteps(rawText),
+    [rawText],
+  );
+
+  // Strip pending confirm markers from display (they're internal state, not user-visible)
+  const strippedText = (thinkingSteps ? cleanedText : rawText)
+    .replace(/\n*@@PENDING_CONFIRM@@[\s\S]*?@@END@@\n*/g, "");
+  const displayText = strippedText;
+  const hasText = displayText.trim().length > 0;
   const messageId = message.id ?? "";
 
-  // Hide completely when empty — ThinkingBlock handles the loading UI
-  if (!hasText) return null;
+  // Hide completely when empty and no thinking steps — ThinkingBlock handles the loading UI
+  if (!hasText && !thinkingSteps) return null;
 
-  const hasInlineComponents = rawText.includes("@@INLINE@@");
+  const hasInlineComponents = displayText.includes("@@INLINE@@");
 
   return (
     <MessagePrimitive.Root className="group flex items-start w-full motion-safe:animate-[fade-in-up_0.3s_ease-out]">
@@ -159,15 +196,23 @@ export function AssistantMessage() {
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="relative rounded-2xl bg-card/90 backdrop-blur-md border border-white/60 dark:border-white/[0.07] shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3">
-          {hasInlineComponents ? (
-            <InlineContent rawText={rawText} />
-          ) : (
-            <MessagePrimitive.Content
-              components={{ Text: StreamingMarkdownText }}
-            />
-          )}
-        </div>
+        {thinkingSteps && thinkingSteps.length > 0 && (
+          <CompletedThinkingBlock steps={thinkingSteps} />
+        )}
+        {hasText && (
+          <div className="relative rounded-2xl bg-card/90 backdrop-blur-md border border-white/60 dark:border-white/[0.07] shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3">
+            {hasInlineComponents ? (
+              <InlineContent rawText={displayText} />
+            ) : thinkingSteps ? (
+              /* Static render when thinking steps are present (message already completed) */
+              <StaticMarkdownText text={displayText} />
+            ) : (
+              <MessagePrimitive.Content
+                components={{ Text: StreamingMarkdownText }}
+              />
+            )}
+          </div>
+        )}
         <ActionBar rawText={rawText} messageId={messageId} cleanText={getCleanText} />
       </div>
     </MessagePrimitive.Root>

@@ -1,20 +1,34 @@
 import Redis from "ioredis";
 
 let redis: Redis | null = null;
+let redisUnavailable = false;
 
 /**
  * Returns a shared Redis client. Lazy-initialized on first call.
  * Safe for serverless — the connection is reused across warm invocations.
+ * Returns null if REDIS_URL is not configured (graceful degradation).
  */
 export function getRedis(): Redis {
+  if (redisUnavailable) throw new RedisUnavailableError();
   if (!redis) {
-    redis = new Redis(process.env.REDIS_URL!, {
+    if (!process.env.REDIS_URL) {
+      redisUnavailable = true;
+      throw new RedisUnavailableError();
+    }
+    redis = new Redis(process.env.REDIS_URL, {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
       enableReadyCheck: false,
     });
+    redis.on("error", () => {
+      // Suppress connection errors — cache is best-effort
+    });
   }
   return redis;
+}
+
+export class RedisUnavailableError extends Error {
+  constructor() { super("Redis unavailable"); this.name = "RedisUnavailableError"; }
 }
 
 // ─── Job Progress Tracking ─────────────────────────────────
