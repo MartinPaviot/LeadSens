@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 const PLANS = [
   {
     name: "Starter",
+    planId: "STARTER",
     price: "$49",
     period: "/month",
     desc: "For solo founders testing outbound",
@@ -28,6 +29,7 @@ const PLANS = [
   },
   {
     name: "Pro",
+    planId: "PRO",
     price: "$99",
     period: "/month",
     desc: "For teams running consistent outbound",
@@ -48,6 +50,7 @@ const PLANS = [
   },
   {
     name: "Scale",
+    planId: "SCALE",
     price: "$199",
     period: "/month",
     desc: "For agencies and power users",
@@ -152,7 +155,7 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/signup"
+                  href={`/signup?plan=${plan.planId}`}
                   className={`inline-flex h-11 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                     plan.highlight
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"

@@ -128,7 +128,7 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           }),
           prisma.campaign.findUniqueOrThrow({
             where: { id: campaignId },
-            select: { angle: true, icpDescription: true },
+            select: { name: true, angle: true, icpDescription: true },
           }),
         ]);
 
@@ -278,8 +278,8 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           data: { leadsDrafted: drafted },
         });
 
-        // Auto-render email previews for up to 2 sample leads (step 0 = first touch)
-        const sampleLeads = await prisma.lead.findMany({
+        // Auto-render email sequence view for the first sample lead (all steps)
+        const sampleLead = await prisma.lead.findFirst({
           where: {
             id: { in: leadIds },
             workspaceId: ctx.workspaceId,
@@ -287,41 +287,43 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
           },
           include: {
             emails: {
-              where: { step: 0 },
+              orderBy: { step: "asc" },
               select: { id: true, step: true, subject: true, body: true, qualityScore: true, signalType: true, bodyWordCount: true, enrichmentDepth: true },
             },
           },
-          take: 2,
         });
 
-        const previewComponents = sampleLeads
-          .filter((l) => l.emails.length > 0)
-          .map((l) => {
-            const email = l.emails[0];
-            return {
-              component: "email-preview",
-              props: {
-                emailId: email.id,
-                leadId: l.id,
-                step: 0,
-                subject: email.subject,
-                body: email.body,
-                leadName: `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim(),
-                leadCompany: l.company,
-                qualityScore: email.qualityScore,
-                signalType: email.signalType,
-                wordCount: email.bodyWordCount,
-                enrichmentDepth: email.enrichmentDepth,
-              },
-            };
+        const components: Array<{ component: string; props: Record<string, unknown> }> = [];
+
+        if (sampleLead && sampleLead.emails.length > 0) {
+          const leadName = `${sampleLead.firstName ?? ""} ${sampleLead.lastName ?? ""}`.trim();
+          const sequenceEmails = sampleLead.emails.map((email) => ({
+            emailId: email.id,
+            step: email.step,
+            subject: email.subject,
+            body: email.body,
+            leadName,
+            leadCompany: sampleLead.company,
+            qualityScore: email.qualityScore,
+            wordCount: email.bodyWordCount,
+          }));
+
+          components.push({
+            component: "email-sequence",
+            props: {
+              emails: sequenceEmails,
+              campaignName: campaign.name,
+              leadCount: drafted,
+            },
           });
+        }
 
         return {
           drafted,
           failed,
           total: leads.length,
-          ...(previewComponents.length > 0
-            ? { __components: previewComponents }
+          ...(components.length > 0
+            ? { __components: components }
             : {}),
         };
       },
@@ -577,19 +579,69 @@ export function createEmailTools(ctx: ToolContext): Record<string, ToolDefinitio
       description:
         "Fetch and display all drafted emails for a campaign. " +
         "Use this when the user asks to see their emails, drafted emails, or email previews. " +
+        "Shows a full sequence view (all 6 steps) for sample leads by default. " +
         "Optionally filter by step (0=PAS, 1=Value-add, 2=Social Proof, 3=New Angle, 4=Micro-value, 5=Breakup) or specific lead_ids.",
       parameters: z.object({
         campaign_id: z.string(),
-        step: z.number().int().min(0).max(5).optional().describe("Filter by email step (0-5). Omit to show step 0 for all leads."),
+        step: z.number().int().min(0).max(5).optional().describe("Filter by email step (0-5). Omit to show sequence view."),
         lead_ids: z.array(z.string()).optional().describe("Show emails for specific leads only"),
       }),
       async execute(args) {
+        // When no step filter, show sequence view (all steps for first lead)
+        if (args.step == null && !args.lead_ids?.length) {
+          const sampleEmails = await prisma.draftedEmail.findMany({
+            where: {
+              campaignId: args.campaign_id,
+              lead: { workspaceId: ctx.workspaceId },
+            },
+            include: {
+              lead: { select: { firstName: true, lastName: true, company: true } },
+            },
+            orderBy: { step: "asc" },
+            take: 20,
+          });
+
+          if (sampleEmails.length === 0) {
+            return { error: "No drafted emails found for this campaign." };
+          }
+
+          // Pick first lead's emails for sequence view
+          const firstLeadId = sampleEmails[0].leadId;
+          const firstLeadEmails = sampleEmails.filter((e) => e.leadId === firstLeadId);
+          const firstLead = firstLeadEmails[0].lead;
+          const leadName = `${firstLead.firstName ?? ""} ${firstLead.lastName ?? ""}`.trim();
+
+          const seqCampaign = await prisma.campaign.findUnique({
+            where: { id: args.campaign_id },
+            select: { name: true, leadsDrafted: true },
+          });
+
+          return {
+            total: firstLeadEmails.length,
+            __component: "email-sequence",
+            props: {
+              emails: firstLeadEmails.map((e) => ({
+                emailId: e.id,
+                step: e.step,
+                subject: e.subject,
+                body: e.body,
+                leadName,
+                leadCompany: firstLead.company,
+                qualityScore: e.qualityScore,
+                wordCount: e.bodyWordCount,
+              })),
+              campaignName: seqCampaign?.name,
+              leadCount: seqCampaign?.leadsDrafted ?? 1,
+            },
+          };
+        }
+
+        // Filtered view: show individual email previews
         const where: Record<string, unknown> = {
           campaignId: args.campaign_id,
           lead: { workspaceId: ctx.workspaceId },
         };
         if (args.step != null) where.step = args.step;
-        else where.step = 0; // default: show first touch
         if (args.lead_ids?.length) where.leadId = { in: args.lead_ids };
 
         const emails = await prisma.draftedEmail.findMany({

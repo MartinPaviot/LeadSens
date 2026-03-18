@@ -82,24 +82,28 @@ export function CampaignLaunchPreviewCard({
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Send schedule */}
       <div className="px-4 py-3 border-t">
-        <div className="text-[11px] text-muted-foreground mb-2 font-medium">Sequence timeline</div>
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {timeline.map((step, i) => (
-            <div
-              key={i}
-              className="flex-shrink-0 flex flex-col items-center"
-            >
-              <div className="text-[10px] text-muted-foreground mb-0.5">J+{step.day}</div>
-              <div className="px-2 py-1 rounded-md bg-primary/8 border border-primary/15 text-[11px] font-medium text-primary whitespace-nowrap">
-                {step.framework}
+        <div className="text-[11px] text-muted-foreground mb-2 font-medium">Send schedule</div>
+        <div className="space-y-0">
+          {timeline.map((step, i) => {
+            const sendDate = new Date();
+            sendDate.setDate(sendDate.getDate() + step.day);
+            const dateStr = sendDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+            return (
+              <div key={i} className="flex items-center gap-3 py-1.5">
+                <div className="flex flex-col items-center w-4 shrink-0">
+                  <div className={`size-2.5 rounded-full ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`} />
+                  {i < timeline.length - 1 && <div className="w-px h-4 bg-border mt-0.5" />}
+                </div>
+                <span className="text-[11px] font-mono text-muted-foreground w-12 shrink-0">
+                  {i === 0 ? "Today" : `D+${step.day}`}
+                </span>
+                <span className="text-xs font-medium flex-1">{step.framework}</span>
+                <span className="text-[10px] text-muted-foreground/60">{dateStr}</span>
               </div>
-              {i < timeline.length - 1 && (
-                <div className="text-[10px] text-muted-foreground/40 mt-0.5">→</div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

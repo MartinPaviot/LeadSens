@@ -545,5 +545,86 @@ export function createESPTools(ctx: ToolContext): Record<string, ToolDefinition>
         };
       },
     },
+
+    send_test_email: {
+      name: "send_test_email",
+      description:
+        "Send a test email to the user so they can preview what their prospects will receive. " +
+        "Creates a temporary test campaign on the ESP with just the user's email, sends step 0, then pauses. " +
+        "Use this when the user wants to see how the email looks in their inbox before launching.",
+      parameters: z.object({
+        campaign_id: z.string().describe("The campaign to test"),
+        test_email: z.string().email().describe("Email address to send the test to (usually the user's own email)"),
+        sending_account: z.string().email().describe("Which connected email account to send from"),
+      }),
+      isSideEffect: true,
+      async execute(args) {
+        const esp = await getESPProvider(ctx.workspaceId);
+        if (!esp) return { error: NO_ESP_ERROR };
+
+        // Get a sample step 0 email from the campaign
+        const sampleEmail = await prisma.draftedEmail.findFirst({
+          where: {
+            campaignId: args.campaign_id,
+            step: 0,
+            lead: { workspaceId: ctx.workspaceId },
+          },
+          include: {
+            lead: { select: { firstName: true, lastName: true, company: true } },
+          },
+        });
+
+        if (!sampleEmail) {
+          return { error: "No drafted emails found. Draft emails first before sending a test." };
+        }
+
+        const campaign = await prisma.campaign.findUnique({
+          where: { id: args.campaign_id },
+          select: { name: true },
+        });
+
+        const testCampaignName = `[TEST] ${campaign?.name ?? "Campaign"} — ${new Date().toISOString().slice(0, 16)}`;
+
+        try {
+          // Create a one-step test campaign
+          const testCampaign = await esp.createCampaign({
+            name: testCampaignName,
+            accountEmails: [args.sending_account],
+            steps: [
+              {
+                subject: sampleEmail.subject,
+                body: sampleEmail.body,
+                delay: 0,
+              },
+            ],
+          });
+
+          // Add the test email as a lead
+          await esp.addLeads(testCampaign.id, [
+            {
+              email: args.test_email,
+              firstName: "Test",
+              lastName: "User",
+              company: "",
+            },
+          ]);
+
+          // Activate to trigger send
+          await esp.activateCampaign(testCampaign.id);
+
+          return {
+            success: true,
+            message: `Test email sent to ${args.test_email} from ${args.sending_account}. Check your inbox in 1-2 minutes.`,
+            testCampaignName,
+            subject: sampleEmail.subject,
+            note: "A temporary test campaign was created on your ESP. You can delete it after reviewing.",
+          };
+        } catch (err) {
+          return {
+            error: `Failed to send test email: ${err instanceof Error ? err.message : "Unknown error"}`,
+          };
+        }
+      },
+    },
   };
 }

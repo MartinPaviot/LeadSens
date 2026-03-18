@@ -138,6 +138,7 @@ const PHASE_TOOLS: Record<string, Set<string>> = {
     "draft_emails_batch", "draft_single_email",
     "verify_emails",
     "preview_campaign_launch",
+    "send_test_email",
     "list_accounts", "create_campaign",
     "add_leads_to_campaign",
   ]),
@@ -146,6 +147,7 @@ const PHASE_TOOLS: Record<string, Set<string>> = {
     "generate_campaign_angle",
     "verify_emails",
     "preview_campaign_launch",
+    "send_test_email",
     "list_accounts", "create_campaign",
     "add_leads_to_campaign", "activate_campaign",
   ]),
@@ -254,6 +256,7 @@ const TOOL_LABELS: Record<string, string> = {
   reply_to_email: "Sending reply...",
   import_leads_csv: "Importing leads from CSV...",
   preview_campaign_launch: "Preparing campaign preview...",
+  send_test_email: "Sending test email...",
   campaign_insights: "Analyzing campaign patterns...",
   learning_summary: "Reviewing what I've learned...",
   // CRM tools (extended)

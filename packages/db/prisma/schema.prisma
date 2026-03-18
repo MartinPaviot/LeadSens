@@ -78,6 +78,14 @@ model Workspace {
   updatedAt       DateTime        @updatedAt
   companyDna              Json?
   onboardingCompletedAt   DateTime?
+  // Billing (Stripe)
+  plan                    String    @default("FREE") // FREE | STARTER | PRO | SCALE
+  stripeCustomerId        String?   @unique
+  stripeSubscriptionId    String?   @unique
+  stripePriceId           String?
+  billingPeriodEnd        DateTime?
+  leadsUsedThisMonth      Int       @default(0)
+  leadsResetAt            DateTime  @default(now())
   agentFeedbacks  AgentFeedback[]
   agentMemories  AgentMemory[]
   aiEvents       AIEvent[]

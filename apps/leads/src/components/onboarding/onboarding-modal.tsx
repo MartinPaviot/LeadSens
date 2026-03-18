@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, type ReactNode } from "react";
-import { Dialog, DialogContent, DialogTitle, Button } from "@leadsens/ui";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, Button } from "@leadsens/ui";
+import Image from "next/image";
 import { useSession } from "@/lib/auth-client";
 import { Spinner } from "@phosphor-icons/react";
 import {
@@ -10,25 +11,18 @@ import {
   TOTAL_STEPS,
   type OnboardingState,
 } from "./onboarding-context";
-import { WelcomeStep } from "./steps/welcome-step";
 import { CompanyUrlStep } from "./steps/company-url-step";
 import { IntegrationsStep } from "./steps/integrations-step";
-import { AutonomyStep } from "./steps/autonomy-step";
-import { ReadyStep } from "./steps/ready-step";
 
 // ─── Progress bar ──────────────────────────────────────
 
 const STEP_LABELS = [
-  "About you",
-  "Company website",
+  "Your website",
   "Connect tools",
-  "Autonomy",
-  "Ready",
 ];
 
 function ProgressBar() {
-  const { state, totalSteps } = useOnboarding();
-  const progress = ((state.currentStep + 1) / totalSteps) * 100;
+  const { state, goToStep, totalSteps } = useOnboarding();
 
   return (
     <div className="space-y-1.5">
@@ -38,11 +32,21 @@ function ProgressBar() {
         </span>
         <span>{STEP_LABELS[state.currentStep]}</span>
       </div>
-      <div className="h-1 bg-muted rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-[#17C3B2] via-[#2C6BED] to-[#FF7A3D] transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="flex gap-1">
+        {Array.from({ length: totalSteps }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            className={`h-1 flex-1 rounded-full transition-all ${
+              i <= state.currentStep
+                ? "bg-gradient-to-r from-[#17C3B2] via-[#2C6BED] to-[#FF7A3D]"
+                : "bg-muted"
+            } ${i < state.currentStep ? "cursor-pointer hover:opacity-80" : ""}`}
+            onClick={() => { if (i < state.currentStep) goToStep(i); }}
+            disabled={i >= state.currentStep}
+            title={STEP_LABELS[i]}
+          />
+        ))}
       </div>
     </div>
   );
@@ -77,21 +81,10 @@ function OnboardingModalInner({ onDone }: { onDone: () => void }) {
     onDone,
   ]);
 
-  const handleSkip = useCallback(async () => {
-    try {
-      await fetch("/api/trpc/workspace.skipOnboarding", { method: "POST" });
-    } catch {
-      // Best-effort
-    }
-    onDone();
-  }, [onDone]);
-
+  // 2-step flow: Company URL → Integrations → done
   const steps: ReactNode[] = [
-    <WelcomeStep key="welcome" />,
     <CompanyUrlStep key="company-url" />,
-    <IntegrationsStep key="integrations" />,
-    <AutonomyStep key="autonomy" />,
-    <ReadyStep key="ready" onComplete={handleComplete} />,
+    <IntegrationsStep key="integrations" onComplete={handleComplete} />,
   ];
 
   const animation =
@@ -110,15 +103,16 @@ function OnboardingModalInner({ onDone }: { onDone: () => void }) {
         {/* Mesh gradient background */}
         <div className="absolute inset-0 bg-leadsens-mesh opacity-30 pointer-events-none rounded-lg -z-10" />
 
-        <div className="flex flex-col h-[400px]">
+        <div className="flex flex-col h-[420px]">
           <DialogTitle className="sr-only">LeadSens Setup</DialogTitle>
+          <DialogDescription className="sr-only">Set up your LeadSens workspace</DialogDescription>
 
           <ProgressBar />
 
           {/* Fixed logo — visible on all steps */}
           <div className="flex justify-center pt-2 shrink-0">
             <div className="size-7 overflow-hidden rounded-lg">
-              <img src="/L.svg" alt="LeadSens" className="size-7" />
+              <Image src="/L.svg" alt="LeadSens" width={28} height={28} />
             </div>
           </div>
 
@@ -160,10 +154,10 @@ function OnboardingModalInner({ onDone }: { onDone: () => void }) {
               </button>
               <button
                 type="button"
-                className={`text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors ${state.currentStep > 0 && state.currentStep < TOTAL_STEPS - 1 ? "" : "invisible"}`}
-                onClick={handleSkip}
+                className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                onClick={handleComplete}
               >
-                Skip setup entirely
+                Skip setup
               </button>
             </div>
           </div>
@@ -213,9 +207,12 @@ export function OnboardingModal() {
             ["HUBSPOT", "SALESFORCE"].includes(i.type) && i.status === "ACTIVE",
         );
 
+        // Don't pre-fill workspace auto-name as company name
+        const isAutoName = !d.name || d.name.endsWith("'s Workspace");
+
         setInitialState({
           userName: session?.user?.name?.split(" ")[0] ?? "",
-          companyName: d.name ?? "",
+          companyName: isAutoName ? "" : (d.name ?? ""),
           companyUrl: d.companyUrl ?? "",
           autonomyLevel: d.autonomyLevel ?? "SUPERVISED",
           connectedEsp: espIntegration?.type ?? null,

@@ -34,6 +34,37 @@ function ScoreBadge({ score }: { score: number | null | undefined }) {
   return <Badge className="bg-red-600/20 text-red-400 border-red-600/30 text-[10px] py-0">{score}</Badge>;
 }
 
+/** Calculate enrichment completeness and show a tiny quality indicator */
+function DataQualityBadge({ lead }: { lead: LeadRow }) {
+  const fields = [
+    { key: "email", has: !!lead.email },
+    { key: "company", has: !!lead.company },
+    { key: "title", has: !!lead.jobTitle },
+    { key: "LinkedIn", has: !!lead.linkedinUrl },
+    { key: "context", has: !!lead.enrichmentContext },
+    { key: "signals", has: !!lead.enrichmentSignals },
+  ];
+  const filled = fields.filter((f) => f.has).length;
+  const pct = Math.round((filled / fields.length) * 100);
+  const missing = fields.filter((f) => !f.has).map((f) => f.key);
+
+  const color =
+    pct >= 80
+      ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20"
+      : pct >= 50
+        ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+        : "text-red-400 bg-red-500/10 border-red-500/20";
+
+  return (
+    <span
+      className={`inline-flex items-center px-1 py-0 rounded text-[9px] font-medium border ${color}`}
+      title={missing.length > 0 ? `Missing: ${missing.join(", ")}` : "Complete"}
+    >
+      {pct}%
+    </span>
+  );
+}
+
 /** Detect which columns have at least one non-empty value */
 function useVisibleColumns(leads: LeadRow[]) {
   return useMemo(() => {
@@ -46,7 +77,11 @@ function useVisibleColumns(leads: LeadRow[]) {
     const hasEnrichment = leads.some(
       (l) => l.enrichmentContext || l.enrichmentLinkedin || l.enrichmentSignals || l.enrichmentDiagnostic,
     );
-    return { hasName, hasEmail, hasCompany, hasTitle, hasLinkedin, hasScore, hasEnrichment };
+    // Show data quality when enrichment has been attempted (at least one lead has context or signals)
+    const hasDataQuality = leads.some(
+      (l) => l.enrichmentContext || l.enrichmentSignals || l.enrichmentLinkedin,
+    );
+    return { hasName, hasEmail, hasCompany, hasTitle, hasLinkedin, hasScore, hasEnrichment, hasDataQuality };
   }, [leads]);
 }
 
@@ -162,6 +197,7 @@ export function LeadTableCard({ title, leads, campaignId }: LeadTableCardProps) 
             {cols.hasCompany && <col className={cols.hasEnrichment ? "w-[10%]" : "w-[24%]"} />}
             {cols.hasTitle && <col className={cols.hasEnrichment ? "w-[10%]" : "w-[28%]"} />}
             {cols.hasScore && <col className="w-9" />}
+            {cols.hasDataQuality && <col className="w-8" />}
             {cols.hasEnrichment && <col className="w-[12%]" />}
             {cols.hasEnrichment && <col className="w-[12%]" />}
             {cols.hasEnrichment && <col className="w-[10%]" />}
@@ -176,6 +212,7 @@ export function LeadTableCard({ title, leads, campaignId }: LeadTableCardProps) 
               {cols.hasCompany && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Co.</th>}
               {cols.hasTitle && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">Title</th>}
               {cols.hasScore && <th className="px-1 py-2 align-middle text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40">ICP</th>}
+              {cols.hasDataQuality && <th className="px-1 py-2 align-middle text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted/40" title="Data Quality">DQ</th>}
               {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-muted-foreground/70 bg-muted/40">Ctx</th>}
               {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-blue-400/70 bg-muted/40">LI</th>}
               {cols.hasEnrichment && <th className="px-2 py-2 align-middle text-left text-[10px] uppercase tracking-wider font-medium text-emerald-400/70 bg-muted/40">Sig</th>}
@@ -220,6 +257,11 @@ export function LeadTableCard({ title, leads, campaignId }: LeadTableCardProps) 
                 {cols.hasScore && (
                   <td className="px-1 py-1.5 align-middle text-center">
                     <ScoreBadge score={lead.icpScore} />
+                  </td>
+                )}
+                {cols.hasDataQuality && (
+                  <td className="px-1 py-1.5 align-middle text-center">
+                    <DataQualityBadge lead={lead} />
                   </td>
                 )}
                 {cols.hasEnrichment && (

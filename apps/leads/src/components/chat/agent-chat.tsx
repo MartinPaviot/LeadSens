@@ -12,6 +12,8 @@ import { AgentRuntimeProvider } from "./agent-runtime-provider";
 import { LeadSensThread } from "./thread";
 import { GreetingLoader } from "./greeting-loader";
 import { GreetingScreen } from "./greeting-screen";
+import { PipelineStatusBar } from "./pipeline-status-bar";
+import { CampaignPipelineBar } from "./campaign-pipeline-bar";
 import { ThemeToggle } from "./theme-toggle";
 import { AutonomySelector } from "./autonomy-selector";
 import { MessageActionsProvider, type MessageActions, AgentActivityContext, type ThinkingStep, useSidebar, Button } from "@leadsens/ui";
@@ -31,6 +33,152 @@ export interface ChatMessage {
 
 function formatToolName(toolName: string): string {
   return toolName.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) + "...";
+}
+
+// ─── Tool output summary extraction ──────────────────────
+
+function extractToolSummary(
+  toolName: string,
+  output: Record<string, unknown>,
+): string | null {
+  try {
+    switch (toolName) {
+      case "parse_icp": {
+        const filters = output.filters as Record<string, unknown> | undefined;
+        if (!filters) return null;
+        const parts: string[] = [];
+        if (filters.role) parts.push(String(filters.role));
+        if (filters.industry) parts.push(String(filters.industry));
+        if (filters.geo || filters.location)
+          parts.push(String(filters.geo ?? filters.location));
+        return parts.length > 0 ? `Parsed: ${parts.join(", ")}` : null;
+      }
+      case "count_leads": {
+        const count = output.count ?? output.totalResults;
+        return count != null ? `~${count} leads available` : null;
+      }
+      case "source_leads": {
+        const leads = output.leads as unknown[] | undefined;
+        const count = leads?.length ?? output.count ?? output.totalResults;
+        return count != null ? `Found ${count} leads` : null;
+      }
+      case "score_leads_batch": {
+        const results = output.results as unknown[] | undefined;
+        const total = results?.length ?? output.total;
+        const passed = output.passed ?? output.passedCount;
+        if (total != null && passed != null)
+          return `${passed}/${total} passed ICP filter`;
+        if (total != null) return `Scored ${total} leads`;
+        return null;
+      }
+      case "enrich_leads_batch": {
+        const results = output.results as unknown[] | undefined;
+        const count =
+          results?.length ?? output.enriched ?? output.count ?? output.total;
+        return count != null ? `Enriched ${count} leads` : null;
+      }
+      case "draft_emails_batch": {
+        const count = output.drafted ?? output.count ?? output.total;
+        const steps = output.steps ?? output.stepCount;
+        const patterns = output.winningPatternsUsed ?? output.patternsApplied;
+        const styleSamples = output.styleCorrectionsApplied ?? output.styleSamplesUsed;
+        const parts: string[] = [];
+        if (count != null && steps != null) parts.push(`Drafted ${count} emails across ${steps} steps`);
+        else if (count != null) parts.push(`Drafted ${count} emails`);
+        if (patterns) parts.push(`using ${patterns} winning patterns`);
+        if (styleSamples) parts.push(`with ${styleSamples} style corrections`);
+        return parts.length > 0 ? parts.join(", ") : null;
+      }
+      case "create_campaign": {
+        const name = output.name ?? output.campaignName;
+        return name ? `Campaign "${name}" created` : "Campaign created";
+      }
+      case "add_leads_to_campaign": {
+        const count =
+          output.count ?? output.added ?? output.leadsAdded ?? output.total;
+        return count != null ? `${count} leads added` : null;
+      }
+      case "activate_campaign":
+        return "Campaign activated";
+      case "analyze_company_site": {
+        const domain = output.domain ?? output.url;
+        return domain ? `Analyzed ${domain}` : "Site analyzed";
+      }
+      case "campaign_analytics": {
+        const sent = output.sent ?? output.totalSent;
+        const replied = output.replied ?? output.positiveReplies;
+        if (sent != null && replied != null) {
+          const rate =
+            Number(sent) > 0
+              ? ((Number(replied) / Number(sent)) * 100).toFixed(1)
+              : "0";
+          return `${sent} sent, ${replied} replied (${rate}%)`;
+        }
+        return null;
+      }
+      case "classify_reply": {
+        const classification =
+          output.classification ?? output.category ?? output.result;
+        return classification ? `Classified as ${classification}` : null;
+      }
+      case "verify_emails": {
+        const valid = output.valid ?? output.validCount;
+        const total = output.total ?? output.totalCount;
+        return valid != null && total != null
+          ? `${valid}/${total} valid`
+          : null;
+      }
+      case "campaign_insights": {
+        const insights = output.insights as unknown[] | undefined;
+        const count = insights?.length ?? output.insightCount;
+        return count != null && Number(count) > 0
+          ? `${count} insight${Number(count) !== 1 ? "s" : ""} from campaign data`
+          : "No insights yet (need more data)";
+      }
+      case "campaign_performance_report": {
+        const overview = output.overview as Record<string, unknown> | undefined;
+        if (overview) {
+          const sent = overview.sent;
+          const replied = overview.replied;
+          if (sent != null && replied != null) {
+            const rate = Number(sent) > 0 ? ((Number(replied) / Number(sent)) * 100).toFixed(1) : "0";
+            return `Report: ${sent} sent, ${replied} replied (${rate}%)`;
+          }
+        }
+        return "Performance report generated";
+      }
+      case "sync_campaign_analytics":
+        return "Analytics synced from ESP";
+      case "learning_summary": {
+        const learnings = output.learnings as unknown[] | undefined;
+        const hasData = output.hasData as boolean | undefined;
+        if (!hasData) return "No patterns yet";
+        return learnings?.length
+          ? `${learnings.length} learning${learnings.length !== 1 ? "s" : ""} from past campaigns`
+          : null;
+      }
+      case "update_company_dna":
+        return "Company DNA updated";
+      case "send_test_email": {
+        const email = output.test_email as string | undefined;
+        return email ? `Test sent to ${email}` : "Test email sent";
+      }
+      case "list_campaigns": {
+        const campaigns = output.campaigns as unknown[] | undefined;
+        return campaigns
+          ? `${campaigns.length} campaign${campaigns.length !== 1 ? "s" : ""} found`
+          : null;
+      }
+      case "demo_search_leads": {
+        const count = output.count as number | undefined;
+        return count != null ? `${count} sample leads found` : null;
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 // ─── Constants ────────────────────────────────────────────
@@ -61,10 +209,24 @@ export default function AgentChat() {
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [integrations, setIntegrations] = useState<{ type: string; status: string; accountEmail?: string | null }[]>([]);
+  const [companyDna, setCompanyDna] = useState<{
+    oneLiner: string | null;
+    targetBuyers: Array<{ role?: string; sellingAngle?: string }>;
+    differentiators: string[];
+    problemsSolved: string[];
+  } | null>(null);
   const [pipelinePhase, setPipelinePhase] = useState<string | null>(null);
   const [resumptionSummary, setResumptionSummary] = useState<string | null>(null);
+  const [lastCampaign, setLastCampaign] = useState<{
+    name: string;
+    status: string;
+    sent: number;
+    replied: number;
+    replyRate: string;
+  } | null>(null);
 
   // Mutable refs for the current session
+  const thinkingStepsRef = useRef<ThinkingStep[]>([]);
   const conversationIdRef = useRef(generateId());
   const abortRef = useRef<AbortController | null>(null);
   const pendingContentRef = useRef("");
@@ -73,11 +235,43 @@ export default function AgentChat() {
   const retryCountRef = useRef(0);
   const retryIntervalRef = useRef(DEFAULT_RETRY_MS);
 
-  // Fetch integrations once on mount — data is ready before GreetingScreen renders
+  // Fetch integrations + Company DNA once on mount — data is ready before GreetingScreen renders
   useEffect(() => {
     fetch("/api/trpc/integration.list")
       .then((r) => r.json())
       .then((data) => { if (data?.result?.data) setIntegrations(data.result.data); })
+      .catch(() => {});
+
+    fetch("/api/trpc/workspace.getCompanyDnaSummary")
+      .then((r) => r.json())
+      .then((data) => {
+        const dna = data?.result?.data;
+        if (dna) setCompanyDna(dna);
+      })
+      .catch(() => {});
+
+    fetch("/api/trpc/campaign.listWithAnalytics")
+      .then((r) => r.json())
+      .then((data) => {
+        const campaigns = data?.result?.data ?? [];
+        if (campaigns.length === 0) return;
+        // Pick most recent campaign with analytics
+        const withStats = campaigns.find(
+          (c: { analyticsCache?: { sent?: number } | null }) =>
+            c.analyticsCache && (c.analyticsCache.sent ?? 0) > 0,
+        );
+        if (!withStats) return;
+        const sent = withStats.analyticsCache?.sent ?? 0;
+        const replied = withStats.analyticsCache?.replied ?? 0;
+        const rate = sent > 0 ? ((replied / sent) * 100).toFixed(1) : "0";
+        setLastCampaign({
+          name: withStats.name,
+          status: withStats.status,
+          sent,
+          replied,
+          replyRate: rate,
+        });
+      })
       .catch(() => {});
   }, []);
 
@@ -290,16 +484,19 @@ export default function AgentChat() {
                 if (payload.toolCallId) {
                   toolCallNames.set(payload.toolCallId, payload.toolName);
                 }
+                const now = Date.now();
                 setThinkingSteps((prev) => [
                   ...prev.map((s) =>
                     s.status === "running"
-                      ? { ...s, status: "done" as const }
+                      ? { ...s, status: "done" as const, completedAt: s.completedAt ?? now }
                       : s,
                   ),
                   {
                     id: payload.toolCallId || generateId(),
                     label: stepLabel,
                     status: "running" as const,
+                    startedAt: now,
+                    toolName: payload.toolName,
                   },
                 ]);
                 setActivityLabel(stepLabel);
@@ -309,17 +506,32 @@ export default function AgentChat() {
               case "tool-output-available": {
                 const payload =
                   data as SSEEventPayload["tool-output-available"];
+                const completedAt = Date.now();
+                const completedToolName = toolCallNames.get(payload.toolCallId);
+                const toolOutput = payload.output as Record<string, unknown> | null;
+                // Detect tool-level errors (tools return { error: "..." })
+                const isToolError = toolOutput && typeof toolOutput === "object" && "error" in toolOutput && typeof toolOutput.error === "string";
+                const summary = isToolError
+                  ? String(toolOutput.error)
+                  : (completedToolName && toolOutput && typeof toolOutput === "object"
+                    ? extractToolSummary(completedToolName, toolOutput)
+                    : null);
+                const stepStatus = isToolError ? "error" as const : "done" as const;
                 setThinkingSteps((prev) =>
                   prev.map((s) =>
                     s.id === payload.toolCallId
-                      ? { ...s, status: "done" as const }
+                      ? {
+                          ...s,
+                          status: stepStatus,
+                          completedAt,
+                          ...(summary ? { summary } : {}),
+                        }
                       : s,
                   ),
                 );
-                const completedTool = toolCallNames.get(payload.toolCallId);
                 if (
-                  completedTool === "analyze_company_site" ||
-                  completedTool === "update_company_dna"
+                  completedToolName === "analyze_company_site" ||
+                  completedToolName === "update_company_dna"
                 ) {
                   window.dispatchEvent(
                     new CustomEvent("leadsens:company-dna-updated"),
@@ -327,10 +539,6 @@ export default function AgentChat() {
                 }
 
                 // Inject inline component markers into the message content
-                const toolOutput = payload.output as Record<
-                  string,
-                  unknown
-                > | null;
                 let hasNewComponents = false;
                 if (
                   toolOutput &&
@@ -479,8 +687,31 @@ export default function AgentChat() {
         setActivityLabel(null);
         abortRef.current = null;
 
+        // Embed completed thinking steps into the assistant message
+        const finalSteps = thinkingStepsRef.current;
+        if (finalSteps.length > 0) {
+          const stepsForMarker = finalSteps.map((s) => ({
+            label: s.label,
+            status: s.status,
+            summary: s.summary,
+            startedAt: s.startedAt,
+            completedAt: s.completedAt,
+          }));
+          const marker = `\n\n@@THINKING@@${JSON.stringify(stepsForMarker)}@@END_THINKING@@`;
+          pendingContentRef.current += marker;
+          const finalContent = pendingContentRef.current;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: finalContent } : m,
+            ),
+          );
+        }
+
         // Refresh sidebar after stream completes (updates timestamp/order)
         refreshConversations();
+
+        // Notify status bar to refresh
+        window.dispatchEvent(new CustomEvent("leadsens:stream-complete"));
       }
     },
     [registerNewConversation, refreshConversations],
@@ -569,6 +800,26 @@ export default function AgentChat() {
     [handleEdit, handleRegenerate, handleFeedback],
   );
 
+  // ─── Keep thinkingSteps ref in sync with state ──────
+  useEffect(() => {
+    thinkingStepsRef.current = thinkingSteps;
+  }, [thinkingSteps]);
+
+  // ─── Refresh Company DNA when agent updates it ────────
+  useEffect(() => {
+    const handler = () => {
+      fetch("/api/trpc/workspace.getCompanyDnaSummary")
+        .then((r) => r.json())
+        .then((data) => {
+          const dna = data?.result?.data;
+          if (dna) setCompanyDna(dna);
+        })
+        .catch(() => {});
+    };
+    window.addEventListener("leadsens:company-dna-updated", handler);
+    return () => window.removeEventListener("leadsens:company-dna-updated", handler);
+  }, []);
+
   // ─── Account picker event listener ────────────────────
 
   useEffect(() => {
@@ -643,6 +894,11 @@ export default function AgentChat() {
             </div>
           </header>
 
+          {/* Pipeline status bar — shows when campaigns exist */}
+          <PipelineStatusBar />
+
+          {/* Campaign pipeline progress — shows during active pipeline */}
+          <CampaignPipelineBar />
 
           <MessageActionsProvider value={messageActions}>
             <AgentRuntimeProvider
@@ -670,6 +926,8 @@ export default function AgentChat() {
                 <GreetingScreen
                   isStreaming={isStreaming}
                   integrations={integrations}
+                  companyDna={companyDna}
+                  lastCampaign={lastCampaign}
                 />
               ) : (
                 <LeadSensThread isStreaming={isStreaming} pipelinePhase={pipelinePhase} />

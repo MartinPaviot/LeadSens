@@ -46,6 +46,10 @@ const registry: Record<string, () => Promise<{ default: ComponentType<any> }>> =
     import("@/components/chat/inline/campaign-launch-preview-card").then((m) => ({
       default: m.CampaignLaunchPreviewCard,
     })),
+  "email-sequence": () =>
+    import("@/components/chat/inline/email-sequence-card").then((m) => ({
+      default: m.EmailSequenceCard,
+    })),
   "job-progress": () =>
     import("@/components/chat/inline/job-progress").then((m) => ({
       default: m.JobProgress,

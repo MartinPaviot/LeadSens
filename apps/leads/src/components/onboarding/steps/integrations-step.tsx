@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Fragment } from "react";
 import Image from "next/image";
 import { Input, Button, Badge } from "@leadsens/ui";
 import { CheckCircle, Eye, EyeSlash, Lock, Spinner, XCircle } from "@phosphor-icons/react";
@@ -36,7 +36,51 @@ interface Section {
 // Badges reflect necessity: Required = product won't work without it,
 // Recommended = product works much better with it, no badge = optional.
 
-const CORE_SECTIONS: Section[] = [
+// ─── Onboarding shows only the essential tools (3 sections) ──────
+// Full connector list is in Settings > Integrations.
+
+const ONBOARDING_SECTIONS: Section[] = [
+  {
+    key: "esp",
+    label: "Email Sending",
+    badge: "Required",
+    tools: [
+      { type: "INSTANTLY", name: "Instantly", placeholder: "Instantly API V2 Key", icon: "/instantly.svg", authType: "api_key" },
+      { type: "SMARTLEAD", name: "Smartlead", placeholder: "Smartlead API Key", icon: "/smartlead.svg", authType: "api_key" },
+      { type: "LEMLIST", name: "Lemlist", icon: "/logos/lemlist.png", authType: "composio" },
+    ],
+  },
+  {
+    key: "leads",
+    label: "Lead Enrichment",
+    badge: "Recommended",
+    tools: [
+      { type: "APOLLO", name: "Apollo", placeholder: "Apollo API Key", icon: "/apollo.svg", authType: "api_key" },
+    ],
+  },
+  {
+    key: "crm",
+    label: "CRM",
+    tools: [
+      { type: "HUBSPOT", name: "HubSpot", icon: "/hubspot.svg", authType: "composio" },
+      { type: "SALESFORCE", name: "Salesforce", icon: "/salesforce.svg", authType: "composio" },
+    ],
+  },
+];
+
+// Full sections for Settings page (re-exported)
+export const FULL_SECTIONS: Section[] = [
+  {
+    key: "esp",
+    label: "Email Sending",
+    badge: "Required",
+    tools: [
+      { type: "INSTANTLY", name: "Instantly", placeholder: "Instantly API V2 Key", icon: "/instantly.svg", authType: "api_key" },
+      { type: "LEMLIST", name: "Lemlist", icon: "/logos/lemlist.png", authType: "composio" },
+      { type: "SMARTLEAD", name: "Smartlead", placeholder: "Smartlead API Key", icon: "/smartlead.svg", authType: "api_key" },
+      { type: "REPLY_IO", name: "Reply.io", placeholder: "Reply.io API Key", icon: "/logos/reply-io.png", authType: "api_key" },
+    ],
+  },
   {
     key: "leads",
     label: "Lead Database",
@@ -57,20 +101,6 @@ const CORE_SECTIONS: Section[] = [
       { type: "MILLIONVERIFIER", name: "MillionVerifier", placeholder: "MillionVerifier API Key", icon: "/logos/millionverifier.png", authType: "api_key" },
     ],
   },
-  {
-    key: "esp",
-    label: "Email Sending",
-    badge: "Required",
-    tools: [
-      { type: "INSTANTLY", name: "Instantly", placeholder: "Instantly API V2 Key", icon: "/instantly.svg", authType: "api_key" },
-      { type: "LEMLIST", name: "Lemlist", icon: "/logos/lemlist.png", authType: "composio" },
-      { type: "SMARTLEAD", name: "Smartlead", placeholder: "Smartlead API Key", icon: "/smartlead.svg", authType: "api_key" },
-      { type: "REPLY_IO", name: "Reply.io", placeholder: "Reply.io API Key", icon: "/logos/reply-io.png", authType: "api_key" },
-    ],
-  },
-];
-
-const WORKFLOW_SECTIONS: Section[] = [
   {
     key: "crm",
     label: "CRM",
@@ -94,7 +124,7 @@ const WORKFLOW_SECTIONS: Section[] = [
   },
 ];
 
-const SECTIONS: Section[] = [...CORE_SECTIONS, ...WORKFLOW_SECTIONS];
+const SECTIONS = ONBOARDING_SECTIONS;
 
 const API_KEY_HELP_URLS: Record<string, string> = {
   APOLLO:           "https://app.apollo.io/#/settings/integrations/api",
@@ -185,10 +215,11 @@ function ToolIcon({ tool, dimmed }: { tool: ToolDef; dimmed?: boolean }) {
 
 // ─── Integrations step ───────────────────────────────────
 
-export function IntegrationsStep() {
+export function IntegrationsStep({ onComplete }: { onComplete?: () => Promise<void> }) {
   const { state, setState, nextStep, setStepAction } = useOnboarding();
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState("");
+  // Per-tool API keys — preserves typed value when switching between tools (P1-3)
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [showKey, setShowKey] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectingTool, setConnectingTool] = useState<string | null>(null);
@@ -248,13 +279,14 @@ export function IntegrationsStep() {
 
   const connectApiKey = useCallback(
     async (tool: ToolDef) => {
-      if (!apiKey.trim()) return;
+      const key = apiKeys[tool.type] ?? "";
+      if (!key.trim()) return;
       setConnecting(true);
       try {
         const res = await fetch(`/api/integrations/${tool.type.toLowerCase()}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, ...(validationState === "valid" ? { preValidated: true } : {}) }),
+          body: JSON.stringify({ apiKey: key, ...(validationState === "valid" ? { preValidated: true } : {}) }),
         });
         const data = await res.json();
         if (res.ok) {
@@ -266,7 +298,7 @@ export function IntegrationsStep() {
             if (!prev.connectedTools.includes(tool.type)) return { ...prev, connectedTools: [...prev.connectedTools, tool.type] };
             return prev;
           });
-          setApiKey("");
+          setApiKeys((prev) => { const next = { ...prev }; delete next[tool.type]; return next; });
           setExpanded(null);
         } else {
           toast.error(data.error || "Connection failed");
@@ -277,7 +309,7 @@ export function IntegrationsStep() {
         setConnecting(false);
       }
     },
-    [apiKey, setState, validationState],
+    [apiKeys, setState, validationState],
   );
 
   const connectOAuth = useCallback(
@@ -327,8 +359,8 @@ export function IntegrationsStep() {
         );
         if (!authRes.ok) {
           const msg = authRes.status === 503
-            ? "Cette intégration sera disponible prochainement"
-            : "Échec de connexion. Réessayez.";
+            ? "This integration will be available soon"
+            : "Connection failed. Please try again.";
           toast.error(msg);
           return;
         }
@@ -337,9 +369,11 @@ export function IntegrationsStep() {
           connectionId: string;
         };
 
+        toast.info("You'll be redirected through a secure authorization page");
+
         const popup = window.open(
           redirectUrl,
-          `${tool.type.toLowerCase()}-composio`,
+          `${tool.type.toLowerCase()}-auth`,
           "width=600,height=700",
         );
 
@@ -395,7 +429,7 @@ export function IntegrationsStep() {
     (tool: ToolDef) => {
       if (isToolConnected(tool.type)) return;
       if (tool.authType === "api_key") {
-        if (expanded !== tool.type) { setExpanded(tool.type); setApiKey(""); }
+        if (expanded !== tool.type) { setExpanded(tool.type); }
       } else if (tool.authType === "oauth") {
         connectOAuth(tool);
       } else if (tool.authType === "composio") {
@@ -406,9 +440,10 @@ export function IntegrationsStep() {
   );
 
   useEffect(() => {
+    const finishAction = onComplete ?? nextStep;
     const action: StepAction = {
-      label: state.connectedEsp ? "Continue" : "Continue without ESP",
-      onClick: nextStep,
+      label: state.connectedEsp ? "Start prospecting" : "Skip for now",
+      onClick: finishAction,
     };
     if (!state.connectedEsp) {
       action.secondary = (
@@ -418,7 +453,7 @@ export function IntegrationsStep() {
       );
     }
     setStepAction(action);
-  }, [state.connectedEsp, nextStep, setStepAction]);
+  }, [state.connectedEsp, nextStep, onComplete, setStepAction]);
 
   return (
     <div>
@@ -430,36 +465,32 @@ export function IntegrationsStep() {
       </div>
 
       <div className="space-y-2 pt-2">
-        {SECTIONS.map((section, idx) => {
-          const expandedTool = section.tools.find(
-            (t) => expanded === t.type && !isToolConnected(t.type) && t.authType === "api_key",
-          );
+        {SECTIONS.map((section) => (
+          <div key={section.key}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                {section.label}
+              </span>
+              {section.badge && (
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-3.5 leading-none">
+                  {section.badge}
+                </Badge>
+              )}
+            </div>
 
-          return (
-            <div key={section.key}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                  {section.label}
-                </span>
-                {section.badge && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-3.5 leading-none">
-                    {section.badge}
-                  </Badge>
-                )}
-              </div>
+            {/* flex-wrap: input with w-full breaks to its own line right after its button */}
+            <div className="flex flex-wrap gap-1">
+              {section.tools.map((tool) => {
+                const connected = isToolConnected(tool.type);
+                const isComingSoon = tool.authType === "coming_soon";
+                const isBuiltIn = tool.authType === "none";
+                const isActive = expanded === tool.type && !connected && tool.authType === "api_key";
+                const isOAuthConnecting = connectingTool === tool.type;
+                const currentKey = apiKeys[tool.type] ?? "";
 
-              <div className="flex flex-wrap gap-1">
-                {section.tools.map((tool) => {
-                  const connected = isToolConnected(tool.type);
-                  const isComingSoon = tool.authType === "coming_soon";
-                  const isBuiltIn = tool.authType === "none";
-                  const isActive = expanded === tool.type && !connected;
-
-                  const isOAuthConnecting = connectingTool === tool.type;
-
-                  return (
+                return (
+                  <Fragment key={tool.type}>
                     <button
-                      key={tool.type}
                       type="button"
                       className={`flex items-center gap-1.5 h-7 px-2 rounded-md border text-[11px] font-medium transition-all ${
                         connected
@@ -478,7 +509,8 @@ export function IntegrationsStep() {
                       disabled={isComingSoon || isBuiltIn || isOAuthConnecting}
                     >
                       <ToolIcon tool={tool} dimmed={isComingSoon} />
-                      <span>{tool.name}</span>
+                      {/* P1-5: label changes to "Connecting…" during OAuth flow */}
+                      <span>{isOAuthConnecting ? "Connecting…" : tool.name}</span>
                       {isOAuthConnecting && <Spinner className="size-3 animate-spin" />}
                       {connected && !isOAuthConnecting && <CheckCircle className="size-3.5 text-green-500" weight="fill" />}
                       {isBuiltIn && (
@@ -488,59 +520,64 @@ export function IntegrationsStep() {
                         <span className="text-[9px] text-muted-foreground/50">Soon</span>
                       )}
                     </button>
-                  );
-                })}
-              </div>
 
-              {expandedTool && (
-                <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showKey ? "text" : "password"}
-                        placeholder={expandedTool.placeholder}
-                        value={apiKey}
-                        onChange={(e) => {
-                          setApiKey(e.target.value);
-                          if (validationState !== "idle") {
-                            setValidationState("idle");
-                            setValidationError(undefined);
-                          }
-                        }}
-                        onBlur={() => { if (apiKey.trim()) void validateApiKey(expandedTool.type, apiKey); }}
-                        onKeyDown={(e) => { if (e.key === "Enter") connectApiKey(expandedTool); }}
-                        className={`h-7 text-xs pr-7 ${
-                          validationState === "valid"   ? "border-green-500 focus-visible:ring-green-500/20" :
-                          validationState === "invalid" ? "border-red-500 focus-visible:ring-red-500/20" : ""
-                        }`}
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => setShowKey((v) => !v)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                        tabIndex={-1}
-                      >
-                        {showKey ? <EyeSlash className="size-3" /> : <Eye className="size-3" />}
-                      </button>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs px-3 shrink-0"
-                      onClick={() => connectApiKey(expandedTool)}
-                      disabled={connecting || !apiKey.trim()}
-                    >
-                      {connecting ? <Spinner className="size-3 animate-spin" /> : "Connect"}
-                    </Button>
-                  </div>
-                  <TrustNote toolId={expandedTool.type} state={validationState} error={validationError} />
-                </div>
-              )}
+                    {/* P1-3: input anchored directly below active button via w-full in flex-wrap */}
+                    {isActive && (
+                      <div className="w-full mt-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              type={showKey ? "text" : "password"}
+                              placeholder={tool.placeholder}
+                              value={currentKey}
+                              onChange={(e) => {
+                                setApiKeys((prev) => ({ ...prev, [tool.type]: e.target.value }));
+                                if (validationState !== "idle") {
+                                  setValidationState("idle");
+                                  setValidationError(undefined);
+                                }
+                              }}
+                              onBlur={() => { if (currentKey.trim()) void validateApiKey(tool.type, currentKey); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") void connectApiKey(tool); }}
+                              className={`h-7 text-xs pr-7 ${
+                                validationState === "valid"   ? "border-green-500 focus-visible:ring-green-500/20" :
+                                validationState === "invalid" ? "border-red-500 focus-visible:ring-red-500/20" : ""
+                              }`}
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => setShowKey((v) => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                              tabIndex={-1}
+                            >
+                              {showKey ? <EyeSlash className="size-3" /> : <Eye className="size-3" />}
+                            </button>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs px-3 shrink-0"
+                            onClick={() => void connectApiKey(tool)}
+                            disabled={connecting || !currentKey.trim()}
+                          >
+                            {connecting ? <Spinner className="size-3 animate-spin" /> : "Connect"}
+                          </Button>
+                        </div>
+                        <TrustNote toolId={tool.type} state={validationState} error={validationError} />
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
+
+      <p className="text-[10px] text-center text-muted-foreground/50 pt-2">
+        More integrations available in Settings after setup
+      </p>
     </div>
   );
 }

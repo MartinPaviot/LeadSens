@@ -31,10 +31,19 @@ interface CompanyDnaSummary {
   problemsSolved: string[];
 }
 
+interface LastCampaignSummary {
+  name: string;
+  status: string;
+  sent: number;
+  replied: number;
+  replyRate: string;
+}
+
 interface GreetingScreenProps {
   isStreaming: boolean;
   integrations: Integration[];
   companyDna?: CompanyDnaSummary | null;
+  lastCampaign?: LastCampaignSummary | null;
 }
 
 // ─── Constants ────────────────────────────────────────────
@@ -86,6 +95,7 @@ export function GreetingScreen({
   isStreaming,
   integrations,
   companyDna,
+  lastCampaign,
 }: GreetingScreenProps) {
   const { data: session } = useSession();
   const runtime = useThreadRuntime();
@@ -177,6 +187,30 @@ export function GreetingScreen({
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Layer 1.8: Last campaign summary */}
+              {lastCampaign && (
+                <div className="mb-2 p-2.5 rounded-lg bg-muted/30 border border-border/30 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-foreground/70">
+                      Last campaign: <span className="text-foreground/90">{lastCampaign.name}</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {lastCampaign.sent} sent · {lastCampaign.replied} replied · {lastCampaign.replyRate}% reply rate
+                    </p>
+                  </div>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    ["ACTIVE", "PUSHED", "MONITORING"].includes(lastCampaign.status)
+                      ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {lastCampaign.status === "ACTIVE" ? "Active" :
+                     lastCampaign.status === "MONITORING" ? "Monitoring" :
+                     lastCampaign.status === "PUSHED" ? "Sending" :
+                     lastCampaign.status.charAt(0) + lastCampaign.status.slice(1).toLowerCase()}
+                  </span>
                 </div>
               )}
 

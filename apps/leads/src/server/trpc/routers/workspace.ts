@@ -71,6 +71,40 @@ function normalizeMemoryToSchema(
 }
 
 export const workspaceRouter = router({
+  // ─── Billing ──────────────────────────────────────────────
+
+  getBillingState: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: ctx.workspaceId! },
+      select: {
+        plan: true,
+        stripeCustomerId: true,
+        stripeSubscriptionId: true,
+        billingPeriodEnd: true,
+        leadsUsedThisMonth: true,
+        leadsResetAt: true,
+      },
+    });
+
+    // Determine lead limit based on plan
+    const limits: Record<string, number> = {
+      FREE: 50,
+      STARTER: 500,
+      PRO: 2000,
+      SCALE: 999999,
+    };
+    const leadsLimit = limits[workspace.plan] ?? 50;
+
+    return {
+      plan: workspace.plan,
+      hasSubscription: !!workspace.stripeSubscriptionId,
+      billingPeriodEnd: workspace.billingPeriodEnd,
+      leadsUsed: workspace.leadsUsedThisMonth,
+      leadsLimit,
+      leadsResetAt: workspace.leadsResetAt,
+    };
+  }),
+
   // ─── Autonomy Level ─────────────────────────────────────
 
   getAutonomyLevel: protectedProcedure.query(async ({ ctx }) => {
@@ -221,6 +255,30 @@ export const workspaceRouter = router({
   }),
 
   // ─── Company DNA ────────────────────────────────────────
+
+  // Lightweight read-only summary for greeting screen (single SELECT, no joins/normalization)
+  getCompanyDnaSummary: protectedProcedure.query(async ({ ctx }) => {
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: ctx.workspaceId! },
+      select: { companyDna: true },
+    });
+
+    if (!workspace.companyDna) return null;
+
+    const dna = workspace.companyDna as Record<string, unknown>;
+    return {
+      oneLiner: (dna.oneLiner as string) || null,
+      targetBuyers: Array.isArray(dna.targetBuyers)
+        ? (dna.targetBuyers as Array<{ role?: string; sellingAngle?: string }>)
+        : [],
+      differentiators: Array.isArray(dna.differentiators)
+        ? (dna.differentiators as string[])
+        : [],
+      problemsSolved: Array.isArray(dna.problemsSolved)
+        ? (dna.problemsSolved as string[])
+        : [],
+    };
+  }),
 
   getCompanyDna: protectedProcedure.query(async ({ ctx }) => {
     const workspace = await prisma.workspace.findUniqueOrThrow({

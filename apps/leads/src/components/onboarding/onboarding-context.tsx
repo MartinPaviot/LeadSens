@@ -49,7 +49,7 @@ interface OnboardingContextValue {
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
-export const TOTAL_STEPS = 5;
+export const TOTAL_STEPS = 2;
 
 const STORAGE_KEY = "leadsens-onboarding";
 
@@ -92,13 +92,23 @@ export function OnboardingProvider({
         })()
       : {};
 
-  const [state, setState] = useState<OnboardingState>({
-    ...DEFAULTS,
-    ...savedState,
-    ...initialState,
-    currentStep:
-      initialState?.currentStep ?? savedState?.currentStep ?? 0,
-    direction: "forward",
+  const [state, setState] = useState<OnboardingState>(() => {
+    const merged = { ...DEFAULTS };
+    // Server values fill gaps
+    for (const [k, v] of Object.entries(initialState ?? {})) {
+      if (v !== undefined && v !== null && v !== "") {
+        (merged as Record<string, unknown>)[k] = v;
+      }
+    }
+    // localStorage wins for user-entered data
+    for (const [k, v] of Object.entries(savedState)) {
+      if (v !== undefined && v !== null && v !== "") {
+        (merged as Record<string, unknown>)[k] = v;
+      }
+    }
+    merged.currentStep = savedState.currentStep ?? initialState?.currentStep ?? 0;
+    merged.direction = "forward";
+    return merged;
   });
 
   useEffect(() => {

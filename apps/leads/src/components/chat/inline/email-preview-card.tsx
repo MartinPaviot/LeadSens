@@ -11,6 +11,10 @@ interface EmailPreviewCardProps {
   body: string;
   leadName: string;
   leadCompany?: string;
+  qualityScore?: number | null;
+  signalType?: string | null;
+  wordCount?: number | null;
+  enrichmentDepth?: string | null;
 }
 
 const STEP_LABELS = ["PAS", "Value-add", "Social Proof", "New Angle", "Micro-value", "Breakup"];
@@ -29,6 +33,18 @@ function renderBody(text: string) {
   ));
 }
 
+function QualityPill({ score }: { score: number }) {
+  const color =
+    score >= 8 ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" :
+    score >= 6 ? "text-amber-500 bg-amber-500/10 border-amber-500/20" :
+    "text-red-400 bg-red-500/10 border-red-500/20";
+  return (
+    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border ${color}`}>
+      {score}/10
+    </span>
+  );
+}
+
 export function EmailPreviewCard({
   emailId,
   step,
@@ -36,11 +52,16 @@ export function EmailPreviewCard({
   body,
   leadName,
   leadCompany,
+  qualityScore,
+  signalType,
+  wordCount,
+  enrichmentDepth,
 }: EmailPreviewCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedBody, setEditedBody] = useState(body);
   const [approved, setApproved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [styleLearned, setStyleLearned] = useState(false);
 
   async function persistEdit(editBody: string, isApproved?: boolean) {
     if (!emailId) return;
@@ -68,12 +89,41 @@ export function EmailPreviewCard({
         <Badge variant="outline" className="text-[10px]">
           Step {step + 1} — {STEP_LABELS[step] ?? "Email"}
         </Badge>
-        {approved && (
-          <Badge className="bg-green-600/20 text-green-400 border-green-600/30 text-[10px]">
-            Approved
-          </Badge>
-        )}
+        <div className="flex items-center gap-1.5">
+          {styleLearned && (
+            <Badge className="bg-indigo-600/20 text-indigo-400 border-indigo-600/30 text-[10px]">
+              Style learned
+            </Badge>
+          )}
+          {approved && (
+            <Badge className="bg-green-600/20 text-green-400 border-green-600/30 text-[10px]">
+              Approved
+            </Badge>
+          )}
+        </div>
       </div>
+
+      {/* ── Quality metadata ── */}
+      {(qualityScore != null || signalType || wordCount != null || enrichmentDepth) && (
+        <div className="px-4 py-1.5 border-b border-border/30 flex items-center gap-2 flex-wrap">
+          {qualityScore != null && <QualityPill score={qualityScore} />}
+          {signalType && (
+            <span className="text-[10px] text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+              {signalType}
+            </span>
+          )}
+          {enrichmentDepth && (
+            <span className="text-[10px] text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+              {enrichmentDepth}
+            </span>
+          )}
+          {wordCount != null && (
+            <span className="text-[10px] text-muted-foreground/50">
+              {wordCount}w
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Email header (To / Subject) ── */}
       <div className="px-4 pt-3 pb-2 space-y-1 border-b border-border/30">
@@ -124,8 +174,10 @@ export function EmailPreviewCard({
                 size="sm"
                 disabled={saving}
                 onClick={async () => {
+                  const wasEdited = editedBody !== body;
                   await persistEdit(editedBody);
                   setIsEditing(false);
+                  if (wasEdited) setStyleLearned(true);
                 }}
               >
                 {saving ? "Saving..." : "Save"}
