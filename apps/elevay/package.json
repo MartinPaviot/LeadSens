@@ -9,10 +9,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@leadsens/db": "workspace:*",
-    "@leadsens/ui": "workspace:*",
     "@assistant-ui/react": "^0.12.14",
     "@assistant-ui/react-markdown": "^0.12.5",
+    "@leadsens/db": "workspace:*",
     "@mistralai/mistralai": "^1.14.1",
     "@phosphor-icons/react": "^2.1.10",
     "@prisma/client": "^6.19.2",
@@ -31,6 +30,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
+    "shadcn": "^3.8.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
