@@ -1,7 +1,5 @@
-"use client";
-
-import AgentChat from "@/components/chat/agent-chat";
+import { redirect } from "next/navigation";
 
 export default function ChatPage() {
-  return <AgentChat />;
+  redirect("/home?agent=open");
 }

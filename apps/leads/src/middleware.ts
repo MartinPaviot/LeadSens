@@ -24,11 +24,10 @@ export function middleware(request: NextRequest) {
     request.cookies.has(SESSION_COOKIE) ||
     request.cookies.has(SECURE_SESSION_COOKIE);
 
-  // Landing page "/" is always public
+  // Landing page "/" → dashboard home for authenticated users, marketing page otherwise
   if (pathname === "/") {
-    // If logged in, redirect to chat (the main app)
     if (hasSession) {
-      return NextResponse.redirect(new URL("/chat", request.url));
+      return NextResponse.redirect(new URL("/home", request.url));
     }
     return NextResponse.next();
   }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MagnifyingGlass } from "@phosphor-icons/react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, Input } from "@leadsens/ui";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input } from "@leadsens/ui";
 
 interface SearchResult {
   id: string;
@@ -94,6 +94,7 @@ export function SearchDialog({ open, onOpenChange, onSelect }: SearchDialogProps
       <DialogContent className="sm:max-w-md p-0 gap-0" showCloseButton={false}>
         <DialogHeader className="sr-only">
           <DialogTitle>Search conversations</DialogTitle>
+          <DialogDescription>Search through your conversations</DialogDescription>
         </DialogHeader>
         <div className="flex items-center gap-2 px-3 border-b">
           <MagnifyingGlass className="size-4 text-muted-foreground shrink-0" />

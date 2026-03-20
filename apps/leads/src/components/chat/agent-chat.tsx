@@ -16,9 +16,9 @@ import { PipelineStatusBar } from "./pipeline-status-bar";
 import { CampaignPipelineBar } from "./campaign-pipeline-bar";
 import { ThemeToggle } from "./theme-toggle";
 import { AutonomySelector } from "./autonomy-selector";
-import { MessageActionsProvider, type MessageActions, AgentActivityContext, type ThinkingStep, useSidebar, Button } from "@leadsens/ui";
+import { MessageActionsProvider, type MessageActions, AgentActivityContext, type ThinkingStep } from "@leadsens/ui";
 import { useConversations } from "@/components/conversation-provider";
-import { SidebarSimple } from "@phosphor-icons/react";
+import { useAgentPanelSafe } from "@/components/agent-panel/use-agent-panel-safe";
 import type { SSEEventName, SSEEventPayload } from "@/lib/sse";
 
 // ─── Types ───────────────────────────────────────────────
@@ -173,6 +173,10 @@ function extractToolSummary(
         const count = output.count as number | undefined;
         return count != null ? `${count} sample leads found` : null;
       }
+      case "show_tam": {
+        const summary = output.summary as string | undefined;
+        return summary ?? "TAM loaded";
+      }
       default:
         return null;
     }
@@ -190,7 +194,11 @@ const DEFAULT_RETRY_MS = 3000;
 
 // ─── Main Component ──────────────────────────────────────
 
-export default function AgentChat() {
+interface AgentChatProps {
+  compact?: boolean;
+}
+
+export default function AgentChat({ compact = false }: AgentChatProps) {
   const {
     activeId,
     chatKey,
@@ -200,7 +208,6 @@ export default function AgentChat() {
   } = useConversations();
 
   const activeTitle = conversations.find((c) => c.id === activeId)?.title;
-  const { state: sidebarState, toggleSidebar } = useSidebar();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -209,21 +216,16 @@ export default function AgentChat() {
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [integrations, setIntegrations] = useState<{ type: string; status: string; accountEmail?: string | null }[]>([]);
-  const [companyDna, setCompanyDna] = useState<{
-    oneLiner: string | null;
-    targetBuyers: Array<{ role?: string; sellingAngle?: string }>;
-    differentiators: string[];
-    problemsSolved: string[];
+  const [dashboardData, setDashboardData] = useState<{
+    tam: { total: number; burningEstimate: number; roles: string[] } | null;
+    companyDna: { oneLiner: string; targetBuyers: Array<{ role?: string; sellingAngle?: string }>; differentiators: string[] } | null;
+    weekStats: { sent: number; replied: number; meetings: number } | null;
+    activeCampaigns: Array<{ id: string; name: string; status: string; leadsTotal: number; leadsPushed: number; sent: number; replied: number; replyRate: string }>;
+    priorities: Array<{ type: "replies" | "stalled" | "uncommitted" | "no_campaigns"; label: string; action: string }>;
+    lastCampaign: { name: string; status: string; sent: number; replied: number; replyRate: string } | null;
   } | null>(null);
   const [pipelinePhase, setPipelinePhase] = useState<string | null>(null);
   const [resumptionSummary, setResumptionSummary] = useState<string | null>(null);
-  const [lastCampaign, setLastCampaign] = useState<{
-    name: string;
-    status: string;
-    sent: number;
-    replied: number;
-    replyRate: string;
-  } | null>(null);
 
   // Mutable refs for the current session
   const thinkingStepsRef = useRef<ThinkingStep[]>([]);
@@ -235,42 +237,18 @@ export default function AgentChat() {
   const retryCountRef = useRef(0);
   const retryIntervalRef = useRef(DEFAULT_RETRY_MS);
 
-  // Fetch integrations + Company DNA once on mount — data is ready before GreetingScreen renders
+  // Fetch integrations + dashboard data once on mount — data is ready before GreetingScreen renders
   useEffect(() => {
     fetch("/api/trpc/integration.list")
       .then((r) => r.json())
       .then((data) => { if (data?.result?.data) setIntegrations(data.result.data); })
       .catch(() => {});
 
-    fetch("/api/trpc/workspace.getCompanyDnaSummary")
+    fetch("/api/trpc/workspace.getDashboardData")
       .then((r) => r.json())
       .then((data) => {
-        const dna = data?.result?.data;
-        if (dna) setCompanyDna(dna);
-      })
-      .catch(() => {});
-
-    fetch("/api/trpc/campaign.listWithAnalytics")
-      .then((r) => r.json())
-      .then((data) => {
-        const campaigns = data?.result?.data ?? [];
-        if (campaigns.length === 0) return;
-        // Pick most recent campaign with analytics
-        const withStats = campaigns.find(
-          (c: { analyticsCache?: { sent?: number } | null }) =>
-            c.analyticsCache && (c.analyticsCache.sent ?? 0) > 0,
-        );
-        if (!withStats) return;
-        const sent = withStats.analyticsCache?.sent ?? 0;
-        const replied = withStats.analyticsCache?.replied ?? 0;
-        const rate = sent > 0 ? ((replied / sent) * 100).toFixed(1) : "0";
-        setLastCampaign({
-          name: withStats.name,
-          status: withStats.status,
-          sent,
-          replied,
-          replyRate: rate,
-        });
+        const result = data?.result?.data;
+        if (result) setDashboardData(result);
       })
       .catch(() => {});
   }, []);
@@ -805,14 +783,14 @@ export default function AgentChat() {
     thinkingStepsRef.current = thinkingSteps;
   }, [thinkingSteps]);
 
-  // ─── Refresh Company DNA when agent updates it ────────
+  // ─── Refresh dashboard data when agent updates company DNA ────────
   useEffect(() => {
     const handler = () => {
-      fetch("/api/trpc/workspace.getCompanyDnaSummary")
+      fetch("/api/trpc/workspace.getDashboardData")
         .then((r) => r.json())
         .then((data) => {
-          const dna = data?.result?.data;
-          if (dna) setCompanyDna(dna);
+          const result = data?.result?.data;
+          if (result) setDashboardData(result);
         })
         .catch(() => {});
     };
@@ -847,6 +825,35 @@ export default function AgentChat() {
     return () => window.removeEventListener("leadsens:campaign-launch", handler);
   }, [handleSend]);
 
+  // ─── Chat action event listener (from inline components) ──
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ message: string }>).detail;
+      if (detail?.message) {
+        handleSend(detail.message);
+      }
+    };
+    window.addEventListener("leadsens:chat-action", handler);
+    return () => window.removeEventListener("leadsens:chat-action", handler);
+  }, [handleSend]);
+
+  // ─── Prefill message from agent panel ──────────────────
+
+  const panelCtx = useAgentPanelSafe();
+  const prefillConsumedRef = useRef(false);
+  useEffect(() => {
+    const prefill = panelCtx?.prefillMessage;
+    if (prefill && !isStreaming && messages.length > 0 && !prefillConsumedRef.current) {
+      prefillConsumedRef.current = true;
+      panelCtx.clearPrefill();
+      // Delay to let the panel animation finish, then send
+      setTimeout(() => handleSend(prefill), 400);
+    }
+    // Reset consumed flag when prefill changes to a new value
+    if (!prefill) prefillConsumedRef.current = false;
+  }, [panelCtx?.prefillMessage, messages.length, isStreaming]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Derived state ────────────────────────────────────
 
   const isLoadingGreeting = !isLoadingHistory && messages.length === 0;
@@ -869,30 +876,22 @@ export default function AgentChat() {
 
   return (
     <AgentActivityContext.Provider value={activityValue}>
-      <div className="flex h-dvh" aria-label="Agent chat">
+      <div className={compact ? "flex flex-col h-full" : "flex h-dvh"} aria-label="Agent chat">
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
-          <header className="relative z-50 flex items-center justify-between px-4 py-1.5 border-b bg-background/95 backdrop-blur-sm shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              {sidebarState === "collapsed" && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 shrink-0"
-                  onClick={toggleSidebar}
-                >
-                  <SidebarSimple className="size-3.5" />
-                </Button>
-              )}
-              <span className="text-xs font-medium text-muted-foreground truncate">
-                {activeTitle || "New conversation"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <AutonomySelector />
-              <ThemeToggle />
-            </div>
-          </header>
+          {/* Header — hidden in compact mode (panel provides its own) */}
+          {!compact && (
+            <header className="relative z-50 flex items-center justify-between px-4 py-1.5 border-b bg-background/95 backdrop-blur-sm shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-medium text-muted-foreground truncate">
+                  {activeTitle || "New conversation"}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <AutonomySelector />
+                <ThemeToggle />
+              </div>
+            </header>
+          )}
 
           {/* Pipeline status bar — shows when campaigns exist */}
           <PipelineStatusBar />
@@ -926,8 +925,7 @@ export default function AgentChat() {
                 <GreetingScreen
                   isStreaming={isStreaming}
                   integrations={integrations}
-                  companyDna={companyDna}
-                  lastCampaign={lastCampaign}
+                  dashboardData={dashboardData}
                 />
               ) : (
                 <LeadSensThread isStreaming={isStreaming} pipelinePhase={pipelinePhase} />

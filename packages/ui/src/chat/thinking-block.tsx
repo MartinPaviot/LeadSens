@@ -24,7 +24,8 @@ export function ThinkingBlock({ avatar, appName }: ThinkingBlockProps) {
 
   const visibleSteps = deduplicateSteps(steps);
   const doneCount = visibleSteps.filter((s) => s.status === "done").length;
-  const allDone = doneCount === visibleSteps.length && !isThinking;
+  const completedCount = visibleSteps.filter((s) => s.status === "done" || s.status === "error").length;
+  const allDone = completedCount === visibleSteps.length && !isThinking;
 
   // Never hide while streaming — more steps may be coming.
   // Only hide when stream is fully done AND all steps completed.
@@ -53,11 +54,13 @@ export function ThinkingBlock({ avatar, appName }: ThinkingBlockProps) {
   }
 
   // Header text logic:
-  // - Streaming + running step → "Thinking..."
+  // - Streaming + running step → "Working... (N steps done)"
   // - Streaming + no running step (between rounds) → label or "Processing..."
   // - Not streaming → "X steps completed"
   const headerText = isStreaming
-    ? (isThinking ? "Thinking..." : (label ?? "Processing..."))
+    ? (isThinking
+        ? (doneCount > 0 ? `Working... (${doneCount} done)` : "Thinking...")
+        : (label ?? "Processing..."))
     : `${doneCount} step${doneCount > 1 ? "s" : ""} completed`;
 
   return (
@@ -118,21 +121,47 @@ export function ThinkingBlock({ avatar, appName }: ThinkingBlockProps) {
   );
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+}
+
 function StepRow({ step }: { step: ThinkingStep }) {
+  const duration =
+    step.completedAt && step.startedAt
+      ? formatDuration(step.completedAt - step.startedAt)
+      : null;
+
   return (
-    <div className="flex items-center gap-2 text-xs motion-safe:animate-[step-in_0.2s_ease-out]">
-      <StepIcon status={step.status} />
-      <span
-        className={
-          step.status === "running"
-            ? "text-foreground/80"
-            : step.status === "error"
-              ? "text-destructive/80"
-              : "text-muted-foreground"
-        }
-      >
-        {step.label}
-      </span>
+    <div className="flex flex-col gap-0.5 motion-safe:animate-[step-in_0.2s_ease-out]">
+      <div className="flex items-center gap-2 text-xs">
+        <StepIcon status={step.status} />
+        <span
+          className={
+            step.status === "running"
+              ? "text-foreground/80"
+              : step.status === "error"
+                ? "text-destructive/80"
+                : "text-muted-foreground"
+          }
+        >
+          {step.label}
+        </span>
+        {duration && step.status === "done" && (
+          <span className="text-[10px] text-muted-foreground/50 ml-auto tabular-nums">
+            {duration}
+          </span>
+        )}
+      </div>
+      {step.summary && step.status === "done" && (
+        <p className="text-[11px] text-muted-foreground/60 ml-5 pl-0.5">
+          {step.summary}
+        </p>
+      )}
     </div>
   );
 }

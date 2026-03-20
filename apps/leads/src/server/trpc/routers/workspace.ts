@@ -71,6 +71,277 @@ function normalizeMemoryToSchema(
 }
 
 export const workspaceRouter = router({
+  // ─── Dashboard Data (single query for greeting screen) ────
+
+  getDashboardData: protectedProcedure.query(async ({ ctx }) => {
+    const workspaceId = ctx.workspaceId;
+
+    if (!workspaceId) {
+      return {
+        tam: null,
+        companyDna: null,
+        weekStats: null,
+        activeCampaigns: [],
+        priorities: [{ type: "no_campaigns" as const, label: "No campaigns yet", action: "Help me create my first campaign" }],
+        lastCampaign: null,
+      };
+    }
+
+    const [workspace, campaigns, pendingReplies, uncommittedLeads] = await Promise.all([
+      prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+        `SELECT "tamResult", "tamBuiltAt", "tamIcp", "companyDna", "companyUrl"
+         FROM "workspace" WHERE "id" = $1 LIMIT 1`,
+        workspaceId,
+      ).then((rows) => rows[0] ?? {}).catch(() => ({} as Record<string, unknown>)),
+      prisma.campaign.findMany({
+        where: { workspaceId },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          analyticsCache: true,
+          leadsTotal: true,
+          leadsPushed: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.replyThread.count({
+        where: { workspaceId, status: "OPEN" },
+      }),
+      prisma.lead.count({
+        where: { workspaceId, status: "SOURCED", icpScore: { gte: 8 } },
+      }),
+    ]);
+
+    // ─── TAM summary ───
+    const tamRaw = workspace.tamResult as Record<string, unknown> | null;
+    const tamCounts = tamRaw?.counts as { total?: number } | undefined;
+    const tam = tamCounts?.total
+      ? {
+          total: tamCounts.total,
+          burningEstimate: (tamRaw?.burningEstimate as number) ?? 0,
+          roles: ((tamRaw?.roles as string[]) ?? []).slice(0, 3),
+        }
+      : null;
+
+    // ─── Company DNA summary ───
+    const dnaRaw = workspace.companyDna as Record<string, unknown> | null;
+    const companyDna = dnaRaw?.oneLiner
+      ? {
+          oneLiner: dnaRaw.oneLiner as string,
+          targetBuyers: Array.isArray(dnaRaw.targetBuyers)
+            ? (dnaRaw.targetBuyers as Array<{ role?: string; sellingAngle?: string }>)
+            : [],
+          differentiators: Array.isArray(dnaRaw.differentiators)
+            ? (dnaRaw.differentiators as string[])
+            : [],
+        }
+      : null;
+
+    // ─── This week stats ───
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    let weekSent = 0;
+    let weekReplied = 0;
+    let weekMeetings = 0;
+
+    for (const c of campaigns) {
+      const cache = c.analyticsCache as Record<string, unknown> | null;
+      if (!cache) continue;
+      // analyticsCache stores cumulative totals; we use these as approximate weekly stats
+      // for campaigns updated this week
+      if (c.updatedAt >= oneWeekAgo) {
+        weekSent += (cache.sent as number) ?? 0;
+        weekReplied += (cache.replied as number) ?? 0;
+        weekMeetings += (cache.meetings as number) ?? 0;
+      }
+    }
+
+    const weekStats = weekSent > 0
+      ? { sent: weekSent, replied: weekReplied, meetings: weekMeetings }
+      : null;
+
+    // ─── Active campaigns ───
+    const activeCampaigns = campaigns
+      .filter((c) => ["ACTIVE", "PUSHED", "MONITORING"].includes(c.status))
+      .map((c) => {
+        const cache = c.analyticsCache as Record<string, unknown> | null;
+        const sent = (cache?.sent as number) ?? 0;
+        const replied = (cache?.replied as number) ?? 0;
+        return {
+          id: c.id,
+          name: c.name,
+          status: c.status,
+          leadsTotal: c.leadsTotal,
+          leadsPushed: c.leadsPushed,
+          sent,
+          replied,
+          replyRate: sent > 0 ? ((replied / sent) * 100).toFixed(1) : "0",
+        };
+      });
+
+    // ─── Priorities ───
+    const priorities: Array<{
+      type: "replies" | "stalled" | "uncommitted" | "no_campaigns";
+      label: string;
+      action: string;
+    }> = [];
+
+    if (pendingReplies > 0) {
+      priorities.push({
+        type: "replies",
+        label: `${pendingReplies} new ${pendingReplies === 1 ? "reply" : "replies"} waiting`,
+        action: "Show new replies",
+      });
+    }
+
+    for (const c of activeCampaigns) {
+      if (c.sent > 0 && c.replied === 0 && c.leadsPushed >= 50) {
+        priorities.push({
+          type: "stalled",
+          label: `Campaign "${c.name}" at ${c.sent} sent, 0 replies`,
+          action: `Show campaign status for ${c.name}`,
+        });
+      }
+    }
+
+    // Low reply rate warning for campaigns with >50 sent and <2% reply rate
+    for (const c of activeCampaigns) {
+      if (c.sent > 50 && parseFloat(c.replyRate) < 2 && parseFloat(c.replyRate) >= 0) {
+        priorities.push({
+          type: "stalled",
+          label: `Campaign "${c.name}" at ${c.sent} sent, ${c.replyRate}% reply rate`,
+          action: `Analyze campaign "${c.name}" — reply rate is low`,
+        });
+      }
+    }
+
+    if (uncommittedLeads > 0) {
+      priorities.push({
+        type: "uncommitted",
+        label: `${uncommittedLeads} Tier A leads uncommitted`,
+        action: "Launch campaign with my best leads",
+      });
+    }
+
+    // TAM penetration
+    if (tam && tam.total > 0) {
+      const totalContacted = activeCampaigns.reduce((sum, c) => sum + c.sent, 0);
+      const penetrationPct = ((totalContacted / tam.total) * 100);
+      if (penetrationPct < 5) {
+        const remaining = tam.total - totalContacted;
+        priorities.push({
+          type: "uncommitted",
+          label: `TAM penetration: ${penetrationPct.toFixed(1)}% — ${remaining.toLocaleString()} accounts remaining`,
+          action: "Help me reach more of my TAM",
+        });
+      }
+    }
+
+    if (campaigns.length === 0) {
+      priorities.push({
+        type: "no_campaigns",
+        label: "No campaigns yet",
+        action: companyDna?.targetBuyers?.[0]?.role
+          ? `I'm looking for ${companyDna.targetBuyers[0].role}`
+          : "I'm looking for ",
+      });
+    }
+
+    // Cap at 4 priorities
+    const cappedPriorities = priorities.slice(0, 4);
+
+    return {
+      tam,
+      companyDna,
+      weekStats,
+      activeCampaigns,
+      priorities: cappedPriorities,
+      lastCampaign: activeCampaigns[0] ?? null,
+    };
+  }),
+
+  // ─── TAM Engine ───────────────────────────────────────────
+
+  getTAM: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.workspaceId) return null;
+
+    const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+      `SELECT "tamResult", "tamBuiltAt", "tamIcp" FROM "workspace" WHERE "id" = $1 LIMIT 1`,
+      ctx.workspaceId,
+    ).catch(() => []);
+
+    const workspace = rows[0];
+    if (!workspace?.tamResult) return null;
+
+    return {
+      result: workspace.tamResult as Record<string, unknown>,
+      builtAt: workspace.tamBuiltAt as Date | null,
+      icp: workspace.tamIcp as Record<string, unknown> | null,
+    };
+  }),
+
+  getMarketLeads: protectedProcedure
+    .input(
+      z.object({
+        tier: z.enum(["A", "B", "C", "D"]).optional(),
+        status: z.string().optional(),
+        sortBy: z.enum(["score", "updatedAt"]).default("score"),
+        limit: z.number().min(1).max(200).default(50),
+        offset: z.number().min(0).default(0),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (!ctx.workspaceId) return { leads: [], total: 0 };
+
+      // Build where clause
+      const where: Record<string, unknown> = { workspaceId: ctx.workspaceId };
+      if (input.status) {
+        where.status = input.status;
+      }
+      if (input.tier) {
+        const tierRanges: Record<string, [number, number]> = {
+          A: [9, 10], B: [7, 8], C: [5, 6], D: [0, 4],
+        };
+        const [min, max] = tierRanges[input.tier];
+        where.icpScore = { gte: min, lte: max };
+      }
+
+      const [leads, total] = await Promise.all([
+        prisma.lead.findMany({
+          where,
+          orderBy: input.sortBy === "score"
+            ? { icpScore: { sort: "desc", nulls: "last" } }
+            : { updatedAt: "desc" },
+          take: input.limit,
+          skip: input.offset,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            company: true,
+            jobTitle: true,
+            email: true,
+            linkedinUrl: true,
+            country: true,
+            industry: true,
+            companySize: true,
+            icpScore: true,
+            icpBreakdown: true,
+            enrichmentData: true,
+            status: true,
+            createdAt: true,
+          },
+        }),
+        prisma.lead.count({ where }),
+      ]);
+
+      return { leads, total };
+    }),
+
   // ─── Billing ──────────────────────────────────────────────
 
   getBillingState: protectedProcedure.query(async ({ ctx }) => {

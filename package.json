@@ -27,5 +27,8 @@
       "unrs-resolver",
       "msgpackr-extract"
     ]
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
   }
 }

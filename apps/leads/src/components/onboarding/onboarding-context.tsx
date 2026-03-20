@@ -49,7 +49,7 @@ interface OnboardingContextValue {
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
-export const TOTAL_STEPS = 2;
+export const TOTAL_STEPS = 3;
 
 const STORAGE_KEY = "leadsens-onboarding";
 

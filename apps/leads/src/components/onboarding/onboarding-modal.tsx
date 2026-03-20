@@ -12,12 +12,14 @@ import {
   type OnboardingState,
 } from "./onboarding-context";
 import { CompanyUrlStep } from "./steps/company-url-step";
+import { TAMStep } from "./steps/tam-step";
 import { IntegrationsStep } from "./steps/integrations-step";
 
 // ─── Progress bar ──────────────────────────────────────
 
 const STEP_LABELS = [
   "Your website",
+  "Your market",
   "Connect tools",
 ];
 
@@ -81,9 +83,10 @@ function OnboardingModalInner({ onDone }: { onDone: () => void }) {
     onDone,
   ]);
 
-  // 2-step flow: Company URL → Integrations → done
+  // 3-step flow: Company URL → TAM → Integrations → done
   const steps: ReactNode[] = [
     <CompanyUrlStep key="company-url" />,
+    <TAMStep key="tam" />,
     <IntegrationsStep key="integrations" onComplete={handleComplete} />,
   ];
 

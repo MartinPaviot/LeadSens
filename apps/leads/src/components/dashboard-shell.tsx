@@ -1,29 +1,31 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { SidebarProvider } from "@leadsens/ui";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarEdgeTrigger } from "@leadsens/ui";
+import { Suspense, type ReactNode } from "react";
 import { ConversationProvider } from "@/components/conversation-provider";
+import { AgentPanelProvider } from "@/components/agent-panel/agent-panel-context";
+import { AgentPanel } from "@/components/agent-panel/agent-panel";
+import { NavBar } from "@/components/layout/nav-bar";
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal";
 
 interface DashboardShellProps {
   children: ReactNode;
-  defaultSidebarOpen: boolean;
 }
 
-export function DashboardShell({
-  children,
-  defaultSidebarOpen,
-}: DashboardShellProps) {
+export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <ConversationProvider>
-      <SidebarProvider defaultOpen={defaultSidebarOpen}>
-        <AppSidebar />
-        <SidebarEdgeTrigger />
-        <main className="flex-1 min-w-0">{children}</main>
-        <OnboardingModal />
-      </SidebarProvider>
+      <Suspense>
+        <AgentPanelProvider>
+          <div className="flex flex-col h-dvh">
+            <NavBar />
+            <main className="flex-1 min-h-0 overflow-y-auto pb-14 md:pb-0">
+              {children}
+            </main>
+          </div>
+          <AgentPanel />
+          <OnboardingModal />
+        </AgentPanelProvider>
+      </Suspense>
     </ConversationProvider>
   );
 }
