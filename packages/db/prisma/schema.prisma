@@ -86,6 +86,10 @@ model Workspace {
   billingPeriodEnd        DateTime?
   leadsUsedThisMonth      Int       @default(0)
   leadsResetAt            DateTime  @default(now())
+  // TAM Engine
+  tamResult               Json?     // Full TAM result (ICP + counts + scored leads)
+  tamBuiltAt              DateTime? // When TAM was last built
+  tamIcp                  Json?     // Inferred ICP (separate for editing without rebuild)
   agentFeedbacks  AgentFeedback[]
   agentMemories  AgentMemory[]
   aiEvents       AIEvent[]

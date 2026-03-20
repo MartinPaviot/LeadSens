@@ -4,12 +4,14 @@ interface ShortcutHandlers {
   onSearch?: () => void;
   onNewChat?: () => void;
   onCancelStream?: () => void;
+  onToggleAgent?: () => void;
 }
 
 export function useKeyboardShortcuts({
   onSearch,
   onNewChat,
   onCancelStream,
+  onToggleAgent,
 }: ShortcutHandlers) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -19,6 +21,13 @@ export function useKeyboardShortcuts({
       if (isCtrlOrMeta && e.key === "k") {
         e.preventDefault();
         onSearch?.();
+        return;
+      }
+
+      // Ctrl+J / Cmd+J → toggle agent panel
+      if (isCtrlOrMeta && e.key === "j") {
+        e.preventDefault();
+        onToggleAgent?.();
         return;
       }
 
@@ -38,5 +47,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onSearch, onNewChat, onCancelStream]);
+  }, [onSearch, onNewChat, onCancelStream, onToggleAgent]);
 }

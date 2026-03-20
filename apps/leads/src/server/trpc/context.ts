@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function createContext(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
+
   if (!session?.user) {
-    throw new Error("Unauthorized");
+    return { userId: null, workspaceId: null, workspace: null };
   }
 
   const user = await prisma.user.findUnique({
@@ -13,7 +14,7 @@ export async function createContext(req: Request) {
   });
 
   if (!user) {
-    throw new Error("User not found");
+    return { userId: null, workspaceId: null, workspace: null };
   }
 
   return {

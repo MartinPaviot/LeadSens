@@ -1,1 +1,0 @@
-[   12917ms] [WARNING] WebSocket connection to 'wss://app.lemlist.com/sockjs/566/vaxe4vi1/websocket' failed: WebSocket is closed before the connection is established. @ https://app.lemlist.com/2e76c3d403690ff5c0b2a603883ec3c8cc5391a8.js?meteor_js_resource=true:481

@@ -7,6 +7,7 @@ import { LeadSensComposer } from "./composer";
 import { ScrollToBottomPill } from "./scroll-to-bottom";
 import { ThinkingBlock } from "./thinking-block";
 import { SuggestionChips } from "./suggestion-chips";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function LeadSensThread({ isStreaming, pipelinePhase }: { isStreaming: boolean; pipelinePhase?: string | null }) {
@@ -16,6 +17,7 @@ export function LeadSensThread({ isStreaming, pipelinePhase }: { isStreaming: bo
 
         {/* Content column */}
         <div className="max-w-[816px] mx-auto w-full px-4 md:pl-0 md:pr-12 py-6 flex-1 space-y-5">
+          <ErrorBoundary>
           <ThreadPrimitive.Messages
             components={{
               AssistantMessage,
@@ -25,6 +27,7 @@ export function LeadSensThread({ isStreaming, pipelinePhase }: { isStreaming: bo
 
           {/* Thinking steps — appears after the last message during streaming */}
           <ThinkingBlock />
+          </ErrorBoundary>
         </div>
 
         {/* Sticky footer */}

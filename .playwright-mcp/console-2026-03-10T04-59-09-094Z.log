@@ -1,2 +1,0 @@
-[    2867ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://tb.featurebaseapp.com/v0/events?name=analytics_events&token=p.eyJ1IjogIjhiNzg4Mzc5LWEyZGQtNDAxZi1hZjMzLTM2Y2MxYTRiMGQ5YiIsICJpZCI6ICI0N2EwYmNiZC04M2MxLTQwNzAtODQzMS05MGE2ZjBkNWJiYTkiLCAiaG9zdCI6ICJhd3MtZXUtY2VudHJhbC0xIn0.tfMb9G_9NE6EG7qnt30xS2dQOkx62J8ZzA3EAELuBnY:0
-[    2910ms] [ERROR] Manifest: Line: 1, column: 1, Syntax error. @ https://fb-usercontent.fra1.cdn.digitaloceanspaces.com/1714746861672.png:0

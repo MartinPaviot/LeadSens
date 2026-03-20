@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { Button, Card, Input, Badge } from "@leadsens/ui";
 import { toast } from "sonner";
-import { CheckCircle, Eye, EyeSlash, FileArrowUp, Lock, Spinner, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, Eye, EyeSlash, FileArrowUp, Lock, Spinner, XCircle, Star } from "@phosphor-icons/react";
 import type { ConnectorMeta, ConnectorCategory } from "@/server/lib/integrations/types";
 
 // ─── Registry data (client-safe, imported at build time) ──
@@ -27,6 +28,93 @@ const API_KEY_HELP_URLS: Record<string, string> = {
 };
 
 type ValidationState = "idle" | "loading" | "valid" | "invalid";
+
+// ─── Constants ──────────────────────────────────────────
+
+const ESSENTIAL_CATEGORIES: ConnectorCategory[] = ["esp", "lead_database"];
+const RECOMMENDED_IDS = new Set(["INSTANTLY", "APOLLO", "HUBSPOT"]);
+const CATEGORY_DESCRIPTIONS: Record<ConnectorCategory, string> = {
+  esp: "Send your campaigns. Required to go from drafted emails to live outreach.",
+  lead_database: "Find leads matching your ICP with verified contact data.",
+  crm: "Auto-push contacts and deals to your CRM when leads reply.",
+  email_verification: "Verify emails before sending to protect your sender reputation.",
+  enrichment: "Add company and contact data to improve personalization.",
+  warmup: "Warm up new email accounts to improve deliverability.",
+  linkedin_outreach: "Automate LinkedIn connection requests and messages.",
+  scheduling: "Let prospects book meetings directly from your emails.",
+  workflow: "Connect LeadSens to your existing automation workflows.",
+  notification: "Get notified in your team channels when leads reply.",
+  export: "Export lead data to spreadsheets and databases.",
+};
+
+// Pareto 80/20: only the ~20% of tools per category that cover ~80% of the market.
+const PARETO_IDS = new Set([
+  "INSTANTLY", "LEMLIST", "SMARTLEAD", "REPLY_IO",
+  "APOLLO", "ZOOMINFO", "SEAMLESS_AI", "LUSHA",
+  "ZEROBOUNCE", "MILLIONVERIFIER",
+  "HUBSPOT", "SALESFORCE", "PIPEDRIVE",
+  "CALENDLY",
+  "SLACK",
+  "CSV", "AIRTABLE", "NOTION", "GOOGLE_SHEETS",
+]);
+
+const ALL_CONNECTORS = getAllConnectorMetas().filter(c => PARETO_IDS.has(c.id));
+
+interface Integration {
+  type: string;
+  status: string;
+  accountEmail?: string | null;
+}
+
+// ─── Logo mapping (real assets in /public) ──────────────
+
+const LOGO_PATHS: Record<string, string> = {
+  INSTANTLY:       "/instantly.svg",
+  APOLLO:          "/apollo.svg",
+  HUBSPOT:         "/hubspot.svg",
+  SALESFORCE:      "/salesforce.svg",
+  SMARTLEAD:       "/smartlead.svg",
+  LEMLIST:         "/logos/lemlist.png",
+  REPLY_IO:        "/logos/reply-io.png",
+  PIPEDRIVE:       "/logos/pipedrive.png",
+  ZEROBOUNCE:      "/logos/zerobounce.png",
+  MILLIONVERIFIER: "/logos/millionverifier.png",
+  SEAMLESS_AI:     "/logos/seamless-ai.png",
+  LUSHA:           "/logos/lusha.png",
+  ZOOMINFO:        "/logos/zoominfo.png",
+  CALENDLY:        "/logos/calendly.png",
+  SLACK:           "/logos/slack.png",
+  AIRTABLE:        "/logos/airtable.png",
+  NOTION:          "/logos/notion.png",
+  GOOGLE_SHEETS:   "/logos/google-sheets.png",
+};
+
+function ConnectorLogo({ connector, size = 40 }: { connector: ConnectorMeta; size?: number }) {
+  const src = LOGO_PATHS[connector.id];
+  if (src) {
+    return (
+      <Image
+        src={src}
+        alt={connector.name}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-lg object-contain"
+        style={{ height: size, width: size }}
+      />
+    );
+  }
+  const bgColor = connector.brandColor ?? "#6B7280";
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center rounded-lg text-white font-bold text-sm"
+      style={{ backgroundColor: bgColor, height: size, width: size }}
+    >
+      {connector.name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+// ─── TrustNote ──────────────────────────────────────────
 
 function TrustNote({
   toolId,
@@ -70,50 +158,9 @@ function TrustNote({
   );
 }
 
-// Pareto 80/20: only the ~20% of tools per category that cover ~80% of the market.
-// Based on verified data: G2 reviews, Chrome Web Store installs, BuiltWith detections.
-const PARETO_IDS = new Set([
-  // ESP: Instantly (3,951 G2), Reply.io (1,527 G2), Lemlist (1,272 G2), Smartlead (fastest-growing)
-  "INSTANTLY", "LEMLIST", "SMARTLEAD", "REPLY_IO",
-  // Lead DB: Apollo (9,344 G2, 900K Chrome), ZoomInfo (9,033 G2), Seamless.AI (5,297 G2), Lusha (1,611 G2, 400K Chrome)
-  "APOLLO", "ZOOMINFO", "SEAMLESS_AI", "LUSHA",
-  // Verification: ZeroBounce (100K+ clients), MillionVerifier (70K+)
-  "ZEROBOUNCE", "MILLIONVERIFIER",
-  // CRM: HubSpot (13,549 G2, 1M Chrome), Salesforce (25,471 G2), Pipedrive (2,946 G2)
-  "HUBSPOT", "SALESFORCE", "PIPEDRIVE",
-  // Scheduling: Calendly (26.5% market, 20M users)
-  "CALENDLY",
-  // Notifications: Slack (42M DAU)
-  "SLACK",
-  // Export: CSV, Airtable (15M MAU), Notion (100M users), Google Sheets (1B+ users)
-  "CSV", "AIRTABLE", "NOTION", "GOOGLE_SHEETS",
-]);
+// ─── Compact Connector Row ──────────────────────────────
 
-const ALL_CONNECTORS = getAllConnectorMetas().filter(c => PARETO_IDS.has(c.id));
-
-interface Integration {
-  type: string;
-  status: string;
-  accountEmail?: string | null;
-}
-
-// ─── Letter Avatar ──────────────────────────────────────
-
-function LetterAvatar({ name, color }: { name: string; color?: string }) {
-  const bgColor = color ?? "#6B7280";
-  return (
-    <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white font-bold text-sm"
-      style={{ backgroundColor: bgColor }}
-    >
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
-
-// ─── Generic API key integration card ─────────────────────
-
-function ApiKeyCard({
+function CompactConnectorRow({
   connector,
   integrations,
   setIntegrations,
@@ -121,6 +168,147 @@ function ApiKeyCard({
   connector: ConnectorMeta;
   integrations: Integration[];
   setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isConnected = integrations.some(
+    (i) => i.type === connector.id && i.status === "ACTIVE",
+  );
+  const isRecommended = RECOMMENDED_IDS.has(connector.id);
+
+  if (connector.authMethod === "coming_soon") {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/30 opacity-50">
+        <ConnectorLogo connector={connector} size={24} />
+        <span className="text-sm font-medium flex-1">{connector.name}</span>
+        <Badge variant="outline" className="text-muted-foreground text-[10px]">Coming Soon</Badge>
+      </div>
+    );
+  }
+
+  if (connector.authMethod === "none") {
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/30">
+        <ConnectorLogo connector={connector} size={24} />
+        <span className="text-sm font-medium flex-1">{connector.name}</span>
+        <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/30 text-[10px]">Built-in</Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border/30 overflow-hidden">
+      {/* Collapsed row */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-3 px-3 py-2.5 w-full text-left hover:bg-accent/30 transition-colors"
+      >
+        <ConnectorLogo connector={connector} size={24} />
+        <span className="text-sm font-medium flex-1">{connector.name}</span>
+        {isRecommended && !isConnected && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5">
+            <Star className="size-2.5" weight="fill" />
+            Recommended
+          </span>
+        )}
+        {isConnected && (
+          <span className="flex items-center gap-1">
+            <span className="size-2 rounded-full bg-green-500" />
+            <Badge className="bg-green-600/20 text-green-400 border-green-600/30 text-[10px]">Connected</Badge>
+          </span>
+        )}
+        {!isConnected && !expanded && (
+          <span className="text-xs text-muted-foreground/50">Click to connect</span>
+        )}
+      </button>
+
+      {/* Expanded content */}
+      <div
+        className="grid transition-all duration-200 ease-in-out"
+        style={{ gridTemplateRows: expanded ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden min-h-0">
+          <div className="px-3 pb-3 pt-1 border-t border-border/20">
+            <p className="text-xs text-muted-foreground mb-3">{connector.description}</p>
+            <ConnectorForm
+              connector={connector}
+              integrations={integrations}
+              setIntegrations={setIntegrations}
+              isConnected={isConnected}
+              onDone={() => setExpanded(false)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Connector Form (API key / OAuth / Composio) ────────
+
+function ConnectorForm({
+  connector,
+  integrations,
+  setIntegrations,
+  isConnected,
+  onDone,
+}: {
+  connector: ConnectorMeta;
+  integrations: Integration[];
+  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
+  isConnected: boolean;
+  onDone: () => void;
+}) {
+  if (isConnected) {
+    return (
+      <DisconnectButton
+        connector={connector}
+        setIntegrations={setIntegrations}
+        onDone={onDone}
+      />
+    );
+  }
+
+  switch (connector.authMethod) {
+    case "api_key":
+      return (
+        <ApiKeyForm
+          connector={connector}
+          setIntegrations={setIntegrations}
+          onDone={onDone}
+        />
+      );
+    case "oauth":
+      return (
+        <OAuthButton
+          connector={connector}
+          setIntegrations={setIntegrations}
+          onDone={onDone}
+        />
+      );
+    case "composio":
+      return (
+        <ComposioButton
+          connector={connector}
+          setIntegrations={setIntegrations}
+          onDone={onDone}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
+// ─── API Key Form ───────────────────────────────────────
+
+function ApiKeyForm({
+  connector,
+  setIntegrations,
+  onDone,
+}: {
+  connector: ConnectorMeta;
+  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
+  onDone: () => void;
 }) {
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -158,10 +346,6 @@ function ApiKeyCard({
     }
   }, [connector.id]);
 
-  const isConnected = integrations.some(
-    (i) => i.type === connector.id && i.status === "ACTIVE",
-  );
-
   const connect = useCallback(async () => {
     if (!apiKey.trim()) return;
     setConnecting(true);
@@ -181,23 +365,18 @@ function ApiKeyCard({
       };
       if (res.ok) {
         toast.success(`${connector.name} connected`);
-        // Show setup actions (e.g. "Webhook auto-configured")
         if (data.setup_actions) {
-          for (const action of data.setup_actions) {
-            toast.info(action);
-          }
+          for (const action of data.setup_actions) toast.info(action);
         }
-        // Show warnings (e.g. "3 existing webhooks found")
         if (data.setup_warnings) {
-          for (const warning of data.setup_warnings) {
-            toast.warning(warning, { duration: 8000 });
-          }
+          for (const warning of data.setup_warnings) toast.warning(warning, { duration: 8000 });
         }
         setIntegrations((prev) => [
           ...prev.filter((i) => i.type !== connector.id),
           { type: connector.id, status: "ACTIVE" },
         ]);
         setApiKey("");
+        onDone();
       } else {
         toast.error(data.error || "Connection failed");
       }
@@ -206,166 +385,127 @@ function ApiKeyCard({
     } finally {
       setConnecting(false);
     }
-  }, [apiKey, connector.id, connector.name, setIntegrations, validationState]);
-
-  const disconnect = useCallback(async () => {
-    await fetch(`/api/integrations/${connector.id.toLowerCase()}`, {
-      method: "DELETE",
-    });
-    setIntegrations((prev) => prev.filter((i) => i.type !== connector.id));
-    toast.success(`${connector.name} disconnected`);
-  }, [connector.id, connector.name, setIntegrations]);
+  }, [apiKey, connector.id, connector.name, setIntegrations, validationState, onDone]);
 
   return (
-    <Card className="p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <LetterAvatar name={connector.name} color={connector.brandColor} />
-          <div>
-            <h2 className="text-sm font-semibold">{connector.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {connector.description}
-            </p>
-          </div>
+    <form onSubmit={(e) => { e.preventDefault(); void connect(); }}>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Input
+            type={showKey ? "text" : "password"}
+            placeholder={connector.placeholder ?? `${connector.name} API Key`}
+            value={apiKey}
+            onChange={(e) => {
+              setApiKey(e.target.value);
+              if (validationState !== "idle") {
+                setValidationState("idle");
+                setValidationError(undefined);
+              }
+            }}
+            onBlur={() => { if (apiKey.trim()) void validateApiKey(apiKey); }}
+            className={`pr-9 ${
+              validationState === "valid"   ? "border-green-500 focus-visible:ring-green-500/20" :
+              validationState === "invalid" ? "border-red-500 focus-visible:ring-red-500/20" : ""
+            }`}
+          />
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowKey((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            tabIndex={-1}
+          >
+            {showKey ? <EyeSlash className="size-4" /> : <Eye className="size-4" />}
+          </button>
         </div>
-        {isConnected ? (
-          <Badge className="bg-green-600/20 text-green-400 border-green-600/30">
-            Connected
-          </Badge>
-        ) : (
-          <Badge variant="outline">Not connected</Badge>
-        )}
-      </div>
-
-      {isConnected ? (
-        <Button variant="outline" size="sm" onClick={disconnect}>
-          Disconnect
+        <Button type="submit" size="sm" disabled={connecting || !apiKey.trim()}>
+          {connecting ? "Connecting..." : "Connect"}
         </Button>
-      ) : (
-        <div>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={showKey ? "text" : "password"}
-                placeholder={connector.placeholder ?? `${connector.name} API Key`}
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  if (validationState !== "idle") {
-                    setValidationState("idle");
-                    setValidationError(undefined);
-                  }
-                }}
-                onBlur={() => { if (apiKey.trim()) void validateApiKey(apiKey); }}
-                className={`pr-9 ${
-                  validationState === "valid"   ? "border-green-500 focus-visible:ring-green-500/20" :
-                  validationState === "invalid" ? "border-red-500 focus-visible:ring-red-500/20" : ""
-                }`}
-              />
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                tabIndex={-1}
-              >
-                {showKey ? <EyeSlash className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-            <Button
-              size="sm"
-              onClick={connect}
-              disabled={connecting || !apiKey.trim()}
-            >
-              {connecting ? "Connecting..." : "Connect"}
-            </Button>
-          </div>
-          <TrustNote toolId={connector.id} state={validationState} error={validationError} />
-        </div>
-      )}
-    </Card>
+      </div>
+      <TrustNote toolId={connector.id} state={validationState} error={validationError} />
+    </form>
   );
 }
 
-// ─── OAuth integration card ──────────────────────────────
+// ─── OAuth Button ───────────────────────────────────────
 
-function OAuthCard({
+function OAuthButton({
   connector,
-  integrations,
   setIntegrations,
+  onDone,
 }: {
   connector: ConnectorMeta;
-  integrations: Integration[];
   setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
-}) {
-  const isConnected = integrations.some(
-    (i) => i.type === connector.id && i.status === "ACTIVE",
-  );
-
-  const disconnect = useCallback(async () => {
-    await fetch(`/api/integrations/${connector.id.toLowerCase()}`, {
-      method: "DELETE",
-    });
-    setIntegrations((prev) => prev.filter((i) => i.type !== connector.id));
-    toast.success(`${connector.name} disconnected`);
-  }, [connector.id, connector.name, setIntegrations]);
-
-  return (
-    <Card className="p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <LetterAvatar name={connector.name} color={connector.brandColor} />
-          <div>
-            <h2 className="text-sm font-semibold">{connector.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {connector.description}
-            </p>
-          </div>
-        </div>
-        {isConnected ? (
-          <Badge className="bg-green-600/20 text-green-400 border-green-600/30">
-            Connected
-          </Badge>
-        ) : (
-          <Badge variant="outline">Not connected</Badge>
-        )}
-      </div>
-
-      {isConnected ? (
-        <Button variant="outline" size="sm" onClick={disconnect}>
-          Disconnect
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          onClick={() => {
-            window.location.href = `/api/integrations/${connector.id.toLowerCase()}/auth`;
-          }}
-        >
-          Connect with {connector.name}
-        </Button>
-      )}
-    </Card>
-  );
-}
-
-// ─── Composio OAuth integration card ────────────────────
-
-function ComposioOAuthCard({
-  connector,
-  integrations,
-  setIntegrations,
-}: {
-  connector: ConnectorMeta;
-  integrations: Integration[];
-  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
+  onDone: () => void;
 }) {
   const [connecting, setConnecting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isConnected = integrations.some(
-    (i) => i.type === connector.id && i.status === "ACTIVE",
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  const connect = useCallback(() => {
+    const popup = window.open(
+      `/api/integrations/${connector.id.toLowerCase()}/auth`,
+      `${connector.id.toLowerCase()}-auth`,
+      "width=600,height=700",
+    );
+    if (!popup) {
+      toast.error("Popup blocked. Please allow popups for this site.");
+      return;
+    }
+    setConnecting(true);
+    pollRef.current = setInterval(async () => {
+      if (!popup.closed) return;
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      try {
+        const res = await fetch("/api/trpc/integration.list");
+        const data = await res.json();
+        const list = data?.result?.data;
+        if (Array.isArray(list)) {
+          const match = list.find(
+            (i: { type: string; status: string }) =>
+              i.type === connector.id && i.status === "ACTIVE",
+          );
+          if (match) {
+            setIntegrations((prev) => [
+              ...prev.filter((i) => i.type !== connector.id),
+              { type: connector.id, status: "ACTIVE" },
+            ]);
+            toast.success(`${connector.name} connected`);
+            onDone();
+          }
+        }
+      } catch { /* Best-effort */ }
+      finally { setConnecting(false); }
+    }, 500);
+  }, [connector.id, connector.name, setIntegrations, onDone]);
+
+  return (
+    <Button size="sm" onClick={connect} disabled={connecting}>
+      {connecting ? "Connecting..." : `Connect with ${connector.name}`}
+    </Button>
   );
+}
+
+// ─── Composio OAuth Button ──────────────────────────────
+
+function ComposioButton({
+  connector,
+  setIntegrations,
+  onDone,
+}: {
+  connector: ConnectorMeta;
+  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
+  onDone: () => void;
+}) {
+  const [connecting, setConnecting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   const connect = useCallback(async () => {
     setConnecting(true);
@@ -375,8 +515,8 @@ function ComposioOAuthCard({
       );
       if (!authRes.ok) {
         const msg = authRes.status === 503
-          ? "Cette intégration sera disponible prochainement"
-          : "Échec de connexion. Réessayez.";
+          ? "This integration will be available soon"
+          : "Connection failed. Please try again.";
         toast.error(msg);
         setConnecting(false);
         return;
@@ -385,27 +525,20 @@ function ComposioOAuthCard({
         redirectUrl: string;
         connectionId: string;
       };
-
+      toast.info("You'll be redirected through a secure authorization page");
       const popup = window.open(
         redirectUrl,
-        `${connector.id.toLowerCase()}-composio`,
+        `${connector.id.toLowerCase()}-auth`,
         "width=600,height=700",
       );
-
       if (!popup) {
         toast.error("Popup blocked. Please allow popups for this site.");
         setConnecting(false);
         return;
       }
-
       pollRef.current = setInterval(async () => {
         if (!popup.closed) return;
-
-        if (pollRef.current) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-        }
-
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         try {
           const verifyRes = await fetch(
             `/api/integrations/${connector.id.toLowerCase()}/composio/verify?connectionId=${connectionId}`,
@@ -415,13 +548,13 @@ function ComposioOAuthCard({
             status?: string;
             error?: string;
           };
-
           if (data.connected) {
             setIntegrations((prev) => [
               ...prev.filter((i) => i.type !== connector.id),
               { type: connector.id, status: "ACTIVE" },
             ]);
             toast.success(`${connector.name} connected`);
+            onDone();
           } else {
             toast.error(`${connector.name} connection not completed`);
           }
@@ -435,185 +568,64 @@ function ComposioOAuthCard({
       toast.error("Connection failed");
       setConnecting(false);
     }
-  }, [connector.id, connector.name, setIntegrations]);
+  }, [connector.id, connector.name, setIntegrations, onDone]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
+  return (
+    <Button size="sm" onClick={() => void connect()} disabled={connecting}>
+      {connecting ? "Connecting..." : `Connect with ${connector.name}`}
+    </Button>
+  );
+}
 
+// ─── Disconnect Button ──────────────────────────────────
+
+function DisconnectButton({
+  connector,
+  setIntegrations,
+  onDone,
+}: {
+  connector: ConnectorMeta;
+  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
+  onDone: () => void;
+}) {
   const disconnect = useCallback(async () => {
+    const ok = window.confirm(
+      `Disconnect ${connector.name}? Any automations using this integration will stop.`,
+    );
+    if (!ok) return;
     await fetch(`/api/integrations/${connector.id.toLowerCase()}`, {
       method: "DELETE",
     });
     setIntegrations((prev) => prev.filter((i) => i.type !== connector.id));
     toast.success(`${connector.name} disconnected`);
-  }, [connector.id, connector.name, setIntegrations]);
+    onDone();
+  }, [connector.id, connector.name, setIntegrations, onDone]);
 
   return (
-    <Card className="p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <LetterAvatar name={connector.name} color={connector.brandColor} />
-          <div>
-            <h2 className="text-sm font-semibold">{connector.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {connector.description}
-            </p>
-          </div>
-        </div>
-        {isConnected ? (
-          <Badge className="bg-green-600/20 text-green-400 border-green-600/30">
-            Connected
-          </Badge>
-        ) : (
-          <Badge variant="outline">Not connected</Badge>
-        )}
-      </div>
-
-      {isConnected ? (
-        <Button variant="outline" size="sm" onClick={disconnect}>
-          Disconnect
-        </Button>
-      ) : (
-        <Button size="sm" onClick={connect} disabled={connecting}>
-          {connecting ? "Connecting..." : `Connect with ${connector.name}`}
-        </Button>
-      )}
-    </Card>
+    <Button variant="outline" size="sm" onClick={() => void disconnect()}>
+      Disconnect
+    </Button>
   );
 }
 
-// ─── Coming Soon card ────────────────────────────────────
+// ─── Progress Indicator ─────────────────────────────────
 
-function ComingSoonCard({ connector }: { connector: ConnectorMeta }) {
+function ProgressIndicator({ connected, total }: { connected: number; total: number }) {
   return (
-    <Card className="p-5 opacity-50">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <LetterAvatar name={connector.name} color={connector.brandColor} />
-          <div>
-            <h2 className="text-sm font-semibold">{connector.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {connector.description}
-            </p>
-          </div>
-        </div>
-        <Badge variant="outline" className="text-muted-foreground">
-          Coming Soon
-        </Badge>
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-muted-foreground">
+        {connected} of {total} essentials
+      </span>
+      <div className="flex gap-1">
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            className={`size-2 rounded-full ${
+              i < connected ? "bg-green-500" : "bg-muted-foreground/20"
+            }`}
+          />
+        ))}
       </div>
-    </Card>
-  );
-}
-
-// ─── Built-in card (no connection needed) ───────────────
-
-function BuiltInCard({ connector }: { connector: ConnectorMeta }) {
-  return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <LetterAvatar name={connector.name} color={connector.brandColor} />
-          <div>
-            <h2 className="text-sm font-semibold">{connector.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {connector.description}
-            </p>
-          </div>
-        </div>
-        <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/30">
-          Built-in
-        </Badge>
-      </div>
-    </Card>
-  );
-}
-
-// ─── Connector Card Router ───────────────────────────────
-
-function ConnectorCard({
-  connector,
-  integrations,
-  setIntegrations,
-}: {
-  connector: ConnectorMeta;
-  integrations: Integration[];
-  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
-}) {
-  switch (connector.authMethod) {
-    case "api_key":
-      return (
-        <ApiKeyCard
-          connector={connector}
-          integrations={integrations}
-          setIntegrations={setIntegrations}
-        />
-      );
-    case "oauth":
-      return (
-        <OAuthCard
-          connector={connector}
-          integrations={integrations}
-          setIntegrations={setIntegrations}
-        />
-      );
-    case "composio":
-      return (
-        <ComposioOAuthCard
-          connector={connector}
-          integrations={integrations}
-          setIntegrations={setIntegrations}
-        />
-      );
-    case "none":
-      return <BuiltInCard connector={connector} />;
-    case "coming_soon":
-      return <ComingSoonCard connector={connector} />;
-    default:
-      return <ComingSoonCard connector={connector} />;
-  }
-}
-
-// ─── Category Section ────────────────────────────────────
-
-function CategorySection({
-  category,
-  connectors,
-  integrations,
-  setIntegrations,
-}: {
-  category: ConnectorCategory;
-  connectors: ConnectorMeta[];
-  integrations: Integration[];
-  setIntegrations: React.Dispatch<React.SetStateAction<Integration[]>>;
-}) {
-  if (connectors.length === 0) return null;
-
-  // Sort: connectable first, then coming_soon
-  const sorted = [...connectors].sort((a, b) => {
-    if (a.authMethod === "coming_soon" && b.authMethod !== "coming_soon")
-      return 1;
-    if (a.authMethod !== "coming_soon" && b.authMethod === "coming_soon")
-      return -1;
-    return a.tier - b.tier;
-  });
-
-  return (
-    <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-        {CATEGORY_LABELS[category]}
-      </h2>
-      {sorted.map((connector) => (
-        <ConnectorCard
-          key={connector.id}
-          connector={connector}
-          integrations={integrations}
-          setIntegrations={setIntegrations}
-        />
-      ))}
     </div>
   );
 }
@@ -640,8 +652,42 @@ export default function IntegrationsPage() {
     connectorsByCategory.set(connector.category, list);
   }
 
+  // Essential connectors
+  const essentialConnectors = ALL_CONNECTORS.filter(c =>
+    ESSENTIAL_CATEGORIES.includes(c.category)
+  );
+  const espConnectors = essentialConnectors.filter(c => c.category === "esp");
+  const leadDbConnectors = essentialConnectors.filter(c => c.category === "lead_database");
+
+  // Progress
+  const hasESP = integrations.some((i) =>
+    espConnectors.some(c => c.id === i.type) && i.status === "ACTIVE",
+  );
+  const hasLeadDB = integrations.some((i) =>
+    leadDbConnectors.some(c => c.id === i.type) && i.status === "ACTIVE",
+  );
+  const essentialsConnected = (hasESP ? 1 : 0) + (hasLeadDB ? 1 : 0);
+
+  // Sort connectors within categories: connected first, then by tier
+  function sortConnectors(connectors: ConnectorMeta[]) {
+    return [...connectors].sort((a, b) => {
+      const aConnected = integrations.some(i => i.type === a.id && i.status === "ACTIVE") ? 0 : 1;
+      const bConnected = integrations.some(i => i.type === b.id && i.status === "ACTIVE") ? 0 : 1;
+      if (aConnected !== bConnected) return aConnected - bConnected;
+      if (a.authMethod === "coming_soon" && b.authMethod !== "coming_soon") return 1;
+      if (a.authMethod !== "coming_soon" && b.authMethod === "coming_soon") return -1;
+      return a.tier - b.tier;
+    });
+  }
+
+  // Non-essential categories
+  const nonEssentialCategories = CATEGORY_ORDER.filter(
+    c => !ESSENTIAL_CATEGORIES.includes(c)
+  );
+
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-8">
+      {/* Header */}
       <div>
         <h1 className="text-xl font-semibold">Integrations</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -649,17 +695,80 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
-      {CATEGORY_ORDER.map((category) => {
+      {/* Start Here section */}
+      <div className="rounded-xl border-2 border-dashed border-indigo-500/30 bg-indigo-500/5 p-5 space-y-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Start here</h2>
+          <ProgressIndicator connected={essentialsConnected} total={2} />
+        </div>
+
+        {/* Email Sending */}
+        <div>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Email Sending
+          </h3>
+          <div className="space-y-2">
+            {sortConnectors(espConnectors).map((connector) => (
+              <CompactConnectorRow
+                key={connector.id}
+                connector={connector}
+                integrations={integrations}
+                setIntegrations={setIntegrations}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Lead Database */}
+        <div>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Lead Database
+          </h3>
+          <div className="space-y-2">
+            {sortConnectors(leadDbConnectors).map((connector) => (
+              <CompactConnectorRow
+                key={connector.id}
+                connector={connector}
+                integrations={integrations}
+                setIntegrations={setIntegrations}
+              />
+            ))}
+          </div>
+        </div>
+
+        {essentialsConnected === 2 && (
+          <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium pt-1">
+            <CheckCircle className="size-4" weight="fill" />
+            Essentials connected — you&apos;re ready to prospect
+          </div>
+        )}
+      </div>
+
+      {/* Other categories */}
+      {nonEssentialCategories.map((category) => {
         const connectors = connectorsByCategory.get(category);
         if (!connectors || connectors.length === 0) return null;
         return (
-          <CategorySection
-            key={category}
-            category={category}
-            connectors={connectors}
-            integrations={integrations}
-            setIntegrations={setIntegrations}
-          />
+          <div key={category} className="space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                {CATEGORY_LABELS[category]}
+              </h2>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">
+                {CATEGORY_DESCRIPTIONS[category]}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {sortConnectors(connectors).map((connector) => (
+                <CompactConnectorRow
+                  key={connector.id}
+                  connector={connector}
+                  integrations={integrations}
+                  setIntegrations={setIntegrations}
+                />
+              ))}
+            </div>
+          </div>
         );
       })}
 

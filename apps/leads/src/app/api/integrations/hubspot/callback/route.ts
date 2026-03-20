@@ -29,8 +29,12 @@ export async function GET(req: Request) {
   });
 
   if (!parsed.success) {
-    return Response.redirect(
-      `${appUrl}/settings/integrations?error=no_code`,
+    return new Response(
+      `<!DOCTYPE html><html><body>
+       <p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#dc2626">Missing OAuth code. This window will close&hellip;</p>
+       <script>setTimeout(function(){window.close()},2000)</script>
+       </body></html>`,
+      { headers: { "Content-Type": "text/html" } },
     );
   }
 
@@ -40,8 +44,12 @@ export async function GET(req: Request) {
   const clientSecret = process.env.HUBSPOT_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    return Response.redirect(
-      `${appUrl}/settings/integrations?error=hubspot_not_configured`,
+    return new Response(
+      `<!DOCTYPE html><html><body>
+       <p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#dc2626">HubSpot not configured. This window will close&hellip;</p>
+       <script>setTimeout(function(){window.close()},2000)</script>
+       </body></html>`,
+      { headers: { "Content-Type": "text/html" } },
     );
   }
 
@@ -70,8 +78,20 @@ export async function GET(req: Request) {
       },
     });
 
-    return Response.redirect(`${appUrl}/?connected=hubspot`);
+    return new Response(
+      `<!DOCTYPE html><html><body>
+       <p style="font-family:sans-serif;text-align:center;margin-top:40vh">Connected! This window will close&hellip;</p>
+       <script>window.close()</script>
+       </body></html>`,
+      { headers: { "Content-Type": "text/html" } },
+    );
   } catch {
-    return Response.redirect(`${appUrl}/?error=hubspot_failed`);
+    return new Response(
+      `<!DOCTYPE html><html><body>
+       <p style="font-family:sans-serif;text-align:center;margin-top:40vh;color:#dc2626">Connection failed. This window will close&hellip;</p>
+       <script>setTimeout(function(){window.close()},2000)</script>
+       </body></html>`,
+      { headers: { "Content-Type": "text/html" } },
+    );
   }
 }
