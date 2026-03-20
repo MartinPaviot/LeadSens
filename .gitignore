@@ -23,11 +23,22 @@ node_modules
 # misc
 .DS_Store
 *.pem
-.claude/settings.local.json
-.claude/chat-audit/
-.claude/research/
-.claude/lp-research/
-.claude/integration-tests/
+
+# root .claude/ — only settings.local.json lives here, everything else goes in apps/leads/.claude/
+/.claude/settings.local.json
+/.claude/commands/
+/.claude/tasks/
+/.claude/skills/
+/.claude/findings/
+/.claude/research/
+/.claude/chat-audit/
+/.claude/lp-research/
+/.claude/integration-tests/
+/.claude/progress.txt
+/.claude/loop-log.txt
+
+# screenshots (keep in .claude/findings/screenshots/ per app, not at root)
+/*.png
 
 # playwright MCP logs & screenshots
 .playwright-mcp/
@@ -38,7 +49,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# env files (per-app: apps/leads/.env, apps/elevay/.env)
 .env
 .env.*
 !.env.example

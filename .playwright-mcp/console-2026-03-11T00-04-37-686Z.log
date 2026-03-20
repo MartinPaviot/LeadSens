@@ -1,8 +1,0 @@
-[   11435ms] [WARNING] Failed to decode downloaded font: https://app.clay.com/assets/assets/fonts/roobert-font/WEB/Roobert-Semibold.woff2 @ https://app.clay.com/signup:0
-[   11437ms] [WARNING] OTS parsing error: invalid sfntVersion: 1008821359 @ https://app.clay.com/signup:0
-[   11813ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://api.clay.com/v3/me:0
-[   11835ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://api.clay.com/v3/my-workspaces:0
-[   11891ms] AxiosError$1
-[   11896ms] AxiosError$1
-[   12080ms] [WARNING] Failed to decode downloaded font: https://app.clay.com/assets/assets/fonts/roobert-font/WEB/Roobert-Semibold.woff @ https://app.clay.com/signup:0
-[   12081ms] [WARNING] OTS parsing error: invalid sfntVersion: 1008821359 @ https://app.clay.com/signup:0

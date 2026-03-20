@@ -1,7 +1,0 @@
-[    5167ms] [ERROR] Access to fetch at 'https://wvbknd.leadsy.ai/v1/website-visitors/test' from origin 'https://instantly.ai' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://instantly.ai/cold-email-benchmark-report-2026:0
-[    5167ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://wvbknd.leadsy.ai/v1/website-visitors/test:0
-[    5167ms] [ERROR] > error: TypeError: Failed to fetch
-    at e (https://r2.leadsy.ai/tag.js:1:173)
-    at https://r2.leadsy.ai/tag.js:1:638
-    at https://r2.leadsy.ai/tag.js:1:922 @ https://r2.leadsy.ai/tag.js:0
-[    6419ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://match.prod.bidr.io/cookie-sync/fivebyfive:0

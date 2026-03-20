@@ -1,9 +1,0 @@
-[     721ms] [WARNING] The resource https://cdn.amplitude.com/script/122a93c7d9753d2fe678deffe8fac4cf.experiment.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ https://www.apollo.io/sign-up:0
-[    4806ms] [ERROR] Hydration completed but contains mismatches. @ https://nicelydone.club/_nuxt/CEGEsMZH.js:8
-[    5237ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://t.forwardslabs.com/api/track:0
-[    6095ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://t.forwardslabs.com/api/track:0
-[    7421ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://t.forwardslabs.com/api/track:0
-[    9813ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://t.forwardslabs.com/api/track:0
-[    9814ms] [ERROR] Max retries reached: Error: HTTP error! status: 500
-    at rM.post (https://nicelydone.club/_nuxt/EE-KhIPM.js:7:89425) @ https://nicelydone.club/_nuxt/CEGEsMZH.js:8
-[   15782ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://o4507458285666304.ingest.de.sentry.io/api/4507458291171408/envelope/?sentry_version=7&sentry_key=10bde61405d2e30157df2419c8132018&sentry_client=sentry.javascript.nuxt%2F10.27.0:0

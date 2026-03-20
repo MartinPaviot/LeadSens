@@ -1,7 +1,7 @@
 # CLAUDE.md — LeadSens
 
 > Ce fichier est lu en premier par Claude Code. Il est la SEULE source de vérité sur le code.
-> Pour la vision produit et la roadmap → `docs/STRATEGY.md` (read-only, c'est le product owner).
+> Pour la vision produit et la roadmap → `apps/leads/docs/STRATEGY.md` (read-only, c'est le product owner).
 > En cas de conflit entre ce fichier et STRATEGY.md → STRATEGY.md gagne toujours.
 
 ---
@@ -16,7 +16,7 @@ La valeur est dans les **décisions entre les appels API** : scoring pré-enrich
 
 ### Score actuel : 7.0/10 (audit v4+ 2026-03-11, était 6.9 → 6.8 → 6.7 → 6.5 → 6.2 → 4.2). Objectif : 8/10. Reply rate cible : 18%.
 
-Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
+Voir `apps/leads/docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélioration, §9 pour les benchmarks.
 
 ---
 
@@ -64,7 +64,7 @@ Voir `docs/STRATEGY.md` §6 pour l'audit détaillé, §7 pour le plan d'amélior
 | Apify | Scraping LinkedIn (profil) | ~$0.01/profil |
 | TinyFish | Web automation (recherches marketing) | Variable |
 
-**Monolithique** — tout dans `src/`, pas de séparation backend/frontend, `pnpm dev` pour tout lancer.
+**Monorepo** — `apps/leads/` (LeadSens) + `apps/elevay/` (Elevay) + `packages/{db,ui}` (shared). `pnpm dev` pour LeadSens, `pnpm dev:all` pour tout.
 
 ---
 
@@ -118,14 +118,14 @@ Règles implémentées : frameworks hardcodés, connection bridge 3-step, trigge
 
 ## 5. Conventions obligatoires
 
-1. **Encryption** — Tous les tokens/API keys chiffrés en DB (AES-256-GCM). Pattern : `docs/SPEC-BACKEND.md` section 8.1
+1. **Encryption** — Tous les tokens/API keys chiffrés en DB (AES-256-GCM). Pattern : `apps/leads/docs/SPEC-BACKEND.md` section 8.1
 2. **Validation** — Zod sur tous les inputs : routes API, tools, env vars, LLM JSON outputs
-3. **Streaming** — SSE via `fetch()` + `ReadableStream` pour le chat. RAF batch update. Pattern : `docs/SPEC-CHAT.md` section 10
+3. **Streaming** — SSE via `fetch()` + `ReadableStream` pour le chat. RAF batch update. Pattern : `apps/leads/docs/SPEC-CHAT.md` section 10
 4. **Tool loop** — Max 5 steps (rounds de tool calling) par message user
 5. **Background jobs** — Inngest functions (cron + event-driven) via `src/inngest/`. Served at `/api/inngest`. No long-running workers.
-6. **Side effects** — Les tools qui consomment des crédits Instantly sont wrappés avec confirmation. Pattern : `docs/SPEC-BACKEND.md` section 8.5
-7. **Error handling** — Hiérarchie d'erreurs typées. Pattern : `docs/SPEC-BACKEND.md` section 8.3
-8. **AI logging** — Chaque appel LLM est loggé (model, tokens, cost, latency). Pattern : `docs/SPEC-BACKEND.md` section 8.4
+6. **Side effects** — Les tools qui consomment des crédits Instantly sont wrappés avec confirmation. Pattern : `apps/leads/docs/SPEC-BACKEND.md` section 8.5
+7. **Error handling** — Hiérarchie d'erreurs typées. Pattern : `apps/leads/docs/SPEC-BACKEND.md` section 8.3
+8. **AI logging** — Chaque appel LLM est loggé (model, tokens, cost, latency). Pattern : `apps/leads/docs/SPEC-BACKEND.md` section 8.4
 9. **Jina rate limit** — Max 20 req/min. Workers d'enrichissement respectent cette limite.
 10. **Apify** — LinkedIn via `apify-client`. Env var : `APIFY_API_TOKEN`. Best-effort (null si fail).
 11. **TinyFish** — Web automation. Env var : `TINYFISH_API_KEY`. Réservé aux recherches marketing.
@@ -134,6 +134,25 @@ Règles implémentées : frameworks hardcodés, connection bridge 3-step, trigge
 14. **Commits** — Conventional Commits (feat:, fix:, refactor:, perf:).
 15. **Tests** — `pnpm typecheck && pnpm test` AVANT chaque commit. Non négociable.
 16. **Jamais commit sur main** — En mode autonome, toujours vérifier la branche avant de commit. Si on est sur main, créer une branche auto/improve-{date} d'abord. Commande : git checkout -b auto/improve-$(date +%Y%m%d) avant le premier commit.
+17. **Monorepo — jamais de fichiers LeadSens à la racine** — C'est un monorepo. La racine ne contient QUE ces fichiers partagés :
+    - `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml` (monorepo config)
+    - `CLAUDE.md`, `.gitignore`, `LICENSE`, `README.md` (repo-level)
+    - `.prettierrc`, `.prettierignore` (shared formatting)
+    - `.github/`, `.vscode/`, `.vercel` (CI/CD, IDE, deploy)
+    - `scripts/loop.sh`, `scripts/loop.ps1` (orchestration monorepo)
+    - `packages/` (shared packages)
+
+    **Tout le reste va dans `apps/leads/` (ou `apps/elevay/`)** :
+    - Code source → `apps/leads/src/`
+    - Docs, specs, strategy → `apps/leads/docs/`
+    - Env vars → `apps/leads/.env`, `apps/leads/.env.example`
+    - Scripts (seed, backfill, debug, e2e) → `apps/leads/scripts/`
+    - Claude commands, tasks, skills, findings, progress → `apps/leads/.claude/`
+    - Screenshots → `apps/leads/.claude/findings/screenshots/`
+    - Competitors, research → `apps/leads/competitors/`, `apps/leads/.claude/research/`
+    - `components.json` (shadcn) → `apps/leads/components.json`
+
+    **Ne JAMAIS créer à la racine** : `.md` (sauf README/CLAUDE), `.ts`, `.tsx`, `.mjs`, `.png`, `.env`, `docs/`, `.claude/commands/`, `.claude/tasks/`, `.claude/findings/`, `scripts/*.ts`. **En cas de doute → `apps/leads/`.**
 
 ---
 
@@ -146,7 +165,7 @@ LeadSens ≠ Elevay : 1 agent implicite (pas de model Agent), API directes (pas 
 ## 7. Fichiers de référence
 
 ```
-docs/
+apps/leads/docs/
 ├── STRATEGY.md       ← SOURCE DE VÉRITÉ PRODUIT (read-only pour Claude Code)
 ├── SPEC-CHAT.md      ← Spec UI chat (assistant-ui, SSE, streaming, inline components)
 ├── SPEC-BACKEND.md   ← Patterns backend (encryption, workers, connectors, errors)
@@ -166,29 +185,32 @@ docs/
 ## 8. Structure du projet
 
 ```
-src/
-├── app/api/agents/chat/route.ts          ← Chat SSE + system prompts (phase-tiered)
-├── app/api/webhooks/instantly/route.ts    ← Webhook handler (11 events)
-├── app/api/inngest/route.ts              ← Inngest serve handler
-├── app/(dashboard)/chat/                 ← Dashboard (auth required)
-├── app/(marketing)/                      ← Landing, pricing, legal (public)
-├── server/lib/
-│   ├── tools/index.ts                    ← Tool registry + phase filtering
-│   ├── tools/icp-parser.ts              ← ICP parsing (two-phase v2)
-│   ├── tools/pipeline-tools.ts          ← Reply classify/draft/send, CSV, insights
-│   ├── connectors/{instantly,hubspot,jina,apify,tinyfish}.ts
-│   ├── providers/index.ts               ← ESPProvider, CRMProvider, EmailVerifier
-│   ├── enrichment/{jina-scraper,summarizer,icp-scorer,hiring-signal-extractor}.ts
-│   ├── email/{prompt-builder,style-learner,drafting}.ts
-│   ├── analytics/{correlator,insights,adaptive,ab-testing,sync,bounce-guard,reply-guard}.ts
-│   └── llm/{mistral-client,context-manager}.ts
-├── lib/{encryption,lead-status,logger,rate-limit,redis}.ts
-├── inngest/{client,functions}.ts         ← 3 bg jobs (analytics cron, enrich, draft)
-├── components/chat/                      ← Chat UI (assistant-ui)
-docs/STRATEGY.md                          ← Source de vérité produit (read-only)
-.claude/tasks/BACKLOG.md                  ← Tâches ordonnées par impact
-.claude/progress.txt                      ← Log chronologique des itérations
-prisma/schema.prisma                      ← DB schema
+apps/leads/                               ← LeadSens app (main)
+├── src/
+│   ├── app/api/agents/chat/route.ts      ← Chat SSE + system prompts (phase-tiered)
+│   ├── app/api/webhooks/instantly/route.ts ← Webhook handler (11 events)
+│   ├── app/api/inngest/route.ts          ← Inngest serve handler
+│   ├── app/(dashboard)/chat/             ← Dashboard (auth required)
+│   ├── app/(marketing)/                  ← Landing, pricing, legal (public)
+│   ├── server/lib/
+│   │   ├── tools/index.ts               ← Tool registry + phase filtering
+│   │   ├── tools/icp-parser.ts          ← ICP parsing (two-phase v2)
+│   │   ├── tools/pipeline-tools.ts      ← Reply classify/draft/send, CSV, insights
+│   │   ├── connectors/{instantly,hubspot,jina,apify,tinyfish}.ts
+│   │   ├── providers/index.ts           ← ESPProvider, CRMProvider, EmailVerifier
+│   │   ├── enrichment/{jina-scraper,summarizer,icp-scorer,hiring-signal-extractor}.ts
+│   │   ├── email/{prompt-builder,style-learner,drafting}.ts
+│   │   ├── analytics/{correlator,insights,adaptive,ab-testing,sync,bounce-guard,reply-guard}.ts
+│   │   └── llm/{mistral-client,context-manager}.ts
+│   ├── lib/{encryption,lead-status,logger,rate-limit,redis}.ts
+│   ├── inngest/{client,functions}.ts     ← 3 bg jobs (analytics cron, enrich, draft)
+│   └── components/chat/                  ← Chat UI (assistant-ui)
+├── docs/STRATEGY.md                      ← Source de vérité produit (read-only)
+├── .claude/tasks/BACKLOG.md              ← Tâches ordonnées par impact
+└── .claude/progress.txt                  ← Log chronologique des itérations
+apps/elevay/                              ← Elevay app (co-founder)
+packages/db/prisma/schema.prisma          ← DB schema (shared)
+packages/ui/                              ← Shared UI components
 ```
 
 ---
@@ -197,7 +219,7 @@ prisma/schema.prisma                      ← DB schema
 
 > **Instructions à suivre quand Claude Code entre en Plan Mode.**
 
-**AVANT TOUTE REVIEW :** Lis `docs/STRATEGY.md` §6 (audit) et §7 (plan d'amélioration) pour comprendre les priorités produit. Chaque recommandation technique doit être pondérée par son impact sur le reply rate.
+**AVANT TOUTE REVIEW :** Lis `apps/leads/docs/STRATEGY.md` §6 (audit) et §7 (plan d'amélioration) pour comprendre les priorités produit. Chaque recommandation technique doit être pondérée par son impact sur le reply rate.
 
 Review this plan thoroughly before making any code changes. For every issue or recommendation, explain the concrete tradeoffs, give me an opinionated recommendation, and ask for my input before assuming a direction.
 
@@ -292,7 +314,7 @@ New pipeline stages: full flow starting from /plan-product.
   /review-paranoid is not the place for product ideation. Stay in lane.
 - **Modes are sequential, not parallel.** Finish planning before implementing.
   Finish implementing before reviewing. Finish reviewing before shipping.
-- **Each mode has its own definition file** in `.claude/commands/`. The prompts there
+- **Each mode has its own definition file** in `apps/leads/.claude/commands/`. The prompts there
   are the source of truth for how each mode operates.
 
 ---
@@ -323,8 +345,8 @@ Claude Code agit comme un **staff engineer autonome** qui :
 | Canal | Fichier |
 |-------|---------|
 | Git history | `.git/` (code + diffs + commits) |
-| Progress log | `.claude/progress.txt` (tâche, résultat, learnings) |
-| Task state | `.claude/tasks/BACKLOG.md` (done/pending) |
+| Progress log | `apps/leads/.claude/progress.txt` (tâche, résultat, learnings) |
+| Task state | `apps/leads/.claude/tasks/BACKLOG.md` (done/pending) |
 | Learnings | Section 11 de ce fichier |
 
 ### 10.4 Commandes
@@ -358,7 +380,7 @@ STRATEGY.md — Mise à jour autonome autorisée :
 - Pas de changement basé sur de l'opinion ou de l'intuition — uniquement des données
 
 RECHERCHE — Règles de validation :
-- Chaque nouveau insight doit être CROISÉ avec les findings précédents dans .claude/findings/
+- Chaque nouveau insight doit être CROISÉ avec les findings précédents dans apps/leads/.claude/findings/
 - Si un nouveau résultat contredit un finding précédent → ne pas remplacer, documenter les deux sources et noter la contradiction dans le finding
 - Pour modifier STRATEGY.md, il faut AU MINIMUM 2 sources indépendantes qui convergent
 - Les benchmarks chiffrés (reply rates, pricing) ne sont mis à jour que si la nouvelle source est plus fiable (étude > blog > tweet) ou plus récente
@@ -435,7 +457,7 @@ NAVIGATION: browser_navigate → browser_snapshot (lire) → browser_click (lien
 RECHERCHE:  browser_type (search bar) → browser_press_key "Enter" → snapshot résultats
 MULTI-TAB:  browser_tab_new / browser_tab_list / browser_tab_select
 DONNÉES:    browser_snapshot (accessibility tree, 2-5KB) >> browser_take_screenshot (500KB)
-VISUEL:     browser_take_screenshot (fullPage=true), sauver dans .claude/findings/screenshots/
+VISUEL:     browser_take_screenshot (fullPage=true), sauver dans apps/leads/.claude/findings/screenshots/
 FORMS:      browser_click + browser_type + browser_select_option, slowly=true pour JS handlers
 DEBUG:      browser_console (erreurs), browser_network (requêtes), browser_wait (chargement)
 
