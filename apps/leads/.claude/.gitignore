@@ -1,0 +1,9 @@
+# Local config
+settings.local.json
+
+# Screenshots and images (too many, too large for git)
+**/*.png
+**/*.jpeg
+**/*.jpg
+**/*.webm
+**/*.gif
