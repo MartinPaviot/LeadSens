@@ -12,7 +12,9 @@ import {
   ChatCircle,
   PlugsConnected,
   MagnifyingGlass,
+  ChartBar,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,7 +25,7 @@ import {
   Button, Input,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@leadsens/ui";
@@ -223,7 +225,7 @@ export function AppSidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="size-5 rounded-md overflow-hidden bg-white">
-              <img src="/L.svg" alt="LeadSens" className="size-5" />
+              <Image src="/L.svg" alt="LeadSens" width={20} height={20} />
             </div>
             <span className="font-semibold text-xs">LeadSens</span>
           </div>
@@ -266,6 +268,18 @@ export function AppSidebar() {
                 <kbd className="ml-auto text-[10px] text-muted-foreground/50">
                   Ctrl+K
                 </kbd>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/60"
+              >
+                <Link href="/campaigns">
+                  <ChartBar className="size-3" />
+                  <span className="truncate">Campaigns</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -371,7 +385,7 @@ export function AppSidebar() {
                       />
                     )}
                     <AvatarFallback className="bg-indigo-500 text-white text-[10px] rounded-md">
-                      {firstName[0]?.toUpperCase()}
+                      {workspaceName[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <span className="truncate text-sm">{workspaceName}</span>
@@ -410,6 +424,7 @@ export function AppSidebar() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Rename workspace</DialogTitle>
+            <DialogDescription className="sr-only">Enter a new name for your workspace</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input
@@ -438,6 +453,7 @@ export function AppSidebar() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Rename conversation</DialogTitle>
+            <DialogDescription className="sr-only">Enter a new name for this conversation</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Input
