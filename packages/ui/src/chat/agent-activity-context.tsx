@@ -6,6 +6,10 @@ export interface ThinkingStep {
   id: string;
   label: string;
   status: "running" | "done" | "error";
+  summary?: string;
+  startedAt?: number;
+  completedAt?: number;
+  toolName?: string;
 }
 
 export interface AgentActivityContextValue {
