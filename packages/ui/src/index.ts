@@ -23,6 +23,8 @@ export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter
 export { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInput, SidebarInset, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSkeleton, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, SidebarProvider, SidebarRail, SidebarSeparator, SidebarTrigger, useSidebar } from "./ui/sidebar";
 export { Skeleton } from "./ui/skeleton";
 export { Toaster } from "./ui/sonner";
+export { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from "./ui/table";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 export { Textarea } from "./ui/textarea";
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./ui/tooltip";
