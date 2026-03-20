@@ -54,6 +54,14 @@ const registry: Record<string, () => Promise<{ default: ComponentType<any> }>> =
     import("@/components/chat/inline/job-progress").then((m) => ({
       default: m.JobProgress,
     })),
+  "rich-lead-table": () =>
+    import("@/components/chat/inline/rich-lead-table").then((m) => ({
+      default: m.RichLeadTable,
+    })),
+  "rich-campaign-card": () =>
+    import("@/components/chat/inline/rich-campaign-card").then((m) => ({
+      default: m.RichCampaignCard,
+    })),
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,6 +82,7 @@ const TOOL_TO_COMPONENT: Record<string, string> = {
   campaign_analytics: "campaign-analytics",
   campaign_performance_report: "analytics-report",
   preview_campaign_launch: "campaign-launch-preview",
+  show_tam: "rich-lead-table",
 };
 
 export function toolNameToComponent(toolName: string): string | null {

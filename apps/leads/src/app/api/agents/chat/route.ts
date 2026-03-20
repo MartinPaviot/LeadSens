@@ -255,7 +255,7 @@ function getAutonomyDirective(level: AutonomyLevel): string {
 }
 
 function buildSystemPrompt(
-  workspace: WorkspaceWithIntegrations & { autonomyLevel?: string },
+  workspace: WorkspaceWithIntegrations & { autonomyLevel?: string; tamResult?: unknown },
   memories: Array<{ key: string; value: string }>,
   styleCorrections: string[],
   campaign: PipelineState | null,
@@ -310,6 +310,24 @@ function buildSystemPrompt(
       parts.push(section);
     } else {
       parts.push(`\n## Your client's company\n${String(workspace.companyDna)}`);
+    }
+  }
+
+  // Inject TAM context when available
+  if (workspace.tamResult) {
+    const tam = workspace.tamResult as Record<string, unknown>;
+    const tamCounts = tam.counts as { total?: number } | undefined;
+    if (tamCounts?.total) {
+      const roles = Array.isArray(tam.roles) ? (tam.roles as string[]).slice(0, 5).join(", ") : "various";
+      const burningEstimate = (tam.burningEstimate as number) ?? 0;
+      let tamSection = `\n## TAM Context\nTotal addressable market: ${tamCounts.total.toLocaleString()} contacts`;
+      if (burningEstimate > 0) {
+        tamSection += `\nBurning (3+ signals): ~${burningEstimate.toLocaleString()}`;
+      }
+      tamSection += `\nTarget roles: ${roles}`;
+      tamSection += `\nUse show_tam to display the full TAM table.`;
+      tamSection += `\nWhen user says "show my TAM", "my market", or "show market", call show_tam.`;
+      parts.push(tamSection);
     }
   }
 
@@ -404,6 +422,8 @@ const SINGLETON_COMPONENTS = new Set([
   "campaign-summary",
   "progress-bar",
   "enrichment",
+  "rich-lead-table",
+  "rich-campaign-card",
 ]);
 
 /** Remove previous @@INLINE@@ markers for a singleton component type */

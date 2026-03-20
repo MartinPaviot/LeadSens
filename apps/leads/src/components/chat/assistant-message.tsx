@@ -18,6 +18,8 @@ const SINGLETON_COMPONENTS = new Set([
   "campaign-summary",
   "progress-bar",
   "enrichment",
+  "rich-lead-table",
+  "rich-campaign-card",
 ]);
 
 // ─── Static markdown (react-markdown for split segments) ───

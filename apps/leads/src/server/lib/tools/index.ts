@@ -269,6 +269,8 @@ const TOOL_LABELS: Record<string, string> = {
   send_notification: "Sending notification...",
   // Demo tools
   demo_search_leads: "Searching for sample leads...",
+  // TAM
+  show_tam: "Loading your TAM...",
 };
 
 export function getToolLabel(toolName: string): string {
