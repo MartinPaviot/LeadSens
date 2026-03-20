@@ -1,0 +1,710 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e4]:
+      - link "home" [ref=e463] [cursor=pointer]:
+        - /url: /
+        - img "Logo" [ref=e6]
+      - generic [ref=e7]:
+        - navigation [ref=e8]:
+          - button "Products menu_down_arw_1" [ref=e464] [cursor=pointer]:
+            - generic [ref=e11]: Products
+            - img "menu_down_arw_1" [ref=e12]
+          - button "Case Studies menu_down_arw_1" [ref=e465] [cursor=pointer]:
+            - link "Case Studies menu_down_arw_1" [ref=e15]:
+              - /url: /case-study
+              - generic [ref=e16]: Case Studies
+              - img "menu_down_arw_1" [ref=e17]
+          - link "Pricing" [ref=e18] [cursor=pointer]:
+            - /url: /pricing
+          - link "Integrations" [ref=e19] [cursor=pointer]:
+            - /url: /integrations
+          - button "Resources menu_down_arw_1" [ref=e466] [cursor=pointer]:
+            - generic [ref=e22]: Resources
+            - img "menu_down_arw_1" [ref=e23]
+          - button "Tools menu_down_arw_1" [ref=e467] [cursor=pointer]:
+            - generic [ref=e26]: Tools
+            - img "menu_down_arw_1" [ref=e27]
+        - list [ref=e29]:
+          - listitem [ref=e30]:
+            - link "Login" [ref=e31] [cursor=pointer]:
+              - /url: https://app.smartlead.ai/login
+              - paragraph [ref=e32]: Login
+          - listitem [ref=e33]:
+            - link "Book a Demo" [ref=e34] [cursor=pointer]:
+              - /url: /demo
+              - paragraph [ref=e35]: Book a Demo
+          - listitem [ref=e36]:
+            - link "Start Free Trial" [ref=e37] [cursor=pointer]:
+              - /url: https://app.smartlead.ai/sign-up?utm_source=Top%20Bar&utm_medium=Website&utm_campaign=Marketing&utm_content=Get%20Started%20For%20Free
+  - generic [ref=e40]:
+    - heading "Unlock the Full Power of AI Outbound" [level=1] [ref=e41]:
+      - generic [ref=e468]: Unlock
+      - generic [ref=e469]: the
+      - generic [ref=e470]: Full
+      - generic [ref=e471]: Power
+      - generic [ref=e472]: of
+      - generic [ref=e473]: AI
+      - generic [ref=e474]: Outbound
+    - paragraph [ref=e43]: Automate prospecting and close more deals with AI agents and a deliverability infrastructure built to land emails in the inbox.
+    - generic [ref=e44]:
+      - link "Try Smartlead Now" [ref=e45] [cursor=pointer]:
+        - /url: /pricing
+      - link "Start Free Trial" [ref=e46] [cursor=pointer]:
+        - /url: https://app.smartlead.ai/sign-up?utm_source=Home%20page&utm_medium=Website&utm_campaign=Marketing&utm_content=Start%20Your%20Free%20Trial&_gl=1*t2swcz*_gcl_au*MTg2MDY1NzAzNS4xNzcwMTAxMzc1
+    - img [ref=e476]:
+      - generic [ref=e478]:
+        - generic "Email Campaigns" [ref=e3991]
+        - generic [ref=e4048]:
+          - generic "Sent" [ref=e4052]
+          - generic "Bounced" [ref=e4069]
+          - generic "Positive" [ref=e4098]
+          - generic "Replied" [ref=e4131]
+          - generic "Clicked" [ref=e4160]
+          - generic "Opened" [ref=e4189]
+          - generic "Campaign" [ref=e4214]
+        - generic [ref=e9680]:
+          - 'generic "Created: Jan 19, 08:01 AM" [ref=e9700]'
+          - generic "3 sequences" [ref=e9785]
+          - generic "5 SmartServrs" [ref=e9826]
+          - generic "SaaS Founders Outreach – Q1" [ref=e9881]
+          - generic "Active" [ref=e9974]
+          - generic "462" [ref=e9999]
+          - generic "01" [ref=e10012]
+          - generic "180" [ref=e10021]
+          - generic "245" [ref=e10034]
+          - generic "94" [ref=e10047]
+          - generic "318" [ref=e10056]
+        - generic [ref=e14704]:
+          - generic "Ready" [ref=e14749]
+          - generic "Ready" [ref=e14770]
+          - generic "Active" [ref=e14791]
+          - generic "Active" [ref=e14816]
+          - generic "Active" [ref=e14841]
+          - generic "203.0.113.78" [ref=e14866]
+          - generic "infra-edge-4" [ref=e14915]
+          - generic "203.0.113.44" [ref=e14964]
+          - generic "eu-west-02" [ref=e15013]
+          - generic "198.51.100.57" [ref=e15054]
+          - generic "core-S3" [ref=e15107]
+          - generic "198.51.100.36" [ref=e15136]
+          - generic "mx-relay-2" [ref=e15189]
+          - generic "198.51.100.21" [ref=e15230]
+          - generic "srv-alpha" [ref=e15283]
+          - generic "Your Dedicated Servers & IPs" [ref=e15344]
+        - generic [ref=e15447]:
+          - generic "Clicked" [ref=e15479]
+          - generic "Clicked" [ref=e15508]
+          - generic "Delivered" [ref=e15537]
+          - generic "Replied" [ref=e15574]
+          - generic "Replied" [ref=e15603]
+          - generic "jake.thomas@growthlane.co" [ref=e15632]
+          - generic "jake.thomas@growthlane.co" [ref=e15733]
+          - generic "daniel.ross@leadcraft.ai" [ref=e15834]
+          - generic "sara.lee@brightflow.co" [ref=e15931]
+          - generic "sara.lee@brightflow.co" [ref=e16020]
+          - generic "Opened" [ref=e16109]
+          - generic "Opened" [ref=e16134]
+          - generic "alex.morgan@northpeak.io" [ref=e16159]
+          - generic "alex.morgan@northpeak.io" [ref=e16256]
+          - generic "Master Inbox" [ref=e16353]
+  - generic [ref=e50]: Trusted by 100,000+ Businesses, from Best Agencies to Fortune 500 Companies
+  - generic [ref=e60]:
+    - generic [ref=e63]:
+      - link "Scalability" [ref=e64] [cursor=pointer]:
+        - /url: "#scalability"
+      - link "SmartInfra" [ref=e65] [cursor=pointer]:
+        - /url: "#smartservers"
+      - link "Deliverability" [ref=e66] [cursor=pointer]:
+        - /url: "#deliverability"
+      - link "SmartProspect" [ref=e67] [cursor=pointer]:
+        - /url: "#smartprospect"
+      - link "SmartSenders" [ref=e68] [cursor=pointer]:
+        - /url: "#smartsenders"
+      - link "SmartAgents" [ref=e69] [cursor=pointer]:
+        - /url: "#smartagent"
+      - link "Master Inbox" [ref=e70] [cursor=pointer]:
+        - /url: "#masterinbox"
+      - link "SmartDialer" [ref=e71] [cursor=pointer]:
+        - /url: "#smartdialler"
+    - generic [ref=e73]:
+      - heading "Scale outreach without limits" [level=2] [ref=e75]:
+        - generic [ref=e4253]: Scale
+        - generic [ref=e4254]: outreach
+        - generic [ref=e4255]: without
+        - generic [ref=e4256]: limits
+      - generic [ref=e76]:
+        - generic [ref=e78]:
+          - heading "Unlimited accounts & storage" [level=4] [ref=e79]
+          - paragraph [ref=e80]: Add unlimited mailboxes and store unlimited leads—no storage fees; pay only for what you send.
+        - generic [ref=e82]:
+          - heading "Built‑in setup & warm‑up" [level=4] [ref=e83]
+          - paragraph [ref=e84]: Smartlead handles DNS, warm‑ups and sender rotation automatically.
+        - generic [ref=e86]:
+          - heading "Focus on results" [level=4] [ref=e87]
+          - paragraph [ref=e88]: Manage senders and leads easily so your team can spend more time closing deals.
+    - generic [ref=e90]:
+      - generic [ref=e91]:
+        - link "SmartInfra" [ref=e92]:
+          - /url: "#"
+        - heading "Deliverability engine built for cold outreach" [level=2] [ref=e93]:
+          - generic [ref=e4257]: Deliverability
+          - generic [ref=e4258]: engine
+          - generic [ref=e4259]: built
+          - generic [ref=e4260]: for
+          - generic [ref=e4261]: cold
+          - generic [ref=e4262]: outreach
+      - generic [ref=e95]:
+        - tablist [ref=e4263]:
+          - tab "Own your sender reputation Dedicated‑tenant infrastructure and IPs put deliverability under your control, shielding you from other senders’ mistakes." [ref=e4264] [cursor=pointer]:
+            - generic [ref=e98]:
+              - generic [ref=e100]: Own your sender reputation
+              - paragraph [ref=e101]: Dedicated‑tenant infrastructure and IPs put deliverability under your control, shielding you from other senders’ mistakes.
+          - tab "Optimized for cold email We handle warm‑ups, SPF/DKIM/DMARC and sending patterns so your sequences hit primary inboxes and avoid spam." [ref=e4265] [cursor=pointer]:
+            - generic [ref=e103]:
+              - generic [ref=e105]: Optimized for cold email
+              - paragraph [ref=e106]: We handle warm‑ups, SPF/DKIM/DMARC and sending patterns so your sequences hit primary inboxes and avoid spam.
+          - tab "Proactive deliverability SmartServers tracks bounce rates, spam flags and reputation signals in real time and adjusts automatically, letting you focus on closing deals." [selected] [ref=e4266] [cursor=pointer]:
+            - generic [ref=e108]:
+              - generic [ref=e110]: Proactive deliverability
+              - paragraph [ref=e111]: SmartServers tracks bounce rates, spam flags and reputation signals in real time and adjusts automatically, letting you focus on closing deals.
+        - tabpanel "Proactive deliverability SmartServers tracks bounce rates, spam flags and reputation signals in real time and adjusts automatically, letting you focus on closing deals." [ref=e11520]
+    - generic [ref=e117]:
+      - heading "Boost deliverability before you send" [level=2] [ref=e119]:
+        - generic [ref=e4268]: Boost
+        - generic [ref=e4269]: deliverability
+        - generic [ref=e4270]: before
+        - generic [ref=e4271]: you
+        - generic [ref=e4272]: send
+      - generic [ref=e120]:
+        - generic [ref=e123]:
+          - heading "Exclusive warm‑up pool" [level=4] [ref=e124]
+          - paragraph [ref=e125]: Access a private, reward‑based, limited‑access network, engineered to build sender reputation and boost inbox placement.
+        - generic [ref=e128]:
+          - heading "Human‑like interactions" [level=4] [ref=e129]
+          - paragraph [ref=e130]: Our warm‑up engine simulates real opens, reads and replies to make your domain look organic and trustworthy.
+        - generic [ref=e133]:
+          - heading "Start strong, stay out of spam" [level=4] [ref=e134]
+          - paragraph [ref=e135]: Establish domain credibility, reduce bounce rates and keep future campaigns away from spam folders.
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - link "SmartProspect" [ref=e143]:
+          - /url: "#"
+        - heading "Fuel your pipeline with verified buyers" [level=2] [ref=e144]:
+          - generic [ref=e4273]: Fuel
+          - generic [ref=e4274]: your
+          - generic [ref=e4275]: pipeline
+          - generic [ref=e4276]: with
+          - generic [ref=e4277]: verified
+          - generic [ref=e4278]: buyers
+      - generic [ref=e147]:
+        - generic [ref=e150]: Grow your pipeline at no extra cost
+        - generic [ref=e155]: 3x verified leads
+        - generic [ref=e157]:
+          - generic [ref=e159]: Real-time signals
+          - paragraph [ref=e4280]: Advanced filters and live intent signals pinpoint prospects who are actually ready to buy.
+    - generic [ref=e164]:
+      - generic [ref=e165]:
+        - link "SmartSenders" [ref=e166]:
+          - /url: "#"
+        - heading "Mailboxes optimised for the primary inbox" [level=2] [ref=e167]:
+          - generic [ref=e4282]: Mailboxes
+          - generic [ref=e4283]: optimised
+          - generic [ref=e4284]: for
+          - generic [ref=e4285]: the
+          - generic [ref=e4286]: primary
+          - generic [ref=e4287]: inbox
+      - generic [ref=e168]:
+        - generic [ref=e170]:
+          - heading "Done For You Mailboxes" [level=4] [ref=e171]
+          - paragraph [ref=e172]:
+            - text: We handle domains, DNS, SPF, DKIM and
+            - text: DMARC automatically , so you’re ready to
+            - text: send right away.
+        - generic [ref=e174]:
+          - heading "Inbox‑first deliverability" [level=4] [ref=e175]
+          - paragraph [ref=e176]:
+            - text: Clean US IPs and trusted infrastructure
+            - text: keep your emails out of spam.
+        - generic [ref=e178]:
+          - heading "Multiple providers at lower costs" [level=4] [ref=e179]
+          - paragraph [ref=e180]: Spread your campaigns across Google and Outlook to avoid deliverability bottlenecks and take advantage of discounted pricing per account.
+    - generic [ref=e182]:
+      - generic [ref=e183]:
+        - link "SmartAgents" [ref=e184]:
+          - /url: "#"
+        - heading "Your GTM engineers on autopilot" [level=2] [ref=e185]:
+          - generic [ref=e4288]: Your
+          - generic [ref=e4289]: GTM
+          - generic [ref=e4290]: engineers
+          - generic [ref=e4291]: "on"
+          - generic [ref=e4292]: autopilot
+      - generic [ref=e187]:
+        - tablist [ref=e4293]:
+          - tab "Full‑cycle automation AI agents can research leads, write personalized emails, update your CRM, proactively improve deliverability and more—without any coding required." [ref=e4294] [cursor=pointer]:
+            - generic [ref=e190]:
+              - generic [ref=e192]: Full‑cycle automation
+              - paragraph [ref=e193]: AI agents can research leads, write personalized emails, update your CRM, proactively improve deliverability and more—without any coding required.
+          - tab "Replace a team of SDRs A single agent stack can handle the workload of multiple reps at a fraction of the cost, keeping your pipeline full 24/7." [ref=e4295] [cursor=pointer]:
+            - generic [ref=e195]:
+              - generic [ref=e197]: Replace a team of SDRs
+              - paragraph [ref=e198]: A single agent stack can handle the workload of multiple reps at a fraction of the cost, keeping your pipeline full 24/7.
+          - tab "Intelligent sequencing to close leads Agents optimize send times, classify replies and loop objections back into new outreach so you only jump in when it’s time to close." [selected] [ref=e4296] [cursor=pointer]:
+            - generic [ref=e200]:
+              - generic [ref=e202]: Intelligent sequencing to close leads
+              - paragraph [ref=e203]: Agents optimize send times, classify replies and loop objections back into new outreach so you only jump in when it’s time to close.
+        - tabpanel "Intelligent sequencing to close leads Agents optimize send times, classify replies and loop objections back into new outreach so you only jump in when it’s time to close." [ref=e11521]:
+          - img [ref=e11523]:
+            - generic [ref=e11527]:
+              - generic "SmartAgent Builder" [ref=e11530]
+              - generic "Complete" [ref=e11608]
+              - generic "Outbound goals and metric definition" [ref=e11641]
+              - generic [ref=e11773]:
+                - generic "Complete" [ref=e11778]
+                - generic "Identifying and connecting all required data sources" [ref=e11811]
+              - generic [ref=e11999]:
+                - generic "Complete" [ref=e12004]
+                - generic "Designing automation logic, metrics, and reporting" [ref=e12037]
+              - generic [ref=e12221]:
+                - generic "In Progress" [ref=e12229]
+                - generic "Assembling and finalizing the GTM Engine agent logic" [ref=e12270]
+              - generic "Please wait, we are working on it..." [ref=e12451]
+    - generic [ref=e207]:
+      - generic [ref=e208]:
+        - link "Master Inbox" [ref=e209]:
+          - /url: "#"
+        - heading "One inbox to run your entire business" [level=2] [ref=e210]:
+          - generic [ref=e4299]: One
+          - generic [ref=e4300]: inbox
+          - generic [ref=e4301]: to
+          - generic [ref=e4302]: run
+          - generic [ref=e4303]: your
+          - generic [ref=e4304]: entire
+          - generic [ref=e4305]: business
+      - generic [ref=e211]:
+        - generic [ref=e214]:
+          - heading "Centralise every reply" [level=4] [ref=e215]
+          - paragraph [ref=e216]: View and manage responses from all campaigns and clients in one shared inbox—no more switching accounts.
+        - generic [ref=e219]:
+          - heading "Stay organised & responsive" [level=4] [ref=e220]
+          - paragraph [ref=e221]: Auto-Categorise replies by intent, leave notes, schedule follow‑ups and apply bulk actions like assign, archive or forward—all from one dashboard.
+        - generic [ref=e224]:
+          - heading "Keep deals moving" [level=4] [ref=e225]
+          - paragraph [ref=e226]: An AI reply manager prioritises hot leads, triggers next steps and syncs everything back to your CRM so nothing slips through the cracks.
+    - generic [ref=e228]:
+      - generic [ref=e229]:
+        - link "SmartDialer" [ref=e230]:
+          - /url: "#"
+        - heading "More connections & faster conversions" [level=2] [ref=e231]:
+          - generic [ref=e4306]: More
+          - generic [ref=e4307]: connections
+          - generic [ref=e4308]: "&"
+          - generic [ref=e4309]: faster
+          - generic [ref=e4310]: conversions
+      - generic [ref=e234]:
+        - generic [ref=e237]: Multi-channel outreach
+        - generic [ref=e242]: AI coaching & insights
+        - generic [ref=e246]: Clean data, real conversations
+  - generic [ref=e253]:
+    - generic [ref=e254]:
+      - link "Integrated CRM" [ref=e255]:
+        - /url: "#"
+      - heading "Track every deal in one place" [level=2] [ref=e256]:
+        - generic [ref=e4311]: Track
+        - generic [ref=e4312]: every
+        - generic [ref=e4313]: deal
+        - generic [ref=e4314]: in
+        - generic [ref=e4315]: one
+        - generic [ref=e4316]: place
+    - generic [ref=e257]:
+      - generic [ref=e260]:
+        - heading "Kanban meets email" [level=4] [ref=e261]
+        - paragraph [ref=e262]: Manage deals in a drag‑and‑drop board that’s fully synced with your Master Inbox and outreach campaigns.
+      - generic [ref=e265]:
+        - heading "See the whole story" [level=4] [ref=e266]
+        - paragraph [ref=e267]: View full conversation thread, your notes and an activity timeline—all tied to the right campaign, mailbox and phone conversation.
+      - generic [ref=e270]:
+        - heading "Real‑time sync" [level=4] [ref=e271]
+        - paragraph [ref=e272]: Drag a card or receive a reply and the board and inbox update automatically—no manual tagging or data entry.
+  - generic [ref=e274]:
+    - generic [ref=e275]:
+      - heading "Let’s build your intelligent enterprise outreach engine" [level=2] [ref=e276]:
+        - generic [ref=e4317]: Let’s
+        - generic [ref=e4318]: build
+        - generic [ref=e4319]: your
+        - generic [ref=e4320]: intelligent
+        - generic [ref=e4321]: enterprise
+        - generic [ref=e4322]: outreach
+        - generic [ref=e4323]: engine
+      - paragraph [ref=e277]: Get AI-native operating system for your enterprise sales team
+      - link "Book a Demo" [ref=e278] [cursor=pointer]:
+        - /url: /demo
+    - img [ref=e4325]:
+      - generic [ref=e4327]:
+        - generic [ref=e4358]:
+          - generic "04" [ref=e4368]
+          - generic "16" [ref=e4377]
+          - generic "Paused" [ref=e4386]
+          - generic "Active" [ref=e4411]
+          - generic "Campaigns" [ref=e4436]
+          - generic "01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100" [ref=e4474]
+        - generic [ref=e5282]:
+          - generic "01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100" [ref=e5288]
+          - generic "%" [ref=e6096]
+          - generic "Sender Health" [ref=e6101]
+        - generic [ref=e6227]:
+          - generic "Meeting Booked" [ref=e6232]
+          - generic "01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100" [ref=e6295]
+        - generic [ref=e7103]:
+          - generic "Replies Today" [ref=e7114]
+          - generic "+" [ref=e7171]
+          - generic "001 002 003 004 005 006 007 008 009 010 011 012 013 014 015 016 017 018 019 020 021 022 023 024 025 026 027 028 029 030 031 032 033 034 035 036 037 038 039 040 041 042 043 044 045 046 047 048 049 050 051 052 053 054 055 056 057 058 059 060 061 062 063 064 065 066 067 068 069 070 071 072 073 074 075 076 077 078 079 080 081 082 083 084 085 086 087 088 089 090 091 092 093 094 095 096 097 098 099 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142" [ref=e7177]
+        - generic [ref=e8885]:
+          - generic "Auto-Optimized" [ref=e8899]
+          - generic "Subject" [ref=e8960]
+          - generic "Timing" [ref=e8993]
+          - generic "Copy" [ref=e9022]
+        - generic "Enterprise Outreach AI" [ref=e9041]
+        - generic "Intelligent Enterprise Outreach Engine / AI-native operating system" [ref=e9122]
+        - 'generic "Status: Active" [ref=e9363]'
+        - 'generic "Runs: Daily" [ref=e9428]'
+  - generic [ref=e281]:
+    - heading "What our customers say" [level=2] [ref=e282]:
+      - generic [ref=e9494]: What
+      - generic [ref=e9495]: our
+      - generic [ref=e9496]: customers
+      - generic [ref=e9497]: say
+    - generic [ref=e283]:
+      - generic [ref=e284]:
+        - generic [ref=e288]:
+          - generic [ref=e289]: Bojan Najdov
+          - paragraph [ref=e290]: Founder, Lambda Group
+        - paragraph [ref=e292]: “The best outbound email marketing software. Customer support - they are so responsive and helpful Features -... See Full Review
+      - generic [ref=e293]:
+        - generic [ref=e297]:
+          - generic [ref=e298]: David Borman
+          - paragraph [ref=e299]: Senior Account Executive, Key Outreach
+        - paragraph [ref=e301]: "\"Intuitive. Game-Changing. POWERFUL. Analytics, spintax, A/B testing, quick personalization. This is a game ch... See Full Review"
+      - generic [ref=e302]:
+        - generic [ref=e306]:
+          - generic [ref=e307]: Eden Einav
+          - paragraph [ref=e308]: Account Executive, B.I.G. Charity Law Group Professional Corporation
+        - paragraph [ref=e310]: “Hands down the best cold email software. Smartlead is amazing, this is the best tool if you want to cold emai... See Full Review
+      - generic [ref=e311]:
+        - generic [ref=e315]:
+          - generic [ref=e316]: Ryane Tully
+          - paragraph [ref=e317]: Co-founder, Pitchlane
+        - paragraph [ref=e319]: “Innovative, reliable, and Suitable For Technical and Non-Technical Users. SmartLead's ability to help me land... See Full Review
+      - generic [ref=e320]:
+        - generic [ref=e324]:
+          - generic [ref=e325]: Romain Osman
+          - paragraph [ref=e326]: Co-Founder, Five Element
+        - paragraph [ref=e328]: “Smartlead is an absolute game-changer! With its exceptional features and support from the Smartlead team, I'v... See Full Review
+      - generic [ref=e329]:
+        - generic [ref=e333]:
+          - generic [ref=e334]: Reggie B.
+          - paragraph [ref=e335]: Sales Director - Financial Institution Solutions Saggezza, Inc.
+        - paragraph [ref=e337]: “Smartlead is an innovative cold email platform that helps me reach out to potential clients. There are easy-t... See Full Review
+      - generic [ref=e338]:
+        - generic [ref=e342]:
+          - generic [ref=e343]: Nick A.
+          - paragraph [ref=e344]: Founder, Leadbird.io
+        - paragraph [ref=e346]: “I've personally built a sales engagement platform similar to Smartlead, and I am genuinely blown away by the... See Full Review
+      - generic [ref=e347]:
+        - generic [ref=e351]:
+          - generic [ref=e352]: Mykyta
+          - paragraph [ref=e353]: CEO, Yell Cut
+        - paragraph [ref=e355]: "\"I can upload hundreds of email accounts, send thousands of cold emails per day, and still have an organized m... See Full Review"
+    - generic [ref=e356]:
+      - generic [ref=e357]:
+        - generic [ref=e361]:
+          - generic [ref=e362]: Dino Knezovic
+          - paragraph [ref=e363]: Founder, Office Optim
+        - paragraph [ref=e365]: “Smartlead has been extremely helpful with seamlessly onboarding clients, warming up their accounts, and prepp... See Full Review
+      - generic [ref=e366]:
+        - generic [ref=e370]:
+          - generic [ref=e371]: Johannes Fessler
+          - paragraph [ref=e372]: CEO, Rock Solid Lead Generation
+        - paragraph [ref=e374]: “Smartlead is absolutely amazing! The software is easy to understand I am not a techie but directly understand... See Full Review
+      - generic [ref=e375]:
+        - generic [ref=e379]:
+          - generic [ref=e380]: René-Karl Lambert
+          - paragraph [ref=e381]: Founder, WindGrowth
+        - paragraph [ref=e383]: “Smartlead is simply amazing. They constantly improve their product and bring new features that make the cold... See Full Review
+      - generic [ref=e384]:
+        - generic [ref=e388]:
+          - generic [ref=e389]: Lucas Maliczak
+          - paragraph [ref=e390]: Outbound Lead & Partner, Peakora
+        - paragraph [ref=e392]: “Our campaigns weren't just about reaching out, but reaching out right, and Smartlead helped us achieve this.... See Full Review
+      - generic [ref=e393]:
+        - generic [ref=e397]:
+          - generic [ref=e398]: Romain Osman
+          - paragraph [ref=e399]: Co-Founder, Five Element
+        - paragraph [ref=e401]: “Smartlead is an absolute game-changer! With its exceptional features and support from the Smartlead team, I'v... See Full Review
+      - generic [ref=e402]:
+        - generic [ref=e406]:
+          - generic [ref=e407]: Arnold Koci
+          - paragraph [ref=e408]: CEO, Acquisizioneclienti.it
+        - paragraph [ref=e410]: “Best cold outbound email software out there. Everything, is fast, reliable, scalable, you can also white-labe... See Full Review
+      - generic [ref=e411]:
+        - generic [ref=e415]:
+          - generic [ref=e416]: Cliff Coelho
+          - paragraph [ref=e417]: Owner, Storydriven.video
+        - paragraph [ref=e419]: “I just ended my 2 year search for the right cold emailing platform with Smartlead. A stand alone tool for col... See Full Review
+      - generic [ref=e420]:
+        - generic [ref=e424]:
+          - generic [ref=e425]: Serdar Tufan
+          - paragraph [ref=e426]: Owner, FunnelVision
+        - paragraph [ref=e428]: “Best cold email tool in the game. Most user friendly cold email tool I've used to date. Super easy to set up,... See Full Review
+  - generic [ref=e432]:
+    - heading "Powerful automated workflows that drive sales." [level=2] [ref=e433]:
+      - generic [ref=e9498]: Powerful
+      - generic [ref=e9499]: automated
+      - generic [ref=e9500]: workflows
+      - generic [ref=e9501]: that
+      - generic [ref=e9502]: drive
+      - generic [ref=e9503]: sales.
+    - generic [ref=e434]: Try Smartlead's AI-led outbound system today.
+    - generic [ref=e435]:
+      - link "View Pricing Plans" [ref=e436] [cursor=pointer]:
+        - /url: /pricing
+      - link "Start Your Free Trial" [ref=e437] [cursor=pointer]:
+        - /url: https://app.smartlead.ai/sign-up?utm_source=Home%20page&utm_medium=Website&utm_campaign=Marketing&utm_content=Start%20Your%20Free%20Trial&_gl=1*3lm1v6*_gcl_au*MTg2MDY1NzAzNS4xNzcwMTAxMzc1
+  - generic [ref=e439]:
+    - heading "Frequently asked questions" [level=2] [ref=e440]:
+      - generic [ref=e9504]: Frequently
+      - generic [ref=e9505]: asked
+      - generic [ref=e9506]: questions
+    - generic [ref=e441]:
+      - generic [ref=e442]:
+        - generic [ref=e444] [cursor=pointer]:
+          - heading "What is Smartlead's cold email outreach software?" [level=6] [ref=e445]
+          - generic [ref=e446]: +
+        - generic [ref=e448] [cursor=pointer]:
+          - heading "How does Smartlead's unlimited mailboxes feature benefit me?" [level=6] [ref=e449]
+          - generic [ref=e450]: +
+        - generic [ref=e452] [cursor=pointer]:
+          - heading "What do you mean by \"unibox to handle your entire revenue cycle\"?" [level=6] [ref=e453]
+          - generic [ref=e454]: +
+        - generic [ref=e456] [cursor=pointer]:
+          - heading "Can Smartlead help improve my email deliverability rates?" [level=6] [ref=e457]
+          - generic [ref=e458]: +
+        - generic [ref=e460] [cursor=pointer]:
+          - heading "Can I integrate Smartlead with other tools I'm using?" [level=6] [ref=e461]
+          - generic [ref=e462]: +
+      - generic [ref=e9507]:
+        - generic [ref=e9509] [cursor=pointer]:
+          - heading "What is Smartlead, and how can it enhance my cold email campaigns?" [level=6] [ref=e9510]
+          - generic [ref=e9511]: +
+        - generic [ref=e9513] [cursor=pointer]:
+          - heading "How does Smartlead, as a cold emailing tool, automate the cold email process?" [level=6] [ref=e9514]
+          - generic [ref=e9515]: +
+        - generic [ref=e9517] [cursor=pointer]:
+          - heading "How does Smartlead ensure my emails don't land in the spam folder?" [level=6] [ref=e9518]
+          - generic [ref=e9519]: +
+        - generic [ref=e9521] [cursor=pointer]:
+          - heading "What features does Smartlead offer for cold email personalisation?" [level=6] [ref=e9522]
+          - generic [ref=e9523]: +
+        - generic [ref=e9525] [cursor=pointer]:
+          - heading "Is Smartlead suitable for both small businesses and large enterprises?" [level=6] [ref=e9526]
+          - generic [ref=e9527]: +
+  - contentinfo [ref=e9528]:
+    - generic [ref=e9529]:
+      - generic [ref=e9530]:
+        - generic [ref=e9532]:
+          - generic [ref=e9533]:
+            - paragraph [ref=e9535]: Product
+            - list [ref=e9536]:
+              - listitem [ref=e9537]:
+                - link "Premium Deliverability At Scale" [ref=e9538] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e9539]: Premium Deliverability At Scale
+              - listitem [ref=e9540]:
+                - link "Unified Master Inbox" [ref=e9541] [cursor=pointer]:
+                  - /url: /unified-master-inbox
+                  - generic [ref=e9542]: Unified Master Inbox
+              - listitem [ref=e9543]:
+                - link "Customized White Labelling" [ref=e9544] [cursor=pointer]:
+                  - /url: /customized-white-labelling
+                  - generic [ref=e9545]: Customized White Labelling
+              - listitem [ref=e9546]:
+                - link "Powerful APIs and Automation" [ref=e9547] [cursor=pointer]:
+                  - /url: /powerful-apis-and-automation
+                  - generic [ref=e9548]: Powerful APIs and Automation
+              - listitem [ref=e9549]:
+                - link "Unlimited Email Warmups" [ref=e9550] [cursor=pointer]:
+                  - /url: /unlimited-email-warmups
+                  - generic [ref=e9551]: Unlimited Email Warmups
+              - listitem [ref=e9552]:
+                - link "Email Follow-Up Automation" [ref=e9553] [cursor=pointer]:
+                  - /url: /automated-email-follow-ups
+                  - generic [ref=e9554]: Email Follow-Up Automation
+              - listitem [ref=e9555]:
+                - link "Mobile App" [ref=e9556] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e9557]: Mobile App
+          - generic [ref=e9558]:
+            - paragraph [ref=e9560]: Solutions
+            - list [ref=e9561]:
+              - listitem [ref=e9562]:
+                - link "Lead Gen Agencies" [ref=e9563] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e9564]: Lead Gen Agencies
+              - listitem [ref=e9565]:
+                - link "Marketing Agencies" [ref=e9566] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e9567]: Marketing Agencies
+              - listitem [ref=e9568]:
+                - link "Sales Leaders" [ref=e9569] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e9570]: Sales Leaders
+              - listitem [ref=e9571]:
+                - link "Recruiters" [ref=e9572] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e9573]: Recruiters
+          - generic [ref=e9574]:
+            - paragraph [ref=e9576]: Comparisons
+            - list [ref=e9577]:
+              - listitem [ref=e9578]:
+                - link "Smartlead Vs Lemlist" [ref=e9579] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-lemlist
+                  - generic [ref=e9580]: Smartlead Vs Lemlist
+              - listitem [ref=e9581]:
+                - link "Smartlead Vs Outreach.io" [ref=e9582] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-outreach-io
+                  - generic [ref=e9583]: Smartlead Vs Outreach.io
+              - listitem [ref=e9584]:
+                - link "Smartlead Vs Mailshake" [ref=e9585] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-mailshake
+                  - generic [ref=e9586]: Smartlead Vs Mailshake
+              - listitem [ref=e9587]:
+                - link "Smartlead Vs Outreachbin" [ref=e9588] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-outreachbin
+                  - generic [ref=e9589]: Smartlead Vs Outreachbin
+              - listitem [ref=e9590]:
+                - link "Smartlead Vs Klenty" [ref=e9591] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-klenty
+                  - generic [ref=e9592]: Smartlead Vs Klenty
+              - listitem [ref=e9593]:
+                - link "Smartlead Vs Quickmail" [ref=e9594] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-quickmail
+                  - generic [ref=e9595]: Smartlead Vs Quickmail
+              - listitem [ref=e9596]:
+                - link "Smartlead Vs Saleshandy" [ref=e9597] [cursor=pointer]:
+                  - /url: /comparison/smartlead-vs-saleshandy
+                  - generic [ref=e9598]: Smartlead Vs Saleshandy
+          - generic [ref=e9599]:
+            - paragraph [ref=e9601]: Resources
+            - list [ref=e9602]:
+              - listitem [ref=e9603]:
+                - link "Blogs" [ref=e9604] [cursor=pointer]:
+                  - /url: /blog
+                  - generic [ref=e9605]: Blogs
+              - listitem [ref=e9606]:
+                - link "Cold Outreach Template" [ref=e9607] [cursor=pointer]:
+                  - /url: /email-templates
+                  - generic [ref=e9608]: Cold Outreach Template
+              - listitem [ref=e9609]:
+                - link "Email Generator" [ref=e9610] [cursor=pointer]:
+                  - /url: /tools/email-signature-generator
+                  - generic [ref=e9611]: Email Generator
+              - listitem [ref=e9612]:
+                - link "FAQs" [ref=e9613] [cursor=pointer]:
+                  - /url: /faq
+                  - generic [ref=e9614]: FAQs
+              - listitem [ref=e9615]:
+                - link "Tools And Comparisons" [ref=e9616] [cursor=pointer]:
+                  - /url: /tool-comparisons
+                  - generic [ref=e9617]: Tools And Comparisons
+              - listitem [ref=e9618]:
+                - link "Guides and eBooks" [ref=e9619] [cursor=pointer]:
+                  - /url: /ebook-and-guide
+                  - generic [ref=e9620]: Guides and eBooks
+          - generic [ref=e9622]:
+            - paragraph [ref=e9624]: Company
+            - list [ref=e9625]:
+              - listitem [ref=e9626]:
+                - link "What’s New" [ref=e9627] [cursor=pointer]:
+                  - /url: /privacy-policy
+                  - generic [ref=e9628]: What’s New
+              - listitem [ref=e9629]:
+                - link "Careers" [ref=e9630] [cursor=pointer]:
+                  - /url: /new-terms-and-conditions
+                  - generic [ref=e9631]: Careers
+              - listitem [ref=e9632]:
+                - link "Affiliate Partners" [ref=e9633] [cursor=pointer]:
+                  - /url: /affiliate-partners
+                  - generic [ref=e9634]: Affiliate Partners
+              - listitem [ref=e9635]:
+                - generic [ref=e9636]: Legal
+              - listitem [ref=e9637]:
+                - link "Privacy Policy" [ref=e9638] [cursor=pointer]:
+                  - /url: /privacy-policy
+                  - generic [ref=e9639]: Privacy Policy
+              - listitem [ref=e9640]:
+                - link "Ts & Cs" [ref=e9641] [cursor=pointer]:
+                  - /url: /new-terms-and-conditions
+                  - generic [ref=e9642]: Ts & Cs
+              - listitem [ref=e9643]:
+                - link "Fair Use Policy" [ref=e9644] [cursor=pointer]:
+                  - /url: /fair-use-policy
+                  - generic [ref=e9645]: Fair Use Policy
+              - listitem [ref=e9646]:
+                - link "DPA" [ref=e9647] [cursor=pointer]:
+                  - /url: /dpa
+                  - generic [ref=e9648]: DPA
+              - listitem [ref=e9649]:
+                - link "Don't Sell My Data" [ref=e9650] [cursor=pointer]:
+                  - /url: /do-not-sell-my-data
+                  - generic [ref=e9651]: Don't Sell My Data
+        - generic [ref=e9653]:
+          - generic [ref=e9654]:
+            - generic [ref=e9656]:
+              - paragraph [ref=e9657]: "Get 1 hot deliverability tip each week:"
+              - form "Newsletter" [ref=e9659]:
+                - textbox "Drop your email here!" [ref=e9660]
+                - button "Submit" [ref=e9661] [cursor=pointer]
+            - complementary:
+              - generic:
+                - link "Download SmartLead App on Google Play":
+                  - /url: https://play.google.com/store/apps/details?id=com.smartlead
+                  - img "Download SmartLead App on Google Play"
+                - link "Download SmartLead App on Apple store":
+                  - /url: https://apps.apple.com/us/app/smartlead/id6504275681
+                  - img "Download SmartLead App on Apple store"
+          - complementary:
+            - generic:
+              - img "Download SmartLead App on Google Play"
+      - generic [ref=e9664]:
+        - complementary [ref=e9665]:
+          - link "ftr_logo" [ref=e9666] [cursor=pointer]:
+            - /url: "#"
+            - img "ftr_logo"
+          - generic [ref=e9667]:
+            - link "@ Five2one Product" [ref=e9668] [cursor=pointer]:
+              - /url: https://www.five2one.com.au/
+              - paragraph [ref=e9669]:
+                - text: "@"
+                - generic [ref=e9670]: Five2one
+                - text: Product
+            - paragraph [ref=e9672]: Made with ❤ in Sunny Sydney 🇦🇺
+          - paragraph [ref=e9674]: 521 Products Pty Ltd t/a Smartlead.ai. All Rights Reserved
+        - list [ref=e9676]:
+          - listitem [ref=e9677]:
+            - link "Visit Our LinkedIN Channel - Smartlead" [ref=e9678] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/smartlead-ai/
+              - img "Visit Our LinkedIN Channel - Smartlead" [ref=e9679]
+          - listitem:
+            - link "Visit Our YouTube Channel - Smartlead":
+              - /url: https://www.youtube.com/channel/UCucC3anvnPqXuvbu-oCA0gQ/
+              - img "Visit Our YouTube Channel - Smartlead"
+          - listitem:
+            - link "Visit Our YouTube Channel - Smartlead":
+              - /url: https://www.instagram.com/smartleadai/?hl=en
+              - img "Visit Our YouTube Channel - Smartlead"
+          - listitem:
+            - link "Visit Our Twitter Channel - Smartlead":
+              - /url: https://twitter.com/smartlead_ai
+              - img "Visit Our Twitter Channel - Smartlead"
+  - generic [ref=e16399] [cursor=pointer]:
+    - img "Feedback Button" [ref=e16400]
+    - img [ref=e16401]

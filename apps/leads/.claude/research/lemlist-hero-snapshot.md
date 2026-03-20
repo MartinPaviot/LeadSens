@@ -1,0 +1,580 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - region "Notifications Alt+T"
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - link "icon" [ref=e8] [cursor=pointer]:
+            - /url: /
+            - img "icon" [ref=e9]
+          - generic [ref=e10]:
+            - generic [ref=e11]:
+              - generic [ref=e12] [cursor=pointer]:
+                - text: Product
+                - img "arrow-down" [ref=e421]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: FIND QUALIFIED LEADS
+                    - generic: Get a list of high-potential leads with verified emails, phone numbers, and relevant details.
+                    - generic:
+                      - link "600 M+ lead database arrow-right":
+                        - /url: /b2b-lead-database
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: 600 M+ lead database
+                        - img "arrow-right"
+                      - link "Intent signals New arrow-right":
+                        - /url: /intent-signals
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Intent signals
+                          - generic: New
+                        - img "arrow-right"
+                      - link "Email finder & verifier arrow-right":
+                        - /url: /email-finder-and-verifier
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Email finder & verifier
+                        - img "arrow-right"
+                      - link "Phone number finder arrow-right":
+                        - /url: /phone-number-finder
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Phone number finder
+                        - img "arrow-right"
+                  - generic:
+                    - generic: AUTOMATE MULTICHANNEL SEQUENCES
+                    - generic: Run personalized outreach across email, LinkedIn, or phone from one spot.
+                    - generic:
+                      - link "Multichannel sequences arrow-right":
+                        - /url: /multichannel-prospecting
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Multichannel sequences
+                        - img "arrow-right"
+                      - link "LinkedIn prospecting arrow-right":
+                        - /url: /linkedin-prospecting
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: LinkedIn prospecting
+                        - img "arrow-right"
+                      - link "In-app calling arrow-right":
+                        - /url: /calling
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: In-app calling
+                        - img "arrow-right"
+                      - link "WhatsApp prospecting New arrow-right":
+                        - /url: /whatsapp-prospecting
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: WhatsApp prospecting
+                          - generic: New
+                        - img "arrow-right"
+                      - link "AI-powered personalization arrow-right":
+                        - /url: /ai
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: AI-powered personalization
+                        - img "arrow-right"
+                      - link "Unified inbox arrow-right":
+                        - /url: /unified-inbox
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Unified inbox
+                        - img "arrow-right"
+                  - generic:
+                    - generic: LAND IN INBOXES
+                    - generic: Make sure your outreach gets delivered where it matters, out of the spam folder.
+                    - generic:
+                      - link "Inbox rotation arrow-right":
+                        - /url: /inbox-rotation
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Inbox rotation
+                        - img "arrow-right"
+                      - link "Warm-up & deliverability booster arrow-right":
+                        - /url: /lemwarm
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Warm-up & deliverability booster
+                        - img "arrow-right"
+                  - generic:
+                    - generic: INTEGRATIONS
+                    - generic:
+                      - link "Integrations arrow-right":
+                        - /url: /integrations/
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Integrations
+                        - img "arrow-right"
+                      - link "API reference arrow-right":
+                        - /url: https://developer.lemlist.com/api-reference/getting-started/overview
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: API reference
+                        - img "arrow-right"
+                      - link "Claap x lemlist New arrow-right":
+                        - /url: /claap
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Claap x lemlist
+                          - generic: New
+                        - img "arrow-right"
+            - generic [ref=e13]:
+              - generic [ref=e14] [cursor=pointer]:
+                - text: Roles
+                - img "arrow-down" [ref=e422]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: LEMLIST FOR
+                    - generic:
+                      - link "For Sales Reps arrow-right":
+                        - /url: /sales-development
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: For Sales Reps
+                        - img "arrow-right"
+                      - link "For Sales Leaders arrow-right":
+                        - /url: /sales-leaders
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: For Sales Leaders
+                        - img "arrow-right"
+                      - link "For RevOps arrow-right":
+                        - /url: /revops
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: For RevOps
+                        - img "arrow-right"
+                      - link "For Founders arrow-right":
+                        - /url: /founders
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: For Founders
+                        - img "arrow-right"
+                  - generic:
+                    - generic:
+                      - link "Success Stories arrow-right":
+                        - /url: /success-stories/
+                        - generic:
+                          - generic:
+                            - img
+                          - generic: Success Stories
+                        - img "arrow-right"
+                      - link "icon From 5% to 30% of pipeline from outbound? Here’s how ElevenLabs did it with lemlist!":
+                        - /url: /success-stories/elevenlabs
+                        - img "icon"
+                        - generic:
+                          - generic: From 5% to 30% of pipeline from outbound? Here’s how ElevenLabs did it with lemlist!
+            - generic [ref=e15]:
+              - generic [ref=e16] [cursor=pointer]:
+                - text: Real World Results
+                - img "arrow-down" [ref=e423]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic: OUTBOUND PLAYBOOKS
+                    - generic: Outbound is a craft. These playbooks break down how top-performing B2B sales execute it in the real world
+                    - generic:
+                      - link "JONATHAN CHEMOUNY, GTM @ELEVENLABS Discover ElevenLabs’s outbound playbook arrow-right":
+                        - /url: /outbound-playbooks/jonathan-chemouny
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: JONATHAN CHEMOUNY, GTM @ELEVENLABS
+                              - generic: Discover ElevenLabs’s outbound playbook
+                          - img "arrow-right"
+                      - link "LOUIS & EDOUARD UGUEN, GROWTH @PIGMENT Discover Pigment’s outbound playbook arrow-right":
+                        - /url: /outbound-playbooks/inside-the-growth-twins-playbook-pigment
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: LOUIS & EDOUARD UGUEN, GROWTH @PIGMENT
+                              - generic: Discover Pigment’s outbound playbook
+                          - img "arrow-right"
+                      - link "TOM GREENWOOD, SDR @PADDLE Discover Paddle’s outbound playbook arrow-right":
+                        - /url: /outbound-playbooks/sales-playbook-from-tom-greenwood-bdr-lead-paddle
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: TOM GREENWOOD, SDR @PADDLE
+                              - generic: Discover Paddle’s outbound playbook
+                          - img "arrow-right"
+                      - link "CONOR MCCARTHY, SALES TEAM LEAD @LEMLIST Discover lemlist’s outbound playbook arrow-right":
+                        - /url: /outbound-playbooks/conor-mccarthy
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic: CONOR MCCARTHY, SALES TEAM LEAD @LEMLIST
+                              - generic: Discover lemlist’s outbound playbook
+                          - img "arrow-right"
+                      - link "See all playbooks":
+                        - /url: /outbound-playbooks/
+                        - text: See all playbooks
+                        - generic:
+                          - img
+                          - img
+            - link "Pricing" [ref=e17] [cursor=pointer]:
+              - /url: /pricing
+        - generic [ref=e18]:
+          - link "Log in" [ref=e19] [cursor=pointer]:
+            - /url: https://app.lemlist.com/login
+          - link "Get a demo" [ref=e23] [cursor=pointer]:
+            - /url: /contact-sales
+          - link "Sign up for free" [ref=e24] [cursor=pointer]:
+            - /url: https://app.lemlist.com/create-account
+    - main [ref=e25]:
+      - generic [ref=e29]:
+        - heading "The prospecting tool to automate multichannel outreach & actually get replies" [level=1] [ref=e30]: The prospecting tool to automate multichannel outreach & actually get replies
+        - heading "Find leads with valid contact info and reach them across email, LinkedIn, WhatsApp, or calls - personalized, and out of spam." [level=4] [ref=e31]
+        - link "Start a 14-day free trial" [ref=e32] [cursor=pointer]:
+          - /url: https://app.lemlist.com/create-account
+          - text: Start a 14-day free trial
+          - generic [ref=e33]:
+            - img [ref=e34]
+            - img [ref=e37]
+        - generic [ref=e40]:
+          - generic [ref=e42]:
+            - text: "4.6"
+            - generic [ref=e43]: / 5
+          - generic [ref=e45]:
+            - text: "4.5"
+            - generic [ref=e46]: / 5
+          - generic [ref=e47]:
+            - img "SOC2 Badge" [ref=e48]
+            - generic [ref=e49]: SOC 2 Type II certified
+      - generic [ref=e52]:
+        - generic [ref=e56]:
+          - generic [ref=e57]: 20,000 sales teams* use lemlist to book meetings
+          - generic [ref=e65]: "*Not for show. They're running sequences right now."
+        - generic [ref=e67]:
+          - generic [ref=e69]:
+            - generic [ref=e70]: Perplexity runs AI sales tools at an AI Company. Here's what actually works.
+            - generic [ref=e71]:
+              - text: ft. Nathan Follen, Pierre Touzeau & Rémi Kokabi
+              - text: March 18th | 10 AM PT / 6 PM CET
+          - link "Register" [ref=e74] [cursor=pointer]:
+            - /url: https://lemlist.registration.goldcast.io/webinar/ea9fb8cc-d01c-4565-914d-e6e10d2f2166
+            - text: Register
+            - generic [ref=e75]:
+              - img [ref=e76]
+              - img [ref=e79]
+        - generic [ref=e82]:
+          - img "Quote Icon" [ref=e425]
+          - img "Quote Icon" [ref=e426]
+          - generic [ref=e84]:
+            - generic [ref=e85]: Most tools claim multi-channel outreach. lemlist is one of the few that actually delivers, with strong enrichment, a great UI, and sequences that perform at scale.
+            - generic [ref=e86]:
+              - generic [ref=e87]: Ian Kistenr
+              - generic [ref=e88]: Head of Sales Developement at Crusoe
+      - generic [ref=e93]:
+        - heading "Find, enrich & reach qualified leads from one platform." [level=2] [ref=e94]
+        - generic [ref=e97]:
+          - heading "Find prospects who are ready to buy and easy to contact" [level=2] [ref=e98]
+          - paragraph [ref=e99]: Use a 450 M+ lead database with smart filters to spot companies and people that match your ICP. With one click, built-in waterfall enrichment pulls their verified emails and phone numbers from the market’s top providers.
+        - generic [ref=e103]:
+          - heading "Personalize at scale with AI, without sounding like AI" [level=2] [ref=e104]
+          - paragraph [ref=e105]: lemlist AI pulls lead details from LinkedIn, websites, and more - so you don’t have to. Use dynamic variables to automatically adapt message text, images, and landing pages with new insights to each lead.
+        - generic [ref=e109]:
+          - heading "Run sequence on multiple channels, from one spot" [level=2] [ref=e110]
+          - paragraph [ref=e111]: Automate email follow-ups, LinkedIn actions, WhatsApp messages, and calls from 1 sequence. Track leads’ interactions across any channel or sender in one inbox thread, and engage without switching platforms.
+        - generic [ref=e115]:
+          - heading "Don’t land in the spam folder, ever again" [level=2] [ref=e116]
+          - paragraph [ref=e117]: Get free access to lemwarm, a deliverability booster that keeps your outreach out of spam. It automates warm-up emails and gives you actionable tips to ensure your messaging always gets through.
+        - link "Start a 14-day free trial" [ref=e119] [cursor=pointer]:
+          - /url: https://app.lemlist.com/create-account
+          - text: Start a 14-day free trial
+          - generic [ref=e120]:
+            - img [ref=e121]
+            - img [ref=e124]
+      - generic [ref=e130]:
+        - generic [ref=e131]:
+          - img "Quote Icon" [ref=e429]
+          - img "Quote Icon" [ref=e430]
+          - generic [ref=e133]:
+            - generic [ref=e134]: We went from using only email sequences and manual steps on other channels to having all important tools, such as HubSpot and Aircall, integrated in lemlist. Now, we're able to run multichannel campaigns from just one workflow.
+            - generic [ref=e135]:
+              - generic [ref=e136]: Patric Lindström
+              - generic [ref=e137]: Chief Sales Officer at Videoly
+        - generic [ref=e138]:
+          - heading "Fits your workflow, not the other way around" [level=2] [ref=e139]
+          - generic [ref=e140]:
+            - generic [ref=e146]: Plug into any tool you use...
+            - generic [ref=e152]: and run it straight from your CRM.
+          - link "Check all integrations" [ref=e153] [cursor=pointer]:
+            - /url: /integrations/
+            - text: Check all integrations
+            - generic [ref=e154]:
+              - img [ref=e155]
+              - img [ref=e158]
+        - generic [ref=e161]:
+          - img "Quote Icon" [ref=e433]
+          - img "Quote Icon" [ref=e434]
+          - generic [ref=e163]:
+            - generic [ref=e164]: We switched to lemlist because it was easy to adopt and train the team. Everyone could launch campaigns independently and just let them run. It helped us go after specific logos with more creative and targeted outreach.
+            - generic [ref=e165]:
+              - generic [ref=e166]: Jose Ignacio Reynoso
+              - generic [ref=e167]: Sales Manager at Viva
+      - generic [ref=e172]:
+        - heading "Steal the outbound playbook of top-performing B2B sales teams." [level=2] [ref=e173]
+        - generic [ref=e174]:
+          - generic [ref=e176]:
+            - generic [ref=e178]:
+              - generic [ref=e180]: Tom Greenwood, BDR Team Lead @ Paddle
+              - generic [ref=e181]: Discover how Tom turned LinkedIn consistency, daily calling, and smart tracking into a repeatable outbound system that hits 145% of quota.
+            - link "Check Tom's playbook" [ref=e183] [cursor=pointer]:
+              - /url: /outbound-playbooks/sales-playbook-from-tom-greenwood-bdr-lead-paddle
+              - text: Check Tom's playbook
+              - generic [ref=e184]:
+                - img [ref=e185]
+                - img [ref=e188]
+          - generic [ref=e192]:
+            - generic [ref=e194]:
+              - generic [ref=e196]: Conor McCarthy, Sales Lead @ lemlist
+              - generic [ref=e197]: See how lemlist scaled its outbound-sourced pipeline from 5% to 35% using multichannel sequences, tested scripts, and AI-powered personalization.
+            - link "Check Connor's playbook" [ref=e199] [cursor=pointer]:
+              - /url: /outbound-playbooks/conor-mccarthy
+              - text: Check Connor's playbook
+              - generic [ref=e200]:
+                - img [ref=e201]
+                - img [ref=e204]
+          - generic [ref=e208]:
+            - generic [ref=e210]:
+              - generic [ref=e212]: Jonathan Chemouny, GTM @ Elevenlabs
+              - generic [ref=e213]: Learn how Jon scaled outbound from 5% to 35% of pipeline with multichannel plays, AI voice notes, and a calling framework driving x2 conversion.
+            - link "Check Jon's playbook" [ref=e215] [cursor=pointer]:
+              - /url: /outbound-playbooks/jonathan-chemouny
+              - text: Check Jon's playbook
+              - generic [ref=e216]:
+                - img [ref=e217]
+                - img [ref=e220]
+      - generic [ref=e226]:
+        - generic [ref=e227]:
+          - heading "Wins from teams just like yours" [level=2] [ref=e228]
+          - generic [ref=e229]:
+            - generic [ref=e231]:
+              - generic [ref=e232]:
+                - generic [ref=e233]: 6x Outbound success
+                - img [ref=e438]
+              - generic [ref=e234]: From 5% to 30% of pipeline from outbound? Here’s how ElevenLabs did it with lemlist!
+              - link "Discover full story" [ref=e237] [cursor=pointer]:
+                - /url: /success-stories/elevenlabs
+                - generic [ref=e238]: Discover full story
+                - img [ref=e239]
+            - generic [ref=e242]:
+              - generic [ref=e243]:
+                - generic [ref=e244]: 1,5x Open rate
+                - img [ref=e441]
+              - generic [ref=e245]: How Airporting Went from Spam to Strategy in 90 Days with lemcoach
+              - generic [ref=e246]:
+                - generic [ref=e247]:
+                  - img "Mathieu Mola" [ref=e248]
+                  - generic [ref=e249]:
+                    - generic [ref=e250]: Mathieu Mola
+                    - generic [ref=e251]: CEO & Founder @ Airporting
+                - link "Discover full story" [ref=e252] [cursor=pointer]:
+                  - /url: /success-stories/how-airporting-went-from-spam-to-strategy-in-90-days-with-lemcoach
+                  - generic [ref=e253]: Discover full story
+                  - img [ref=e254]
+        - generic [ref=e258]:
+          - heading "Ready to kick off your first sequence today?" [level=2] [ref=e259]
+          - paragraph [ref=e260]: Set it, forget it, and let replies come to you.
+          - link "Start a 14-day free trial" [ref=e261] [cursor=pointer]:
+            - /url: https://app.lemlist.com/create-account
+            - text: Start a 14-day free trial
+            - generic [ref=e262]:
+              - img [ref=e263]
+              - img [ref=e266]
+        - generic [ref=e270]:
+          - heading "Frequently Asked Questions" [level=2] [ref=e271]
+          - generic [ref=e272]:
+            - generic [ref=e273]:
+              - button "What is lemlist?" [ref=e274] [cursor=pointer]:
+                - heading "What is lemlist?" [level=3] [ref=e275]
+                - img [ref=e276]
+              - generic [ref=e279]: lemlist is a sales engagement platform that helps you automate outreach across email, LinkedIn, WhatsApp and calls without compromising the human touch. From finding qualified leads, to personalizing messages and following up at scale - it’s your team’s all-in-one prospecting workspace.
+            - generic [ref=e280]:
+              - button "Who is lemlist for?" [ref=e281] [cursor=pointer]:
+                - heading "Who is lemlist for?" [level=3] [ref=e282]
+                - img [ref=e283]
+              - generic [ref=e285]:
+                - generic [ref=e286]: "lemlist is primarily made for driven sales teams who want to spend less time on busywork and more time closing deals. It helps:"
+                - generic [ref=e287]:
+                  - text: → Sales Leaders and Managers onboard their teams easily and hit targets,
+                  - text: → Sales Ops streamline processes and increase productivity,
+                  - text: → Sales Development Representatives and Account Executives focus on talking to prospects instead of getting buried in manual tasks.
+                - generic [ref=e288]: Even if you're a solo founder or an outbound agency, lemlist gives you everything you need to run high-performing outreach and find new customers.
+            - generic [ref=e289]:
+              - button "What makes lemlist different?" [ref=e290] [cursor=pointer]:
+                - heading "What makes lemlist different?" [level=3] [ref=e291]
+                - img [ref=e292]
+              - generic [ref=e295]: Most tools only handle a part of the lead gen process. lemlist does it all, from start to close, in one place. You can find and enrich leads, launch multichannel outreach, keep engaging, and ensure high deliverability, without ever leaving the app. It’s the full package for sales teams who want to run successful outbound without juggling 5 tools.
+            - generic [ref=e296]:
+              - button "Can I integrate lemlist in my current sales stack?" [ref=e297] [cursor=pointer]:
+                - heading "Can I integrate lemlist in my current sales stack?" [level=3] [ref=e298]
+                - img [ref=e299]
+              - generic [ref=e302]: Absolutely. You can connect it with your favorite tools, including native integrations with HubSpot and Salesforce, so you can run and manage outbound directly from your CRM. Plus, with API access, it easily adapts to the way your team already works.
+            - generic [ref=e303]:
+              - button "How does lemlist affect my email deliverability?" [ref=e304] [cursor=pointer]:
+                - heading "How does lemlist affect my email deliverability?" [level=3] [ref=e305]
+                - img [ref=e306]
+              - generic [ref=e309]: Every lemlist seat includes free access to lemwarm, a built-in warm-up and deliverability booster. lemwarm automates warm-up emails with smart sending logic and gives you tips to protect your sender reputation, so your messages stay out of spam.
+            - generic [ref=e310]:
+              - button "Can I see a lemlist demo before signing up?" [ref=e311] [cursor=pointer]:
+                - heading "Can I see a lemlist demo before signing up?" [level=3] [ref=e312]
+                - img [ref=e313]
+              - generic [ref=e316]:
+                - text: Of course! You can
+                - link "book a personalized demo" [ref=e317] [cursor=pointer]:
+                  - /url: https://www.lemlist.com/contact-sales
+                - text: with our team, or explore it yourself through
+                - link "a 14-day free trial" [ref=e318] [cursor=pointer]:
+                  - /url: https://app.lemlist.com/create-account
+                - text: .
+            - generic [ref=e319]:
+              - button "How to get started with lemlist?" [ref=e320] [cursor=pointer]:
+                - heading "How to get started with lemlist?" [level=3] [ref=e321]
+                - img [ref=e322]
+              - generic [ref=e325]:
+                - text: Sign up for lemlist’s
+                - link "14-day free trial here" [ref=e326] [cursor=pointer]:
+                  - /url: https://app.lemlist.com/create-account
+                - text: . Once you're in, the dashboard will guide you through the setup with helpful tips from our team. Need a hand? Just click the app's chat bubble, and our support team’s got you covered.
+      - generic [ref=e330]:
+        - heading "Find leads with valid contacts & personalize multichannel outreach at scale with lemlist" [level=2] [ref=e331]:
+          - text: Find leads with valid contacts & personalize multichannel outreach at scale with
+          - img "lemlist" [ref=e333]
+        - link "Sign up for free" [ref=e334] [cursor=pointer]:
+          - /url: https://app.lemlist.com/create-account
+          - text: Sign up for free
+          - generic [ref=e335]:
+            - img [ref=e336]
+            - img [ref=e339]
+    - generic [ref=e342]:
+      - img "lemlist icon" [ref=e444]
+      - generic [ref=e346]:
+        - generic [ref=e347]:
+          - generic [ref=e348]:
+            - generic [ref=e349]: GET STARTED
+            - generic [ref=e350]:
+              - link "Pricing" [ref=e351] [cursor=pointer]:
+                - /url: /pricing/
+                - generic [ref=e352]: Pricing
+              - link "Log in" [ref=e353] [cursor=pointer]:
+                - /url: https://app.lemlist.com/login
+                - generic [ref=e354]: Log in
+              - link "Sign up for free" [ref=e355] [cursor=pointer]:
+                - /url: https://app.lemlist.com/create-account
+                - generic [ref=e356]: Sign up for free
+              - link "Get a demo" [ref=e357] [cursor=pointer]:
+                - /url: /contact-sales
+                - generic [ref=e358]: Get a demo
+              - link "1:1 Training" [ref=e359] [cursor=pointer]:
+                - /url: /lemcoach
+                - generic [ref=e360]: 1:1 Training
+          - generic [ref=e361]:
+            - generic [ref=e362]: PRODUCT
+            - generic [ref=e363]:
+              - link "Find qualified leads" [ref=e364] [cursor=pointer]:
+                - /url: /b2b-lead-database
+                - generic [ref=e365]: Find qualified leads
+              - link "Enrich contact info" [ref=e366] [cursor=pointer]:
+                - /url: /email-finder-and-verifier
+                - generic [ref=e367]: Enrich contact info
+              - link "Personalize at scale" [ref=e368] [cursor=pointer]:
+                - /url: /ai
+                - generic [ref=e369]: Personalize at scale
+              - link "Automate multichannel" [ref=e370] [cursor=pointer]:
+                - /url: /multichannel-prospecting
+                - generic [ref=e371]: Automate multichannel
+              - link "Land out of spam" [ref=e372] [cursor=pointer]:
+                - /url: /lemwarm
+                - generic [ref=e373]: Land out of spam
+              - link "Integrations" [ref=e374] [cursor=pointer]:
+                - /url: /integrations/
+                - generic [ref=e375]: Integrations
+              - link "Developer API" [ref=e376] [cursor=pointer]:
+                - /url: https://developer.lemlist.com/
+                - generic [ref=e377]: Developer API
+              - link "Systems status" [ref=e378] [cursor=pointer]:
+                - /url: https://status.lempire.com/
+                - generic [ref=e379]: Systems status
+          - generic [ref=e380]:
+            - generic [ref=e381]: RESOURCES
+            - generic [ref=e382]:
+              - link "Blog" [ref=e383] [cursor=pointer]:
+                - /url: /blog/
+                - generic [ref=e384]: Blog
+              - link "Playbooks" [ref=e385] [cursor=pointer]:
+                - /url: /playbooks/
+                - generic [ref=e386]: Playbooks
+              - link "YouTube" [ref=e387] [cursor=pointer]:
+                - /url: https://www.youtube.com/c/lemlist
+                - generic [ref=e388]: YouTube
+              - link "Free tools" [ref=e389] [cursor=pointer]:
+                - /url: /free-tools/
+                - generic [ref=e390]: Free tools
+              - link "Outreach templates" [ref=e391] [cursor=pointer]:
+                - /url: /cold-email-templates
+                - generic [ref=e392]: Outreach templates
+              - link "Help center" [ref=e393] [cursor=pointer]:
+                - /url: https://help.lemlist.com/
+                - generic [ref=e394]: Help center
+              - link "lemlist Academy" [ref=e395] [cursor=pointer]:
+                - /url: https://www.lemlist.com/academy
+                - generic [ref=e396]: lemlist Academy
+          - generic [ref=e397]:
+            - generic [ref=e398]: COMPANY
+            - generic [ref=e399]:
+              - link "Join us" [ref=e400] [cursor=pointer]:
+                - /url: /join-lemlist
+                - generic [ref=e401]: Join us
+              - link "Partner with lemlist" [ref=e402] [cursor=pointer]:
+                - /url: /partners
+                - generic [ref=e403]: Partner with lemlist
+              - link "Hire a lemlist expert" [ref=e404] [cursor=pointer]:
+                - /url: /experts/
+                - generic [ref=e405]: Hire a lemlist expert
+          - generic [ref=e406]:
+            - generic [ref=e407]: LEGAL
+            - generic [ref=e408]:
+              - link "Terms of service" [ref=e409] [cursor=pointer]:
+                - /url: /legal/terms
+                - generic [ref=e410]: Terms of service
+              - link "Privacy Policy" [ref=e411] [cursor=pointer]:
+                - /url: /legal/privacy-policy
+                - generic [ref=e412]: Privacy Policy
+              - link "Sending Policy" [ref=e413] [cursor=pointer]:
+                - /url: /legal/sending-policy
+                - generic [ref=e414]: Sending Policy
+              - link "Anti-abuse protection" [ref=e415] [cursor=pointer]:
+                - /url: /abuse-complaints
+                - generic [ref=e416]: Anti-abuse protection
+              - link "Data Processing Agreement" [ref=e417] [cursor=pointer]:
+                - /url: /legal/dpa
+                - generic [ref=e418]: Data Processing Agreement
+        - generic [ref=e420]: ©2026 lempire - All rights reserved.
+  - img "Watcher head"
+  - alert [ref=e445]
