@@ -1,44 +1,140 @@
-export interface BpiInput {
-  brand: string;
-  competitors?: string[];
-  market?: string;
+// ── Sub-types (non définis explicitement dans la spec, inférés du contexte) ────
+
+export interface VideoEntry {
+  title: string
+  channel: string
+  views: number
+  date: string // ISO 8601
+  url: string
+  sentiment?: 'positive' | 'neutral' | 'negative'
 }
 
+export interface PlatformData {
+  platform: 'linkedin' | 'instagram' | 'twitter' | 'tiktok'
+  followers: number
+  engagement_rate: number // pourcentage 0-100
+  post_frequency: string  // ex: "3x/semaine"
+  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'
+  status: 'active' | 'inactive' | 'missing'
+}
+
+export interface CompetitorSeoData {
+  competitor: string
+  domain_authority: number
+  keyword_positions: Record<string, number | null>
+  seo_score: number
+}
+
+export interface CompetitorRadarEntry {
+  name: string
+  serp_share: number    // 0-100
+  press_volume: number  // 0-100
+  seo_score: number     // 0-100
+  youtube_reach: number // 0-100
+  social_score: number  // 0-100
+}
+
+export interface ReviewData {
+  rating: number       // 0-5
+  review_count: number
+  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'
+}
+
+// ── Module output interfaces — section 3 agentBPI-01.md ────────────────────────
+
 export interface SerpData {
-  query: string;
-  results: { title: string; url: string; snippet: string }[];
+  official_site_position: number | null
+  negative_snippets: string[]
+  competitor_positions: Record<string, number | null>
+  visibility_score: number  // 0-100
+  reputation_score: number  // 0-100
 }
 
 export interface PressData {
-  articles: { title: string; source: string; date: string; url: string }[];
+  article_count: number
+  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'
+  editorial_angle: string
+  top_domains: string[]
+  pr_opportunities: string[]
 }
 
 export interface YoutubeData {
-  videos: { title: string; channel: string; views: number; url: string }[];
+  video_count: number
+  top_videos: VideoEntry[]
+  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'
+  influencer_opportunities: string[]
+  reputation_score: number // 0-100
 }
 
 export interface SocialData {
-  platform: string;
-  mentions: number;
-  sentiment: "positive" | "neutral" | "negative";
+  platforms: PlatformData[]
+  social_score: number           // 0-100
+  brand_coherence_score: number  // 0-100
+  dominant_topics: string[]
 }
 
 export interface SeoData {
-  domainAuthority: number;
-  organicKeywords: number;
-  backlinks: number;
+  keyword_positions: Record<string, number | null>
+  domain_authority: number
+  backlink_count: number
+  competitor_comparison: CompetitorSeoData[]
+  keyword_gaps: string[]
+  seo_score: number    // 0-100
+  cached_at?: string   // ISO 8601 — présent si données depuis cache
 }
 
 export interface BenchmarkData {
-  competitors: { name: string; score: number }[];
-  category: string;
+  competitive_score: number  // 0-100
+  radar: CompetitorRadarEntry[]
+  google_maps: ReviewData | null
+  trustpilot: ReviewData | null
+}
+
+// ── BpiOutput — section 6 agentBPI-01.md ──────────────────────────────────────
+
+export interface Risk {
+  description: string
+  urgency: 'high' | 'medium' | 'low'
+  source: string
+}
+
+export interface QuickWin {
+  action: string
+  impact: 'high' | 'medium' | 'low'
+  effort: 'low' | 'medium' | 'high'
+  estimated_time: string
+}
+
+export interface RoadmapPhase {
+  phase: 1 | 2 | 3
+  label: string
+  objective: string
+  actions: string[]
 }
 
 export interface BpiOutput {
-  serp: SerpData;
-  press: PressData;
-  youtube: YoutubeData;
-  social: SocialData[];
-  seo: SeoData;
-  benchmark: BenchmarkData;
+  scores: {
+    global: number
+    reputation: number
+    visibility: number
+    social: number
+    competitive: number
+    previous?: {
+      global: number
+      reputation: number
+      visibility: number
+      social: number
+      competitive: number
+      date: string
+    }
+  }
+  serp_data: SerpData | null
+  seo_data: SeoData | null
+  press_data: PressData | null
+  youtube_data: YoutubeData | null
+  social_data: SocialData | null
+  benchmark_data: BenchmarkData | null
+  top_risks: Risk[]
+  quick_wins: QuickWin[]
+  roadmap_90d: RoadmapPhase[]
 }

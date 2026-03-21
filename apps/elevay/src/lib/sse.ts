@@ -19,7 +19,8 @@ export type SSEEventName =
   | "step-complete"
   | "finish"
   | "error"
-  | "stream-end";
+  | "stream-end"
+  | "result";
 
 export type SSEEventPayload = {
   "stream-start": {
@@ -31,7 +32,7 @@ export type SSEEventPayload = {
   "tool-input-start": { toolCallId: string; toolName: string };
   "tool-input-available": { toolCallId: string; input: unknown };
   "tool-output-available": { toolCallId: string; output: unknown };
-  status: { label: string };
+  status: { label: string; step?: number; total?: number };
   "step-complete": { tokensIn: number; tokensOut: number };
   finish: {
     tokensIn: number;
@@ -41,6 +42,7 @@ export type SSEEventPayload = {
   };
   error: { message: string };
   "stream-end": Record<string, never>;
+  result: { bpiOutput: unknown; brandName: string };
 };
 
 export interface TypedSSEEvent<E extends SSEEventName = SSEEventName> {

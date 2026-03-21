@@ -1,4 +1,7 @@
+import type { ElevayAgentProfile } from "../_shared/types";
+
 export interface CiaInput {
+  brand_profile: ElevayAgentProfile;
   company: string;
   product: string;
   targetAudience?: string;
@@ -40,10 +43,10 @@ export interface RecommendationsData {
 }
 
 export interface CiaOutput {
-  productMessaging: ProductMessagingData;
-  seoAcquisition: SeoAcquisitionData;
-  socialMedia: SocialMediaData;
-  content: ContentData;
-  benchmark: BenchmarkData;
-  recommendations: RecommendationsData;
+  productMessaging: ProductMessagingData | null;
+  seoAcquisition: SeoAcquisitionData | null;
+  socialMedia: SocialMediaData | null;
+  content: ContentData | null;
+  benchmark: BenchmarkData | null;
+  recommendations: RecommendationsData | null;
 }

@@ -1,24 +1,30 @@
+// AgentProfile — profil mutualisé aux 3 agents BMI
 export interface ElevayAgentProfile {
-  id: string;
-  name: string;
-  description: string;
-  version: string;
+  organisationId: string
+  brand_name: string
+  brand_url: string
+  country: string
+  language: string
+  competitors: { name: string; url: string }[]
+  primary_keyword: string
+  secondary_keyword: string
 }
 
+// ModuleResult — contrat de retour de chaque module (jamais de throw)
 export interface ModuleResult<T> {
-  module: string;
-  data: T;
-  score: number;
-  fetchedAt: Date;
+  success: boolean
+  data: T | null
+  source: string
+  error?: { code: string; message: string }
+  degraded?: boolean
 }
 
+// AgentOutput — contrat inter-agents V2-ready
 export interface AgentOutput<T> {
-  agent: ElevayAgentProfile;
-  /** Each module can return a different data shape */
-  results: ModuleResult<unknown>[];
-  globalScore: number;
-  summary: string;
-  /** Typed aggregate output of all modules */
-  output: T;
-  generatedAt: Date;
+  agent_code: 'BPI-01' | 'MTS-02' | 'CIA-03'
+  analysis_date: string       // ISO 8601
+  brand_profile: ElevayAgentProfile
+  payload: T
+  degraded_sources: string[]
+  version: '1.0'
 }

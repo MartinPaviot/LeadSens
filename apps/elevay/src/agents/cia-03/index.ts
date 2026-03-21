@@ -1,6 +1,5 @@
 import type { AgentOutput } from "../_shared/types";
 import type { CiaInput, CiaOutput } from "./types";
-import { score } from "./scoring";
 import { SYSTEM_PROMPT } from "./prompt";
 import { analyzeProductMessaging } from "./modules/product-messaging";
 import { analyzeSeoAcquisition } from "./modules/seo-acquisition";
@@ -9,17 +8,26 @@ import { analyzeContent } from "./modules/content";
 import { analyzeBenchmark } from "./modules/benchmark";
 import { buildRecommendations } from "./modules/recommendations";
 
-export const CIA_PROFILE = {
-  id: "cia-03",
-  name: "Comprehensive Intelligence & Action",
-  description: "Full-stack marketing intelligence: messaging, SEO, social, content, benchmarks, and recommendations.",
-  version: "0.1.0",
-} as const;
-
 export { SYSTEM_PROMPT };
 
+function extractResult<T>(
+  result: PromiseSettledResult<T>,
+  source: string,
+  degraded: string[],
+): T | null {
+  if (result.status === "fulfilled") return result.value;
+  degraded.push(source);
+  return null;
+}
+
 export async function run(input: CiaInput): Promise<AgentOutput<CiaOutput>> {
-  const [productMessaging, seoAcquisition, socialMedia, content, benchmark] = await Promise.all([
+  const [
+    productMessagingResult,
+    seoAcquisitionResult,
+    socialMediaResult,
+    contentResult,
+    benchmarkResult,
+  ] = await Promise.allSettled([
     analyzeProductMessaging(input),
     analyzeSeoAcquisition(input),
     analyzeSocialMedia(input),
@@ -27,30 +35,33 @@ export async function run(input: CiaInput): Promise<AgentOutput<CiaOutput>> {
     analyzeBenchmark(input),
   ]);
 
-  const recommendations = await buildRecommendations({
-    productMessaging,
-    seoAcquisition,
-    socialMedia,
-    content,
-    benchmark,
-  });
+  const degraded_sources: string[] = [];
 
-  const output: CiaOutput = { productMessaging, seoAcquisition, socialMedia, content, benchmark, recommendations };
-  const ciaScore = score(output);
+  const productMessaging = extractResult(productMessagingResult, "product-messaging", degraded_sources);
+  const seoAcquisition = extractResult(seoAcquisitionResult, "seo-acquisition", degraded_sources);
+  const socialMedia = extractResult(socialMediaResult, "social-media", degraded_sources);
+  const content = extractResult(contentResult, "content", degraded_sources);
+  const benchmark = extractResult(benchmarkResult, "benchmark", degraded_sources);
+
+  let recommendations = null;
+  try {
+    recommendations = await buildRecommendations({
+      productMessaging,
+      seoAcquisition,
+      socialMedia,
+      content,
+      benchmark,
+    });
+  } catch {
+    degraded_sources.push("recommendations");
+  }
 
   return {
-    agent: CIA_PROFILE,
-    results: [
-      { module: "product-messaging", data: productMessaging, score: ciaScore.breakdown.messagingClarity, fetchedAt: new Date() },
-      { module: "seo-acquisition", data: seoAcquisition, score: ciaScore.breakdown.seoReadiness, fetchedAt: new Date() },
-      { module: "social-media", data: socialMedia, score: ciaScore.breakdown.socialPresence, fetchedAt: new Date() },
-      { module: "content", data: content, score: ciaScore.breakdown.contentMaturity, fetchedAt: new Date() },
-      { module: "benchmark", data: benchmark, score: ciaScore.breakdown.competitivePosition, fetchedAt: new Date() },
-      { module: "recommendations", data: recommendations, score: ciaScore.overall, fetchedAt: new Date() },
-    ],
-    output,
-    globalScore: ciaScore.overall,
-    summary: `Full marketing intelligence report complete for "${input.product}". Overall score: ${ciaScore.overall}/100.`,
-    generatedAt: new Date(),
+    agent_code: "CIA-03",
+    analysis_date: new Date().toISOString(),
+    brand_profile: input.brand_profile,
+    payload: { productMessaging, seoAcquisition, socialMedia, content, benchmark, recommendations },
+    degraded_sources,
+    version: "1.0",
   };
 }

@@ -18,6 +18,7 @@ export interface LLMResponse {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  stopReason: string;
 }
 
 export async function callLLM(req: LLMRequest): Promise<LLMResponse> {
@@ -38,5 +39,6 @@ export async function callLLM(req: LLMRequest): Promise<LLMResponse> {
     model: response.model,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
+    stopReason: response.stop_reason ?? "end_turn",
   };
 }

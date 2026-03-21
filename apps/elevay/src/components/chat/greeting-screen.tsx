@@ -1,7 +1,8 @@
 "use client";
 
-import { ThreadPrimitive, useThreadRuntime } from "@assistant-ui/react";
+import { ThreadPrimitive } from "@assistant-ui/react";
 import { useSession } from "@/lib/auth-client";
+import { toast } from "sonner";
 import { ElevayComposer } from "./composer";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -13,22 +14,15 @@ function getTimeGreeting(): string {
   return "Good evening";
 }
 
-const SUGGESTIONS = [
-  "Help me write a blog post outline",
-  "Create a social media strategy",
-  "Draft an email campaign",
-  "Analyze my landing page copy",
-];
-
 // ─── Component ────────────────────────────────────────────
 
 interface GreetingScreenProps {
   isStreaming: boolean;
+  onQuickReply?: (type: "bpi-audit" | "trends" | "competitors") => void;
 }
 
-export function GreetingScreen({ isStreaming }: GreetingScreenProps) {
+export function GreetingScreen({ isStreaming, onQuickReply }: GreetingScreenProps) {
   const { data: session } = useSession();
-  const runtime = useThreadRuntime();
   const firstName = session?.user?.name?.split(" ")[0] ?? "";
   const greeting = getTimeGreeting();
 
@@ -57,21 +51,34 @@ export function GreetingScreen({ isStreaming }: GreetingScreenProps) {
                 </p>
               </div>
 
+              {/* Quick actions */}
               <div className="mt-3 pt-3 border-t border-border/30">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Try one of these:
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {SUGGESTIONS.map((text) => (
-                    <button
-                      key={text}
-                      type="button"
-                      onClick={() => runtime.composer.setText(text)}
-                      className="text-xs font-medium text-muted-foreground bg-background/50 rounded-lg px-3 py-1.5 border border-border/30 cursor-pointer hover:bg-background/80 transition-colors"
-                    >
-                      {text}
-                    </button>
-                  ))}
+                <p className="text-xs text-muted-foreground mb-2">Que souhaitez-vous faire ?</p>
+                <div className="flex flex-col gap-1.5">
+                  {/* BPI-01 — enabled */}
+                  <button
+                    type="button"
+                    disabled={isStreaming}
+                    onClick={() => onQuickReply?.("bpi-audit")}
+                    className="text-xs font-medium text-foreground bg-background/50 rounded-lg px-3 py-2 border border-border/50 cursor-pointer hover:bg-background/80 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    🔍 Auditer ma marque
+                  </button>
+                  {/* Row 2 — coming soon */}
+                  <div className="flex gap-1.5">
+                    {(["📈 Analyser les tendances", "🎯 Analyser mes concurrents"] as const).map(
+                      (label) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => toast("Bientôt disponible")}
+                          className="flex-1 text-xs font-medium text-muted-foreground bg-background/30 rounded-lg px-3 py-2 border border-border/20 cursor-pointer hover:bg-background/50 transition-colors opacity-60"
+                        >
+                          {label}
+                        </button>
+                      ),
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

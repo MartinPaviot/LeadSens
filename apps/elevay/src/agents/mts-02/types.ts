@@ -1,4 +1,7 @@
+import type { ElevayAgentProfile } from "../_shared/types";
+
 export interface MtsInput {
+  brand_profile: ElevayAgentProfile;
   topic: string;
   industry?: string;
   region?: string;
@@ -34,9 +37,9 @@ export interface SynthesisData {
 }
 
 export interface MtsOutput {
-  trends: TrendData[];
-  content: ContentData;
-  competitive: CompetitiveData;
-  socialListening: SocialListeningData;
-  synthesis: SynthesisData;
+  trends: TrendData[] | null;
+  content: ContentData | null;
+  competitive: CompetitiveData | null;
+  socialListening: SocialListeningData | null;
+  synthesis: SynthesisData | null;
 }

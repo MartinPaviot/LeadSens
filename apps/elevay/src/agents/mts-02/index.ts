@@ -1,6 +1,5 @@
 import type { AgentOutput } from "../_shared/types";
 import type { MtsInput, MtsOutput } from "./types";
-import { score } from "./scoring";
 import { SYSTEM_PROMPT } from "./prompt";
 import { fetchTrends } from "./modules/trends";
 import { fetchContent } from "./modules/content";
@@ -8,40 +7,47 @@ import { fetchCompetitive } from "./modules/competitive";
 import { fetchSocialListening } from "./modules/social-listening";
 import { synthesize } from "./modules/synthesis";
 
-export const MTS_PROFILE = {
-  id: "mts-02",
-  name: "Market Trend Strategist",
-  description: "Surfaces emerging trends, content opportunities, and competitive dynamics.",
-  version: "0.1.0",
-} as const;
-
 export { SYSTEM_PROMPT };
 
+function extractResult<T>(
+  result: PromiseSettledResult<T>,
+  source: string,
+  degraded: string[],
+): T | null {
+  if (result.status === "fulfilled") return result.value;
+  degraded.push(source);
+  return null;
+}
+
 export async function run(input: MtsInput): Promise<AgentOutput<MtsOutput>> {
-  const [trends, content, competitive, socialListening] = await Promise.all([
-    fetchTrends(input.topic, input.timeframe),
-    fetchContent(input.topic, input.industry),
-    fetchCompetitive(input.topic, input.industry),
-    fetchSocialListening(input.topic, input.region),
-  ]);
+  const [trendsResult, contentResult, competitiveResult, socialListeningResult] =
+    await Promise.allSettled([
+      fetchTrends(input.topic, input.timeframe),
+      fetchContent(input.topic, input.industry),
+      fetchCompetitive(input.topic, input.industry),
+      fetchSocialListening(input.topic, input.region),
+    ]);
 
-  const synthesis = await synthesize({ trends, content, competitive, socialListening });
+  const degraded_sources: string[] = [];
 
-  const output: MtsOutput = { trends, content, competitive, socialListening, synthesis };
-  const mtsScore = score(output);
+  const trends = extractResult(trendsResult, "trends", degraded_sources);
+  const content = extractResult(contentResult, "content", degraded_sources);
+  const competitive = extractResult(competitiveResult, "competitive", degraded_sources);
+  const socialListening = extractResult(socialListeningResult, "social-listening", degraded_sources);
+
+  let synthesis = null;
+  try {
+    synthesis = await synthesize({ trends, content, competitive, socialListening });
+  } catch {
+    degraded_sources.push("synthesis");
+  }
 
   return {
-    agent: MTS_PROFILE,
-    results: [
-      { module: "trends", data: trends, score: mtsScore.breakdown.trendMomentum, fetchedAt: new Date() },
-      { module: "content", data: content, score: mtsScore.breakdown.contentOpportunity, fetchedAt: new Date() },
-      { module: "competitive", data: competitive, score: mtsScore.breakdown.competitiveGap, fetchedAt: new Date() },
-      { module: "social-listening", data: socialListening, score: mtsScore.breakdown.socialRelevance, fetchedAt: new Date() },
-      { module: "synthesis", data: synthesis, score: mtsScore.overall, fetchedAt: new Date() },
-    ],
-    output,
-    globalScore: mtsScore.overall,
-    summary: `Market trend analysis complete for "${input.topic}". Overall score: ${mtsScore.overall}/100.`,
-    generatedAt: new Date(),
+    agent_code: "MTS-02",
+    analysis_date: new Date().toISOString(),
+    brand_profile: input.brand_profile,
+    payload: { trends, content, competitive, socialListening, synthesis },
+    degraded_sources,
+    version: "1.0",
   };
 }

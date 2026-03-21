@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(set -a)",
+      "Bash(source C:/Users/ombel/LeadSens-1/apps/elevay/.env)",
+      "Bash(set +a)",
+      "Bash(pnpm prisma:*)",
+      "Bash(pnpm --filter @leadsens/elevay typecheck)",
+      "mcp__composio__COMPOSIO_SEARCH_TOOLS",
+      "Bash(pnpm --filter @leadsens/elevay add composio-core)",
+      "Bash(node -e \"const p = require\\(''./apps/elevay/node_modules/composio-core/package.json''\\); console.log\\(''version:'', p.version\\); console.log\\(''deprecated:'', p.deprecated\\); console.log\\(''main:'', p.main\\); console.log\\(''exports keys:'', Object.keys\\(p.exports || {}\\).slice\\(0, 8\\)\\);\")",
+      "Bash(node -e \":*)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/node_modules/composio-core -name *.d.ts)",
+      "Bash(xargs grep:*)",
+      "Bash(ls /c/Users/ombel/LeadSens-1/*.env*)",
+      "Bash(ls /c/Users/ombel/LeadSens-1/.env*)",
+      "Bash(ls /c/Users/ombel/LeadSens-1/packages/db/.env*)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" pnpm --filter @leadsens/db db:migrate)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" npx prisma migrate dev --schema=./packages/db/prisma/schema.prisma --name add_elevay_export_format)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" ./node_modules/.bin/prisma migrate dev --schema=./prisma/schema.prisma --name add_elevay_export_format)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" ./node_modules/.bin/prisma db push --schema=./prisma/schema.prisma)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" ./node_modules/.bin/prisma migrate resolve --applied 20260320000000_add_elevay_export_format --schema=./prisma/schema.prisma)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" ./node_modules/.bin/prisma generate --schema=./prisma/schema.prisma)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" pnpm db:generate)",
+      "Bash(find C:UsersombelLeadSens-1appselevaysrcappapi -type f -name *.ts)",
+      "Bash(pnpm --filter @leadsens/elevay add pdfkit googleapis)",
+      "Bash(pnpm --filter @leadsens/elevay add -D @types/pdfkit)",
+      "Bash(grep import.*cn /c/Users/ombel/LeadSens-1/apps/elevay/src/components/chat/greeting-screen.tsx)"
+    ]
+  }
+}
