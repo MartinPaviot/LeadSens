@@ -2,11 +2,19 @@ import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
 import type { SocialData, PlatformData } from "../types";
 import { socialSearch } from "../../_shared/composio";
 import type { SocialPostItem } from "../../_shared/composio";
+import { shouldRunSocialPlatform } from "@/lib/channel-filter";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PLATFORMS = ["instagram", "twitter", "tiktok"] as const;
 type SocialPlatform = (typeof PLATFORMS)[number];
+
+// Mapping interne → canonique (utilisé par shouldRunSocialPlatform)
+const PLATFORM_CANONICAL: Record<SocialPlatform, "Instagram" | "X" | "TikTok"> = {
+  instagram: "Instagram",
+  twitter:   "X",
+  tiktok:    "TikTok",
+};
 
 const STOP_WORDS = new Set([
   "le", "la", "les", "de", "du", "des", "un", "une", "et", "en", "à", "au",
@@ -111,20 +119,26 @@ function buildPlatformData(
  */
 export async function fetchSocial(
   profile: ElevayAgentProfile,
+  priority_channels?: string[],
 ): Promise<ModuleResult<SocialData>> {
   try {
     const { brand_name } = profile;
 
-    // Fetch all platforms independently — failures are tolerated
+    // Filter platforms based on priority_channels
+    const activePlatformKeys = PLATFORMS.filter(p =>
+      shouldRunSocialPlatform(PLATFORM_CANONICAL[p], priority_channels),
+    );
+
+    // Fetch active platforms independently — failures are tolerated
     const platformResults = await Promise.allSettled(
-      PLATFORMS.map((p) => socialSearch(brand_name, p)),
+      activePlatformKeys.map((p) => socialSearch(brand_name, p)),
     );
 
     const platformDataList: PlatformData[] = [];
     const allTexts: string[] = [];
 
-    for (let i = 0; i < PLATFORMS.length; i++) {
-      const platform = PLATFORMS[i];
+    for (let i = 0; i < activePlatformKeys.length; i++) {
+      const platform = activePlatformKeys[i];
       const result = platformResults[i];
 
       if (result.status === "rejected") {

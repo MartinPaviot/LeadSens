@@ -139,8 +139,10 @@ export interface SocialResponse {
 
 const APIFY_TASK_ENV: Record<string, string> = {
   instagram: "APIFY_TASK_INSTAGRAM",
-  twitter: "APIFY_TASK_TWITTER",
-  tiktok: "APIFY_TASK_TIKTOK",
+  twitter:   "APIFY_TASK_TWITTER",
+  tiktok:    "APIFY_TASK_TIKTOK",
+  linkedin:  "APIFY_TASK_LINKEDIN",
+  facebook:  "APIFY_TASK_FACEBOOK",
 };
 
 // ─── Public API ───────────────────────────────────────────────────────────────

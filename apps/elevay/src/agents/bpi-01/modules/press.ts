@@ -2,6 +2,7 @@ import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
 import type { PressData } from "../types";
 import { searchNews } from "../../_shared/composio";
 import type { NewsArticle } from "../../_shared/composio";
+import { shouldRunPress } from "@/lib/channel-filter";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,23 @@ function getSourceDomain(article: NewsArticle): string {
  */
 export async function fetchPress(
   profile: ElevayAgentProfile,
+  priority_channels?: string[],
 ): Promise<ModuleResult<PressData>> {
+  if (!shouldRunPress(priority_channels)) {
+    return {
+      success: true,
+      data: {
+        article_count: 0,
+        sentiment: "neutral",
+        editorial_angle: "autre",
+        top_domains: [],
+        pr_opportunities: [],
+      },
+      source: "press:skipped",
+      degraded: false,
+    };
+  }
+
   try {
     const { brand_name, primary_keyword, country, language } = profile;
 

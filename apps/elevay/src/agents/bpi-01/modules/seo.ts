@@ -2,6 +2,7 @@ import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
 import type { SeoData, CompetitorSeoData } from "../types";
 import { TTL } from "../../_shared/cache";
 import { getKeywordData } from "../../_shared/composio";
+import { shouldRunSEO } from "@/lib/channel-filter";
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,24 @@ function calcSeoScore(rank: number, backlinks: number): number {
  */
 export async function fetchSeo(
   profile: ElevayAgentProfile,
+  priority_channels?: string[],
 ): Promise<ModuleResult<SeoData>> {
+  if (!shouldRunSEO(priority_channels)) {
+    return {
+      success: true,
+      data: {
+        keyword_positions: {},
+        domain_authority: 0,
+        backlink_count: 0,
+        competitor_comparison: [],
+        keyword_gaps: [],
+        seo_score: 0,
+      },
+      source: "seo:skipped",
+      degraded: false,
+    };
+  }
+
   const cacheKey = `seo:${profile.brand_url}:${profile.country}`;
 
   try {

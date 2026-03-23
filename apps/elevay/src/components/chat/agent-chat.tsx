@@ -15,10 +15,11 @@ import { GreetingScreen } from "./greeting-screen";
 import { ThemeToggle } from "./theme-toggle";
 import { MessageActionsProvider, type MessageActions, AgentActivityContext, type AgentActivityContextValue, type ThinkingStep, useSidebar, Button } from "@leadsens/ui";
 import { useConversations } from "@/components/conversation-provider";
-import { SidebarSimple } from "@phosphor-icons/react";
+import { SidebarSimple, Gear } from "@phosphor-icons/react";
 import type { SSEEventName, SSEEventPayload } from "@/lib/sse";
 import { trpc } from "@/lib/trpc-client";
 import { OnboardingModal } from "./onboarding-modal";
+import { SettingsModal } from "./settings-modal";
 import { BpiProgressContext, type ModuleItem, type ExportButton } from "./bpi-progress-context";
 import type { BpiOutput } from "@/agents/bpi-01/types";
 
@@ -81,6 +82,7 @@ export default function AgentChat() {
 
   const { data: brandProfile, refetch: refetchProfile } = trpc.brandProfile.get.useQuery();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -532,14 +534,18 @@ export default function AgentChat() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ format: "pdf" }),
             });
-            const result = await res.json() as { type: string; dataUrl?: string; filename?: string; message?: string };
-            if (result.type === "pdf" && result.dataUrl && result.filename) {
+            if (res.ok && res.headers.get("content-type")?.includes("application/pdf")) {
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const disposition = res.headers.get("content-disposition") ?? "";
+              const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "bpi-01.pdf";
               const a = document.createElement("a");
-              a.href = result.dataUrl;
-              a.download = result.filename;
+              a.href = url;
+              a.download = filename;
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
+              URL.revokeObjectURL(url);
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
@@ -548,7 +554,14 @@ export default function AgentChat() {
                 ),
               );
             } else {
-              const errMsg = result.message ?? "Export non disponible.";
+              let errMsg = "Export non disponible.";
+              const ct = res.headers.get("content-type") ?? "";
+              if (ct.includes("application/json")) {
+                try {
+                  const result = await res.json() as { type?: string; message?: string };
+                  errMsg = result.message ?? errMsg;
+                } catch { /* ignore parse error */ }
+              }
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
@@ -613,19 +626,19 @@ export default function AgentChat() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ format }),
         });
-        const result = await res.json() as {
-          type: "pdf" | "gdoc" | "download" | "link" | "error";
-          dataUrl?: string;
-          url?: string;
-          message?: string;
-          filename?: string;
-        };
 
-        if (result.type === "pdf" && result.dataUrl && result.filename) {
+        if (res.ok && res.headers.get("content-type")?.includes("application/pdf")) {
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const disposition = res.headers.get("content-disposition") ?? "";
+          const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "bpi-01.pdf";
           const a = document.createElement("a");
-          a.href = result.dataUrl;
-          a.download = result.filename;
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -633,20 +646,29 @@ export default function AgentChat() {
                 : m,
             ),
           );
-        } else if (result.type === "gdoc" && result.url) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: `📄 [Ouvrir dans Google Docs →](${result.url})` }
-                : m,
-            ),
-          );
+        } else if (res.headers.get("content-type")?.includes("application/json")) {
+          const result = await res.json() as { type?: string; url?: string; message?: string };
+          if (result.type === "gdoc" && result.url) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: `📄 [Ouvrir dans Google Docs →](${result.url})` }
+                  : m,
+              ),
+            );
+          } else {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: result.message ?? "Export non disponible." }
+                  : m,
+              ),
+            );
+          }
         } else {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: result.message ?? "Export non disponible." }
-                : m,
+              m.id === assistantId ? { ...m, content: "⚠️ Erreur lors de l'export." } : m,
             ),
           );
         }
@@ -807,7 +829,18 @@ export default function AgentChat() {
                 {activeTitle || "New conversation"}
               </span>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={() => setShowSettings(true)}
+                title="Paramètres"
+              >
+                <Gear className="size-3.5" />
+              </Button>
+              <ThemeToggle />
+            </div>
           </header>
 
           <MessageActionsProvider value={messageActions}>
@@ -837,6 +870,7 @@ export default function AgentChat() {
       </div>
 
       <OnboardingModal open={showOnboarding} onComplete={handleOnboardingComplete} />
+      <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
     </AgentActivityContext.Provider>
     </BpiProgressContext.Provider>
   );

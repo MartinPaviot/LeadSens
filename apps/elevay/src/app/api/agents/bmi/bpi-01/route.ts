@@ -158,6 +158,22 @@ async function handleBpiRequest(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // ── Optional body (priority_channels) ─────────────────────────────────────
+  let priority_channels: string[] | undefined;
+  try {
+    const body = await req.json() as unknown;
+    if (
+      body &&
+      typeof body === "object" &&
+      "priority_channels" in body &&
+      Array.isArray((body as { priority_channels: unknown }).priority_channels)
+    ) {
+      priority_channels = (body as { priority_channels: string[] }).priority_channels;
+    }
+  } catch {
+    // Body absent ou invalide → toutes les plateformes actives
+  }
+
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user?.workspaceId) {
     return new Response("No workspace", { status: 400 });
@@ -239,10 +255,10 @@ async function handleBpiRequest(req: Request) {
           benchmarkSettled,
         ] = await Promise.allSettled([
           withStatus(fetchSerp(profile),                                              1, "SERP",      encoder, controller),
-          withStatus(fetchPress(profile),                                             2, "Presse",    encoder, controller),
+          withStatus(fetchPress(profile, priority_channels),                          2, "Presse",    encoder, controller),
           withStatus(fetchYoutube(profile),                                           3, "YouTube",   encoder, controller),
-          withStatus(fetchSocial(profile),                                            4, "Social",    encoder, controller),
-          withStatus(fetchSeo(profile),                                               5, "SEO",       encoder, controller),
+          withStatus(fetchSocial(profile, priority_channels),                        4, "Social",    encoder, controller),
+          withStatus(fetchSeo(profile, priority_channels),                           5, "SEO",       encoder, controller),
           withStatus(fetchBenchmark(profile, profile.competitors.map((c) => c.name)), 6, "Benchmark", encoder, controller),
         ]);
 

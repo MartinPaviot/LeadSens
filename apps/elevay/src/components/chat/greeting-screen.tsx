@@ -34,7 +34,10 @@ export function GreetingScreen({ isStreaming, onQuickReply }: GreetingScreenProp
         <div className="max-w-[816px] mx-auto w-full px-4 md:pl-0 md:pr-12 py-6 flex-1">
           <div className="flex items-start w-full motion-safe:animate-[fade-in-up_0.3s_ease-out]">
             <div className="w-12 shrink-0 flex justify-center pt-0.5">
-              <div className="size-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+              <div
+                className="size-8 rounded-lg flex items-center justify-center"
+                style={{ background: "var(--elevay-gradient-btn)" }}
+              >
                 <span className="text-white text-xs font-bold">E</span>
               </div>
             </div>

@@ -25,16 +25,21 @@ export function ElevayComposer() {
           {isStreaming ? (
             <Button
               size="icon"
-              className="size-8 rounded-lg shrink-0"
+              className="size-8 rounded-lg shrink-0 border-0"
+              style={{ background: "var(--elevay-gradient-btn)" }}
               onClick={() => threadRuntime.cancelRun()}
             >
-              <Stop className="size-4" weight="fill" />
+              <Stop className="size-4 text-white" weight="fill" />
               <span className="sr-only">Stop</span>
             </Button>
           ) : (
             <ComposerPrimitive.Send asChild>
-              <Button size="icon" className="size-8 rounded-lg shrink-0">
-                <PaperPlaneRight className="size-4" weight="fill" />
+              <Button
+                size="icon"
+                className="size-8 rounded-lg shrink-0 border-0"
+                style={{ background: "var(--elevay-gradient-btn)" }}
+              >
+                <PaperPlaneRight className="size-4 text-white" weight="fill" />
                 <span className="sr-only">Send</span>
               </Button>
             </ComposerPrimitive.Send>

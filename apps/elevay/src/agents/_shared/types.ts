@@ -8,6 +8,9 @@ export interface ElevayAgentProfile {
   competitors: { name: string; url: string }[]
   primary_keyword: string
   secondary_keyword: string
+  sector?: string
+  priority_channels?: string[]
+  objective?: string
 }
 
 // ModuleResult — contrat de retour de chaque module (jamais de throw)

@@ -345,13 +345,22 @@ export async function POST(req: Request) {
 
   // ── PDF export ────────────────────────────────────────────────────────────
   if (format === "pdf") {
-    const pdfBuffer = await buildPdf(brandName, payload);
-    const base64 = pdfBuffer.toString("base64");
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = await buildPdf(brandName, payload);
+    } catch {
+      return NextResponse.json(
+        { type: "error", message: "Erreur lors de la génération du PDF." },
+        { status: 500 },
+      );
+    }
     const slug = brandName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    return NextResponse.json({
-      type: "pdf",
-      dataUrl: `data:application/pdf;base64,${base64}`,
-      filename: `bpi-01-${slug}.pdf`,
+    const filename = `bpi-01-${slug}.pdf`;
+    return new Response(new Uint8Array(pdfBuffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
     });
   }
 

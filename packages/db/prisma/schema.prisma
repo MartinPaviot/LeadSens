@@ -442,10 +442,15 @@ model ElevayBrandProfile {
   brand_url         String
   country           String
   language          String
-  competitors       Json
-  primary_keyword   String
-  secondary_keyword String
-  exportFormat      String         @default("pdf")
+  competitors        Json
+  primary_keyword    String
+  secondary_keyword  String
+  sector             String?
+  priority_channels  String[]
+  objective          String?
+  exportFormat       String         @default("pdf")
+  report_recurrence  String?        // 'on_demand'|'weekly'|'monthly'|'quarterly'
+  social_connections Json?          // { linkedin: bool, instagram: bool, ... }
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -1,27 +1,23 @@
-import type { CiaOutput } from "./types";
+import type { CompetitorScore } from "./types";
+import type { ElevayAgentProfile } from "../_shared/types";
+import type { BenchmarkData } from "./types";
 
-export interface CiaScore {
-  overall: number;
-  breakdown: {
-    messagingClarity: number;
-    seoReadiness: number;
-    socialPresence: number;
-    contentMaturity: number;
-    competitivePosition: number;
-  };
+export interface CiaScores {
+  competitor_scores: CompetitorScore[]
+  brand_global_score: number
 }
 
-/** Score the full marketing intelligence output on a 0–100 scale */
-export function score(_data: CiaOutput): CiaScore {
-  // TODO: implement real scoring logic
+/** Calcule les scores compétitifs depuis le benchmark (spec §4 — pondération 4×25%) */
+export function calculateCiaScores(
+  benchmarkData: BenchmarkData,
+  profile: ElevayAgentProfile,
+): CiaScores {
+  const brand = benchmarkData.competitor_scores.find(
+    s => s.is_client || s.entity === profile.brand_url,
+  );
+
   return {
-    overall: 0,
-    breakdown: {
-      messagingClarity: 0,
-      seoReadiness: 0,
-      socialPresence: 0,
-      contentMaturity: 0,
-      competitivePosition: 0,
-    },
+    competitor_scores: benchmarkData.competitor_scores,
+    brand_global_score: brand?.global_score ?? 0,
   };
 }

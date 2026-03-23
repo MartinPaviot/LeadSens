@@ -1,25 +1,21 @@
-import type { MtsOutput } from "./types";
+import type { SynthesisResult } from "./modules/synthesis";
 
-export interface MtsScore {
-  overall: number;
-  breakdown: {
-    trendMomentum: number;
-    contentOpportunity: number;
-    competitiveGap: number;
-    socialRelevance: number;
-  };
+export interface MtsScores {
+  opportunity_scores: Record<string, number>
+  top_opportunity_score: number  // score du meilleur sujet
+  trending_count: number
+  saturated_count: number
 }
 
-/** Score market trend data on a 0–100 scale */
-export function score(_data: MtsOutput): MtsScore {
-  // TODO: implement real scoring logic
+/** Calcule les scores agrégés depuis la synthèse MTS-02 */
+export function calculateMtsScores(synthesis: SynthesisResult): MtsScores {
+  const scores = Object.values(synthesis.opportunity_scores);
+  const top = scores.length > 0 ? Math.max(...scores) : 0;
+
   return {
-    overall: 0,
-    breakdown: {
-      trendMomentum: 0,
-      contentOpportunity: 0,
-      competitiveGap: 0,
-      socialRelevance: 0,
-    },
+    opportunity_scores: synthesis.opportunity_scores,
+    top_opportunity_score: top,
+    trending_count: synthesis.trending_topics.length,
+    saturated_count: synthesis.saturated_topics.length,
   };
 }
