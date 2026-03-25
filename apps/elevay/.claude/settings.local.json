@@ -60,7 +60,27 @@
       "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require\" npx prisma generate --schema=./prisma/schema.prisma)",
       "Bash(mkdir -p \"/c/Users/ombel/LeadSens-1/apps/elevay/src/app/api/auth/social/[platform]/status\")",
       "Bash(mkdir -p \"/c/Users/ombel/LeadSens-1/apps/elevay/src/app/api/auth/social/[platform]/connect\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true\" pnpm prisma db execute --stdin --url \"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" << 'EOF':*)",
+      "Bash(claude mcp:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); mcp=d.get\\(''''mcpServers'''',{}\\); print\\(json.dumps\\(mcp.get\\(''''composio'''',{}\\), indent=2\\)\\)\")",
+      "Bash(node:*)",
+      "mcp__composio__COMPOSIO_MANAGE_CONNECTIONS",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay -name *onboarding* -o -name *modal*)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src -name *.test.* -o -name *.spec.*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx playwright:*)",
+      "Bash(pnpm:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001)",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/sign-up/email -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"Test\"\"\"\",\"\"\"\"email\"\"\"\":\"\"\"\"test-curl@example.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"PlaywrightTest123!\"\"\"\",\"\"\"\"callbackURL\"\"\"\":\"\"\"\"/chat\"\"\"\"}' -w \"\\\\nHTTP_STATUS:%{http_code}\")",
+      "Bash(curl -s http://localhost:3001/signup -w \"\\\\nHTTP_STATUS:%{http_code}\")",
+      "Bash(curl -s http://localhost:3001/api/auth/sign-up/email -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"name\"\"\"\":\"\"\"\"Test\"\"\"\",\"\"\"\"email\"\"\"\":\"\"\"\"test-curl2@example.com\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"PlaywrightTest123!\"\"\"\"}' -w \"\\\\nHTTP_STATUS:%{http_code}\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/sign-up/email -H \"Content-Type: application/json\" -d \"{\"\"name\"\":\"\"Test\"\",\"\"email\"\":\"\"test-curl3@example.com\"\",\"\"password\"\":\"\"PlaywrightTest123!\"\"}\" -w \"\\\\nHTTP_STATUS:%{http_code}\")",
+      "Bash(curl:*)",
+      "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri http://localhost:3001/api/auth/sign-up/email -Method POST -ContentType 'application/json' -Body '{\\\\\"name\\\\\":\\\\\"Test\\\\\",\\\\\"email\\\\\":\\\\\"test-ps@example.com\\\\\",\\\\\"password\\\\\":\\\\\"PlaywrightTest123!\\\\\"}' -UseBasicParsing -TimeoutSec 30 | Select-Object -ExpandProperty StatusCode\" 2>&1)",
+      "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 3001 | Where-Object State -eq 'Listen' | ForEach-Object { \\(Get-Process -Id \\\\$_.OwningProcess\\).Name, \\\\$_.OwningProcess }\" 2>&1)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 13264 -Force\")",
+      "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri http://localhost:3001/api/auth/sign-up/email -Method POST -ContentType 'application/json' -Body '{\\\\\"name\\\\\":\\\\\"Test\\\\\",\\\\\"email\\\\\":\\\\\"test-ps2@example.com\\\\\",\\\\\"password\\\\\":\\\\\"PlaywrightTest123!\\\\\"}' -UseBasicParsing -TimeoutSec 30 | Select-Object StatusCode, Content\" 2>&1)"
     ]
   }
 }

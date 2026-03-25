@@ -2,15 +2,14 @@
 
 import { ThreadPrimitive } from "@assistant-ui/react";
 import { useSession } from "@/lib/auth-client";
-import { toast } from "sonner";
 import { ElevayComposer } from "./composer";
 
 // ─── Helpers ─────────────────────────────────────────────
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 18) return "Good afternoon";
   return "Good evening";
 }
 
@@ -41,48 +40,49 @@ export function GreetingScreen({ isStreaming, onQuickReply }: GreetingScreenProp
                 <span className="text-white text-xs font-bold">E</span>
               </div>
             </div>
-            <div className="flex-1 rounded-2xl bg-card/90 backdrop-blur-md border border-white/60 dark:border-white/[0.07] shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3 min-w-0">
+            <div className="flex-1 rounded-2xl bg-card/90 backdrop-blur-md border border-white/60 dark:border-white/[0.07] shadow-[0_2px_16px_rgba(0,0,0,0.07)] px-4 py-3 min-w-0 max-w-full overflow-hidden">
               <div className="text-[13.5px] leading-relaxed text-foreground/80">
                 <p>
-                  {greeting}{firstName ? `, ${firstName}` : ""}
-                  {". "}
-                  I&apos;m your AI marketing assistant. I can help with content strategy,
-                  copywriting, campaign planning, and more.
+                  {greeting}{firstName ? `, ${firstName}` : ""}.{" "}
+                  I&apos;m Elevay, your AI marketing intelligence assistant.
+                </p>
+                <p className="mt-1">
+                  I can audit your brand presence across 15+ sources, detect emerging market
+                  trends before they peak, and run deep competitive analysis on up to 5
+                  competitors.
                   {isStreaming && (
                     <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 align-middle rounded-sm animate-pulse" />
                   )}
                 </p>
+                <p className="mt-1">What would you like to do today?</p>
               </div>
 
               {/* Quick actions */}
-              <div className="mt-3 pt-3 border-t border-border/30">
-                <p className="text-xs text-muted-foreground mb-2">Que souhaitez-vous faire ?</p>
-                <div className="flex flex-col gap-1.5">
-                  {/* BPI-01 — enabled */}
-                  <button
-                    type="button"
-                    disabled={isStreaming}
-                    onClick={() => onQuickReply?.("bpi-audit")}
-                    className="text-xs font-medium text-foreground bg-background/50 rounded-lg px-3 py-2 border border-border/50 cursor-pointer hover:bg-background/80 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    🔍 Auditer ma marque
-                  </button>
-                  {/* Row 2 — coming soon */}
-                  <div className="flex gap-1.5">
-                    {(["📈 Analyser les tendances", "🎯 Analyser mes concurrents"] as const).map(
-                      (label) => (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => toast("Bientôt disponible")}
-                          className="flex-1 text-xs font-medium text-muted-foreground bg-background/30 rounded-lg px-3 py-2 border border-border/20 cursor-pointer hover:bg-background/50 transition-colors opacity-60"
-                        >
-                          {label}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
+              <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 w-full">
+                <button
+                  type="button"
+                  disabled={isStreaming}
+                  onClick={() => onQuickReply?.("bpi-audit")}
+                  className="flex-1 min-w-0 text-xs font-medium text-gray-700 bg-white border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-center whitespace-nowrap cursor-pointer transition-colors duration-150 hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🔍 Audit my brand
+                </button>
+                <button
+                  type="button"
+                  disabled={isStreaming}
+                  onClick={() => onQuickReply?.("trends")}
+                  className="flex-1 min-w-0 text-xs font-medium text-gray-700 bg-white border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-center whitespace-nowrap cursor-pointer transition-colors duration-150 hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  📈 Analyze market trends
+                </button>
+                <button
+                  type="button"
+                  disabled={isStreaming}
+                  onClick={() => onQuickReply?.("competitors")}
+                  className="flex-1 min-w-0 text-xs font-medium text-gray-700 bg-white border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-center whitespace-nowrap cursor-pointer transition-colors duration-150 hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  🎯 Analyze my competitors
+                </button>
               </div>
             </div>
           </div>

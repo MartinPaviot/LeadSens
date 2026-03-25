@@ -8,6 +8,7 @@ import { fetchYoutube } from "./modules/youtube";
 import { fetchSocial } from "./modules/social";
 import { fetchSeo } from "./modules/seo";
 import { fetchBenchmark } from "./modules/benchmark";
+import { fetchGoogleMapsReputation } from "./modules/google-maps";
 
 export { SYSTEM_PROMPT };
 
@@ -36,6 +37,7 @@ export async function run(profile: ElevayAgentProfile): Promise<AgentOutput<BpiO
     socialSettled,
     seoSettled,
     benchmarkSettled,
+    googleMapsSettled,
   ] = await Promise.allSettled([
     fetchSerp(profile),
     fetchPress(profile),
@@ -43,34 +45,38 @@ export async function run(profile: ElevayAgentProfile): Promise<AgentOutput<BpiO
     fetchSocial(profile),
     fetchSeo(profile),
     fetchBenchmark(profile, profile.competitors.map((c) => c.name)),
+    fetchGoogleMapsReputation(profile),
   ]);
 
   const degraded_sources: string[] = [];
 
-  const serpResult    = extractResult(serpSettled,      "serp",      degraded_sources);
-  const pressResult   = extractResult(pressSettled,     "press",     degraded_sources);
-  const youtubeResult = extractResult(youtubeSettled,   "youtube",   degraded_sources);
-  const socialResult  = extractResult(socialSettled,    "social",    degraded_sources);
-  const seoResult     = extractResult(seoSettled,       "seo",       degraded_sources);
-  const benchmarkResult = extractResult(benchmarkSettled, "benchmark", degraded_sources);
+  const serpResult      = extractResult(serpSettled,       "serp",       degraded_sources);
+  const pressResult     = extractResult(pressSettled,      "press",      degraded_sources);
+  const youtubeResult   = extractResult(youtubeSettled,    "youtube",    degraded_sources);
+  const socialResult    = extractResult(socialSettled,     "social",     degraded_sources);
+  const seoResult       = extractResult(seoSettled,        "seo",        degraded_sources);
+  const benchmarkResult = extractResult(benchmarkSettled,  "benchmark",  degraded_sources);
+  const googleMapsResult = extractResult(googleMapsSettled, "gmaps",     degraded_sources);
 
   const scores = calculateBpiScores({
-    serp:      serpResult,
-    press:     pressResult,
-    youtube:   youtubeResult,
-    social:    socialResult,
-    seo:       seoResult,
-    benchmark: benchmarkResult,
+    serp:       serpResult,
+    press:      pressResult,
+    youtube:    youtubeResult,
+    social:     socialResult,
+    seo:        seoResult,
+    benchmark:  benchmarkResult,
+    googleMaps: googleMapsResult,
   });
 
   const payload: BpiOutput = {
     scores,
-    serp_data:      serpResult?.data      ?? null,
-    press_data:     pressResult?.data     ?? null,
-    youtube_data:   youtubeResult?.data   ?? null,
-    social_data:    socialResult?.data    ?? null,
-    seo_data:       seoResult?.data       ?? null,
-    benchmark_data: benchmarkResult?.data ?? null,
+    serp_data:             serpResult?.data       ?? null,
+    press_data:            pressResult?.data      ?? null,
+    youtube_data:          youtubeResult?.data    ?? null,
+    social_data:           socialResult?.data     ?? null,
+    seo_data:              seoResult?.data        ?? null,
+    benchmark_data:        benchmarkResult?.data  ?? null,
+    googleMapsReputation:  googleMapsResult?.data ?? undefined,
     // Remplis par l'appel LLM consolidé (buildConsolidatedPrompt → callLlm)
     top_risks:   [],
     quick_wins:  [],

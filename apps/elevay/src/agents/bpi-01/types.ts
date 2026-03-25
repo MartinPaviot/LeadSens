@@ -40,6 +40,26 @@ export interface ReviewData {
   sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'
 }
 
+export interface SentimentData {
+  positive: number
+  neutral: number
+  negative: number
+  dominant: string
+}
+
+export interface GoogleMapsData {
+  found: boolean
+  place_id?: string
+  name?: string
+  rating?: number
+  review_count?: number
+  sentiment?: SentimentData
+  reputation_score?: number
+  top_positive_reviews?: string[]  // 3 max
+  top_negative_reviews?: string[]  // 3 max
+  degraded: boolean
+}
+
 // ── Module output interfaces — section 3 agentBPI-01.md ────────────────────────
 
 export interface SerpData {
@@ -134,6 +154,7 @@ export interface BpiOutput {
   youtube_data: YoutubeData | null
   social_data: SocialData | null
   benchmark_data: BenchmarkData | null
+  googleMapsReputation?: GoogleMapsData
   top_risks: Risk[]
   quick_wins: QuickWin[]
   roadmap_90d: RoadmapPhase[]

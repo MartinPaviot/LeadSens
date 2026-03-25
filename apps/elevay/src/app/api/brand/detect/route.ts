@@ -5,9 +5,10 @@ import { z } from "zod";
 export const maxDuration = 30; // 3 appels Composio en parallèle
 
 const BodySchema = z.object({
-  brand_url: z.string().url(),
-  country:   z.string().min(2).max(10),
-  language:  z.string().min(2).max(10),
+  brand_url:  z.string().url(),
+  country:    z.string().min(2).max(10),
+  language:   z.string().min(2).max(10),
+  brand_name: z.string().max(100).optional(),
 });
 
 export async function POST(req: Request) {
@@ -28,10 +29,10 @@ export async function POST(req: Request) {
     return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
   }
 
-  const { brand_url, country, language } = parsed.data;
+  const { brand_url, country, language, brand_name } = parsed.data;
 
   try {
-    const result = await detectBrandContext(brand_url, country, language);
+    const result = await detectBrandContext(brand_url, country, language, brand_name);
     return Response.json(result);
   } catch {
     // Never happens — detectBrandContext never throws

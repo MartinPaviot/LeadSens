@@ -9,6 +9,7 @@ import { fetchYoutube } from "@/agents/bpi-01/modules/youtube";
 import { fetchSocial } from "@/agents/bpi-01/modules/social";
 import { fetchSeo } from "@/agents/bpi-01/modules/seo";
 import { fetchBenchmark } from "@/agents/bpi-01/modules/benchmark";
+import { fetchGoogleMapsReputation } from "@/agents/bpi-01/modules/google-maps";
 import { calculateBpiScores } from "@/agents/bpi-01/scoring";
 import type { ElevayAgentProfile, ModuleResult } from "@/agents/_shared/types";
 import type { BpiOutput, Risk, QuickWin, RoadmapPhase } from "@/agents/bpi-01/types";
@@ -59,18 +60,18 @@ function withStatus<T>(
   controller: ReadableStreamDefaultController<Uint8Array>,
 ): Promise<ModuleResult<T>> {
   controller.enqueue(
-    encoder.encode("status", { step, total: 6, label: `[${step}/6] ${label} en cours…` }),
+    encoder.encode("status", { step, total: 7, label: `[${step}/7] ${label} en cours…` }),
   );
   return promise
     .then((result) => {
       controller.enqueue(
-        encoder.encode("status", { step, total: 6, label: `[${step}/6] ${label} ✓` }),
+        encoder.encode("status", { step, total: 7, label: `[${step}/7] ${label} ✓` }),
       );
       return result;
     })
     .catch((err: unknown) => {
       controller.enqueue(
-        encoder.encode("status", { step, total: 6, label: `[${step}/6] ${label} ✗` }),
+        encoder.encode("status", { step, total: 7, label: `[${step}/7] ${label} ✗` }),
       );
       throw err;
     });
@@ -112,6 +113,34 @@ function formatBpiAsMarkdown(brandName: string, payload: BpiOutput): string {
     )
     .join("\n\n");
 
+  // ── Google Maps section ───────────────────────────────────────────────────
+  const gmaps = payload.googleMapsReputation;
+  let googleMapsSection = "";
+  if (gmaps?.found) {
+    const total = (gmaps.sentiment?.positive ?? 0) + (gmaps.sentiment?.neutral ?? 0) + (gmaps.sentiment?.negative ?? 0);
+    const positiveRate = total > 0 ? Math.round(((gmaps.sentiment?.positive ?? 0) / total) * 100) : 0;
+    const negativeRate = total > 0 ? Math.round(((gmaps.sentiment?.negative ?? 0) / total) * 100) : 0;
+
+    const posReviews = (gmaps.top_positive_reviews ?? [])
+      .map((t) => `  - *"${t.slice(0, 100)}..."*`)
+      .join("\n");
+    const negReviews = (gmaps.top_negative_reviews ?? [])
+      .map((t) => `  - *"${t.slice(0, 100)}..."*`)
+      .join("\n");
+
+    googleMapsSection = [
+      ``,
+      `### 🗺️ Google Maps Reputation`,
+      `- ⭐ Note : ${gmaps.rating}/5 (${gmaps.review_count} avis)`,
+      `- Score réputation : ${gmaps.reputation_score}/100`,
+      `- Sentiment : ${positiveRate}% positif, ${negativeRate}% négatif`,
+      posReviews ? `\n**Points forts clients :**\n${posReviews}` : "",
+      negReviews ? `\n**Points d'attention :**\n${negReviews}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
   return [
     `## 📊 Audit de présence en ligne — ${brandName}`,
     ``,
@@ -120,6 +149,7 @@ function formatBpiAsMarkdown(brandName: string, payload: BpiOutput): string {
     `| Axe | Score |`,
     `|-----|-------|`,
     rows,
+    googleMapsSection,
     ``,
     `### ⚠️ Risques prioritaires`,
     risks || "*Aucun risque identifié*",
@@ -253,13 +283,15 @@ async function handleBpiRequest(req: Request) {
           socialSettled,
           seoSettled,
           benchmarkSettled,
+          googleMapsSettled,
         ] = await Promise.allSettled([
-          withStatus(fetchSerp(profile),                                              1, "SERP",      encoder, controller),
-          withStatus(fetchPress(profile, priority_channels),                          2, "Presse",    encoder, controller),
-          withStatus(fetchYoutube(profile),                                           3, "YouTube",   encoder, controller),
-          withStatus(fetchSocial(profile, priority_channels),                        4, "Social",    encoder, controller),
-          withStatus(fetchSeo(profile, priority_channels),                           5, "SEO",       encoder, controller),
-          withStatus(fetchBenchmark(profile, profile.competitors.map((c) => c.name)), 6, "Benchmark", encoder, controller),
+          withStatus(fetchSerp(profile),                                               1, "SERP",         encoder, controller),
+          withStatus(fetchPress(profile, priority_channels),                           2, "Presse",        encoder, controller),
+          withStatus(fetchYoutube(profile),                                            3, "YouTube",        encoder, controller),
+          withStatus(fetchSocial(profile, priority_channels),                         4, "Social",         encoder, controller),
+          withStatus(fetchSeo(profile, priority_channels),                            5, "SEO",            encoder, controller),
+          withStatus(fetchBenchmark(profile, profile.competitors.map((c) => c.name)), 6, "Benchmark",      encoder, controller),
+          withStatus(fetchGoogleMapsReputation(profile),                              7, "Google Maps",    encoder, controller),
         ]);
 
         // ── Extraction des résultats ───────────────────────────────────────
@@ -278,12 +310,13 @@ async function handleBpiRequest(req: Request) {
         }
 
         const results: ModuleResults = {
-          serp:      extract(serpSettled,      "serp"),
-          press:     extract(pressSettled,     "press"),
-          youtube:   extract(youtubeSettled,   "youtube"),
-          social:    extract(socialSettled,    "social"),
-          seo:       extract(seoSettled,       "seo"),
-          benchmark: extract(benchmarkSettled, "benchmark"),
+          serp:       extract(serpSettled,       "serp"),
+          press:      extract(pressSettled,      "press"),
+          youtube:    extract(youtubeSettled,    "youtube"),
+          social:     extract(socialSettled,     "social"),
+          seo:        extract(seoSettled,        "seo"),
+          benchmark:  extract(benchmarkSettled,  "benchmark"),
+          googleMaps: extract(googleMapsSettled, "gmaps"),
         };
 
         // ── Calcul des scores ─────────────────────────────────────────────
@@ -321,16 +354,17 @@ async function handleBpiRequest(req: Request) {
             : {}),
         };
         const previewPayload: BpiOutput = {
-          scores:         partialScores,
-          serp_data:      results.serp?.data      ?? null,
-          press_data:     results.press?.data     ?? null,
-          youtube_data:   results.youtube?.data   ?? null,
-          social_data:    results.social?.data    ?? null,
-          seo_data:       results.seo?.data       ?? null,
-          benchmark_data: results.benchmark?.data ?? null,
-          top_risks:      analysis.top_risks,
-          quick_wins:     analysis.quick_wins,
-          roadmap_90d:    analysis.roadmap_90d,
+          scores:               partialScores,
+          serp_data:            results.serp?.data       ?? null,
+          press_data:           results.press?.data      ?? null,
+          youtube_data:         results.youtube?.data    ?? null,
+          social_data:          results.social?.data     ?? null,
+          seo_data:             results.seo?.data        ?? null,
+          benchmark_data:       results.benchmark?.data  ?? null,
+          googleMapsReputation: results.googleMaps?.data ?? undefined,
+          top_risks:            analysis.top_risks,
+          quick_wins:           analysis.quick_wins,
+          roadmap_90d:          analysis.roadmap_90d,
         };
         // ── Emit structured result (for client-side summary + export) ────
         controller.enqueue(encoder.encode("result", { bpiOutput: previewPayload, brandName: profile.brand_name }));
@@ -355,15 +389,16 @@ async function handleBpiRequest(req: Request) {
                 }
               : {}),
           },
-          serp_data:      results.serp?.data      ?? null,
-          press_data:     results.press?.data     ?? null,
-          youtube_data:   results.youtube?.data   ?? null,
-          social_data:    results.social?.data    ?? null,
-          seo_data:       results.seo?.data       ?? null,
-          benchmark_data: results.benchmark?.data ?? null,
-          top_risks:      analysis.top_risks,
-          quick_wins:     analysis.quick_wins,
-          roadmap_90d:    analysis.roadmap_90d,
+          serp_data:            results.serp?.data       ?? null,
+          press_data:           results.press?.data      ?? null,
+          youtube_data:         results.youtube?.data    ?? null,
+          social_data:          results.social?.data     ?? null,
+          seo_data:             results.seo?.data        ?? null,
+          benchmark_data:       results.benchmark?.data  ?? null,
+          googleMapsReputation: results.googleMaps?.data ?? undefined,
+          top_risks:            analysis.top_risks,
+          quick_wins:           analysis.quick_wins,
+          roadmap_90d:          analysis.roadmap_90d,
         };
 
         const agentOutput: AgentOutput<BpiOutput> = {
@@ -394,7 +429,7 @@ async function handleBpiRequest(req: Request) {
           encoder.encode("finish", {
             tokensIn:    llmResponse.inputTokens,
             tokensOut:   llmResponse.outputTokens,
-            totalSteps:  6,
+            totalSteps:  7,
             finishReason: llmResponse.stopReason,
           }),
         );

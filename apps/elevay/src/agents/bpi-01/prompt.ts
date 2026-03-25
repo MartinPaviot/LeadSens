@@ -6,6 +6,7 @@ import type {
   SocialData,
   SeoData,
   BenchmarkData,
+  GoogleMapsData,
 } from "./types";
 import type { BpiScores } from "./scoring";
 
@@ -18,6 +19,7 @@ export interface ModuleResults {
   social: ModuleResult<SocialData> | null
   seo: ModuleResult<SeoData> | null
   benchmark: ModuleResult<BenchmarkData> | null
+  googleMaps: ModuleResult<GoogleMapsData> | null
 }
 
 interface PreviousScores {
@@ -33,7 +35,7 @@ interface PreviousScores {
 
 export const SYSTEM_PROMPT = `Tu es BPI-01, l'agent Brand Presence Intelligence d'Elevay.
 
-Tu analyses la présence en ligne d'une marque à partir de données structurées collectées sur 6 axes : SERP, presse, YouTube, réseaux sociaux, SEO, et benchmark concurrentiel.
+Tu analyses la présence en ligne d'une marque à partir de données structurées collectées sur 7 axes : SERP, presse, YouTube, réseaux sociaux, SEO, benchmark concurrentiel, et réputation Google Maps.
 
 RÈGLE ABSOLUE : tu réponds UNIQUEMENT avec du JSON valide. Aucun texte avant ou après. Aucun markdown. Aucune explication. Aucun bloc \`\`\`json. Juste le JSON brut.
 
@@ -63,7 +65,7 @@ function deltaStr(current: number, previous: number): string {
  * Les scores sont déjà calculés côté serveur et passés en contexte.
  *
  * @param profile     Profil de la marque
- * @param results     Résultats des 6 modules
+ * @param results     Résultats des 7 modules
  * @param scores      Scores calculés par calculateBpiScores
  * @param previousRun Scores du run précédent (comparaison historique)
  */
@@ -85,9 +87,39 @@ export function buildConsolidatedPrompt(
 - Concurrents analysés : ${profile.competitors.map((c) => `${c.name} (${c.url})`).join(", ")}
 `.trim();
 
+  // ── Google Maps — section textuelle formatée ──────────────────────────────
+  function googleMapsSection(): string {
+    const r = results.googleMaps;
+    if (!r?.data?.found) return "[7] GOOGLE MAPS RÉPUTATION : INDISPONIBLE";
+    const d = r.data;
+    const total = (d.sentiment?.positive ?? 0) + (d.sentiment?.neutral ?? 0) + (d.sentiment?.negative ?? 0);
+    const positiveRate = total > 0 ? Math.round(((d.sentiment?.positive ?? 0) / total) * 100) : 0;
+    const negativeRate = total > 0 ? Math.round(((d.sentiment?.negative ?? 0) / total) * 100) : 0;
+    const lines = [
+      `[7] GOOGLE MAPS RÉPUTATION :`,
+      `- Note : ${d.rating}/5 (${d.review_count} avis)`,
+      `- Score réputation : ${d.reputation_score}/100`,
+      `- Sentiment : ${positiveRate}% positif, ${negativeRate}% négatif`,
+    ];
+    if (d.top_positive_reviews?.length) {
+      lines.push(`- Top avis positifs :`);
+      d.top_positive_reviews.forEach((t) => lines.push(`  • "${t.slice(0, 120)}..."`));
+    }
+    if (d.top_negative_reviews?.length) {
+      lines.push(`- Top avis négatifs :`);
+      d.top_negative_reviews.forEach((t) => lines.push(`  • "${t.slice(0, 120)}..."`));
+    }
+    lines.push(
+      "",
+      "Instructions : Analyze Google Maps reputation data. Identify key themes in positive and negative reviews.",
+      "Highlight reputation risks and opportunities.",
+    );
+    return lines.join("\n");
+  }
+
   // ── Données modules ───────────────────────────────────────────────────────
   const modulesSection = `
-## DONNÉES DES 6 MODULES
+## DONNÉES DES 7 MODULES
 
 ${moduleSection("[1] SERP", results.serp)}
 
@@ -100,6 +132,8 @@ ${moduleSection("[4] RÉSEAUX SOCIAUX", results.social)}
 ${moduleSection("[5] SEO", results.seo)}
 
 ${moduleSection("[6] BENCHMARK CONCURRENTIEL", results.benchmark)}
+
+${googleMapsSection()}
 `.trim();
 
   // ── Scores calculés ───────────────────────────────────────────────────────

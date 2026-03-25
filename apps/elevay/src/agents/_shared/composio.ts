@@ -1,5 +1,7 @@
 import { ComposioToolSet } from "composio-core";
 
+export { getLinkedInConnection } from "@/lib/composio-linkedin";
+
 // ─── Singleton client ────────────────────────────────────────────────────────
 
 let _client: ComposioToolSet | null = null;
@@ -259,12 +261,22 @@ export async function getYoutubeComments(
 /**
  * Social — Apify actor tasks (pas de retry, degraded si tâche non configurée)
  * Plateformes supportées : instagram, twitter, tiktok
- * Pas de tâche LinkedIn — module social gère le fallback
+ * LinkedIn : si linkedin-community connecté → infrastructure prête pour Composio org actions
+ *            (fallback Apify jusqu'à ce que les action names soient confirmés)
  */
 export async function socialSearch(
   query: string,
   platform: string,
+  workspaceId?: string,
 ): Promise<SocialResponse> {
+  if (platform.toLowerCase() === "linkedin" && workspaceId) {
+    const { getLinkedInConnection: getConn } = await import("@/lib/composio-linkedin");
+    const connType = await getConn(workspaceId);
+    if (connType === "community") {
+      // TODO: appeler les actions Composio r_organization_social une fois les action names confirmés
+      // Pour l'instant : fallback sur Apify (même comportement que connType === "user")
+    }
+  }
   const envVar = APIFY_TASK_ENV[platform.toLowerCase()];
   if (!envVar) {
     throw new Error(`No Apify task configured for platform: ${platform}`);

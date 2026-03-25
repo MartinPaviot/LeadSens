@@ -8,6 +8,7 @@ import {
   useMemo,
 } from "react";
 import { createParser } from "eventsource-parser";
+import { toast } from "sonner";
 import { AgentRuntimeProvider } from "./agent-runtime-provider";
 import { ElevayThread } from "./thread";
 import { GreetingLoader } from "./greeting-loader";
@@ -106,6 +107,9 @@ export default function AgentChat() {
   // Tracks whether brand profile is confirmed absent (avoids Prisma type in useCallback deps)
   const noBrandProfileRef = useRef(false);
   const exportFormatRef = useRef<string | undefined>(undefined);
+  const brandSectorRef = useRef<string>("");
+  const brandChannelsRef = useRef<string[]>([]);
+  const brandObjectiveRef = useRef<string>("branding");
   const updateScheduledRef = useRef(false);
   const isNewConversationRef = useRef(true);
   const retryCountRef = useRef(0);
@@ -375,6 +379,12 @@ export default function AgentChat() {
   useEffect(() => {
     noBrandProfileRef.current = brandProfile === null;
     exportFormatRef.current = brandProfile?.exportFormat ?? undefined;
+    brandSectorRef.current = brandProfile?.sector ?? brandProfile?.primary_keyword ?? "";
+    brandChannelsRef.current =
+      brandProfile?.priority_channels && brandProfile.priority_channels.length > 0
+        ? brandProfile.priority_channels
+        : ["SEO"];
+    brandObjectiveRef.current = brandProfile?.objective ?? "branding";
     if (brandProfile === null) {
       setShowOnboarding(true);
     }
@@ -585,6 +595,191 @@ export default function AgentChat() {
     }
   }, [isStreaming, registerNewConversation, refreshConversations]);
 
+  // ─── MTS-02 market trends stream ──────────────────────
+
+  const streamMtsAudit = useCallback(async () => {
+    if (isStreaming) return;
+
+    if (noBrandProfileRef.current) {
+      setShowOnboarding(true);
+      return;
+    }
+
+    const sector = brandSectorRef.current;
+    if (!sector || sector.length < 2) {
+      toast.error("Please fill in your brand sector in Settings before running this analysis.");
+      return;
+    }
+
+    const priority_channels = brandChannelsRef.current;
+
+    setHasUserSentMessage(true);
+    setThinkingSteps([]);
+    pendingContentRef.current = "";
+
+    const convId = conversationIdRef.current;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsStreaming(true);
+
+    const assistantId = generateId();
+    setMessages((prev) => [
+      ...prev,
+      { id: generateId(), role: "user", content: "Analyze market trends for my sector" },
+      { id: assistantId, role: "assistant", content: "" },
+    ]);
+
+    try {
+      const res = await fetch("/api/agents/bmi/mts-02", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sector, priority_channels }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) throw new Error(`MTS-02 failed: ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      const parser = createParser({
+        onEvent(event) {
+          const eventName = event.event as SSEEventName | undefined;
+          if (!eventName) return;
+          const data = JSON.parse(event.data) as SSEEventPayload[typeof eventName];
+
+          if (eventName === "text-delta") {
+            const payload = data as SSEEventPayload["text-delta"];
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: m.content + payload.delta } : m,
+              ),
+            );
+          } else if (eventName === "status") {
+            const payload = data as SSEEventPayload["status"];
+            setActivityLabel(payload.label);
+          } else if (eventName === "error") {
+            const payload = data as SSEEventPayload["error"];
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: `⚠️ ${payload.message}` } : m,
+              ),
+            );
+          }
+        },
+        onRetry(ms) {
+          retryIntervalRef.current = ms;
+        },
+        onComment() {},
+      });
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parser.feed(decoder.decode(value, { stream: true }));
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") console.error("MTS-02 stream error:", err);
+    } finally {
+      setIsStreaming(false);
+      setActivityLabel(null);
+      abortRef.current = null;
+      if (isNewConversationRef.current) {
+        isNewConversationRef.current = false;
+        registerNewConversation(convId);
+      }
+      refreshConversations();
+    }
+  }, [isStreaming, registerNewConversation, refreshConversations]);
+
+  // ─── CIA-03 competitive analysis stream ───────────────
+
+  const streamCiaAudit = useCallback(async () => {
+    if (isStreaming) return;
+
+    if (noBrandProfileRef.current) {
+      setShowOnboarding(true);
+      return;
+    }
+
+    const priority_channels = brandChannelsRef.current;
+    const objective = brandObjectiveRef.current;
+
+    setHasUserSentMessage(true);
+    setThinkingSteps([]);
+    pendingContentRef.current = "";
+
+    const convId = conversationIdRef.current;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsStreaming(true);
+
+    const assistantId = generateId();
+    setMessages((prev) => [
+      ...prev,
+      { id: generateId(), role: "user", content: "Run a competitive analysis" },
+      { id: assistantId, role: "assistant", content: "" },
+    ]);
+
+    try {
+      const res = await fetch("/api/agents/bmi/cia-03", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority_channels, objective }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) throw new Error(`CIA-03 failed: ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      const parser = createParser({
+        onEvent(event) {
+          const eventName = event.event as SSEEventName | undefined;
+          if (!eventName) return;
+          const data = JSON.parse(event.data) as SSEEventPayload[typeof eventName];
+
+          if (eventName === "text-delta") {
+            const payload = data as SSEEventPayload["text-delta"];
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: m.content + payload.delta } : m,
+              ),
+            );
+          } else if (eventName === "status") {
+            const payload = data as SSEEventPayload["status"];
+            setActivityLabel(payload.label);
+          } else if (eventName === "error") {
+            const payload = data as SSEEventPayload["error"];
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: `⚠️ ${payload.message}` } : m,
+              ),
+            );
+          }
+        },
+        onRetry(ms) {
+          retryIntervalRef.current = ms;
+        },
+        onComment() {},
+      });
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        parser.feed(decoder.decode(value, { stream: true }));
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") console.error("CIA-03 stream error:", err);
+    } finally {
+      setIsStreaming(false);
+      setActivityLabel(null);
+      abortRef.current = null;
+      if (isNewConversationRef.current) {
+        isNewConversationRef.current = false;
+        registerNewConversation(convId);
+      }
+      refreshConversations();
+    }
+  }, [isStreaming, registerNewConversation, refreshConversations]);
+
   // ─── Brand profile — auto-launch + complete ───────────
 
   // Auto-launch BPI-01 after onboarding completes (if triggered by the button)
@@ -602,9 +797,11 @@ export default function AgentChat() {
 
   const handleQuickReply = useCallback(
     (type: string) => {
-      if (type === "bpi-audit") void streamBpiAudit();
+      if (type === "bpi-audit")   void streamBpiAudit();
+      if (type === "trends")      void streamMtsAudit();
+      if (type === "competitors") void streamCiaAudit();
     },
-    [streamBpiAudit],
+    [streamBpiAudit, streamMtsAudit, streamCiaAudit],
   );
 
   // ─── Export commands ──────────────────────────────────
@@ -830,6 +1027,7 @@ export default function AgentChat() {
               </span>
             </div>
             <div className="flex items-center gap-1">
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
@@ -839,7 +1037,6 @@ export default function AgentChat() {
               >
                 <Gear className="size-3.5" />
               </Button>
-              <ThemeToggle />
             </div>
           </header>
 

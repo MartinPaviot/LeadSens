@@ -5,7 +5,7 @@ import { router, protectedProcedure } from "../trpc";
 
 const competitorSchema = z.object({
   name: z.string().min(1),
-  url: z.string().url(),
+  url:  z.string().url().or(z.literal("")),
 });
 
 const upsertInput = z.object({
@@ -17,7 +17,7 @@ const upsertInput = z.object({
   primary_keyword:   z.string().min(1),
   secondary_keyword: z.string().min(1),
   exportFormat:      z.enum(["pdf", "gdoc"]).default("pdf"),
-  sector:            z.string().optional(),
+  sector:            z.string().max(100).optional(),
   priority_channels: z.array(
     z.enum(["SEO", "LinkedIn", "YouTube", "TikTok", "Instagram", "Facebook", "X", "Press"]),
   ).optional(),
@@ -27,9 +27,13 @@ const upsertInput = z.object({
 
 export const brandProfileRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
-    return prisma.elevayBrandProfile.findUnique({
-      where: { workspaceId: ctx.workspaceId },
-    });
+    try {
+      return await prisma.elevayBrandProfile.findUnique({
+        where: { workspaceId: ctx.workspaceId },
+      });
+    } catch {
+      return null;
+    }
   }),
 
   upsert: protectedProcedure

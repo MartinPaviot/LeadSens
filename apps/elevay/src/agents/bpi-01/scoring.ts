@@ -6,6 +6,7 @@ import type {
   SocialData,
   SeoData,
   BenchmarkData,
+  GoogleMapsData,
 } from "./types";
 
 export interface BpiScores {
@@ -76,8 +77,9 @@ export function calculateBpiScores(results: {
   social: ModuleResult<SocialData> | null
   seo: ModuleResult<SeoData> | null
   benchmark: ModuleResult<BenchmarkData> | null
+  googleMaps?: ModuleResult<GoogleMapsData> | null
 }): BpiScores {
-  const { serp, press, youtube, social, seo, benchmark } = results;
+  const { serp, press, youtube, social, seo, benchmark, googleMaps } = results;
 
   // ── Réputation (35%) ────────────────────────────────────────────────
   const reputationSources: { score: number; weight: number }[] = [];
@@ -91,7 +93,10 @@ export function calculateBpiScores(results: {
   if (press?.data) {
     reputationSources.push({ score: pressToScore(press.data), weight: 20 });
   }
-  if (benchmark?.data?.google_maps) {
+  // Préférer le module Google Maps dédié si disponible, sinon fallback benchmark mocké
+  if (googleMaps?.data?.found && googleMaps.data.reputation_score !== undefined) {
+    reputationSources.push({ score: googleMaps.data.reputation_score, weight: 10 });
+  } else if (benchmark?.data?.google_maps) {
     reputationSources.push({
       score: Math.round((benchmark.data.google_maps.rating / 5) * 100),
       weight: 10,

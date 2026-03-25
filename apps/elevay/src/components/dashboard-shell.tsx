@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { SidebarProvider } from "@leadsens/ui";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarEdgeTrigger } from "@leadsens/ui";
-import { ConversationProvider } from "@/components/conversation-provider";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -16,12 +15,10 @@ export function DashboardShell({
   defaultSidebarOpen,
 }: DashboardShellProps) {
   return (
-    <ConversationProvider>
-      <SidebarProvider defaultOpen={defaultSidebarOpen}>
-        <AppSidebar />
-        <SidebarEdgeTrigger />
-        <main className="flex-1 min-w-0">{children}</main>
-      </SidebarProvider>
-    </ConversationProvider>
+    <SidebarProvider defaultOpen={defaultSidebarOpen}>
+      <AppSidebar />
+      <SidebarEdgeTrigger />
+      <main className="flex-1 min-w-0">{children}</main>
+    </SidebarProvider>
   );
 }
