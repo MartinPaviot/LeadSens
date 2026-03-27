@@ -4,6 +4,69 @@ import { socialSearch } from "../../_shared/composio";
 import type { SocialPostItem } from "../../_shared/composio";
 import { shouldRunSocialPlatform } from "@/lib/channel-filter";
 
+// ─── Dedup helper ─────────────────────────────────────────────────────────────
+
+function getItemKey(item: SocialPostItem): string | null {
+  const val = item["id"] ?? item["url"] ?? item["shortCode"]
+    ?? item["webVideoUrl"] ?? item["conversationId"] ?? item["link"];
+  return val != null ? String(val) : null;
+}
+
+function mergeUnique(results: PromiseSettledResult<{ items: SocialPostItem[] }>[]): SocialPostItem[] {
+  const seen = new Set<string>();
+  const merged: SocialPostItem[] = [];
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const item of r.value.items) {
+      const key = getItemKey(item);
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+// ─── Brand variant helper ─────────────────────────────────────────────────────
+
+function getBrandVariants(brandName: string): string[] {
+  const base = brandName.toLowerCase();
+  const noSpace = base.replace(/\s+/g, "");
+  const hyphen = base.replace(/\s+/g, "-");
+  const underscore = base.replace(/\s+/g, "_");
+  return [
+    brandName,
+    noSpace,
+    hyphen,
+    underscore,
+    `${noSpace}official`,
+    `${noSpace}fr`,
+  ].filter((v, i, a) => a.indexOf(v) === i);
+}
+
+/**
+ * Early-exit search: try each variant in order, stop on first one with results.
+ * Falls back to merging all results if nothing found.
+ */
+async function searchWithVariants(
+  variants: string[],
+  platform: string,
+): Promise<SocialPostItem[]> {
+  // Try first 3 variants with early-exit
+  for (const variant of variants.slice(0, 3)) {
+    console.log("[social-variants] trying variant:", variant, "on platform:", platform);
+    try {
+      const result = await socialSearch(variant, platform);
+      console.log("[social-variants] results count:", result.items.length, "raw keys:", Object.keys(result));
+      if (result.items.length > 0) return result.items;
+    } catch (err) {
+      console.log("[social-variants] ERROR:", err instanceof Error ? err.message : String(err));
+      // continue to next variant
+    }
+  }
+  return [];
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PLATFORMS = ["instagram", "twitter", "tiktok"] as const;
@@ -122,16 +185,24 @@ export async function fetchSocial(
   priority_channels?: string[],
 ): Promise<ModuleResult<SocialData>> {
   try {
-    const { brand_name } = profile;
+    const { brand_name, primary_keyword } = profile;
 
     // Filter platforms based on priority_channels
     const activePlatformKeys = PLATFORMS.filter(p =>
       shouldRunSocialPlatform(PLATFORM_CANONICAL[p], priority_channels),
     );
 
-    // Fetch active platforms independently — failures are tolerated
+    // Brand variants for slug-based handle detection (e.g. "Louis Pion" → @louispion)
+    // Early-exit per platform: stop at first variant that returns results
+    const variants = getBrandVariants(brand_name);
+    // Append sector keyword as a fallback query after slug variants
+    const variantsWithKeyword = [...variants, `${brand_name} ${primary_keyword}`]
+      .filter((v, i, a) => a.indexOf(v) === i);
+
     const platformResults = await Promise.allSettled(
-      activePlatformKeys.map((p) => socialSearch(brand_name, p)),
+      activePlatformKeys.map(async (p) => ({
+        items: await searchWithVariants(variantsWithKeyword, p),
+      })),
     );
 
     const platformDataList: PlatformData[] = [];
@@ -154,6 +225,7 @@ export async function fetchSocial(
       }
 
       const items = result.value.items;
+      console.log("[social] platform:", platform, "final results:", items.length, "first result:", (items[0] as SocialPostItem | undefined)?.["url"] ?? "none");
       const pd = buildPlatformData(platform, items);
       platformDataList.push(pd);
 

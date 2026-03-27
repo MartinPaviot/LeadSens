@@ -110,6 +110,18 @@ export interface BenchmarkData {
   trustpilot: ReviewData | null
 }
 
+// ── TrustpilotData ────────────────────────────────────────────────────────────
+
+export interface TrustpilotData {
+  found: boolean
+  rating?: number
+  review_count?: number
+  profile_url?: string
+  sentiment_label?: 'Excellent' | 'Great' | 'Average' | 'Poor' | 'Bad'
+  recent_reviews?: string[]
+  degraded: boolean
+}
+
 // ── BpiOutput — section 6 agentBPI-01.md ──────────────────────────────────────
 
 export interface Risk {
@@ -155,6 +167,7 @@ export interface BpiOutput {
   social_data: SocialData | null
   benchmark_data: BenchmarkData | null
   googleMapsReputation?: GoogleMapsData
+  trustpilot?: TrustpilotData
   top_risks: Risk[]
   quick_wins: QuickWin[]
   roadmap_90d: RoadmapPhase[]

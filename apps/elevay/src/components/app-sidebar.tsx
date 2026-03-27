@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
-  SignOut,
   SidebarSimple,
   PencilSimple,
   NotePencil,
@@ -10,7 +9,10 @@ import {
   Trash,
   ChatCircle,
   MagnifyingGlass,
+  Gear,
+  SignOut,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Sidebar,
@@ -57,6 +59,7 @@ import {
   type ConversationSummary,
 } from "@/components/conversation-provider";
 import { SearchDialog } from "@/components/chat/search-dialog";
+import { SettingsModal } from "@/components/chat/settings-modal";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { toast } from "sonner";
 
@@ -121,36 +124,15 @@ export function AppSidebar() {
     refreshConversations,
   } = useConversations();
 
-  const [workspaceName, setWorkspaceName] = useState("Workspace");
-  const [editWorkspaceOpen, setEditWorkspaceOpen] = useState(false);
-  const [editingWorkspaceName, setEditingWorkspaceName] = useState("");
   const [renamingConv, setRenamingConv] = useState<{ id: string; title: string } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deletingConv, setDeletingConv] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("elevay_workspaceName");
-    if (saved) setWorkspaceName(saved);
-  }, []);
-
-  const handleSaveWorkspaceName = () => {
-    const trimmed = editingWorkspaceName.trim();
-    if (trimmed) {
-      setWorkspaceName(trimmed);
-      localStorage.setItem("elevay_workspaceName", trimmed);
-    }
-    setEditWorkspaceOpen(false);
-  };
-
-  const openEditWorkspace = () => {
-    setEditingWorkspaceName(workspaceName);
-    setEditWorkspaceOpen(true);
-  };
-
-  const userName = session?.user?.name || "User";
-  const userEmail = session?.user?.email || "";
-  const firstName = userName.split(" ")[0];
+  const userName = session?.user?.name ?? "User";
+  const userEmail = session?.user?.email ?? "";
+  const firstName = userName.split(" ")[0] ?? "U";
 
   const groups = useMemo(
     () => groupConversations(conversations),
@@ -181,8 +163,8 @@ export function AppSidebar() {
   };
 
   const openRenameDialog = (id: string, currentTitle: string | null) => {
-    setRenamingConv({ id, title: currentTitle || "Untitled" });
-    setRenameValue(currentTitle || "");
+    setRenamingConv({ id, title: currentTitle ?? "Untitled" });
+    setRenameValue(currentTitle ?? "");
   };
 
   const confirmRename = async () => {
@@ -231,19 +213,33 @@ export function AppSidebar() {
   });
 
   return (
-    <Sidebar collapsible="offcanvas" className="overflow-hidden">
-      <SidebarHeader className="px-3 py-1.5 border-b border-sidebar-border">
+    <Sidebar
+      collapsible="offcanvas"
+      className="overflow-hidden"
+      style={{
+        background: "var(--background)",
+        borderRight: "1px solid rgba(23,195,178,0.15)",
+      }}
+    >
+      {/* Header */}
+      <SidebarHeader className="px-3 py-2 border-b" style={{ borderColor: "rgba(23,195,178,0.15)" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="size-5 rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-              <span className="text-white text-[9px] font-bold">E</span>
-            </div>
-            <span className="font-semibold text-xs">Elevay</span>
+            <Image
+              src="/logo-elevay.svg"
+              alt="Elevay"
+              width={22}
+              height={22}
+              className="shrink-0"
+            />
+            <span className="font-bold text-sm" style={{ color: "#17c3b2" }}>
+              Elevay
+            </span>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="size-6"
+            className="size-6 text-muted-foreground hover:text-foreground"
             onClick={toggleSidebar}
           >
             <SidebarSimple className="size-3.5" />
@@ -252,28 +248,27 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2 scrollbar-thin gap-0">
-        <SidebarGroup className="pt-1 pb-0">
-          <SidebarMenu className="gap-0.5">
+        {/* New conversation + Search */}
+        <SidebarGroup className="pt-2 pb-1">
+          <SidebarMenu className="gap-1.5">
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={handleNewChat}
                 size="sm"
-                className="px-2 rounded-lg text-sidebar-foreground/60"
+                className="w-full rounded-lg text-white font-medium justify-center"
+                style={{ background: "var(--elevay-gradient-btn)" }}
               >
-                <NotePencil className="size-3" />
-                <span className="truncate">New conversation</span>
-                <kbd className="ml-auto text-[10px] text-muted-foreground/50">
-                  Ctrl+Shift+O
-                </kbd>
+                <NotePencil className="size-3.5 shrink-0" />
+                <span>New conversation</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={() => setSearchOpen(true)}
                 size="sm"
-                className="px-2 rounded-lg text-sidebar-foreground/60"
+                className="px-2 rounded-lg text-sidebar-foreground/60 hover:bg-[rgba(23,195,178,0.06)]"
               >
-                <MagnifyingGlass className="size-3" />
+                <MagnifyingGlass className="size-3.5" />
                 <span className="truncate">Search</span>
                 <kbd className="ml-auto text-[10px] text-muted-foreground/50">
                   Ctrl+K
@@ -282,17 +277,17 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
+
+        {/* Conversations */}
         {groups.length === 0 ? (
           <div className="px-3 py-8 text-center">
             <ChatCircle className="size-8 mx-auto mb-2 text-muted-foreground/40" />
-            <p className="text-xs text-muted-foreground">
-              No conversations
-            </p>
+            <p className="text-xs text-muted-foreground">No conversations yet</p>
           </div>
         ) : (
           groups.map((group) => (
             <SidebarGroup key={group.label} className="py-1">
-              <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground/60 px-2">
+              <SidebarGroupLabel className="text-[11px] uppercase tracking-wider text-muted-foreground/50 px-2">
                 {group.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -303,11 +298,11 @@ export function AppSidebar() {
                         isActive={activeId === conv.id}
                         onClick={() => handleSelect(conv.id)}
                         size="sm"
-                        className="px-2 rounded-lg text-sidebar-foreground/60 data-[active=true]:text-sidebar-accent-foreground"
-                        title={conv.title || "Untitled"}
+                        className="px-3 rounded-lg text-sm text-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+                        title={conv.title ?? "Untitled"}
                       >
                         <span className="truncate">
-                          {conv.title || "Untitled"}
+                          {conv.title ?? "Untitled"}
                         </span>
                       </SidebarMenuButton>
                       <DropdownMenu>
@@ -317,11 +312,7 @@ export function AppSidebar() {
                           </SidebarMenuAction>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent side="bottom" align="end" className="min-w-[140px]">
-                          <DropdownMenuItem
-                            onClick={() =>
-                              openRenameDialog(conv.id, conv.title)
-                            }
-                          >
+                          <DropdownMenuItem onClick={() => openRenameDialog(conv.id, conv.title)}>
                             <PencilSimple className="size-4 mr-2" />
                             Rename
                           </DropdownMenuItem>
@@ -343,73 +334,66 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="px-2 pb-3 pt-1">
-        <SidebarMenu>
-          <SidebarMenuItem>
+      {/* Footer — user info + settings */}
+      <SidebarFooter
+        className="px-3 py-3 border-t"
+        style={{ borderColor: "rgba(23,195,178,0.15)" }}
+      >
+        <div className="flex items-center gap-2">
+          <Avatar className="size-7 rounded-lg shrink-0">
+            {session?.user?.image && (
+              <AvatarImage src={session.user.image} alt={userName} className="rounded-lg" />
+            )}
+            <AvatarFallback
+              className="rounded-lg text-[11px] font-bold text-white"
+              style={{ background: "var(--elevay-gradient-btn)" }}
+            >
+              {firstName[0]?.toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold truncate text-foreground">{userName}</p>
+            <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-foreground"
+              onClick={() => setSettingsOpen(true)}
+              title="Settings"
+            >
+              <Gear className="size-3.5" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton className="h-8 px-2 rounded-lg">
-                  <Avatar className="size-5 rounded-md">
-                    {session?.user?.image && (
-                      <AvatarImage
-                        src={session.user.image}
-                        alt={userName}
-                        className="rounded-md"
-                      />
-                    )}
-                    <AvatarFallback className="bg-violet-500 text-white text-[10px] rounded-md">
-                      {firstName[0]?.toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="truncate text-sm">{workspaceName}</span>
-                </SidebarMenuButton>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground hover:text-foreground"
+                  title="More"
+                >
+                  <DotsThree className="size-4" weight="bold" />
+                </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start" className="w-[calc(var(--sidebar-width)-1rem)] min-w-0 rounded-lg text-[13px]">
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal truncate px-3 py-1.5">
+              <DropdownMenuContent side="top" align="end" className="min-w-[160px]">
+                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal truncate">
                   {userEmail}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={openEditWorkspace} className="px-3 py-1.5">
-                  <PencilSimple className="size-3.5 mr-2 shrink-0" />
-                  Rename workspace
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="px-3 py-1.5">
-                  <SignOut className="size-3.5 mr-2 shrink-0" />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <SignOut className="size-3.5 mr-2" />
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+          </div>
+        </div>
       </SidebarFooter>
 
       <SidebarRail />
 
-      <Dialog open={editWorkspaceOpen} onOpenChange={setEditWorkspaceOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rename workspace</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              value={editingWorkspaceName}
-              onChange={(e) => setEditingWorkspaceName(e.target.value)}
-              placeholder="Workspace name"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveWorkspaceName();
-              }}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditWorkspaceOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveWorkspaceName}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* Rename dialog */}
       <Dialog open={!!renamingConv} onOpenChange={(open) => { if (!open) setRenamingConv(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -420,9 +404,7 @@ export function AppSidebar() {
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
               placeholder="Conversation name"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") confirmRename();
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") void confirmRename(); }}
               autoFocus
             />
           </div>
@@ -430,11 +412,12 @@ export function AppSidebar() {
             <Button variant="outline" onClick={() => setRenamingConv(null)}>
               Cancel
             </Button>
-            <Button onClick={confirmRename}>Save</Button>
+            <Button onClick={() => void confirmRename()}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete dialog */}
       <AlertDialog open={!!deletingConv} onOpenChange={(open) => { if (!open) setDeletingConv(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -446,7 +429,7 @@ export function AppSidebar() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
+              onClick={() => void confirmDelete()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
@@ -455,6 +438,10 @@ export function AppSidebar() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Settings modal */}
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      {/* Search dialog */}
       <SearchDialog
         open={searchOpen}
         onOpenChange={setSearchOpen}

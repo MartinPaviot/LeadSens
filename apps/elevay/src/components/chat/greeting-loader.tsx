@@ -3,5 +3,5 @@
 import { GreetingLoader as SharedGreetingLoader } from "@leadsens/ui";
 
 export function GreetingLoader() {
-  return <SharedGreetingLoader logoSrc="/E.svg" logoAlt="Elevay" />;
+  return <SharedGreetingLoader logoSrc="/logo-elevay.svg" logoAlt="Elevay" />;
 }

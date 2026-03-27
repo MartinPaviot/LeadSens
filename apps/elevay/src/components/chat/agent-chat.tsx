@@ -23,6 +23,9 @@ import { OnboardingModal } from "./onboarding-modal";
 import { SettingsModal } from "./settings-modal";
 import { BpiProgressContext, type ModuleItem, type ExportButton } from "./bpi-progress-context";
 import type { BpiOutput } from "@/agents/bpi-01/types";
+import type { MtsOutput } from "@/agents/mts-02/types";
+import type { CiaOutput } from "@/agents/cia-03/types";
+import type { ChatSuggestion } from "./suggestion-bubble";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -47,24 +50,48 @@ const EXPORT_PATTERNS: Record<string, "pdf" | "gdoc" | "slides"> = {
   "génère des slides": "slides",
 };
 
-// ─── BPI summary builder ─────────────────────────────────
+// ─── Summary builders ────────────────────────────────────
 
 function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
   const { scores, top_risks, quick_wins, benchmark_data } = bpiOutput;
-  const riskLine = top_risks[0]?.description ?? "Aucun risque critique identifié";
-  const winLine = quick_wins[0]?.action ?? "Aucun quick win identifié";
+  const riskLine = top_risks[0]?.description ?? "No critical risk identified";
+  const winLine = quick_wins[0]?.action ?? "No quick win identified";
   let benchmarkLine: string;
   if (benchmark_data?.radar && benchmark_data.radar.length > 0) {
     const top = benchmark_data.radar.reduce((a, b) =>
       a.serp_share + a.seo_score > b.serp_share + b.seo_score ? a : b,
     );
-    benchmarkLine = `${top.name} domine en visibilité SERP (${top.serp_share}/100)`;
+    benchmarkLine = `${top.name} leads in SERP visibility (${top.serp_share}/100)`;
   } else if (benchmark_data) {
-    benchmarkLine = `Score concurrentiel : ${benchmark_data.competitive_score}/100`;
+    benchmarkLine = `Competitive score: ${benchmark_data.competitive_score}/100`;
   } else {
-    benchmarkLine = "Données benchmark non disponibles";
+    benchmarkLine = "Benchmark data unavailable";
   }
-  return `🔍 **Audit terminé — ${brandName}**\nScore global : **${scores.global}/100**\n\nPoints clés :\n- ${riskLine}\n- ${winLine}\n- ${benchmarkLine}`;
+  return `🔍 **Audit complete — ${brandName}**\nGlobal score: **${scores.global}/100**\n\nKey highlights:\n- ${riskLine}\n- ${winLine}\n- ${benchmarkLine}`;
+}
+
+function buildMtsSummary(output: MtsOutput): string {
+  const sector = output.session_context.sector;
+  const top3 = [...output.trending_topics]
+    .sort((a, b) => b.opportunity_score - a.opportunity_score)
+    .slice(0, 3);
+  const topLine = top3.length > 0
+    ? top3.map((t) => `${t.topic} (${t.opportunity_score}/100)`).join(", ")
+    : "No trending topics identified";
+  const sat2 = output.saturated_topics.slice(0, 2).map((t) => t.topic).join(", ") || "None";
+  return `📈 **Market trends — ${sector}**\nTop opportunities: ${topLine}\nSaturated topics to avoid: ${sat2}`;
+}
+
+function buildCiaSummary(output: CiaOutput, brandName: string): string {
+  const client = output.competitor_scores.find((c) => c.is_client);
+  const others = output.competitor_scores.filter((c) => !c.is_client);
+  const topComp = [...others].sort((a, b) => b.global_score - a.global_score)[0];
+  const scoreLine = client
+    ? `${brandName}: **${client.global_score}/100**${topComp ? ` · ${topComp.entity}: ${topComp.global_score}/100` : ""}`
+    : "Scores unavailable";
+  const green = output.strategic_zones.filter((z) => z.zone === "green").map((z) => z.axis).join(", ") || "–";
+  const red = output.strategic_zones.filter((z) => z.zone === "red").map((z) => z.axis).join(", ") || "–";
+  return `🎯 **Competitive analysis — ${brandName}**\nCompetitive scores: ${scoreLine}\nStrategic zones: ✅ ${green} · ❌ ${red}`;
 }
 
 // ─── Main Component ──────────────────────────────────────
@@ -94,6 +121,8 @@ export default function AgentChat() {
   const [bpiModules, setBpiModules] = useState<ModuleItem[] | null>(null);
   const [bpiExpanded, setBpiExpanded] = useState(false);
   const [bpiExportButton, setBpiExportButton] = useState<Omit<ExportButton, "assistantId"> | null>(null);
+  const [lastSuggestion, setLastSuggestion] = useState<ChatSuggestion | null>(null);
+  const lastSuggestionRef = useRef<ChatSuggestion | null>(null);
   const bpiAuditMessageIdRef = useRef<string | null>(null);
 
   const conversationIdRef = useRef(generateId());
@@ -409,16 +438,17 @@ export default function AgentChat() {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsStreaming(true);
+    setLastSuggestion(null);
 
     const assistantId = generateId();
     setMessages((prev) => [
       ...prev,
-      { id: generateId(), role: "user", content: "🔍 Auditer ma marque" },
+      { id: generateId(), role: "user", content: "🔍 Audit my brand" },
       { id: assistantId, role: "assistant", content: "" },
     ]);
 
     // Initialize module progress UI
-    const MODULE_LABELS = ["SERP", "Presse", "YouTube", "Social", "SEO", "Benchmark"];
+    const MODULE_LABELS = ["SERP", "Presse", "YouTube", "Social", "SEO", "Benchmark", "Google Maps", "Trustpilot"];
     setBpiModules(MODULE_LABELS.map((label) => ({ label, status: "idle" as const })));
     setBpiExpanded(false);
 
@@ -499,11 +529,30 @@ export default function AgentChat() {
         registerNewConversation(convId);
       }
       refreshConversations();
+      const bpiSuggestion: ChatSuggestion = {
+        content: "Your brand audit is complete. Want to go deeper?",
+        actions: [
+          { label: "📈 Analyze market trends", handler: "trends" },
+          { label: "🎯 Analyze my competitors", handler: "competitors" },
+        ],
+      };
+      lastSuggestionRef.current = bpiSuggestion;
+      setLastSuggestion(bpiSuggestion);
+      console.log("[suggestion] lastSuggestion set:", bpiSuggestion);
+      setTimeout(() => {
+        const scrollable = document.querySelector("[data-thread-viewport]")
+          ?? document.querySelector("[class*=\"overflow-y-auto\"]");
+        if (scrollable) {
+          scrollable.scrollTop = scrollable.scrollHeight;
+        } else {
+          window.scrollTo(0, document.body.scrollHeight);
+        }
+      }, 200);
 
       // Build short summary (or fallback) and update the single assistant bubble
       const summary = capturedBpiOutput
         ? buildBpiSummary(capturedBpiOutput, capturedBrandName)
-        : "⚠️ L'audit s'est terminé mais les données n'ont pas pu être récupérées.";
+        : "⚠️ The audit completed but data could not be retrieved.";
 
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: summary } : m)),
@@ -524,7 +573,7 @@ export default function AgentChat() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: summary + `\n\n📄 [Ouvrir dans Google Docs →](${result.url})` }
+                  ? { ...m, content: summary + `\n\n📄 [Open in Google Docs →](${result.url})` }
                   : m,
               ),
             );
@@ -535,7 +584,7 @@ export default function AgentChat() {
 
       // PDF (default) or gdoc fallback: show inline export button
       setBpiExportButton({
-        label: "📥 Télécharger le rapport (PDF)",
+        label: "📥 Download report (PDF)",
         onClick: async () => {
           setBpiExportButton(null);
           try {
@@ -559,12 +608,12 @@ export default function AgentChat() {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
-                    ? { ...m, content: summary + "\n\n📥 Téléchargement du PDF en cours." }
+                    ? { ...m, content: summary + "\n\n📥 Downloading PDF..." }
                     : m,
                 ),
               );
             } else {
-              let errMsg = "Export non disponible.";
+              let errMsg = "Export unavailable.";
               const ct = res.headers.get("content-type") ?? "";
               if (ct.includes("application/json")) {
                 try {
@@ -585,7 +634,7 @@ export default function AgentChat() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: summary + "\n\n⚠️ Erreur lors du téléchargement." }
+                  ? { ...m, content: summary + "\n\n⚠️ Download failed." }
                   : m,
               ),
             );
@@ -621,6 +670,7 @@ export default function AgentChat() {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsStreaming(true);
+    setLastSuggestion(null);
 
     const assistantId = generateId();
     setMessages((prev) => [
@@ -628,6 +678,8 @@ export default function AgentChat() {
       { id: generateId(), role: "user", content: "Analyze market trends for my sector" },
       { id: assistantId, role: "assistant", content: "" },
     ]);
+
+    let capturedMtsOutput: MtsOutput | null = null;
 
     try {
       const res = await fetch("/api/agents/bmi/mts-02", {
@@ -647,12 +699,10 @@ export default function AgentChat() {
           const data = JSON.parse(event.data) as SSEEventPayload[typeof eventName];
 
           if (eventName === "text-delta") {
-            const payload = data as SSEEventPayload["text-delta"];
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: m.content + payload.delta } : m,
-              ),
-            );
+            // Ignore markdown delta — summary is built in finally via buildMtsSummary
+          } else if (eventName === "result") {
+            const payload = data as SSEEventPayload["result"];
+            capturedMtsOutput = payload.bpiOutput as MtsOutput;
           } else if (eventName === "status") {
             const payload = data as SSEEventPayload["status"];
             setActivityLabel(payload.label);
@@ -687,6 +737,96 @@ export default function AgentChat() {
         registerNewConversation(convId);
       }
       refreshConversations();
+
+      const mtsSummary = capturedMtsOutput
+        ? buildMtsSummary(capturedMtsOutput)
+        : "Market trends analysis complete.";
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: mtsSummary } : m)),
+      );
+      bpiAuditMessageIdRef.current = assistantId;
+
+      const mtsSuggestion: ChatSuggestion = {
+        content: "Market trends analysis complete. Ready for the next step?",
+        actions: [
+          { label: "🔍 Audit my brand", handler: "brand" },
+          { label: "🎯 Analyze my competitors", handler: "competitors" },
+        ],
+      };
+      lastSuggestionRef.current = mtsSuggestion;
+      setLastSuggestion(mtsSuggestion);
+
+      if (capturedMtsOutput) {
+        const mtsOutput = capturedMtsOutput;
+        setBpiExportButton({
+          label: "📥 Download report (PDF)",
+          onClick: async () => {
+            setBpiExportButton(null);
+            try {
+              const res = await fetch("/api/agents/bmi/export", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ format: "pdf", agentCode: "MTS-02" }),
+              });
+              if (res.ok && res.headers.get("content-type")?.includes("application/pdf")) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const disposition = res.headers.get("content-disposition") ?? "";
+                const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "mts-02.pdf";
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: buildMtsSummary(mtsOutput) + "\n\n📥 Downloading PDF..." }
+                      : m,
+                  ),
+                );
+              } else {
+                let errMsg = "Export unavailable.";
+                const ct = res.headers.get("content-type") ?? "";
+                if (ct.includes("application/json")) {
+                  try {
+                    const result = await res.json() as { type?: string; message?: string };
+                    errMsg = result.message ?? errMsg;
+                  } catch { /* ignore */ }
+                }
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: buildMtsSummary(mtsOutput) + `\n\n⚠️ ${errMsg}` }
+                      : m,
+                  ),
+                );
+              }
+            } catch (err) {
+              console.error("[MTS PDF export]", err);
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: buildMtsSummary(mtsOutput) + "\n\n⚠️ Download failed." }
+                    : m,
+                ),
+              );
+            }
+          },
+        });
+      }
+
+      setTimeout(() => {
+        const scrollable = document.querySelector("[data-thread-viewport]")
+          ?? document.querySelector("[class*=\"overflow-y-auto\"]");
+        if (scrollable) {
+          scrollable.scrollTop = scrollable.scrollHeight;
+        } else {
+          window.scrollTo(0, document.body.scrollHeight);
+        }
+      }, 200);
     }
   }, [isStreaming, registerNewConversation, refreshConversations]);
 
@@ -711,6 +851,7 @@ export default function AgentChat() {
     const controller = new AbortController();
     abortRef.current = controller;
     setIsStreaming(true);
+    setLastSuggestion(null);
 
     const assistantId = generateId();
     setMessages((prev) => [
@@ -718,6 +859,9 @@ export default function AgentChat() {
       { id: generateId(), role: "user", content: "Run a competitive analysis" },
       { id: assistantId, role: "assistant", content: "" },
     ]);
+
+    let capturedCiaOutput: CiaOutput | null = null;
+    let capturedCiaBrandName = "";
 
     try {
       const res = await fetch("/api/agents/bmi/cia-03", {
@@ -737,12 +881,11 @@ export default function AgentChat() {
           const data = JSON.parse(event.data) as SSEEventPayload[typeof eventName];
 
           if (eventName === "text-delta") {
-            const payload = data as SSEEventPayload["text-delta"];
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: m.content + payload.delta } : m,
-              ),
-            );
+            // Ignore markdown delta — summary is built in finally via buildCiaSummary
+          } else if (eventName === "result") {
+            const payload = data as SSEEventPayload["result"];
+            capturedCiaOutput = payload.bpiOutput as CiaOutput;
+            capturedCiaBrandName = payload.brandName;
           } else if (eventName === "status") {
             const payload = data as SSEEventPayload["status"];
             setActivityLabel(payload.label);
@@ -777,6 +920,97 @@ export default function AgentChat() {
         registerNewConversation(convId);
       }
       refreshConversations();
+
+      const ciaSummary = capturedCiaOutput
+        ? buildCiaSummary(capturedCiaOutput, capturedCiaBrandName)
+        : "Competitive analysis complete.";
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: ciaSummary } : m)),
+      );
+      bpiAuditMessageIdRef.current = assistantId;
+
+      const ciaSuggestion: ChatSuggestion = {
+        content: "Competitive analysis complete. Want to complete your intelligence picture?",
+        actions: [
+          { label: "🔍 Audit my brand", handler: "brand" },
+          { label: "📈 Analyze market trends", handler: "trends" },
+        ],
+      };
+      lastSuggestionRef.current = ciaSuggestion;
+      setLastSuggestion(ciaSuggestion);
+
+      if (capturedCiaOutput) {
+        const ciaOutput = capturedCiaOutput;
+        const ciaBrandName = capturedCiaBrandName;
+        setBpiExportButton({
+          label: "📥 Download report (PDF)",
+          onClick: async () => {
+            setBpiExportButton(null);
+            try {
+              const res = await fetch("/api/agents/bmi/export", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ format: "pdf", agentCode: "CIA-03" }),
+              });
+              if (res.ok && res.headers.get("content-type")?.includes("application/pdf")) {
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const disposition = res.headers.get("content-disposition") ?? "";
+                const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "cia-03.pdf";
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: buildCiaSummary(ciaOutput, ciaBrandName) + "\n\n📥 Downloading PDF..." }
+                      : m,
+                  ),
+                );
+              } else {
+                let errMsg = "Export unavailable.";
+                const ct = res.headers.get("content-type") ?? "";
+                if (ct.includes("application/json")) {
+                  try {
+                    const result = await res.json() as { type?: string; message?: string };
+                    errMsg = result.message ?? errMsg;
+                  } catch { /* ignore */ }
+                }
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: buildCiaSummary(ciaOutput, ciaBrandName) + `\n\n⚠️ ${errMsg}` }
+                      : m,
+                  ),
+                );
+              }
+            } catch (err) {
+              console.error("[CIA PDF export]", err);
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: buildCiaSummary(ciaOutput, ciaBrandName) + "\n\n⚠️ Download failed." }
+                    : m,
+                ),
+              );
+            }
+          },
+        });
+      }
+
+      setTimeout(() => {
+        const scrollable = document.querySelector("[data-thread-viewport]")
+          ?? document.querySelector("[class*=\"overflow-y-auto\"]");
+        if (scrollable) {
+          scrollable.scrollTop = scrollable.scrollHeight;
+        } else {
+          window.scrollTo(0, document.body.scrollHeight);
+        }
+      }, 200);
     }
   }, [isStreaming, registerNewConversation, refreshConversations]);
 
@@ -797,7 +1031,7 @@ export default function AgentChat() {
 
   const handleQuickReply = useCallback(
     (type: string) => {
-      if (type === "bpi-audit")   void streamBpiAudit();
+      if (type === "bpi-audit" || type === "brand") void streamBpiAudit();
       if (type === "trends")      void streamMtsAudit();
       if (type === "competitors") void streamCiaAudit();
     },
@@ -839,7 +1073,7 @@ export default function AgentChat() {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, content: "📥 Téléchargement du PDF en cours." }
+                ? { ...m, content: "📥 Downloading PDF..." }
                 : m,
             ),
           );
@@ -1033,7 +1267,7 @@ export default function AgentChat() {
                 size="icon"
                 className="size-6"
                 onClick={() => setShowSettings(true)}
-                title="Paramètres"
+                title="Settings"
               >
                 <Gear className="size-3.5" />
               </Button>
@@ -1054,7 +1288,14 @@ export default function AgentChat() {
               ) : showGreetingScreen ? (
                 <GreetingScreen isStreaming={isStreaming} onQuickReply={handleQuickReply} />
               ) : (
-                <ElevayThread isStreaming={isStreaming} />
+                <>
+                  {console.log("[suggestion] rendering thread, lastSuggestion:", lastSuggestion ?? lastSuggestionRef.current, "isStreaming:", isStreaming)}
+                  <ElevayThread
+                    isStreaming={isStreaming}
+                    lastSuggestion={lastSuggestion ?? lastSuggestionRef.current}
+                    onSuggestionAction={handleQuickReply}
+                  />
+                </>
               )}
             </AgentRuntimeProvider>
           </MessageActionsProvider>
@@ -1066,7 +1307,7 @@ export default function AgentChat() {
         </div>
       </div>
 
-      <OnboardingModal open={showOnboarding} onComplete={handleOnboardingComplete} />
+      <OnboardingModal open={showOnboarding} onComplete={handleOnboardingComplete} initialData={brandProfile} />
       <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
     </AgentActivityContext.Provider>
     </BpiProgressContext.Provider>

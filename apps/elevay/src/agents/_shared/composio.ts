@@ -259,10 +259,10 @@ export async function getYoutubeComments(
 }
 
 /**
- * Social — Apify actor tasks (pas de retry, degraded si tâche non configurée)
+ * Social — Apify actor tasks via direct REST API (no Composio)
+ * Composio action APIFY_ACTOR_TASK_RUN_SYNC_GET_DATASET_ITEMS_POST is unavailable.
+ * Uses fetch against https://api.apify.com/v2/actor-tasks/{taskId}/run-sync-get-dataset-items
  * Plateformes supportées : instagram, twitter, tiktok
- * LinkedIn : si linkedin-community connecté → infrastructure prête pour Composio org actions
- *            (fallback Apify jusqu'à ce que les action names soient confirmés)
  */
 export async function socialSearch(
   query: string,
@@ -277,6 +277,7 @@ export async function socialSearch(
       // Pour l'instant : fallback sur Apify (même comportement que connType === "user")
     }
   }
+
   const envVar = APIFY_TASK_ENV[platform.toLowerCase()];
   if (!envVar) {
     throw new Error(`No Apify task configured for platform: ${platform}`);
@@ -287,17 +288,43 @@ export async function socialSearch(
     throw new Error(`Env var ${envVar} is not set`);
   }
 
-  const data = await execute("APIFY_ACTOR_TASK_RUN_SYNC_GET_DATASET_ITEMS_POST", {
-    actorTaskId: taskId,
-    inputOverrides: { query, maxItems: 20 },
-    limit: 20,
-    waitForFinish: 60,
-  });
+  const apifyToken = process.env.APIFY_TOKEN;
+  if (!apifyToken) {
+    throw new Error("APIFY_TOKEN is not set");
+  }
 
-  // Apify retourne un tableau ou un objet { items: [...] }
+  const isInstagram = platform.toLowerCase() === "instagram";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), isInstagram ? 60_000 : 30_000);
+  const taskInput = isInstagram
+    ? { usernames: [query], resultsLimit: 10 }
+    : { query, maxItems: 20 };
+  const waitTime = isInstagram ? 55 : 25;
+
+  const url = `https://api.apify.com/v2/actor-tasks/${taskId}/run-sync-get-dataset-items?token=${apifyToken}&waitForFinish=${waitTime}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(taskInput),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Apify task ${taskId} [${platform}] failed [${res.status}]: ${text.slice(0, 200)}`);
+  }
+
+  const data = (await res.json()) as unknown;
   if (Array.isArray(data)) {
     return { items: data as SocialPostItem[] };
   }
-  const items = (data["items"] as SocialPostItem[] | undefined) ?? [];
+  const obj = data as Record<string, unknown>;
+  const items = (obj["items"] as SocialPostItem[] | undefined) ?? [];
   return { items };
 }

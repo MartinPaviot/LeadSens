@@ -114,9 +114,25 @@ type Step1Data = z.infer<typeof step1Schema>;
 type Step3Data = z.infer<typeof step3Schema>;
 type Competitor = z.infer<typeof competitorSchema>;
 
+export interface OnboardingInitialData {
+  brand_name: string | null;
+  brand_url: string | null;
+  country: string | null;
+  language: string | null;
+  primary_keyword: string | null;
+  secondary_keyword: string | null;
+  sector: string | null;
+  priority_channels: string[];
+  objective: string | null;
+  exportFormat: string;
+  report_recurrence: string | null;
+  competitors: unknown;
+}
+
 export interface OnboardingModalProps {
   open: boolean;
   onComplete: () => void;
+  initialData?: OnboardingInitialData | null;
 }
 
 // ─── FieldError ──────────────────────────────────────────
@@ -222,22 +238,37 @@ function GradientButton({
 
 // ─── Component ───────────────────────────────────────────
 
-export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
+export function OnboardingModal({ open, onComplete, initialData }: OnboardingModalProps) {
   const [step, setStep] = useState(1);
-  const [step1, setStep1] = useState<Step1Data>({ brand_name: "", brand_url: "" });
-  const [step3, setStep3] = useState<Step3Data>({
-    country: "",
-    language: "",
-    primary_keyword: "",
-    secondary_keyword: "",
+  const [step1, setStep1] = useState<Step1Data>(() => ({
+    brand_name: initialData?.brand_name ?? "",
+    brand_url:  initialData?.brand_url  ?? "",
+  }));
+  const [step3, setStep3] = useState<Step3Data>(() => ({
+    country:           initialData?.country           ?? "",
+    language:          initialData?.language          ?? "",
+    primary_keyword:   initialData?.primary_keyword   ?? "",
+    secondary_keyword: initialData?.secondary_keyword ?? "",
+  }));
+  const [sector, setSector] = useState(() => initialData?.sector ?? "");
+  const [priorityChannels, setPriorityChannels] = useState<string[]>(() => initialData?.priority_channels ?? []);
+  const [objective, setObjective] = useState<"lead_gen" | "acquisition" | "retention" | "branding" | "">(() => {
+    const obj = initialData?.objective;
+    return (["lead_gen", "acquisition", "retention", "branding"].includes(obj ?? "") ? obj : "") as "lead_gen" | "acquisition" | "retention" | "branding" | "";
   });
-  const [sector, setSector] = useState("");
-  const [priorityChannels, setPriorityChannels] = useState<string[]>([]);
-  const [objective, setObjective] = useState<"lead_gen" | "acquisition" | "retention" | "branding" | "">("");
   const [detecting, setDetecting] = useState(false);
-  const [competitors, setCompetitors] = useState<Competitor[]>([{ name: "", url: "" }]);
-  const [exportFormat, setExportFormat] = useState<"pdf" | "gdoc">("pdf");
-  const [reportRecurrence, setReportRecurrence] = useState<"on_demand" | "weekly" | "monthly" | "quarterly">("on_demand");
+  const [competitors, setCompetitors] = useState<Competitor[]>(() => {
+    const raw = initialData?.competitors;
+    if (Array.isArray(raw) && raw.length > 0) return raw as Competitor[];
+    return [{ name: "", url: "" }];
+  });
+  const [exportFormat, setExportFormat] = useState<"pdf" | "gdoc">(() =>
+    initialData?.exportFormat === "gdoc" ? "gdoc" : "pdf",
+  );
+  const [reportRecurrence, setReportRecurrence] = useState<"on_demand" | "weekly" | "monthly" | "quarterly">(() => {
+    const rec = initialData?.report_recurrence;
+    return (["on_demand", "weekly", "monthly", "quarterly"].includes(rec ?? "") ? rec : "on_demand") as "on_demand" | "weekly" | "monthly" | "quarterly";
+  });
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [socialConnections, setSocialConnections] = useState<Record<string, boolean>>({});
   const [loadingSocial, setLoadingSocial] = useState(false);

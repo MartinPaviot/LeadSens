@@ -49,10 +49,15 @@ export async function fetchYoutube(
   try {
     const { brand_name, competitors } = profile;
 
+    // noSpace variant handles YouTube channels named after slugs (e.g. "louispion" not "Louis Pion")
+    const noSpace = brand_name.toLowerCase().replace(/\s+/g, "");
     const queries = [
       `${brand_name} review`,
       `${brand_name} test`,
       `${brand_name} avis`,
+      `${brand_name} ${profile.primary_keyword} partenariat`,
+      brand_name,
+      ...(noSpace !== brand_name.toLowerCase() ? [noSpace] : []),
     ];
 
     const searchResults = await Promise.allSettled(

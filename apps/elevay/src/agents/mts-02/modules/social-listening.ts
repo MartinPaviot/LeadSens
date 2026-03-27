@@ -3,6 +3,29 @@ import { socialSearch } from "../../_shared/composio";
 import type { SocialListeningData, SocialSignal } from "../types";
 import { shouldRunSocialPlatform } from "@/lib/channel-filter";
 
+// ─── Dedup helper ─────────────────────────────────────────────────────────────
+
+function getItemKey(item: Record<string, unknown>): string | null {
+  const val = item["id"] ?? item["url"] ?? item["shortCode"]
+    ?? item["webVideoUrl"] ?? item["conversationId"] ?? item["link"];
+  return val != null ? String(val) : null;
+}
+
+function mergeUnique(results: PromiseSettledResult<{ items: Record<string, unknown>[] }>[]): Record<string, unknown>[] {
+  const seen = new Set<string>();
+  const merged: Record<string, unknown>[] = [];
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const item of r.value.items) {
+      const key = getItemKey(item);
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function median(values: number[]): number {
@@ -110,16 +133,23 @@ export async function fetchSocialListening(
   priority_channels?: string[],
 ): Promise<ModuleResult<SocialListeningData>> {
   try {
-    const query = `${sector} ${profile.primary_keyword}`.slice(0, 100);
+    const baseQuery = `${sector} ${profile.primary_keyword}`.slice(0, 100);
+    const brandQuery = `${profile.brand_name} ${sector}`.slice(0, 100);
+    const queries = [baseQuery, brandQuery];
 
     const runLinkedIn = shouldRunSocialPlatform("LinkedIn", priority_channels);
     const runTikTok   = shouldRunSocialPlatform("TikTok",   priority_channels);
     const runX        = shouldRunSocialPlatform("X",        priority_channels);
 
+    const fanOut = (platform: string) =>
+      Promise.allSettled(queries.map((q) => socialSearch(q, platform))).then((rs) => ({
+        items: mergeUnique(rs),
+      }));
+
     const [liResult, ttResult, xResult] = await Promise.allSettled([
-      runLinkedIn ? socialSearch(query, "linkedin") : Promise.reject(new Error("skipped")),
-      runTikTok   ? socialSearch(query, "tiktok")   : Promise.reject(new Error("skipped")),
-      runX        ? socialSearch(query, "twitter")  : Promise.reject(new Error("skipped")),
+      runLinkedIn ? fanOut("linkedin") : Promise.reject(new Error("skipped")),
+      runTikTok   ? fanOut("tiktok")   : Promise.reject(new Error("skipped")),
+      runX        ? fanOut("twitter")  : Promise.reject(new Error("skipped")),
     ]);
 
     const linkedinSignal: SocialSignal =

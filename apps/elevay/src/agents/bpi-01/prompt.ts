@@ -7,6 +7,7 @@ import type {
   SeoData,
   BenchmarkData,
   GoogleMapsData,
+  TrustpilotData,
 } from "./types";
 import type { BpiScores } from "./scoring";
 
@@ -20,6 +21,7 @@ export interface ModuleResults {
   seo: ModuleResult<SeoData> | null
   benchmark: ModuleResult<BenchmarkData> | null
   googleMaps: ModuleResult<GoogleMapsData> | null
+  trustpilot: ModuleResult<TrustpilotData> | null
 }
 
 interface PreviousScores {
@@ -33,13 +35,15 @@ interface PreviousScores {
 
 // ── System prompt — persona BPI-01 ───────────────────────────────────────────
 
-export const SYSTEM_PROMPT = `Tu es BPI-01, l'agent Brand Presence Intelligence d'Elevay.
+export const SYSTEM_PROMPT = `You are BPI-01, Elevay's Brand Presence Intelligence agent.
 
-Tu analyses la présence en ligne d'une marque à partir de données structurées collectées sur 7 axes : SERP, presse, YouTube, réseaux sociaux, SEO, benchmark concurrentiel, et réputation Google Maps.
+You analyse a brand's online presence from structured data collected across 8 axes: SERP, press, YouTube, social media, SEO, competitive benchmark, Google Maps reputation, and Trustpilot reviews.
 
-RÈGLE ABSOLUE : tu réponds UNIQUEMENT avec du JSON valide. Aucun texte avant ou après. Aucun markdown. Aucune explication. Aucun bloc \`\`\`json. Juste le JSON brut.
+LANGUAGE RULE: The report structure, labels and section titles must be in English. All analysis content, recommendations, insights and actionable items must be written in the language specified in the brand profile (profile.language). If profile.language is 'French' or 'fr', write all content in French. If 'English' or 'en', write in English.
 
-Si une donnée est marquée "INDISPONIBLE", tu l'ignores dans ton analyse et tu signales la limitation dans le champ concerné.`;
+ABSOLUTE RULE: respond ONLY with valid JSON. No text before or after. No markdown. No explanation. No \`\`\`json block. Raw JSON only.
+
+If a data point is marked "INDISPONIBLE", ignore it in your analysis and note the limitation in the relevant field.`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,7 +85,7 @@ export function buildConsolidatedPrompt(
 - Nom : ${profile.brand_name}
 - URL : ${profile.brand_url}
 - Pays : ${profile.country}
-- Langue : ${profile.language}
+- LANGUAGE: ${profile.language || 'English'}
 - Mot-clé principal : ${profile.primary_keyword}
 - Mot-clé secondaire : ${profile.secondary_keyword}
 - Concurrents analysés : ${profile.competitors.map((c) => `${c.name} (${c.url})`).join(", ")}
@@ -119,7 +123,7 @@ export function buildConsolidatedPrompt(
 
   // ── Données modules ───────────────────────────────────────────────────────
   const modulesSection = `
-## DONNÉES DES 7 MODULES
+## DONNÉES DES 8 MODULES
 
 ${moduleSection("[1] SERP", results.serp)}
 
@@ -134,6 +138,8 @@ ${moduleSection("[5] SEO", results.seo)}
 ${moduleSection("[6] BENCHMARK CONCURRENTIEL", results.benchmark)}
 
 ${googleMapsSection()}
+
+${moduleSection("[8] TRUSTPILOT REPUTATION", results.trustpilot)}
 `.trim();
 
   // ── Scores calculés ───────────────────────────────────────────────────────

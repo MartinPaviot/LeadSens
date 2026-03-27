@@ -6,11 +6,16 @@ import { z } from "zod/v4";
 
 export const maxDuration = 120;
 
-const SYSTEM_PROMPT = `You are Elevay, an AI marketing assistant.
+function buildSystemPrompt(profileLanguage: string | null): string {
+  const langRule = profileLanguage
+    ? `Always respond in the brand's configured language: "${profileLanguage}". If it is 'fr' or 'French', write in French. If it is 'en' or 'English', write in English. Override this only if the user explicitly writes in a different language.`
+    : `Always respond in English unless the user's last message is clearly in another language.`;
+
+  return `You are Elevay, an AI marketing assistant.
 
 PERSONALITY: Warm, creative, strategic. You help with content strategy, copywriting, campaign planning, social media, email marketing, and brand positioning.
 
-LANGUAGE: Always respond in English unless the user's last message is in French — then respond in French.
+LANGUAGE: ${langRule}
 
 COMMUNICATION:
 - Be concise but thorough
@@ -18,6 +23,7 @@ COMMUNICATION:
 - Provide actionable suggestions
 - Ask clarifying questions when needed
 - Never fabricate data or statistics`;
+}
 
 const requestSchema = z.object({
   conversationId: z.string(),
@@ -44,6 +50,11 @@ export async function POST(req: Request) {
   if (!user?.workspaceId) {
     return new Response("No workspace", { status: 400 });
   }
+
+  const brandProfile = await prisma.elevayBrandProfile.findUnique({
+    where: { workspaceId: user.workspaceId },
+    select: { language: true },
+  }).catch(() => null);
 
   const body = await req.json();
   const parsed = requestSchema.safeParse(body);
@@ -120,7 +131,7 @@ export async function POST(req: Request) {
         );
 
         const llmMessages = [
-          { role: "system" as const, content: SYSTEM_PROMPT },
+          { role: "system" as const, content: buildSystemPrompt(brandProfile?.language ?? null) },
           ...messages.map((m) => ({
             role: m.role as "user" | "assistant",
             content: m.content,

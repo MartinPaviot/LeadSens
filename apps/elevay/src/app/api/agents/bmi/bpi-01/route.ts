@@ -10,6 +10,7 @@ import { fetchSocial } from "@/agents/bpi-01/modules/social";
 import { fetchSeo } from "@/agents/bpi-01/modules/seo";
 import { fetchBenchmark } from "@/agents/bpi-01/modules/benchmark";
 import { fetchGoogleMapsReputation } from "@/agents/bpi-01/modules/google-maps";
+import { fetchTrustpilot } from "@/agents/bpi-01/modules/trustpilot";
 import { calculateBpiScores } from "@/agents/bpi-01/scoring";
 import type { ElevayAgentProfile, ModuleResult } from "@/agents/_shared/types";
 import type { BpiOutput, Risk, QuickWin, RoadmapPhase } from "@/agents/bpi-01/types";
@@ -60,18 +61,18 @@ function withStatus<T>(
   controller: ReadableStreamDefaultController<Uint8Array>,
 ): Promise<ModuleResult<T>> {
   controller.enqueue(
-    encoder.encode("status", { step, total: 7, label: `[${step}/7] ${label} en cours…` }),
+    encoder.encode("status", { step, total: 8, label: `[${step}/8] ${label} en cours…` }),
   );
   return promise
     .then((result) => {
       controller.enqueue(
-        encoder.encode("status", { step, total: 7, label: `[${step}/7] ${label} ✓` }),
+        encoder.encode("status", { step, total: 8, label: `[${step}/8] ${label} ✓` }),
       );
       return result;
     })
     .catch((err: unknown) => {
       controller.enqueue(
-        encoder.encode("status", { step, total: 7, label: `[${step}/7] ${label} ✗` }),
+        encoder.encode("status", { step, total: 8, label: `[${step}/8] ${label} ✗` }),
       );
       throw err;
     });
@@ -141,6 +142,19 @@ function formatBpiAsMarkdown(brandName: string, payload: BpiOutput): string {
       .join("\n");
   }
 
+  // ── Trustpilot section ────────────────────────────────────────────────────
+  const tp = payload.trustpilot;
+  let trustpilotSection = "";
+  if (tp?.found && tp.rating !== undefined) {
+    trustpilotSection = [
+      ``,
+      `### ⭐ Trustpilot`,
+      `- Rating: ${tp.rating}/5${tp.review_count ? ` (${tp.review_count} reviews)` : ""}`,
+      `- Sentiment: ${tp.sentiment_label ?? "–"}`,
+      tp.profile_url ? `- [View on Trustpilot](${tp.profile_url})` : "",
+    ].filter(Boolean).join("\n");
+  }
+
   return [
     `## 📊 Audit de présence en ligne — ${brandName}`,
     ``,
@@ -150,6 +164,7 @@ function formatBpiAsMarkdown(brandName: string, payload: BpiOutput): string {
     `|-----|-------|`,
     rows,
     googleMapsSection,
+    trustpilotSection,
     ``,
     `### ⚠️ Risques prioritaires`,
     risks || "*Aucun risque identifié*",
@@ -284,14 +299,16 @@ async function handleBpiRequest(req: Request) {
           seoSettled,
           benchmarkSettled,
           googleMapsSettled,
+          trustpilotSettled,
         ] = await Promise.allSettled([
           withStatus(fetchSerp(profile),                                               1, "SERP",         encoder, controller),
           withStatus(fetchPress(profile, priority_channels),                           2, "Presse",        encoder, controller),
-          withStatus(fetchYoutube(profile),                                            3, "YouTube",        encoder, controller),
-          withStatus(fetchSocial(profile, priority_channels),                         4, "Social",         encoder, controller),
-          withStatus(fetchSeo(profile, priority_channels),                            5, "SEO",            encoder, controller),
-          withStatus(fetchBenchmark(profile, profile.competitors.map((c) => c.name)), 6, "Benchmark",      encoder, controller),
-          withStatus(fetchGoogleMapsReputation(profile),                              7, "Google Maps",    encoder, controller),
+          withStatus(fetchYoutube(profile),                                            3, "YouTube",       encoder, controller),
+          withStatus(fetchSocial(profile, priority_channels),                         4, "Social",        encoder, controller),
+          withStatus(fetchSeo(profile, priority_channels),                            5, "SEO",           encoder, controller),
+          withStatus(fetchBenchmark(profile, profile.competitors.map((c) => c.name)), 6, "Benchmark",     encoder, controller),
+          withStatus(fetchGoogleMapsReputation(profile),                              7, "Google Maps",   encoder, controller),
+          withStatus(fetchTrustpilot(profile),                                        8, "Trustpilot",    encoder, controller),
         ]);
 
         // ── Extraction des résultats ───────────────────────────────────────
@@ -317,6 +334,7 @@ async function handleBpiRequest(req: Request) {
           seo:        extract(seoSettled,        "seo"),
           benchmark:  extract(benchmarkSettled,  "benchmark"),
           googleMaps: extract(googleMapsSettled, "gmaps"),
+          trustpilot: extract(trustpilotSettled, "trustpilot"),
         };
 
         // ── Calcul des scores ─────────────────────────────────────────────
@@ -355,13 +373,14 @@ async function handleBpiRequest(req: Request) {
         };
         const previewPayload: BpiOutput = {
           scores:               partialScores,
-          serp_data:            results.serp?.data       ?? null,
-          press_data:           results.press?.data      ?? null,
-          youtube_data:         results.youtube?.data    ?? null,
-          social_data:          results.social?.data     ?? null,
-          seo_data:             results.seo?.data        ?? null,
-          benchmark_data:       results.benchmark?.data  ?? null,
-          googleMapsReputation: results.googleMaps?.data ?? undefined,
+          serp_data:            results.serp?.data        ?? null,
+          press_data:           results.press?.data       ?? null,
+          youtube_data:         results.youtube?.data     ?? null,
+          social_data:          results.social?.data      ?? null,
+          seo_data:             results.seo?.data         ?? null,
+          benchmark_data:       results.benchmark?.data   ?? null,
+          googleMapsReputation: results.googleMaps?.data  ?? undefined,
+          trustpilot:           results.trustpilot?.data  ?? undefined,
           top_risks:            analysis.top_risks,
           quick_wins:           analysis.quick_wins,
           roadmap_90d:          analysis.roadmap_90d,
@@ -389,13 +408,14 @@ async function handleBpiRequest(req: Request) {
                 }
               : {}),
           },
-          serp_data:            results.serp?.data       ?? null,
-          press_data:           results.press?.data      ?? null,
-          youtube_data:         results.youtube?.data    ?? null,
-          social_data:          results.social?.data     ?? null,
-          seo_data:             results.seo?.data        ?? null,
-          benchmark_data:       results.benchmark?.data  ?? null,
-          googleMapsReputation: results.googleMaps?.data ?? undefined,
+          serp_data:            results.serp?.data        ?? null,
+          press_data:           results.press?.data       ?? null,
+          youtube_data:         results.youtube?.data     ?? null,
+          social_data:          results.social?.data      ?? null,
+          seo_data:             results.seo?.data         ?? null,
+          benchmark_data:       results.benchmark?.data   ?? null,
+          googleMapsReputation: results.googleMaps?.data  ?? undefined,
+          trustpilot:           results.trustpilot?.data  ?? undefined,
           top_risks:            analysis.top_risks,
           quick_wins:           analysis.quick_wins,
           roadmap_90d:          analysis.roadmap_90d,
@@ -429,7 +449,7 @@ async function handleBpiRequest(req: Request) {
           encoder.encode("finish", {
             tokensIn:    llmResponse.inputTokens,
             tokensOut:   llmResponse.outputTokens,
-            totalSteps:  7,
+            totalSteps:  8,
             finishReason: llmResponse.stopReason,
           }),
         );

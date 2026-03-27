@@ -6,11 +6,18 @@ import { UserMessage } from "./user-message";
 import { ElevayComposer } from "./composer";
 import { ScrollToBottomPill } from "./scroll-to-bottom";
 import { ThinkingBlock } from "./thinking-block";
+import { SuggestionBubble, type ChatSuggestion } from "./suggestion-bubble";
 
-export function ElevayThread({ isStreaming }: { isStreaming: boolean }) {
+interface ElevayThreadProps {
+  isStreaming: boolean;
+  lastSuggestion: ChatSuggestion | null;
+  onSuggestionAction: (handler: string) => void;
+}
+
+export function ElevayThread({ isStreaming, lastSuggestion, onSuggestionAction }: ElevayThreadProps) {
   return (
     <ThreadPrimitive.Root className="flex-1 flex flex-col min-h-0">
-      <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto scrollbar-thin relative flex flex-col bg-elevay-mesh">
+      <ThreadPrimitive.Viewport data-thread-viewport className="flex-1 overflow-y-auto scrollbar-thin relative flex flex-col bg-elevay-mesh">
 
         {/* Content column */}
         <div className="max-w-[816px] mx-auto w-full px-4 md:pl-0 md:pr-12 py-6 flex-1 space-y-5">
@@ -23,6 +30,11 @@ export function ElevayThread({ isStreaming }: { isStreaming: boolean }) {
 
           {/* Thinking steps — appears after the last message during streaming */}
           <ThinkingBlock />
+
+          {/* Suggestion bubble — appears after agent completes */}
+          {!isStreaming && lastSuggestion && (
+            <SuggestionBubble suggestion={lastSuggestion} onAction={onSuggestionAction} />
+          )}
         </div>
 
         {/* Sticky footer */}

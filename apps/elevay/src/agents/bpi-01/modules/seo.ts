@@ -64,6 +64,7 @@ export async function fetchSeo(
     }
 
     // Fetch brand + all competitors in parallel
+    console.log("[seo] fetching for domain:", profile.brand_url);
     const [brandResult, ...competitorResults] = await Promise.allSettled([
       getKeywordData(profile.brand_url, profile.country),
       ...profile.competitors.map((c) =>
@@ -71,11 +72,14 @@ export async function fetchSeo(
       ),
     ]);
 
+    console.log("[seo] composio response status:", brandResult.status);
     if (brandResult.status === "rejected") {
+      console.log("[seo] data received: ERROR —", brandResult.reason instanceof Error ? brandResult.reason.message : String(brandResult.reason));
       throw brandResult.reason as Error;
     }
 
     const brand = brandResult.value;
+    console.log("[seo] data received:", JSON.stringify(brand).slice(0, 200));
 
     // Build competitor_comparison
     const competitor_comparison: CompetitorSeoData[] = profile.competitors.map(

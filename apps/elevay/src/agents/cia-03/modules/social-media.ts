@@ -4,6 +4,64 @@ import { socialSearch } from "../../_shared/composio";
 import type { SocialPostItem } from "../../_shared/composio";
 import { shouldRunSocialPlatform } from "@/lib/channel-filter";
 
+// ─── Dedup helper ─────────────────────────────────────────────────────────────
+
+function getItemKey(item: SocialPostItem): string | null {
+  const val = item["id"] ?? item["url"] ?? item["shortCode"]
+    ?? item["webVideoUrl"] ?? item["conversationId"] ?? item["link"];
+  return val != null ? String(val) : null;
+}
+
+function mergeUnique(results: PromiseSettledResult<{ items: SocialPostItem[] }>[]): SocialPostItem[] {
+  const seen = new Set<string>();
+  const merged: SocialPostItem[] = [];
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const item of r.value.items) {
+      const key = getItemKey(item);
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+// ─── Brand variant helper ─────────────────────────────────────────────────────
+
+function getBrandVariants(brandName: string): string[] {
+  const base = brandName.toLowerCase();
+  const noSpace = base.replace(/\s+/g, "");
+  const hyphen = base.replace(/\s+/g, "-");
+  const underscore = base.replace(/\s+/g, "_");
+  return [
+    brandName,
+    noSpace,
+    hyphen,
+    underscore,
+    `${noSpace}official`,
+    `${noSpace}fr`,
+  ].filter((v, i, a) => a.indexOf(v) === i);
+}
+
+/**
+ * Early-exit search: try each variant in order, stop on first one with results.
+ */
+async function searchWithVariants(
+  variants: string[],
+  platform: string,
+): Promise<SocialPostItem[]> {
+  for (const variant of variants.slice(0, 3)) {
+    try {
+      const result = await socialSearch(variant, platform);
+      if (result.items.length > 0) return result.items;
+    } catch {
+      // continue to next variant
+    }
+  }
+  return [];
+}
+
 // ── Platforms analysées ───────────────────────────────────────────────────────
 
 const PLATFORMS = ["twitter", "tiktok", "instagram"] as const;
@@ -86,8 +144,8 @@ async function analyzePlatform(
   platform: Platform,
 ): Promise<PlatformData> {
   try {
-    const res = await socialSearch(competitorName, platform);
-    const items = res.items ?? [];
+    const variants = getBrandVariants(competitorName);
+    const items = await searchWithVariants(variants, platform);
 
     if (items.length === 0) {
       return {

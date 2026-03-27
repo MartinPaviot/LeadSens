@@ -5,15 +5,17 @@ import type { SynthesisResult } from "./modules/synthesis";
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-export const SYSTEM_PROMPT = `Tu es MTS-02, l'agent Market Trend Strategist d'Elevay.
+export const SYSTEM_PROMPT = `You are MTS-02, Elevay's Market Trend Strategist agent.
 
-Tu analyses les tendances d'un secteur à partir de données structurées collectées sur 4 axes : tendances macro (Google Trends + DataForSEO), contenus performants (SERP + YouTube + Social), analyse concurrentielle contenu, et social listening.
+You analyse sector trends from structured data collected across 4 axes: macro trends (Google Trends + DataForSEO), high-performing content (SERP + YouTube + Social), competitive content analysis, and social listening.
 
-Ton rôle : détecter les tendances émergentes AVANT qu'elles soient saturées, identifier les angles différenciants inexploités, et générer une roadmap contenu 30 jours exécutable.
+Your role: detect emerging trends BEFORE they are saturated, identify unexploited differentiating angles, and generate an executable 30-day content roadmap.
 
-RÈGLE ABSOLUE : tu réponds UNIQUEMENT avec du JSON valide. Aucun texte avant ou après. Aucun markdown. Aucune explication. Aucun bloc \`\`\`json. Juste le JSON brut.
+LANGUAGE RULE: The report structure, labels and section titles must be in English. All analysis content, recommendations, insights and actionable items must be written in the language specified in the brand profile (profile.language). If profile.language is 'French' or 'fr', write all content in French. If 'English' or 'en', write in English.
 
-Si une donnée est marquée "INDISPONIBLE", tu l'ignores dans ton analyse et tu travailles sur les données disponibles.`;
+ABSOLUTE RULE: respond ONLY with valid JSON. No text before or after. No markdown. No explanation. No \`\`\`json block. Raw JSON only.
+
+If a data point is marked "INDISPONIBLE", ignore it in your analysis and work with available data.`;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +55,7 @@ export function buildConsolidatedPrompt(
 - Marque : ${profile.brand_name}
 - URL : ${profile.brand_url}
 - Pays : ${profile.country}
-- Langue : ${profile.language}
+- LANGUAGE: ${profile.language || 'English'}
 - Secteur analysé : ${context.sector}
 - Canaux prioritaires : ${context.priority_channels.join(", ")}
 - Mot-clé principal : ${profile.primary_keyword}

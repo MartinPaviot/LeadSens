@@ -80,7 +80,26 @@
       "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri http://localhost:3001/api/auth/sign-up/email -Method POST -ContentType 'application/json' -Body '{\\\\\"name\\\\\":\\\\\"Test\\\\\",\\\\\"email\\\\\":\\\\\"test-ps@example.com\\\\\",\\\\\"password\\\\\":\\\\\"PlaywrightTest123!\\\\\"}' -UseBasicParsing -TimeoutSec 30 | Select-Object -ExpandProperty StatusCode\" 2>&1)",
       "Bash(powershell.exe -Command \"Get-NetTCPConnection -LocalPort 3001 | Where-Object State -eq 'Listen' | ForEach-Object { \\(Get-Process -Id \\\\$_.OwningProcess\\).Name, \\\\$_.OwningProcess }\" 2>&1)",
       "Bash(powershell.exe -Command \"Stop-Process -Id 13264 -Force\")",
-      "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri http://localhost:3001/api/auth/sign-up/email -Method POST -ContentType 'application/json' -Body '{\\\\\"name\\\\\":\\\\\"Test\\\\\",\\\\\"email\\\\\":\\\\\"test-ps2@example.com\\\\\",\\\\\"password\\\\\":\\\\\"PlaywrightTest123!\\\\\"}' -UseBasicParsing -TimeoutSec 30 | Select-Object StatusCode, Content\" 2>&1)"
+      "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri http://localhost:3001/api/auth/sign-up/email -Method POST -ContentType 'application/json' -Body '{\\\\\"name\\\\\":\\\\\"Test\\\\\",\\\\\"email\\\\\":\\\\\"test-ps2@example.com\\\\\",\\\\\"password\\\\\":\\\\\"PlaywrightTest123!\\\\\"}' -UseBasicParsing -TimeoutSec 30 | Select-Object StatusCode, Content\" 2>&1)",
+      "Bash(npx tsx:*)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -name tsx -path */node_modules/.bin/*)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -name pg -path */node_modules/pg -maxdepth 6 -type d)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/.bin/prisma)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/@neondatabase -maxdepth 6 -type d)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/postgres -maxdepth 6 -type d)",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr-pooler.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30&connection_limit=5\" DIRECT_URL=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\" ./node_modules/.bin/prisma db push --schema=./prisma/schema.prisma --skip-generate)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/@prisma/client/node_modules/pg* -maxdepth 10 -type d)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -name *.pnpm -type d -maxdepth 3)",
+      "Bash(PASS=\"npg_pRIQnVO8CPF6\" USER=\"neondb_owner\" HOST=\"ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech\" DB=\"leadsens\")",
+      "Bash(CONN=\"postgresql://neondb_owner:npg_pRIQnVO8CPF6@ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech/leadsens?sslmode=require&channel_binding=require\")",
+      "Bash(HOST=\"ep-dawn-mouse-adzh2xvr.c-2.us-east-1.aws.neon.tech\")",
+      "Bash(tasklist:*)",
+      "Bash(cmd.exe /c \"tasklist /fi \\\\\"imagename eq node.exe\\\\\" 2>&1\")",
+      "Bash(cmd.exe /c \"tasklist\")",
+      "Bash(DLL=\"/c/Users/ombel/LeadSens-1/node_modules/.pnpm/@prisma+client@6.19.2_prism_9e86780b29dee0cc8526945e8e86e2d6/node_modules/.prisma/client/query_engine-windows.dll.node\")",
+      "Read(//c/Users/ombel/LeadSens-1/apps/elevay/**)",
+      "Bash(rm -f \"$DLL\")",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/pdfkit -maxdepth 8 -type d)"
     ]
   }
 }
