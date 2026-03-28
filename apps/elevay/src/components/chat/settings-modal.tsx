@@ -283,11 +283,16 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     setErrors({});
   }, [open, profile]);
 
-  // ── Load social status when modal opens ────────────────
+  // ── Load social status + Google Drive OAuth status when modal opens ─────────
   useEffect(() => {
     if (!open || socialFetchedRef.current) return;
     socialFetchedRef.current = true;
     setLoadingSocial(true);
+    // Load social connections and Google Drive OAuth status in parallel
+    void fetch("/api/auth/google-drive/status")
+      .then(r => r.ok ? r.json() as Promise<{ connected: boolean; email: string | null }> : null)
+      .then(data => { if (data?.connected && data.email) setGoogleEmail(data.email); })
+      .catch(() => {});
     Promise.allSettled(
       platformsToShow.map(key =>
         fetch(`/api/auth/social/${key}/status`)

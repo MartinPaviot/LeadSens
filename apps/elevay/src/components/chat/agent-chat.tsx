@@ -54,44 +54,56 @@ const EXPORT_PATTERNS: Record<string, "pdf" | "gdoc" | "slides"> = {
 
 function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
   const { scores, top_risks, quick_wins, benchmark_data } = bpiOutput;
-  const riskLine = top_risks[0]?.description ?? "No critical risk identified";
-  const winLine = quick_wins[0]?.action ?? "No quick win identified";
-  let benchmarkLine: string;
-  if (benchmark_data?.radar && benchmark_data.radar.length > 0) {
-    const top = benchmark_data.radar.reduce((a, b) =>
-      a.serp_share + a.seo_score > b.serp_share + b.seo_score ? a : b,
-    );
-    benchmarkLine = `${top.name} leads in SERP visibility (${top.serp_share}/100)`;
-  } else if (benchmark_data) {
-    benchmarkLine = `Competitive score: ${benchmark_data.competitive_score}/100`;
-  } else {
-    benchmarkLine = "Benchmark data unavailable";
-  }
-  return `🔍 **Audit complete — ${brandName}**\nGlobal score: **${scores.global}/100**\n\nKey highlights:\n- ${riskLine}\n- ${winLine}\n- ${benchmarkLine}`;
+  const scoreBreakdown = `Réputation ${scores.reputation} · Visibilité ${scores.visibility} · Social ${scores.social} · Compétitif ${scores.competitive}`;
+  const risk = top_risks[0] ? `⚠️ ${top_risks[0].description} [${top_risks[0].urgency}]` : null;
+  const win = quick_wins[0] ? `✅ ${quick_wins[0].action} (${quick_wins[0].estimated_time})` : null;
+  const topComp = benchmark_data?.radar.length
+    ? benchmark_data.radar.reduce((a, b) => a.serp_share + a.seo_score > b.serp_share + b.seo_score ? a : b)
+    : null;
+  const compLine = topComp ? `🏆 Concurrent dominant : **${topComp.name}** (SERP ${topComp.serp_share} · SEO ${topComp.seo_score})` : null;
+  return [
+    `🔍 **Audit de présence — ${brandName}** — Score global **${scores.global}/100**`,
+    scoreBreakdown,
+    risk,
+    win,
+    compLine,
+  ].filter(Boolean).join("\n");
 }
 
 function buildMtsSummary(output: MtsOutput): string {
-  const sector = output.session_context.sector;
-  const top3 = [...output.trending_topics]
+  const { session_context, trending_topics, saturated_topics, differentiating_angles } = output;
+  const top3 = [...trending_topics]
     .sort((a, b) => b.opportunity_score - a.opportunity_score)
-    .slice(0, 3);
-  const topLine = top3.length > 0
-    ? top3.map((t) => `${t.topic} (${t.opportunity_score}/100)`).join(", ")
-    : "No trending topics identified";
-  const sat2 = output.saturated_topics.slice(0, 2).map((t) => t.topic).join(", ") || "None";
-  return `📈 **Market trends — ${sector}**\nTop opportunities: ${topLine}\nSaturated topics to avoid: ${sat2}`;
+    .slice(0, 3)
+    .map((t) => `**${t.topic}** (${t.opportunity_score}/100)`)
+    .join(" · ");
+  const angle = differentiating_angles[0] ?? null;
+  const sat = saturated_topics[0]?.topic ?? null;
+  return [
+    `📈 **Analyse de marché — ${session_context.sector}**`,
+    top3 ? `Top tendances : ${top3}` : null,
+    angle ? `Angle différenciant : ${angle}` : null,
+    sat ? `À éviter : ~~${sat}~~` : null,
+  ].filter(Boolean).join("\n");
 }
 
 function buildCiaSummary(output: CiaOutput, brandName: string): string {
-  const client = output.competitor_scores.find((c) => c.is_client);
-  const others = output.competitor_scores.filter((c) => !c.is_client);
-  const topComp = [...others].sort((a, b) => b.global_score - a.global_score)[0];
-  const scoreLine = client
-    ? `${brandName}: **${client.global_score}/100**${topComp ? ` · ${topComp.entity}: ${topComp.global_score}/100` : ""}`
-    : "Scores unavailable";
-  const green = output.strategic_zones.filter((z) => z.zone === "green").map((z) => z.axis).join(", ") || "–";
-  const red = output.strategic_zones.filter((z) => z.zone === "red").map((z) => z.axis).join(", ") || "–";
-  return `🎯 **Competitive analysis — ${brandName}**\nCompetitive scores: ${scoreLine}\nStrategic zones: ✅ ${green} · ❌ ${red}`;
+  const { competitor_scores, strategic_zones, opportunities } = output;
+  const client = competitor_scores.find((c) => c.is_client);
+  const others = [...competitor_scores.filter((c) => !c.is_client)].sort((a, b) => b.global_score - a.global_score);
+  const scoresLine = [client, ...others].filter(Boolean)
+    .map((c) => c!.is_client ? `**vous : ${c!.global_score}/100** (${c!.level})` : `${c!.entity} : ${c!.global_score}/100`)
+    .join(" · ");
+  const redAxes = strategic_zones.filter((z) => z.zone === "red").map((z) => z.axis).join(", ") || null;
+  const greenAxes = strategic_zones.filter((z) => z.zone === "green").map((z) => z.axis).join(", ") || null;
+  const zonesLine = [redAxes ? `❌ ${redAxes}` : null, greenAxes ? `✅ ${greenAxes}` : null].filter(Boolean).join(" · ") || null;
+  const opp = opportunities[0] ? `${opportunities[0].description} (${opportunities[0].timeframe})` : null;
+  return [
+    `🎯 **Analyse concurrentielle — ${brandName}**`,
+    scoresLine,
+    zonesLine ? `Zones : ${zonesLine}` : null,
+    opp ? `Opportunité : ${opp}` : null,
+  ].filter(Boolean).join("\n");
 }
 
 // ─── Main Component ──────────────────────────────────────
@@ -568,18 +580,22 @@ export default function AgentChat() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ format: "gdoc" }),
           });
-          const result = await res.json() as { type: string; url?: string };
+          const result = await res.json() as { type: string; url?: string; message?: string };
           if (result.type === "gdoc" && result.url) {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: summary + `\n\n📄 [Open in Google Docs →](${result.url})` }
+                  ? { ...m, content: summary + `\n\n📄 [Ouvrir dans Google Docs →](${result.url})` }
                   : m,
               ),
             );
             return;
           }
-        } catch { /* fall through to PDF button */ }
+          toast.error(result.message ?? "Google Docs export failed. The report is available as PDF.");
+        } catch (err) {
+          console.error("[gdoc-export] BPI:", err);
+          toast.error("Google Docs export failed. The report is available as PDF.");
+        }
       }
 
       // PDF (default) or gdoc fallback: show inline export button
@@ -755,6 +771,32 @@ export default function AgentChat() {
       };
       lastSuggestionRef.current = mtsSuggestion;
       setLastSuggestion(mtsSuggestion);
+
+      const mtsFmt = exportFormatRef.current;
+      if (mtsFmt === "gdoc" && capturedMtsOutput) {
+        try {
+          const gdocRes = await fetch("/api/agents/bmi/export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ format: "gdoc", agentCode: "MTS-02" }),
+          });
+          const gdocResult = await gdocRes.json() as { type: string; url?: string; message?: string };
+          if (gdocResult.type === "gdoc" && gdocResult.url) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: mtsSummary + `\n\n📄 [Ouvrir dans Google Docs →](${gdocResult.url})` }
+                  : m,
+              ),
+            );
+            return;
+          }
+          toast.error(gdocResult.message ?? "Google Docs export failed. The report is available as PDF.");
+        } catch (err) {
+          console.error("[gdoc-export] MTS:", err);
+          toast.error("Google Docs export failed. The report is available as PDF.");
+        }
+      }
 
       if (capturedMtsOutput) {
         const mtsOutput = capturedMtsOutput;
@@ -938,6 +980,32 @@ export default function AgentChat() {
       };
       lastSuggestionRef.current = ciaSuggestion;
       setLastSuggestion(ciaSuggestion);
+
+      const ciaFmt = exportFormatRef.current;
+      if (ciaFmt === "gdoc" && capturedCiaOutput) {
+        try {
+          const gdocRes = await fetch("/api/agents/bmi/export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ format: "gdoc", agentCode: "CIA-03" }),
+          });
+          const gdocResult = await gdocRes.json() as { type: string; url?: string; message?: string };
+          if (gdocResult.type === "gdoc" && gdocResult.url) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: ciaSummary + `\n\n📄 [Ouvrir dans Google Docs →](${gdocResult.url})` }
+                  : m,
+              ),
+            );
+            return;
+          }
+          toast.error(gdocResult.message ?? "Google Docs export failed. The report is available as PDF.");
+        } catch (err) {
+          console.error("[gdoc-export] CIA:", err);
+          toast.error("Google Docs export failed. The report is available as PDF.");
+        }
+      }
 
       if (capturedCiaOutput) {
         const ciaOutput = capturedCiaOutput;

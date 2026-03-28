@@ -102,6 +102,50 @@ function buildMtsMarkdownReport(sector: string, payload: MtsOutput): string {
   ].join("\n");
 }
 
+// ── CIA Markdown report builder ───────────────────────────────────────────────
+
+function buildCiaMarkdownReport(brandName: string, payload: CiaOutput): string {
+  const client = payload.competitor_scores.find((c: CompetitorScore) => c.is_client);
+  const others = [...payload.competitor_scores.filter((c: CompetitorScore) => !c.is_client)]
+    .sort((a, b) => b.global_score - a.global_score);
+
+  const scores = [client, ...others].filter(Boolean)
+    .map((c) => `| ${c!.entity}${c!.is_client ? " *(vous)*" : ""} | **${c!.global_score}/100** | ${c!.level} | ${c!.seo_score} | ${c!.social_score} | ${c!.content_score} |`)
+    .join("\n");
+
+  const greenZones = payload.strategic_zones.filter((z: StrategicZone) => z.zone === "green")
+    .map((z: StrategicZone) => `- ✅ **${z.axis}** — ${z.directive}`).join("\n");
+  const redZones = payload.strategic_zones.filter((z: StrategicZone) => z.zone === "red")
+    .map((z: StrategicZone) => `- ❌ **${z.axis}** — ${z.directive}`).join("\n");
+
+  const opps = payload.opportunities
+    .map((o) => `- **${o.description}** — effort: ${o.effort} · impact: ${o.impact} · ${o.timeframe}`)
+    .join("\n");
+
+  const plan = payload.action_plan_60d
+    .map((p: ActionPhase) => `**Phase ${p.phase} — ${p.label}** : ${p.objective}\n${p.actions.map((a: string) => `  - ${a}`).join("\n")}`)
+    .join("\n\n");
+
+  return [
+    `# Competitive Analysis — ${brandName}`,
+    ``,
+    `## Global scores`,
+    `| Entity | Score | Level | SEO | Social | Content |`,
+    `|--------|-------|-------|-----|--------|---------|`,
+    scores,
+    ``,
+    `## Strategic zones`,
+    greenZones || "*No green zones*",
+    redZones || "*No red zones*",
+    ``,
+    `## Opportunities`,
+    opps || "*None identified*",
+    ``,
+    `## 60-day action plan`,
+    plan || "*Plan not available*",
+  ].join("\n");
+}
+
 // ── PDF styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -573,6 +617,46 @@ async function createGoogleDoc(
   return `https://docs.google.com/document/d/${doc.documentId}/edit`;
 }
 
+async function createGoogleDocMts(
+  accessToken: string,
+  sector: string,
+  payload: MtsOutput,
+): Promise<string> {
+  const createRes = await fetch("https://docs.googleapis.com/v1/documents", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ title: `MTS-02 — ${sector} — ${new Date().toLocaleDateString("en-US")}` }),
+  });
+  const doc = await createRes.json() as { documentId?: string; error?: { message: string } };
+  if (!doc.documentId) throw new Error(doc.error?.message ?? "Failed to create Google Doc");
+  await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text: buildMtsMarkdownReport(sector, payload) } }] }),
+  });
+  return `https://docs.google.com/document/d/${doc.documentId}/edit`;
+}
+
+async function createGoogleDocCia(
+  accessToken: string,
+  brandName: string,
+  payload: CiaOutput,
+): Promise<string> {
+  const createRes = await fetch("https://docs.googleapis.com/v1/documents", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ title: `CIA-03 — ${brandName} — ${new Date().toLocaleDateString("en-US")}` }),
+  });
+  const doc = await createRes.json() as { documentId?: string; error?: { message: string } };
+  if (!doc.documentId) throw new Error(doc.error?.message ?? "Failed to create Google Doc");
+  await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text: buildCiaMarkdownReport(brandName, payload) } }] }),
+  });
+  return `https://docs.google.com/document/d/${doc.documentId}/edit`;
+}
+
 // ── Route POST ────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -649,6 +733,72 @@ export async function POST(req: Request) {
     });
   }
 
+  // ── MTS-02 Google Docs ────────────────────────────────────────────────────
+  if (agentCode === "MTS-02" && format === "gdoc") {
+    const run = await prisma.elevayAgentRun.findFirst({
+      where: { workspaceId: user.workspaceId, agentCode: "MTS-02", status: { in: ["COMPLETED", "PARTIAL"] } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!run?.output) {
+      return NextResponse.json({ type: "error", message: "No MTS-02 run found. Please run a market trends analysis first." }, { status: 404 });
+    }
+    const integration = await prisma.integration.findUnique({
+      where: { workspaceId_type: { workspaceId: user.workspaceId, type: "google-docs" } },
+    });
+    if (!integration || integration.status !== "ACTIVE") {
+      return NextResponse.json({ type: "error", message: "Google Drive not connected. Please reconnect it in your settings." });
+    }
+    let accessToken = integration.accessToken!;
+    if (integration.expiresAt && integration.expiresAt < new Date(Date.now() + 60_000)) {
+      accessToken = await refreshGoogleToken({ refreshToken: integration.refreshToken, workspaceId: user.workspaceId });
+    }
+    const agentOutput = run.output as unknown as AgentOutput<MtsOutput>;
+    const sector = agentOutput.brand_profile?.sector ?? agentOutput.payload.session_context.sector;
+    try {
+      const docUrl = await createGoogleDocMts(accessToken, sector, agentOutput.payload);
+      return NextResponse.json({ type: "gdoc", url: docUrl });
+    } catch (err) {
+      console.error("[gdoc-export] MTS-02 error:", err);
+      return NextResponse.json(
+        { type: "error", message: err instanceof Error ? err.message : "Google Docs export failed." },
+        { status: 500 },
+      );
+    }
+  }
+
+  // ── CIA-03 Google Docs ────────────────────────────────────────────────────
+  if (agentCode === "CIA-03" && format === "gdoc") {
+    const run = await prisma.elevayAgentRun.findFirst({
+      where: { workspaceId: user.workspaceId, agentCode: "CIA-03", status: { in: ["COMPLETED", "PARTIAL"] } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!run?.output) {
+      return NextResponse.json({ type: "error", message: "No CIA-03 run found. Please run a competitive analysis first." }, { status: 404 });
+    }
+    const integration = await prisma.integration.findUnique({
+      where: { workspaceId_type: { workspaceId: user.workspaceId, type: "google-docs" } },
+    });
+    if (!integration || integration.status !== "ACTIVE") {
+      return NextResponse.json({ type: "error", message: "Google Drive not connected. Please reconnect it in your settings." });
+    }
+    let accessToken = integration.accessToken!;
+    if (integration.expiresAt && integration.expiresAt < new Date(Date.now() + 60_000)) {
+      accessToken = await refreshGoogleToken({ refreshToken: integration.refreshToken, workspaceId: user.workspaceId });
+    }
+    const agentOutput = run.output as unknown as AgentOutput<CiaOutput>;
+    const brandName = agentOutput.brand_profile?.brand_name ?? "Brand";
+    try {
+      const docUrl = await createGoogleDocCia(accessToken, brandName, agentOutput.payload);
+      return NextResponse.json({ type: "gdoc", url: docUrl });
+    } catch (err) {
+      console.error("[gdoc-export] CIA-03 error:", err);
+      return NextResponse.json(
+        { type: "error", message: err instanceof Error ? err.message : "Google Docs export failed." },
+        { status: 500 },
+      );
+    }
+  }
+
   // ── BPI-01 (default) ─────────────────────────────────────────────────────
   const run = await prisma.elevayAgentRun.findFirst({
     where: {
@@ -722,8 +872,16 @@ export async function POST(req: Request) {
       });
     }
 
-    const docUrl = await createGoogleDoc(accessToken, brandName, payload);
-    return NextResponse.json({ type: "gdoc", url: docUrl });
+    try {
+      const docUrl = await createGoogleDoc(accessToken, brandName, payload);
+      return NextResponse.json({ type: "gdoc", url: docUrl });
+    } catch (err) {
+      console.error("[gdoc-export] BPI-01 error:", err);
+      return NextResponse.json(
+        { type: "error", message: err instanceof Error ? err.message : "Google Docs export failed." },
+        { status: 500 },
+      );
+    }
   }
 
   // slides — not yet implemented

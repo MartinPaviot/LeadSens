@@ -222,7 +222,7 @@ export function AppSidebar() {
       }}
     >
       {/* Header */}
-      <SidebarHeader className="px-3 py-2 border-b" style={{ borderColor: "rgba(23,195,178,0.15)" }}>
+      <SidebarHeader className="px-3 py-1.5 border-b" style={{ borderColor: "rgba(23,195,178,0.15)" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image
