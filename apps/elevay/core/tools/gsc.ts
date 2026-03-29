@@ -1,42 +1,27 @@
-import { ToolUnavailableError } from '../types';
+/**
+ * GSC — thin adapter over core/tools/composio.ts
+ * Direct DataForSEO calls removed — all GSC data goes through Composio OAuth.
+ * These exports maintain backward compatibility with agent imports.
+ */
 
-export interface GscPage {
+export {
+  gscGetTopPages as getTopPages,
+  gscGetLowHangingFruit as getLowHangingFruit,
+} from './composio';
+
+// Re-export types expected by agents
+export type GscPage = {
   url: string;
   clicks: number;
   impressions: number;
   ctr: number;
   position: number;
-}
+};
 
-export interface GscKeyword {
+export type GscKeyword = {
   keyword: string;
   url: string;
-  clicks: number;
-  impressions: number;
   position: number;
-}
-
-export async function getTopPages(
-  siteUrl: string,
-  userId: string,
-  limit = 50,
-): Promise<GscPage[]> {
-  try {
-    // Google Search Console API — top pages by clicks
-    return []; // stub
-  } catch {
-    throw new ToolUnavailableError('gsc:pages', 'core/tools');
-  }
-}
-
-export async function getLowHangingFruit(
-  siteUrl: string,
-  userId: string,
-): Promise<GscKeyword[]> {
-  try {
-    // GSC — keywords in position 4-15 ("fruits mûrs")
-    return []; // stub
-  } catch {
-    throw new ToolUnavailableError('gsc:lowHangingFruit', 'core/tools');
-  }
-}
+  impressions: number;
+  clicks: number;
+};
