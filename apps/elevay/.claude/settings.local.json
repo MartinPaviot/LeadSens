@@ -99,7 +99,13 @@
       "Bash(DLL=\"/c/Users/ombel/LeadSens-1/node_modules/.pnpm/@prisma+client@6.19.2_prism_9e86780b29dee0cc8526945e8e86e2d6/node_modules/.prisma/client/query_engine-windows.dll.node\")",
       "Read(//c/Users/ombel/LeadSens-1/apps/elevay/**)",
       "Bash(rm -f \"$DLL\")",
-      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/pdfkit -maxdepth 8 -type d)"
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */node_modules/pdfkit -maxdepth 8 -type d)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({**d.get\\(''''dependencies'''',{}\\), **d.get\\(''''devDependencies'''',{}\\)}, indent=2\\)\\)\")",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/node_modules/composio-core/dist -name *.d.ts -type f)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/agents -name *.ts -o -name *.tsx)",
+      "Bash(grep -r \"from.*core/tools/composio\\\\|import.*composio\" /c/Users/ombel/LeadSens-1/apps/elevay/agents --include=*.ts --include=*.tsx)",
+      "Bash(grep:*)"
     ]
   }
 }

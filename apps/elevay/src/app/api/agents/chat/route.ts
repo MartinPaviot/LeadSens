@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from "@/lib/sse";
-import { Mistral } from "@mistralai/mistralai";
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
 
 export const maxDuration = 120;
@@ -36,7 +36,7 @@ const requestSchema = z.object({
   isGreeting: z.boolean(),
 });
 
-const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY ?? "" });
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" });
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -51,10 +51,12 @@ export async function POST(req: Request) {
     return new Response("No workspace", { status: 400 });
   }
 
-  const brandProfile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId: user.workspaceId },
-    select: { language: true },
-  }).catch(() => null);
+  const brandProfile = await prisma.elevayBrandProfile
+    .findUnique({
+      where: { workspaceId: user.workspaceId },
+      select: { language: true },
+    })
+    .catch(() => null);
 
   const body = await req.json();
   const parsed = requestSchema.safeParse(body);
@@ -130,31 +132,34 @@ export async function POST(req: Request) {
           }),
         );
 
-        const llmMessages = [
-          { role: "system" as const, content: buildSystemPrompt(brandProfile?.language ?? null) },
-          ...messages.map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          })),
-        ];
+        const systemPrompt = buildSystemPrompt(
+          brandProfile?.language ?? null,
+        );
+        const llmMessages = messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
 
-        const response = await mistral.chat.stream({
-          model: "mistral-large-latest",
+        const anthropicStream = client.messages.stream({
+          model: "claude-sonnet-4-6",
+          max_tokens: 4096,
+          system: systemPrompt,
           messages: llmMessages,
-          maxTokens: 4096,
           temperature: 0.7,
         });
 
         let fullContent = "";
 
-        for await (const chunk of response) {
-          const rawDelta = chunk.data?.choices?.[0]?.delta?.content;
-          const delta = typeof rawDelta === "string" ? rawDelta : "";
-          if (delta) {
-            fullContent += delta;
-            controller.enqueue(
-              encoder.encode("text-delta", { delta }),
-            );
+        for await (const chunk of anthropicStream) {
+          if (
+            chunk.type === "content_block_delta" &&
+            chunk.delta.type === "text_delta"
+          ) {
+            const delta = chunk.delta.text;
+            if (delta) {
+              fullContent += delta;
+              controller.enqueue(encoder.encode("text-delta", { delta }));
+            }
           }
         }
 
@@ -179,9 +184,7 @@ export async function POST(req: Request) {
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unknown error";
-        controller.enqueue(
-          encoder.encode("error", { message }),
-        );
+        controller.enqueue(encoder.encode("error", { message }));
       } finally {
         controller.close();
       }

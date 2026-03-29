@@ -16,10 +16,10 @@ export function middleware(request: NextRequest) {
     request.cookies.has(SESSION_COOKIE) ||
     request.cookies.has(SECURE_SESSION_COOKIE);
 
-  // Root redirects to chat if logged in, login if not
+  // Root renders the marketplace if logged in, redirects to login if not
   if (pathname === "/") {
     if (hasSession) {
-      return NextResponse.redirect(new URL("/chat", request.url));
+      return NextResponse.next();
     }
     return NextResponse.redirect(new URL("/login", request.url));
   }

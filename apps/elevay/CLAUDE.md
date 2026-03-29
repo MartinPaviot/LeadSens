@@ -169,3 +169,91 @@ LIBRE (ton terrain de jeu) :
 | SSE utilities | `src/lib/sse.ts` |
 | Middleware | `src/middleware.ts` |
 | Shared DB schema | `../../packages/db/prisma/schema.prisma` |
+
+---
+
+## 10. Agents spécialisés — Architecture
+
+### Principe directeur
+**Zero blocking at activation — graceful degradation at every step.**
+Un outil manquant ne bloque jamais l'agent : il dégrade proprement l'output.
+
+### Structure agents/
+```
+agents/
+├── seo-geo/          # Famille SEO & GEO (8 agents)
+│   ├── tsi07/        # Technical SEO & Indexing Manager — FONDATION
+│   ├── kga08/        # Keyword & GEO Action Planner — ORCHESTRATEUR
+│   ├── wpw09/        # Web Page SEO Writer
+│   ├── bsw10/        # Blog SEO Writer
+│   ├── mdg11/        # Meta Description Generator
+│   ├── alt12/        # Image ALT Text Generator
+│   ├── opt06/        # SEO & GEO Performance Optimizer
+│   └── pio05/        # Performance & Insights Optimizer
+└── brand-intel/      # Famille Brand & Market Intelligence
+    ├── bpi-01/
+    ├── cia-03/
+    └── mts-02/
+core/
+├── onboarding/       # Flux onboarding commun à toutes les familles
+├── tools/            # Wrappers : Composio, DataForSEO, GSC, CMS
+│   └── cms/          # WordPress, HubSpot, Shopify, Webflow
+└── types/            # Types TypeScript partagés (AgentContext, ClientProfile…)
+```
+
+### Contenu de chaque dossier agent
+- `AGENT.md` — spec complète (identité, modules, workflow, inputs/outputs)
+- `index.ts` — export `activate(context: AgentContext)`
+- `prompt.ts` — system prompt
+- `workflow.ts` — étapes isolées, chaque step a un fallback
+- `types.ts` — types spécifiques à l'agent
+
+### Types communs (core/types/)
+```typescript
+type AutomationLevel = 'audit' | 'semi-auto' | 'full-auto';
+type CmsType = 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'other';
+type GeoLevel = 'national' | 'regional' | 'city' | 'multi-geo';
+type IssueLevel = 'critical' | 'high' | 'medium' | 'watch';
+
+interface ClientProfile {
+  id: string;
+  siteUrl: string;
+  cmsType: CmsType;
+  automationLevel: AutomationLevel;
+  geoLevel: GeoLevel;
+  targetGeos: string[];
+  priorityPages: string[];
+  alertChannels: ('slack' | 'email' | 'report')[];
+  connectedTools: { gsc: boolean; ga: boolean; ahrefs: boolean; semrush: boolean; };
+}
+
+interface AgentContext {
+  clientProfile: ClientProfile;
+  sessionId: string;
+  triggeredBy: string;            // agent source ou 'user'
+  inheritedData?: Record<string, unknown>;  // contexte inter-agents
+}
+```
+
+### Intégration avec le chat existant
+Le routing vers un agent se fait depuis `src/app/api/agents/chat/route.ts`.
+Chaque agent expose `activate(context: AgentContext)` — le router SSE existant appelle cette fonction et streame la réponse via le pattern SSE déjà en place.
+
+### Ordre d'implémentation
+1. `core/types/` → `core/tools/` → `core/onboarding/`
+2. `agents/seo-geo/tsi07/` (fondation technique)
+3. `agents/seo-geo/kga08/` (orchestrateur — nourrit wpw09, bsw10, mdg11, alt12)
+4. Agents de production : `wpw09/` · `bsw10/` · `mdg11/` · `alt12/`
+5. `agents/seo-geo/opt06/` · `pio05/`
+6. `agents/brand-intel/`
+
+### Outils — 3 tiers
+- **Tier 1 Elevay** : DataForSEO, SerpAPI, Google PageSpeed API, Composio MCP
+- **Tier 2 OAuth client** : GSC, GA, WordPress / HubSpot / Shopify / Webflow, Google Sheets
+- **Tier 3 Premium optionnel** : Ahrefs, SEMrush, Vision API
+
+### Validation humaine obligatoire (tous niveaux d'automatisation)
+- Corrections de canonical tags
+- Merge ou redirection de pages (cannibalisation)
+- Modification de pages > 1000 visites/mois
+- Rewriting de pages piliers

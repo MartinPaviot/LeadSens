@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import {
   SidebarSimple,
   PencilSimple,
@@ -11,6 +12,8 @@ import {
   MagnifyingGlass,
   Gear,
   SignOut,
+  Globe,
+  House,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -114,6 +117,7 @@ function groupConversations(
 
 export function AppSidebar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = useSession();
   const { toggleSidebar, isMobile, setOpenMobile } = useSidebar();
   const {
@@ -248,6 +252,45 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2 scrollbar-thin gap-0">
+        {/* Mode nav — Accueil / Marketing / SEO & GEO */}
+        <SidebarGroup className="pt-2 pb-0">
+          <SidebarMenu className="gap-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === "/"}
+                onClick={() => { router.push("/"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <House className="size-3.5 shrink-0" />
+                <span>Accueil</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/chat")}
+                onClick={() => { router.push("/chat"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <ChatCircle className="size-3.5 shrink-0" />
+                <span>Marketing</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/seo-chat")}
+                onClick={() => { router.push("/seo-chat"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <Globe className="size-3.5 shrink-0" />
+                <span>SEO & GEO</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
         {/* New conversation + Search */}
         <SidebarGroup className="pt-2 pb-1">
           <SidebarMenu className="gap-1.5">

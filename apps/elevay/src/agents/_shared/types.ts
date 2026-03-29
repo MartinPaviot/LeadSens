@@ -24,7 +24,10 @@ export interface ModuleResult<T> {
 
 // AgentOutput — contrat inter-agents V2-ready
 export interface AgentOutput<T> {
-  agent_code: 'BPI-01' | 'MTS-02' | 'CIA-03'
+  agent_code:
+    | 'BPI-01' | 'MTS-02' | 'CIA-03'
+    | 'PIO-05' | 'OPT-06' | 'TSI-07' | 'KGA-08'
+    | 'WPW-09' | 'BSW-10' | 'MDG-11' | 'ALT-12'
   analysis_date: string       // ISO 8601
   brand_profile: ElevayAgentProfile
   payload: T
