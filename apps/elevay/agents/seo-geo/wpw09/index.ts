@@ -8,6 +8,7 @@ import { wpCreatePage, type WordPressCredentials } from '../../../core/tools/cms
 import { hubCreatePage, type HubSpotCredentials } from '../../../core/tools/cms/hubspot';
 import { shopifyCreatePage, type ShopifyCredentials } from '../../../core/tools/cms/shopify';
 import { webflowCreatePage, type WebflowCredentials } from '../../../core/tools/cms/webflow';
+import { sendScheduledDraftAlert } from '../../../core/tools/notifications';
 
 export async function activate(
   context: AgentContext,
@@ -91,6 +92,8 @@ export async function activate(
   });
 
   // Step 6 — Push to CMS as draft (if connected)
+  // Scheduled runs always create drafts requiring human validation
+  const isScheduledRun = context.triggeredBy === 'inngest-schedule';
   if (context.clientProfile.automationLevel !== 'audit') {
     if (inputs.cmsType === 'wordpress' && wpCredentials) {
       try {
@@ -165,6 +168,22 @@ export async function activate(
       } catch {
         session.steps.push({ id: 'cms_push', name: 'Push Webflow échoué — contenu disponible en export', status: 'skipped' });
       }
+    }
+  }
+
+  // Flag scheduled runs as requiring human validation + send alert
+  if (isScheduledRun) {
+    pageOutput.requiresValidation = true;
+    if (pageOutput.wpDraftUrl) {
+      await sendScheduledDraftAlert({
+        agentName: 'WPW-09',
+        draftUrl: pageOutput.wpDraftUrl,
+        topic: inputs.brief,
+        keyword: inputs.targetKeywords?.[0] ?? '',
+        workspaceId: context.clientProfile.id,
+        alertChannels: context.clientProfile.alertChannels,
+        userId: context.clientProfile.id,
+      });
     }
   }
 

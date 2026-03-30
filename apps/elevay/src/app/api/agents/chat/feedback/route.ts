@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
 
 const feedbackSchema = z.object({
@@ -19,6 +20,25 @@ export async function POST(req: Request) {
     return new Response("Invalid request", { status: 400 });
   }
 
-  // For now, just acknowledge — can be stored later
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
+  if (!user?.workspaceId) {
+    return new Response("No workspace", { status: 400 });
+  }
+
+  await prisma.agentFeedback.create({
+    data: {
+      workspaceId: user.workspaceId,
+      type: parsed.data.type,
+      originalOutput: parsed.data.messageId,
+      metadata: {
+        conversationId: parsed.data.conversationId,
+        messageId: parsed.data.messageId,
+      },
+    },
+  });
+
   return Response.json({ ok: true });
 }

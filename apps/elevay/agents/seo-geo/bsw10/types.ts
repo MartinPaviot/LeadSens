@@ -66,6 +66,7 @@ export interface Bsw10Output {
   editorialCalendar?: CalendarEntry[];
   exportReady: boolean;
   wpDraftUrl?: string;
+  requiresValidation?: boolean;
 }
 
 export const ARTICLE_WORD_COUNT: Record<ArticleFormat, { min: number; max: number }> = {

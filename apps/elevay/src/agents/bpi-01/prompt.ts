@@ -1,4 +1,5 @@
 import type { ElevayAgentProfile, ModuleResult } from "../_shared/types";
+import { formatLanguage } from "../_shared/utils";
 import type {
   SerpData,
   PressData,
@@ -196,7 +197,7 @@ Règles :
 - Priorise les risques par urgence réelle basée sur les données (pas générique)
 - Les quick wins doivent être actionnables en moins de 1 semaine (effort "low") ou 1 mois (effort "medium")
 - La roadmap 90j doit suivre une logique de progression : stabilisation → accélération → scaling
-- Réponds en ${profile.language === "fr" ? "français" : profile.language}
+- Réponds en ${formatLanguage(profile.language)}
 `.trim();
 
   return [

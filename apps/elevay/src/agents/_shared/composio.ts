@@ -230,14 +230,19 @@ export async function getKeywordData(
 export async function searchYoutube(
   query: string,
 ): Promise<YoutubeSearchResponse> {
-  const data = await execute("YOUTUBE_SEARCH_YOU_TUBE", {
-    q: query,
-    type: "video",
-    maxResults: 10,
-    part: "snippet",
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return data as unknown as YoutubeSearchResponse;
+  return withRetry(
+    async () => {
+      const data = await execute("YOUTUBE_SEARCH_YOU_TUBE", {
+        q: query,
+        type: "video",
+        maxResults: 10,
+        part: "snippet",
+      });
+      return data as unknown as YoutubeSearchResponse;
+    },
+    1,
+    500,
+  );
 }
 
 /**
@@ -248,14 +253,19 @@ export async function getYoutubeComments(
   videoId: string,
   maxResults = 10,
 ): Promise<YoutubeCommentsResponse> {
-  const data = await execute("YOUTUBE_LIST_COMMENT_THREADS2", {
-    videoId,
-    part: "snippet",
-    maxResults,
-    order: "relevance",
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return data as unknown as YoutubeCommentsResponse;
+  return withRetry(
+    async () => {
+      const data = await execute("YOUTUBE_LIST_COMMENT_THREADS2", {
+        videoId,
+        part: "snippet",
+        maxResults,
+        order: "relevance",
+      });
+      return data as unknown as YoutubeCommentsResponse;
+    },
+    1,
+    500,
+  );
 }
 
 /**
@@ -302,12 +312,15 @@ export async function socialSearch(
     : { query, maxItems: 20 };
   const waitTime = isInstagram ? 55 : 25;
 
-  const url = `https://api.apify.com/v2/actor-tasks/${taskId}/run-sync-get-dataset-items?token=${apifyToken}&waitForFinish=${waitTime}`;
+  const url = `https://api.apify.com/v2/actor-tasks/${taskId}/run-sync-get-dataset-items?waitForFinish=${waitTime}`;
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apifyToken}`,
+      },
       body: JSON.stringify(taskInput),
       signal: controller.signal,
     });

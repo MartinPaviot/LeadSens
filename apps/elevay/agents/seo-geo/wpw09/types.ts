@@ -41,6 +41,7 @@ export interface Wpw09PageOutput {
   wordCount: number;
   exportReady: boolean;
   wpDraftUrl?: string;
+  requiresValidation?: boolean;
 }
 
 export interface WordCountRange {

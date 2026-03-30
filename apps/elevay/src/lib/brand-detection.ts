@@ -1,4 +1,3 @@
-import { searchSerp, searchNews } from "@/agents/_shared/composio";
 import { callLLM } from "@/agents/_shared/llm";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -12,6 +11,7 @@ export interface DetectedBrandContext {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 function brandNameFromDomain(domain: string): string {
+  if (!domain || domain.trim() === '') return '';
   const base = domain.split(".")[0] ?? domain;
   return base
     .split(/[-_]/)
@@ -58,17 +58,12 @@ export async function detectBrandContext(
 
   const domainFallback = brandNameFromDomain(domain);
 
-  // Fetch brand name + page text (Jina) and SERP site data in parallel
-  const [siteRes, newsRes, brandNameRes] = await Promise.allSettled([
-    searchSerp(`site:${brand_url}`, country),
-    searchNews(domain, language),
-    brandNameFromPage(brand_url, domainFallback),
-  ]);
+  // Fetch brand name + page text via Jina
+  // TODO: add searchSerp/searchNews calls here when sector enrichment is implemented
+  const brandNameRes = await brandNameFromPage(brand_url, domainFallback)
+    .catch(() => ({ name: domainFallback, pageText: "" }));
 
-  void siteRes; // kept for future sector enrichment
-  void newsRes; // kept for future sector enrichment
-
-  const jinaText = brandNameRes.status === "fulfilled" ? brandNameRes.value.pageText : "";
+  const jinaText = brandNameRes.pageText;
 
   // ── Sector — LLM detection ────────────────────────────────────────────────
   let suggested_sector = "";
@@ -85,9 +80,7 @@ export async function detectBrandContext(
     }
   }
 
-  const suggested_brand_name = brandNameRes.status === "fulfilled"
-    ? brandNameRes.value.name
-    : domainFallback;
+  const suggested_brand_name = brandNameRes.name || domainFallback;
 
   return { suggested_brand_name, suggested_sector, suggested_competitors: [] };
 }

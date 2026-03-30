@@ -356,7 +356,7 @@ async function handleMtsRequest(req: Request) {
 
         // ── Emit result + markdown ────────────────────────────────────────
         controller.enqueue(
-          encoder.encode("result", { bpiOutput: payload, brandName: profile.brand_name }),
+          encoder.encode("result", { mtsOutput: payload, brandName: profile.brand_name }),
         );
 
         const markdown = formatMtsAsMarkdown(profile.brand_name, payload);

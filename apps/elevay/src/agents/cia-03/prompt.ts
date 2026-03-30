@@ -1,4 +1,5 @@
 import type { ElevayAgentProfile, ModuleResult } from "../_shared/types";
+import { formatLanguage } from "../_shared/utils";
 import type {
   CiaSessionContext,
   ProductMessagingData,
@@ -162,7 +163,7 @@ Règles :
 - Les scores doivent être cohérents avec les données fournies (0-100)
 - Les menaces critiques doivent être actionnables et spécifiques
 - Les actions du plan doivent être concrètes et mesurables
-- Réponds en ${profile.language === "fr" ? "français" : profile.language}
+- Réponds en ${formatLanguage(profile.language)}
 - Ignore les modules marqués "INDISPONIBLE"
 `.trim();
 

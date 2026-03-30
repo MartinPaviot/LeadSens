@@ -1,4 +1,5 @@
 import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
+import { getLatestOutputByAgent } from "@/lib/agent-history";
 import type {
   ProductMessagingData,
   SeoAcquisitionData,
@@ -67,10 +68,11 @@ const ZONE_DIRECTIVES: Record<StrategicZone["zone"], string> = {
 
 // ── Module principal (zéro appel API) ─────────────────────────────────────────
 
-export function runBenchmark(
+export async function runBenchmark(
   profile: ElevayAgentProfile,
   inputs: BenchmarkInputs,
-): BenchmarkData {
+  workspaceId?: string,
+): Promise<BenchmarkData> {
   // ── Scores par concurrent ──────────────────────────────────────────────────
 
   const competitorUrls = profile.competitors.map(c => c.url);
@@ -111,7 +113,19 @@ export function runBenchmark(
 
   const brandSeoScore     = inputs.seo?.data?.brand_seo.seo_score ?? 0;
   const brandProductScore = 50; // pas de self-messaging — neutre par défaut
-  const brandSocialScore  = 0;  // pas inclus dans les sources sociales concurrents
+
+  // Fetch real brand social score from latest BPI-01 run if available
+  let brandSocialScore = 0;
+  if (workspaceId) {
+    try {
+      const lastBpi = await getLatestOutputByAgent(workspaceId, 'BPI-01');
+      const bpiPayload = lastBpi?.payload as { scores?: { social?: number } } | undefined;
+      brandSocialScore = bpiPayload?.scores?.social ?? 0;
+    } catch {
+      // best-effort — keep 0
+    }
+  }
+
   const brandContentScore = 0;
 
   scores.unshift({
@@ -170,12 +184,13 @@ export function runBenchmark(
 
 // ── Export wrappé en ModuleResult (pour la route) ─────────────────────────────
 
-export function fetchBenchmark(
+export async function fetchBenchmark(
   profile: ElevayAgentProfile,
   inputs: BenchmarkInputs,
-): ModuleResult<BenchmarkData> {
+  workspaceId?: string,
+): Promise<ModuleResult<BenchmarkData>> {
   try {
-    const data = runBenchmark(profile, inputs);
+    const data = await runBenchmark(profile, inputs, workspaceId);
     return { success: true, data, source: "benchmark:pure-calc" };
   } catch (err) {
     return {

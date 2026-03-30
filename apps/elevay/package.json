@@ -7,7 +7,9 @@
     "build": "next build --turbopack",
     "start": "next start --port 3001",
     "typecheck": "tsc --noEmit",
-    "test:oauth": "playwright test src/tests/composio-oauth.spec.ts --headed"
+    "test:oauth": "playwright test src/tests/composio-oauth.spec.ts --headed",
+    "test:api": "playwright test --project=api",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.55.1",

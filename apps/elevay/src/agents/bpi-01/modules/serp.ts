@@ -39,7 +39,7 @@ function findDomainPosition(
   results: SerpOrganicResult[],
   domain: string,
 ): number | null {
-  const match = results.find((r) => extractDomain(r.link).includes(domain));
+  const match = results.find((r) => extractDomain(r.link) === domain);
   return match ? match.position : null;
 }
 

@@ -91,6 +91,7 @@ export interface SocialData {
   social_score: number           // 0-100
   brand_coherence_score: number  // 0-100
   dominant_topics: string[]
+  scored_platforms: string[]     // platforms actually included in social_score
 }
 
 export interface SeoData {
@@ -151,6 +152,7 @@ export interface BpiOutput {
     visibility: number
     social: number
     competitive: number
+    completeness: number // 0.0–1.0 ratio of modules that returned data
     previous?: {
       global: number
       reputation: number
@@ -171,4 +173,5 @@ export interface BpiOutput {
   top_risks: Risk[]
   quick_wins: QuickWin[]
   roadmap_90d: RoadmapPhase[]
+  warning?: string
 }

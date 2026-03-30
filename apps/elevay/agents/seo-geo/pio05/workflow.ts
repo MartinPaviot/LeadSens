@@ -1,6 +1,6 @@
 import { GracefulFallback } from '../../../core/types';
 import { getRankings } from '../../../core/tools/dataForSeo';
-import { getSerp } from '../../../core/tools/serpApi';
+import { getSerp, detectAiOverview } from '../../../core/tools/serpApi';
 import { getTopPages } from '../../../core/tools/gsc';
 import { ahrefsGetDomainRating, ahrefsGetBacklinkStats } from '../../../core/tools/ahrefs';
 import { semrushGetAuthorityScore, semrushGetBacklinksOverview } from '../../../core/tools/semrush';
@@ -77,41 +77,81 @@ export async function buildDualDashboard(
     channels.push(buildFallbackChannel('google_search'));
   }
 
-  // TODO V2: fetch real data via SerpAPI AI Overview endpoint (detectAiOverview in serpApi.ts)
-  channels.push({
-    channel: 'google_ai_overview',
-    score: 0, // TODO V2: replace with real AI Overview citation score
-    trend: 'stable',
-    topPages: [],
-    notes: 'Score estimé — API Google AI Overview non disponible en V1',
-  });
+  // Google AI Overview — check if brand appears in AI summaries for target keywords
+  try {
+    const aiKeywords = inputs.targetKeywords.slice(0, 3);
+    if (aiKeywords.length > 0) {
+      const geo = inputs.geoTargets[0] ?? 'FR';
+      const aiResults = await Promise.allSettled(
+        aiKeywords.map((kw) => detectAiOverview(kw, geo)),
+      );
+      const fulfilled = aiResults.filter(
+        (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof detectAiOverview>>> =>
+          r.status === 'fulfilled',
+      );
+      const detected = fulfilled.filter((r) => r.value.detected).length;
+      const total = fulfilled.length;
+      const aioScore = total > 0 ? Math.round((detected / total) * 100) : 0;
+      const citedSources = fulfilled
+        .flatMap((r) => r.value.sources)
+        .filter((s) => s.includes(new URL(inputs.siteUrl).hostname))
+        .slice(0, 5);
+      channels.push({
+        channel: 'google_ai_overview',
+        score: aioScore,
+        trend: 'stable',
+        topPages: citedSources,
+        notes: `${detected}/${total} keywords with AI Overview detected`,
+      });
+    } else {
+      channels.push(buildFallbackChannel('google_ai_overview'));
+    }
+  } catch {
+    channels.push(buildFallbackChannel('google_ai_overview'));
+  }
 
-  // TODO V2: fetch real data via Bing Webmaster API or scraping
+  // TODO V2: Bing API
   channels.push({
     channel: 'bing_copilot',
-    score: 0, // TODO V2: replace with real Bing Copilot citation detection
+    score: 0,
     trend: 'stable',
     topPages: [],
-    notes: 'Score estimé — mesure directe indisponible en V1',
+    notes: 'Bing Copilot — requires Bing Webmaster API (V2)',
   });
 
-  // TODO V2: fetch real data via Perplexity API when available
+  // TODO V2: Perplexity API
   channels.push({
     channel: 'perplexity',
-    score: 0, // TODO V2: replace with real Perplexity citation score
+    score: 0,
     trend: 'stable',
     topPages: [],
-    notes: 'Score estimé — API Perplexity non disponible en V1',
+    notes: 'Perplexity — requires Perplexity API (V2)',
   });
 
-  // TODO V2: fetch real data via Google Business Profile API
-  channels.push({
-    channel: 'google_maps',
-    score: 0, // TODO V2: fetch from GBP API when local GEO is configured
-    trend: 'stable',
-    topPages: [],
-    notes: 'Activé uniquement si GEO local configuré',
-  });
+  // Google Maps / Local Pack — check if brand appears in local results
+  try {
+    const geo = inputs.geoTargets[0] ?? 'FR';
+    let hostname = '';
+    try { hostname = new URL(inputs.siteUrl).hostname; } catch { /* skip */ }
+    if (hostname) {
+      const localSerp = await getSerp(`${hostname.replace(/^www\./, '')} ${geo}`, geo, 10);
+      const inLocalPack = localSerp.some((r) => r.url.includes(hostname));
+      const mapsScore = inLocalPack ? 70 : 20;
+      channels.push({
+        channel: 'google_maps',
+        score: mapsScore,
+        trend: 'stable',
+        topPages: localSerp.filter((r) => r.url.includes(hostname)).map((r) => r.url).slice(0, 3),
+        notes: inLocalPack
+          ? 'Brand found in local search results'
+          : 'Brand not found in local pack — consider Google Business Profile',
+      });
+    } else {
+      channels.push(buildFallbackChannel('google_maps'));
+    }
+  } catch {
+    channels.push(buildFallbackChannel('google_maps'));
+  }
 
   const seoChannel = channels.find((c) => c.channel === 'google_search');
   const seoScore = seoChannel?.score ?? 0;

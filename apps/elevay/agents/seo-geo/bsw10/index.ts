@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { bsw10InputSchema } from '../schemas';
 import { AgentContext, AgentSession } from '../../../core/types';
 import { Bsw10Inputs, Bsw10Output } from './types';
+import { sendScheduledDraftAlert } from '../../../core/tools/notifications';
 import {
   fetchKeywordsAndPaa,
   benchmarkCompetitors,
@@ -132,6 +133,8 @@ export async function activate(
   };
 
   // Step 6 — Push to CMS as draft (if connected)
+  // Scheduled runs always create drafts requiring human validation
+  const isScheduledRun = context.triggeredBy === 'inngest-schedule';
   if (context.clientProfile.automationLevel !== 'audit') {
     if (inputs.cmsType === 'wordpress' && wpCredentials) {
       try {
@@ -194,6 +197,22 @@ export async function activate(
       } catch {
         session.steps.push({ id: 'cms_push', name: 'Push Webflow échoué — contenu disponible en export', status: 'skipped' });
       }
+    }
+  }
+
+  // Flag scheduled runs as requiring human validation + send alert
+  if (isScheduledRun) {
+    output.requiresValidation = true;
+    if (output.wpDraftUrl) {
+      await sendScheduledDraftAlert({
+        agentName: 'BSW-10',
+        draftUrl: output.wpDraftUrl,
+        topic: inputs.topic,
+        keyword: inputs.targetKeywords?.[0] ?? '',
+        workspaceId: context.clientProfile.id,
+        alertChannels: context.clientProfile.alertChannels,
+        userId: context.clientProfile.id,
+      });
     }
   }
 

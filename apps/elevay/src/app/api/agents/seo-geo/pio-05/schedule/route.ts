@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { inngest } from '@/inngest/client';
 import { pio05SchedulePostSchema, pio05SchedulePatchSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { computeNextDate } from '@/lib/schedule-utils';
 
 // POST — Schedule PIO-05 reports (backward-compatible alias)
 // Delegates to the generic schedule event with agentId: 'pio05'
@@ -41,26 +42,21 @@ export async function POST(req: Request) {
     return Response.json({ error: 'No brand profile found' }, { status: 404 });
   }
 
-  await prisma.elevayBrandProfile.update({
-    where: { id: profile.id },
-    data: { report_recurrence: frequency === 'on-demand' ? 'on_demand' : frequency },
-  });
-
-  if (frequency === 'on-demand') {
+  if (frequency === 'on_demand') {
+    await prisma.elevayBrandProfile.update({
+      where: { id: profile.id },
+      data: { report_recurrence: 'on_demand' },
+    });
     return Response.json({ status: 'cancelled', message: 'Report scheduling cancelled' });
   }
 
-  const nextRunAt = new Date();
-  switch (frequency) {
-    case 'daily': nextRunAt.setDate(nextRunAt.getDate() + 1); break;
-    case 'weekly': nextRunAt.setDate(nextRunAt.getDate() + 7); break;
-    case 'monthly': nextRunAt.setMonth(nextRunAt.getMonth() + 1); break;
-  }
+  const nextRunAt = computeNextDate(new Date(), frequency);
 
   if (isNaN(nextRunAt.getTime())) {
     return Response.json({ error: 'Failed to compute next run date' }, { status: 500 });
   }
 
+  // Send Inngest event FIRST — only update DB on success
   try {
     await inngest.send({
       name: 'elevay/agent.report.schedule',
@@ -74,13 +70,17 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error('[pio05-schedule] Inngest dispatch failed:', err);
-    return Response.json({
-      status: 'scheduled',
-      warning: 'Schedule saved but event dispatch failed',
-      frequency,
-      nextRunAt: nextRunAt.toISOString(),
-    });
+    return Response.json(
+      { error: 'Failed to dispatch scheduling event' },
+      { status: 500 },
+    );
   }
+
+  // Inngest event sent — now persist recurrence
+  await prisma.elevayBrandProfile.update({
+    where: { id: profile.id },
+    data: { report_recurrence: frequency },
+  });
 
   return Response.json({ status: 'scheduled', frequency, nextRunAt: nextRunAt.toISOString() });
 }
@@ -136,17 +136,13 @@ export async function PATCH(req: Request) {
       return Response.json({ error: 'Invalid stored frequency — please reschedule' }, { status: 400 });
     }
     const frequency = rawFreq as 'daily' | 'weekly' | 'monthly';
-    const nextRunAt = new Date();
-    switch (frequency) {
-      case 'daily': nextRunAt.setDate(nextRunAt.getDate() + 1); break;
-      case 'weekly': nextRunAt.setDate(nextRunAt.getDate() + 7); break;
-      case 'monthly': nextRunAt.setMonth(nextRunAt.getMonth() + 1); break;
-    }
+    const nextRunAt = computeNextDate(new Date(), frequency);
 
     if (isNaN(nextRunAt.getTime())) {
       return Response.json({ error: 'Failed to compute next run date' }, { status: 500 });
     }
 
+    // Send Inngest event FIRST
     try {
       await inngest.send({
         name: 'elevay/agent.report.schedule',
@@ -160,12 +156,17 @@ export async function PATCH(req: Request) {
       });
     } catch (err) {
       console.error('[pio05-schedule] Inngest dispatch failed:', err);
-      return Response.json({
-        status: 'resumed',
-        warning: 'Schedule saved but event dispatch failed',
-        nextRunAt: nextRunAt.toISOString(),
-      });
+      return Response.json(
+        { error: 'Failed to dispatch scheduling event' },
+        { status: 500 },
+      );
     }
+
+    // Inngest event sent — now persist recurrence
+    await prisma.elevayBrandProfile.update({
+      where: { id: profile.id },
+      data: { report_recurrence: frequency },
+    });
 
     return Response.json({ status: 'resumed', nextRunAt: nextRunAt.toISOString() });
   }

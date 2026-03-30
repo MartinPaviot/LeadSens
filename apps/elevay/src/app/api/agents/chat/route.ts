@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireEnv } from "@/lib/env";
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from "@/lib/sse";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
@@ -36,7 +37,7 @@ const requestSchema = z.object({
   isGreeting: z.boolean(),
 });
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" });
+const client = new Anthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY") });
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });

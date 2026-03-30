@@ -296,12 +296,12 @@ async function handleCiaRequest(req: Request) {
           encoder.encode("status", { step: 5, total: 6, label: "[5/6] Benchmark en cours…" }),
         );
 
-        const benchmarkResult = fetchBenchmark(profile, {
+        const benchmarkResult = await fetchBenchmark(profile, {
           messaging: messagingResult,
           seo:       seoResult,
           social:    socialResult,
           content:   contentResult,
-        });
+        }, workspaceId);
         if (!benchmarkResult.success) degraded_sources.push("benchmark");
 
         controller.enqueue(

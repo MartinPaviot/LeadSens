@@ -4,6 +4,7 @@ import { inngest } from '@/inngest/client';
 import type { ScheduleFrequency } from '@/inngest/events';
 import { schedulePostSchema, schedulePatchSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { computeNextDate } from '@/lib/schedule-utils';
 
 // POST — Create or update schedule for any agent
 export async function POST(req: Request) {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
   }
   const { agentId, frequency: rawFrequency } = parsed.data;
-  const isCancel = rawFrequency === 'on_demand' || rawFrequency === 'on-demand';
+  const isCancel = rawFrequency === 'on_demand';
 
   // Find user's workspace + brand profile
   const user = await prisma.user.findUnique({
@@ -43,31 +44,22 @@ export async function POST(req: Request) {
     return Response.json({ error: 'No brand profile found' }, { status: 404 });
   }
 
-  // Update recurrence
-  await prisma.elevayBrandProfile.update({
-    where: { id: profile.id },
-    data: { report_recurrence: isCancel ? 'on_demand' : rawFrequency },
-  });
-
   if (isCancel) {
+    await prisma.elevayBrandProfile.update({
+      where: { id: profile.id },
+      data: { report_recurrence: 'on_demand' },
+    });
     return Response.json({ status: 'cancelled', agentId });
   }
 
   const frequency = rawFrequency as ScheduleFrequency;
-
-  // Compute next run date
-  const nextRunAt = new Date();
-  switch (frequency) {
-    case 'daily': nextRunAt.setDate(nextRunAt.getDate() + 1); break;
-    case 'weekly': nextRunAt.setDate(nextRunAt.getDate() + 7); break;
-    case 'monthly': nextRunAt.setMonth(nextRunAt.getMonth() + 1); break;
-  }
+  const nextRunAt = computeNextDate(new Date(), frequency);
 
   if (isNaN(nextRunAt.getTime())) {
     return Response.json({ error: 'Failed to compute next run date' }, { status: 500 });
   }
 
-  // Send Inngest scheduling event
+  // Send Inngest event FIRST — only update DB on success
   try {
     await inngest.send({
       name: 'elevay/agent.report.schedule',
@@ -81,14 +73,17 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error('[schedule] Inngest dispatch failed:', err);
-    return Response.json({
-      status: 'scheduled',
-      warning: 'Schedule saved but event dispatch failed',
-      agentId,
-      frequency,
-      nextRunAt: nextRunAt.toISOString(),
-    });
+    return Response.json(
+      { error: 'Failed to dispatch scheduling event' },
+      { status: 500 },
+    );
   }
+
+  // Inngest event sent — now persist recurrence
+  await prisma.elevayBrandProfile.update({
+    where: { id: profile.id },
+    data: { report_recurrence: rawFrequency },
+  });
 
   return Response.json({
     status: 'scheduled',
@@ -144,19 +139,9 @@ export async function PATCH(req: Request) {
 
   if (action === 'resume') {
     const frequency = (patchFrequency ?? profile.report_recurrence ?? 'monthly') as ScheduleFrequency;
+    const nextRunAt = computeNextDate(new Date(), frequency);
 
-    await prisma.elevayBrandProfile.update({
-      where: { id: profile.id },
-      data: { report_recurrence: frequency },
-    });
-
-    const nextRunAt = new Date();
-    switch (frequency) {
-      case 'daily': nextRunAt.setDate(nextRunAt.getDate() + 1); break;
-      case 'weekly': nextRunAt.setDate(nextRunAt.getDate() + 7); break;
-      case 'monthly': nextRunAt.setMonth(nextRunAt.getMonth() + 1); break;
-    }
-
+    // Send Inngest event FIRST
     try {
       await inngest.send({
         name: 'elevay/agent.report.schedule',
@@ -170,14 +155,17 @@ export async function PATCH(req: Request) {
       });
     } catch (err) {
       console.error('[schedule] Inngest dispatch failed:', err);
-      return Response.json({
-        status: 'resumed',
-        warning: 'Schedule saved but event dispatch failed',
-        agentId,
-        frequency,
-        nextRunAt: nextRunAt.toISOString(),
-      });
+      return Response.json(
+        { error: 'Failed to dispatch scheduling event' },
+        { status: 500 },
+      );
     }
+
+    // Inngest event sent — now persist recurrence
+    await prisma.elevayBrandProfile.update({
+      where: { id: profile.id },
+      data: { report_recurrence: frequency },
+    });
 
     return Response.json({ status: 'resumed', agentId, frequency, nextRunAt: nextRunAt.toISOString() });
   }

@@ -91,12 +91,19 @@ export const bsw10RouteSchema = z.object({
 
 // ─── Schedule routes ────────────────────────────────────
 
-const agentIdEnum = z.enum(['pio05', 'opt06', 'tsi07', 'kga08', 'mdg11', 'alt12']);
+const agentIdEnum = z.enum([
+  'pio05', 'opt06', 'tsi07', 'kga08', 'mdg11', 'alt12',
+  'wpw09', 'bsw10',
+  'bpi01', 'cia03', 'mts02',
+]);
 const frequencyEnum = z.enum(['daily', 'weekly', 'monthly']);
+
+const cancelFrequency = z.union([z.literal('on_demand'), z.literal('on-demand')])
+  .transform(() => 'on_demand' as const);
 
 export const schedulePostSchema = z.object({
   agentId: agentIdEnum,
-  frequency: z.union([frequencyEnum, z.literal('on_demand'), z.literal('on-demand')]),
+  frequency: z.union([frequencyEnum, cancelFrequency]),
 });
 
 export const schedulePatchSchema = z.object({
@@ -106,7 +113,7 @@ export const schedulePatchSchema = z.object({
 });
 
 export const pio05SchedulePostSchema = z.object({
-  frequency: z.union([frequencyEnum, z.literal('on-demand')]),
+  frequency: z.union([frequencyEnum, cancelFrequency]),
 });
 
 export const pio05SchedulePatchSchema = z.object({

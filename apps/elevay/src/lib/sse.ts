@@ -42,7 +42,7 @@ export type SSEEventPayload = {
   };
   error: { message: string };
   "stream-end": Record<string, never>;
-  result: { bpiOutput: unknown; brandName: string };
+  result: { bpiOutput?: unknown; mtsOutput?: unknown; brandName: string };
 };
 
 export interface TypedSSEEvent<E extends SSEEventName = SSEEventName> {
@@ -63,10 +63,13 @@ export class SSEEncoder {
     data: SSEEventPayload[E],
   ): Uint8Array {
     const id = this._id++;
+    const jsonStr = JSON.stringify(data);
+    // SSE spec: newlines in data must be split across separate data: lines
+    const dataLines = jsonStr.split("\n").map((line) => `data: ${line}`);
     const lines = [
       `id: ${id}`,
       `event: ${event}`,
-      `data: ${JSON.stringify(data)}`,
+      ...dataLines,
       "",
       "",
     ];

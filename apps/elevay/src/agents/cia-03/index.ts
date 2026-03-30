@@ -42,6 +42,7 @@ function extractResult<T>(
 export async function run(
   profile: ElevayAgentProfile,
   context: CiaSessionContext,
+  workspaceId?: string,
 ): Promise<{
   agentOutput: AgentOutput<CiaOutput>
   moduleResults: {
@@ -67,13 +68,13 @@ export async function run(
   const socialResult    = extractResult(socialSettled,    "social-media",      degraded_sources);
   const contentResult   = extractResult(contentSettled,   "content",           degraded_sources);
 
-  // M5 — benchmark (calcul pur)
-  const benchmarkResult = fetchBenchmark(profile, {
+  // M5 — benchmark (calcul pur, enriched with BPI-01 social score when available)
+  const benchmarkResult = await fetchBenchmark(profile, {
     messaging: messagingResult,
     seo:       seoResult,
     social:    socialResult,
     content:   contentResult,
-  });
+  }, workspaceId);
   if (!benchmarkResult.success) degraded_sources.push("benchmark");
 
   // M6 — recommandations (calcul pur)

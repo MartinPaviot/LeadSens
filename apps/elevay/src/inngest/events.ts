@@ -6,7 +6,10 @@
 
 import { EventSchemas } from 'inngest';
 
-export type AgentId = 'pio05' | 'opt06' | 'tsi07' | 'kga08' | 'mdg11' | 'alt12';
+export type AgentId =
+  | 'pio05' | 'opt06' | 'tsi07' | 'kga08' | 'mdg11' | 'alt12'
+  | 'wpw09' | 'bsw10'
+  | 'bpi01' | 'cia03' | 'mts02';
 export type ScheduleFrequency = 'daily' | 'weekly' | 'monthly';
 
 export type Events = {

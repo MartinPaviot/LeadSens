@@ -718,7 +718,7 @@ export default function AgentChat() {
             // Ignore markdown delta — summary is built in finally via buildMtsSummary
           } else if (eventName === "result") {
             const payload = data as SSEEventPayload["result"];
-            capturedMtsOutput = payload.bpiOutput as MtsOutput;
+            capturedMtsOutput = (payload.mtsOutput ?? payload.bpiOutput) as MtsOutput;
           } else if (eventName === "status") {
             const payload = data as SSEEventPayload["status"];
             setActivityLabel(payload.label);

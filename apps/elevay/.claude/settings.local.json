@@ -111,7 +111,19 @@
       "Bash(for dir:*)",
       "Bash(do echo:*)",
       "Bash(find agents/seo-geo -type f -name *.ts)",
-      "Bash(find C:UsersombelLeadSens-1appselevay -type f -path */core/tools/export*)"
+      "Bash(find C:UsersombelLeadSens-1appselevay -type f -path */core/tools/export*)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/agents -type d -name *pio* -o -type d -name *seo*)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src -type f -name *wpw* -o -type f -name *bsw* -o -type f -name *kga*)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/agents/seo-geo -type f -name *.ts)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path */core/types* -type f)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path *pio05* -o -path *pio-05*)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path *composio* -name *.ts)",
+      "Bash(find /c/Users/ombel/LeadSens-1 -path *serpApi* -o -path *serp* -name *.ts)",
+      "Bash(find C:UsersombelLeadSens-1appselevaycoretools -name *.ts -type f)",
+      "Read(//c/core/tools/cms/**)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay -type f -name *.spec.ts -o -name *.test.ts -o -name composio*)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/app/api/auth -type f -name *.ts)",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay -name *test* -o -name *setup* -o -name *.config.*)"
     ]
   }
 }

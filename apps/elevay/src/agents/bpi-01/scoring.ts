@@ -15,6 +15,7 @@ export interface BpiScores {
   visibility: number
   social: number
   competitive: number
+  completeness: number // 0.0–1.0 ratio of modules that returned data
 }
 
 interface ScoredComponent {
@@ -80,6 +81,12 @@ export function calculateBpiScores(results: {
   googleMaps?: ModuleResult<GoogleMapsData> | null
 }): BpiScores {
   const { serp, press, youtube, social, seo, benchmark, googleMaps } = results;
+
+  // Completeness: count how many of the 7 modules returned data
+  const totalModules = 7;
+  const filledModules = [serp, press, youtube, social, seo, benchmark, googleMaps]
+    .filter((m) => m?.data != null).length;
+  const completeness = Math.round((filledModules / totalModules) * 100) / 100;
 
   // ── Réputation (35%) ────────────────────────────────────────────────
   const reputationSources: { score: number; weight: number }[] = [];
@@ -169,5 +176,6 @@ export function calculateBpiScores(results: {
     visibility: visibility ?? 0,
     social: socialScore ?? 0,
     competitive: competitive ?? 0,
+    completeness,
   };
 }

@@ -1,6 +1,7 @@
 import type { ElevayAgentProfile, ModuleResult } from "../_shared/types";
 import type { MtsSessionContext, TrendsData, ContentPerformanceData, CompetitiveContentData, SocialListeningData } from "./types";
 import type { MtsScores } from "./scoring";
+import { formatLanguage } from "../_shared/utils";
 import type { SynthesisResult } from "./modules/synthesis";
 
 // ── System prompt ─────────────────────────────────────────────────────────────
@@ -149,7 +150,7 @@ Règles :
 - La roadmap doit couvrir les 4 semaines avec une progression logique : signal faible → tendance forte
 - Les titres suggérés doivent être concrets, pas génériques
 - Volume roadmap selon canal : LinkedIn 3-4 posts/sem, SEO 2-3 articles/mois, YouTube 1-2 vidéos/mois
-- Réponds en ${profile.language === "fr" ? "français" : profile.language}
+- Réponds en ${formatLanguage(profile.language)}
 - Ignore les sources marquées "INDISPONIBLE"
 `.trim();
 

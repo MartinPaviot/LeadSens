@@ -1,7 +1,10 @@
 import { Prisma } from '@leadsens/db';
 import { prisma } from '@/lib/prisma';
 import { inngest } from './client';
-import type { AgentId, ScheduleFrequency } from './events';
+import { computeNextDate } from '@/lib/schedule-utils';
+import { getLatestOutputByAgent } from '@/lib/agent-history';
+import type { AgentId } from './events';
+import type { ElevayAgentProfile } from '@/agents/_shared/types';
 
 // ─── Agent code mapping ──────────────────────────────────
 
@@ -12,6 +15,11 @@ const AGENT_CODE_MAP: Record<AgentId, string> = {
   kga08: 'KGA-08',
   mdg11: 'MDG-11',
   alt12: 'ALT-12',
+  wpw09: 'WPW-09',
+  bsw10: 'BSW-10',
+  bpi01: 'BPI-01',
+  cia03: 'CIA-03',
+  mts02: 'MTS-02',
 };
 
 // ─── 1. Generic schedule function ────────────────────────
@@ -60,11 +68,11 @@ export const agentScheduleNextRun = inngest.createFunction(
     // Fire the actual report generation
     await step.sendEvent('trigger-report', {
       name: 'elevay/agent.report.run',
-      data: { clientId, workspaceId, agentId, scheduledFor: new Date().toISOString() },
+      data: { clientId, workspaceId, agentId, scheduledFor: nextRunAt },
     });
 
     // Reschedule for the next cycle
-    const nextDate = computeNextDate(frequency);
+    const nextDate = computeNextDate(new Date(), frequency);
     try {
       await step.sendEvent('reschedule', {
         name: 'elevay/agent.report.schedule',
@@ -77,7 +85,16 @@ export const agentScheduleNextRun = inngest.createFunction(
         },
       });
     } catch (err) {
-      console.error('[inngest] Reschedule event failed — schedule may be broken:', err);
+      console.error('[inngest] Reschedule event failed — marking schedule as broken:', err);
+      // Mark the schedule as broken so the UI can surface it
+      await step.run('mark-schedule-broken', async () => {
+        await prisma.elevayBrandProfile.updateMany({
+          where: { workspaceId },
+          data: { report_recurrence: 'broken' },
+        });
+      });
+      // Re-throw so Inngest retries the function (including reschedule)
+      throw err;
     }
 
     return { scheduled: true, agentId, nextRunAt: nextDate.toISOString() };
@@ -115,18 +132,10 @@ export const agentRunScheduled = inngest.createFunction(
   async ({ event, step }) => {
     const { clientId, workspaceId, agentId } = event.data;
 
-    // Load brand profile
+    // Load brand profile with full context for agent execution
     const profile = await step.run('load-profile', async () => {
       const bp = await prisma.elevayBrandProfile.findFirst({
         where: { workspaceId },
-        select: {
-          id: true,
-          brand_name: true,
-          brand_url: true,
-          report_recurrence: true,
-          primary_keyword: true,
-          secondary_keyword: true,
-        },
       });
       return bp;
     });
@@ -135,21 +144,23 @@ export const agentRunScheduled = inngest.createFunction(
       return { error: 'Brand profile not found', clientId, agentId };
     }
 
-    if (profile.report_recurrence === 'on_demand' || !profile.report_recurrence) {
-      return { skipped: true, reason: 'Report recurrence set to on-demand', agentId };
+    if (profile.report_recurrence === 'on_demand' || profile.report_recurrence === 'broken' || !profile.report_recurrence) {
+      return { skipped: true, reason: 'Report recurrence set to on-demand or broken', agentId };
     }
 
-    // Build shared context
-    const context = {
+    // Build shared context — ElevayBrandProfile doesn't store CMS/automation settings yet,
+    // so we use safe defaults. These fields should be added to the schema when the
+    // onboarding flow collects them.
+    const context: AgentRunContext = {
       clientProfile: {
         id: clientId,
         siteUrl: profile.brand_url,
-        cmsType: 'other' as const,
-        automationLevel: 'audit' as const,
-        geoLevel: 'national' as const,
-        targetGeos: ['FR'],
+        cmsType: 'other',
+        automationLevel: 'audit',
+        geoLevel: 'national',
+        targetGeos: profile.country ? [profile.country.slice(0, 2).toUpperCase()] : ['FR'],
         priorityPages: [],
-        alertChannels: [] as ('slack' | 'email' | 'report')[],
+        alertChannels: [],
         connectedTools: { gsc: false, ga: false, ahrefs: false, semrush: false },
       },
       sessionId: `inngest-${agentId}-${Date.now()}`,
@@ -161,25 +172,62 @@ export const agentRunScheduled = inngest.createFunction(
     // Route to the correct agent
     const result = await step.run(`run-${agentId}`, async () => {
       const startTime = Date.now();
-      const session = await runAgent(agentId, context, profile.brand_url, keywords);
+      const bmiProfile: ElevayAgentProfile = {
+        organisationId: workspaceId,
+        brand_name: profile.brand_name,
+        brand_url: profile.brand_url,
+        country: profile.country,
+        language: profile.language ?? 'fr',
+        competitors: (profile.competitors ?? []) as { name: string; url: string }[],
+        primary_keyword: profile.primary_keyword,
+        secondary_keyword: profile.secondary_keyword ?? '',
+      };
+      const session = await runAgent(agentId, context, profile.brand_url, keywords, bmiProfile, workspaceId);
       const durationMs = Date.now() - startTime;
       return { output: session.output, durationMs };
     });
 
     // Store the run in ElevayAgentRun
-    await step.run('store-result', async () => {
-      await prisma.elevayAgentRun.create({
+    // Content agents (wpw09/bsw10) in scheduled mode → pending_validation
+    const isContentDraft = (agentId === 'wpw09' || agentId === 'bsw10');
+    const runStatus = isContentDraft ? 'PENDING_VALIDATION' : 'COMPLETED';
+
+    const storedRun = await step.run('store-result', async () => {
+      const run = await prisma.elevayAgentRun.create({
         data: {
           workspaceId,
           agentCode: AGENT_CODE_MAP[agentId],
-          status: 'COMPLETED',
+          status: runStatus,
           output: result.output as unknown as Prisma.InputJsonValue,
           degradedSources: [],
           durationMs: result.durationMs,
           brandProfileId: profile.id,
         },
       });
+      return { id: run.id };
     });
+
+    // Send email notification with runId for approve/reject links
+    if (isContentDraft) {
+      await step.run('send-draft-email', async () => {
+        const { sendScheduledDraftAlert } = await import('../../core/tools/notifications');
+        const output = result.output as { wpDraftUrl?: string } | null;
+        if (output?.wpDraftUrl) {
+          await sendScheduledDraftAlert({
+            agentName: agentId === 'wpw09' ? 'WPW-09' : 'BSW-10',
+            draftUrl: output.wpDraftUrl,
+            topic: keywords[0] ?? '',
+            keyword: keywords[1] ?? '',
+            workspaceId,
+            alertChannels: context.clientProfile.alertChannels.length > 0
+              ? context.clientProfile.alertChannels
+              : ['email'],
+            userId: clientId,
+            runId: storedRun.id,
+          });
+        }
+      });
+    }
 
     return { success: true, agentId, durationMs: result.durationMs };
   },
@@ -191,9 +239,9 @@ interface AgentRunContext {
   clientProfile: {
     id: string;
     siteUrl: string;
-    cmsType: 'other';
-    automationLevel: 'audit';
-    geoLevel: 'national';
+    cmsType: 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'other';
+    automationLevel: 'audit' | 'semi-auto' | 'full-auto';
+    geoLevel: 'national' | 'regional' | 'city' | 'multi-geo';
     targetGeos: string[];
     priorityPages: string[];
     alertChannels: ('slack' | 'email' | 'report')[];
@@ -208,6 +256,8 @@ async function runAgent(
   context: AgentRunContext,
   siteUrl: string,
   keywords: string[],
+  profile: ElevayAgentProfile,
+  workspaceId: string,
 ): Promise<{ output: unknown }> {
   switch (agentId) {
     case 'pio05': {
@@ -287,23 +337,114 @@ async function runAgent(
         inject: false,
       }, []);
     }
+    // ─── Task 1: Content agents (scheduled via KGA-08 recommendations) ─────
+    case 'wpw09': {
+      const { activate } = await import('../../agents/seo-geo/wpw09/index');
+      const enriched = await buildScheduledContentContext(workspaceId, keywords);
+      return activate(context, {
+        pageType: 'landing',
+        brief: enriched.topic,
+        targetKeywords: enriched.relatedKeywords.length > 0 ? enriched.relatedKeywords : keywords,
+        brandTone: enriched.toneOfVoice,
+        targetAudience: enriched.targetAudience,
+        internalLinksAvailable: [],
+        cmsType: context.clientProfile.cmsType,
+        exportFormat: 'markdown',
+      }, context.clientProfile.targetGeos[0] ?? 'FR');
+    }
+    case 'bsw10': {
+      const { activate } = await import('../../agents/seo-geo/bsw10/index');
+      const enriched = await buildScheduledContentContext(workspaceId, keywords);
+      return activate(context, {
+        topic: enriched.topic,
+        mode: 'single',
+        articleFormat: 'guide',
+        targetAudience: enriched.targetAudience,
+        expertiseLevel: 'intermediate',
+        objective: 'traffic',
+        brandTone: enriched.toneOfVoice,
+        targetKeywords: enriched.relatedKeywords.length > 0 ? enriched.relatedKeywords : keywords,
+        internalLinksAvailable: [],
+        cta: enriched.primaryCta,
+        cmsType: context.clientProfile.cmsType,
+      }, context.clientProfile.targetGeos[0] ?? 'FR');
+    }
+    // ─── Task 2: Brand-intel agents ──────────────────────────────────────────
+    case 'bpi01': {
+      const { run } = await import('../agents/bpi-01/index');
+      const result = await run(profile);
+      return { output: result };
+    }
+    case 'cia03': {
+      const { run } = await import('../agents/cia-03/index');
+      const result = await run(profile, {
+        priority_channels: ['SEO', 'social', 'product', 'global'],
+        objective: 'acquisition',
+      }, workspaceId);
+      return { output: result.agentOutput };
+    }
+    case 'mts02': {
+      const { run } = await import('../agents/mts-02/index');
+      const result = await run(profile, {
+        sector: profile.primary_keyword,
+        priority_channels: ['SEO', 'LinkedIn', 'YouTube'],
+      });
+      return { output: result.agentOutput };
+    }
+    default: {
+      const _exhaustive: never = agentId;
+      throw new Error(`Unknown agent: ${_exhaustive}`);
+    }
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────
+// ─── Enrichment for scheduled content agents ─────────────
 
-function computeNextDate(frequency: ScheduleFrequency): Date {
-  const next = new Date();
-  switch (frequency) {
-    case 'daily':
-      next.setDate(next.getDate() + 1);
-      break;
-    case 'weekly':
-      next.setDate(next.getDate() + 7);
-      break;
-    case 'monthly':
-      next.setMonth(next.getMonth() + 1);
-      break;
-  }
-  return next;
+interface ScheduledContentContext {
+  topic: string;
+  targetAudience: string;
+  toneOfVoice: string;
+  primaryCta: string;
+  relatedKeywords: string[];
 }
+
+async function buildScheduledContentContext(
+  workspaceId: string,
+  fallbackKeywords: string[],
+): Promise<ScheduledContentContext> {
+  // Load brand profile for enrichment
+  const bp = await prisma.elevayBrandProfile.findFirst({
+    where: { workspaceId },
+    select: {
+      brand_name: true,
+      sector: true,
+      primary_keyword: true,
+      secondary_keyword: true,
+      objective: true,
+    },
+  });
+
+  // Load KGA-08 last session for topic + keyword context
+  const kga08History = await getLatestOutputByAgent(workspaceId, 'KGA-08');
+  const kgaPayload = kga08History?.payload as {
+    actionPlan?: { month1?: { keyword?: string; trafficPotential?: number }[] };
+    kwScores?: { keyword?: string }[];
+  } | undefined;
+
+  const kgaTopic = kgaPayload?.actionPlan?.month1?.[0]?.keyword ?? '';
+  const kgaRelated = (kgaPayload?.kwScores ?? [])
+    .map((k) => k.keyword)
+    .filter((k): k is string => Boolean(k))
+    .slice(0, 5);
+
+  return {
+    topic: kgaTopic || bp?.primary_keyword || fallbackKeywords[0] || '',
+    targetAudience: bp?.objective === 'lead-gen' ? 'décideurs B2B' : 'marketeurs',
+    toneOfVoice: 'professionnel',
+    primaryCta: bp?.sector
+      ? `Découvrir nos solutions ${bp.sector}`
+      : 'Découvrir notre solution',
+    relatedKeywords: kgaRelated,
+  };
+}
+

@@ -249,8 +249,11 @@ export async function fetchSocial(
       status: "missing",
     });
 
-    // social_score
-    const activePlatforms = platformDataList.filter(
+    // social_score — only count platforms that were actually attempted (exclude LinkedIn)
+    const attemptedPlatforms = platformDataList.filter(
+      (p) => p.status !== "missing",
+    );
+    const activePlatforms = attemptedPlatforms.filter(
       (p) => p.status === "active",
     );
     const avgEngagement =
@@ -261,6 +264,7 @@ export async function fetchSocial(
     const social_score = Math.round(
       activePlatforms.length * 20 + Math.min(40, avgEngagement * 4),
     );
+    const scored_platforms = attemptedPlatforms.map((p) => p.platform);
 
     // brand_coherence_score — heuristic based on active platform count
     const activeCount = activePlatforms.length;
@@ -290,6 +294,7 @@ export async function fetchSocial(
         social_score,
         brand_coherence_score,
         dominant_topics,
+        scored_platforms,
       },
       source: "social:apify",
     };

@@ -81,6 +81,9 @@ export async function run(profile: ElevayAgentProfile): Promise<AgentOutput<BpiO
     top_risks:   [],
     quick_wins:  [],
     roadmap_90d: [],
+    ...(scores.completeness < 0.3
+      ? { warning: 'Score based on partial data — less than 30% of modules returned data' }
+      : {}),
   };
 
   return {

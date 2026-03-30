@@ -223,6 +223,65 @@ export async function wpCreatePost(
   }
 }
 
+// ─── Publish a draft page ─────────────────────────────────
+
+export async function wpPublishPage(
+  creds: WordPressCredentials,
+  pageId: number,
+): Promise<{ id: number; url: string }> {
+  try {
+    type RawPage = { id: number; link: string };
+    const page = await wpFetch<RawPage>(
+      creds,
+      `/pages/${pageId}`,
+      { method: 'POST', body: JSON.stringify({ status: 'publish' }) },
+    );
+    return { id: page.id, url: page.link };
+  } catch (err) {
+    if (err instanceof ToolUnavailableError) throw err;
+    throw new ToolUnavailableError('wordpress:publishPage', 'core/tools/cms');
+  }
+}
+
+// ─── Publish a draft post ─────────────────────────────────
+
+export async function wpPublishPost(
+  creds: WordPressCredentials,
+  postId: number,
+): Promise<{ id: number; url: string }> {
+  try {
+    type RawPost = { id: number; link: string };
+    const post = await wpFetch<RawPost>(
+      creds,
+      `/posts/${postId}`,
+      { method: 'POST', body: JSON.stringify({ status: 'publish' }) },
+    );
+    return { id: post.id, url: post.link };
+  } catch (err) {
+    if (err instanceof ToolUnavailableError) throw err;
+    throw new ToolUnavailableError('wordpress:publishPost', 'core/tools/cms');
+  }
+}
+
+// ─── Delete a draft ───────────────────────────────────────
+
+export async function wpDeleteDraft(
+  creds: WordPressCredentials,
+  postId: number,
+  postType: 'pages' | 'posts' = 'posts',
+): Promise<void> {
+  try {
+    await wpFetch(
+      creds,
+      `/${postType}/${postId}`,
+      { method: 'DELETE', body: JSON.stringify({ force: false }) },
+    );
+  } catch (err) {
+    if (err instanceof ToolUnavailableError) throw err;
+    throw new ToolUnavailableError('wordpress:deleteDraft', 'core/tools/cms');
+  }
+}
+
 // ─── Update meta (Yoast SEO) ──────────────────────────────
 
 export async function wpUpdateMeta(

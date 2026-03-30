@@ -27,11 +27,16 @@ interface GoogleTrendsResponse {
   }
 }
 
+interface TrendsResult {
+  averages: Record<string, number>;
+  halfGrowth: Record<string, number>; // first-half vs second-half growth %
+}
+
 async function fetchGoogleTrends(
   keywords: string[],
   geoCode: string,
   dateRange: "today 1-m" | "today 3-m",
-): Promise<Record<string, number>> {
+): Promise<TrendsResult> {
   const apiKey = process.env.SERPAPI_KEY;
   if (!apiKey) throw new Error("SERPAPI_KEY is not set");
 
@@ -49,24 +54,39 @@ async function fetchGoogleTrends(
   const json = (await res.json()) as GoogleTrendsResponse;
   const timeline = json.interest_over_time?.timeline_data ?? [];
 
-  // Calculer la moyenne d'intérêt par keyword sur la période
-  const totals: Record<string, { sum: number; count: number }> = {};
+  // Collect per-keyword values in order
+  const series: Record<string, number[]> = {};
 
   for (const point of timeline) {
     for (const v of point.values ?? []) {
       const kw = v.query;
       const val = parseInt(v.value, 10) || 0;
-      if (!totals[kw]) totals[kw] = { sum: 0, count: 0 };
-      totals[kw].sum += val;
-      totals[kw].count += 1;
+      if (!series[kw]) series[kw] = [];
+      series[kw].push(val);
     }
   }
 
   const averages: Record<string, number> = {};
-  for (const [kw, { sum, count }] of Object.entries(totals)) {
-    averages[kw] = count > 0 ? sum / count : 0;
+  const halfGrowth: Record<string, number> = {};
+
+  for (const [kw, values] of Object.entries(series)) {
+    const sum = values.reduce((a, b) => a + b, 0);
+    averages[kw] = values.length > 0 ? sum / values.length : 0;
+
+    // Split into first half and second half to measure internal trend
+    const mid = Math.floor(values.length / 2);
+    if (mid > 0) {
+      const firstHalf = values.slice(0, mid);
+      const secondHalf = values.slice(mid);
+      const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+      const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+      halfGrowth[kw] = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg) * 100 : 0;
+    } else {
+      halfGrowth[kw] = 0;
+    }
   }
-  return averages;
+
+  return { averages, halfGrowth };
 }
 
 // ── Derive keywords from profile + sector ─────────────────────────────────────
@@ -109,10 +129,13 @@ export async function fetchTrends(
     const geoCode = profile.country.slice(0, 2).toUpperCase();
 
     // 2 appels Google Trends en parallèle (30j + 90j)
-    const [avg30, avg90] = await Promise.all([
+    const [trends30, trends90] = await Promise.all([
       fetchGoogleTrends(keywords, geoCode, "today 1-m"),
       fetchGoogleTrends(keywords, geoCode, "today 3-m"),
     ]);
+    const avg30 = trends30.averages;
+    const avg90 = trends90.averages;
+    const half30Growth = trends30.halfGrowth;
 
     // DataForSEO pour volume + difficulté (uniquement si SEO actif)
     const runSeo = shouldRunSEO(priority_channels);
@@ -129,9 +152,10 @@ export async function fetchTrends(
 
       const mean30 = avg30[kw] ?? 0;
       const mean90 = avg90[kw] ?? 0;
+      // growth_90d: how 30d average compares to 90d average (recent momentum)
       const growth_90d = mean90 > 0 ? ((mean30 - mean90) / mean90) * 100 : 0;
-      // growth_30d approximé depuis l'évolution 30j vs 90j
-      const growth_30d = mean90 > 0 ? ((mean30 / mean90) - 1) * 100 : 0;
+      // growth_30d: use the 30d series internal trend (first half vs second half)
+      const growth_30d = half30Growth[kw] ?? 0;
 
       return { keyword: kw, volume, difficulty, growth_30d, growth_90d };
     });

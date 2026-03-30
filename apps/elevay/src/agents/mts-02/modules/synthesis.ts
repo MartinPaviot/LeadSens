@@ -208,7 +208,7 @@ export function runSynthesis(input: SynthesisInput): SynthesisResult {
       classification,
       source_confirmation: sources,
       estimated_horizon: estimateHorizon(classification),
-      suggested_angle: competitiveData?.missing_angles[0] ?? `${kw.keyword} — angle différenciant`,
+      suggested_angle: competitiveData?.missing_angles?.[0] ?? `${kw.keyword} — angle différenciant`,
     });
   }
 
