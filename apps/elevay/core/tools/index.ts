@@ -5,3 +5,5 @@ export * from './gsc';
 export * from './pagespeed';
 export * from './serpApi';
 export * from './cms/index';
+export * from './ahrefs';
+export * from './semrush';

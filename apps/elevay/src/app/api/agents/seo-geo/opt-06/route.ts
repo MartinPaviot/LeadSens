@@ -1,5 +1,16 @@
 import { auth } from '@/lib/auth';
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
+import { agentRouteSchema } from '@/lib/schemas/seo-routes';
+import { checkRateLimit } from '@/lib/rate-limit';
+import type { AgentContext } from '../../../../../../core/types';
+import {
+  auditRankings,
+  scoreOpportunities,
+  applyAutoCorrections,
+  pushCorrections,
+  detectAlerts,
+} from '../../../../../../agents/seo-geo/opt06/workflow';
+import type { Opt06Inputs, Opt06Output } from '../../../../../../agents/seo-geo/opt06/types';
 
 export const maxDuration = 60;
 
@@ -7,13 +18,50 @@ export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return new Response('Unauthorized', { status: 401 });
 
-  const { conversationId, siteUrl } = await req.json() as {
-    conversationId: string;
-    siteUrl: string;
-  };
+  // Rate limit
+  const rl = await checkRateLimit(session.user.id, 'opt-06');
+  if (!rl.allowed) {
+    return Response.json(
+      { error: 'Rate limit exceeded', retryAfter: rl.retryAfter },
+      { status: 429 },
+    );
+  }
+
+  const parsed = agentRouteSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
+  }
+  const { conversationId, siteUrl, profile } = parsed.data;
 
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
+
+  const context: AgentContext = {
+    clientProfile: {
+      id: session.user.id,
+      siteUrl: profile.siteUrl,
+      cmsType: profile.cmsType,
+      automationLevel: profile.automationLevel,
+      geoLevel: profile.geoLevel,
+      targetGeos: profile.targetGeos,
+      priorityPages: profile.priorityPages,
+      alertChannels: profile.alertChannels,
+      connectedTools: profile.connectedTools,
+    },
+    sessionId: streamId,
+    triggeredBy: 'user',
+  };
+
+  const inputs: Opt06Inputs = {
+    siteUrl,
+    targetPages: profile.priorityPages,
+    targetKeywords: {},
+    competitors: [],
+    automationLevel: profile.automationLevel,
+    geoTargets: profile.targetGeos,
+    gscConnected: profile.connectedTools.gsc,
+    gaConnected: profile.connectedTools.ga,
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -21,32 +69,60 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.retryDirective(3000));
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
-        controller.enqueue(encoder.encode('status', { step: 1, total: 3, label: '[1/3] Audit ranking actuel…' }));
-        await delay(400);
+        // Step 1 — Audit rankings (async — fetches from GSC/DataForSEO)
+        controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Audit des positions actuelles…' }));
+        const rankings = await auditRankings(inputs, context.clientProfile.id);
 
-        controller.enqueue(encoder.encode('status', { step: 2, total: 3, label: '[2/3] Scoring Impact / Effort…' }));
-        await delay(300);
+        // Step 2 — Score opportunities
+        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] Scoring Impact/Effort…' }));
+        const opportunities = scoreOpportunities(rankings, inputs);
 
-        controller.enqueue(encoder.encode('status', { step: 3, total: 3, label: '[3/3] Identification des optimisations…' }));
-        await delay(300);
+        // Step 3 — Build + push corrections
+        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Application des corrections CMS…' }));
+        const correctionsApplied = applyAutoCorrections(opportunities, inputs.automationLevel);
+        const correctionsPush = await pushCorrections(
+          correctionsApplied,
+          inputs.automationLevel,
+          profile.cmsType,
+          profile.wordpressCredentials ?? undefined,
+          profile.hubspotCredentials ?? undefined,
+          profile.shopifyCredentials ?? undefined,
+          profile.webflowCredentials ?? undefined,
+        );
+
+        // Step 4 — Alerts
+        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Détection des alertes…' }));
+        const alerts = detectAlerts(rankings, []);
+
+        const output: Opt06Output = {
+          rankings,
+          opportunities,
+          correctionsApplied,
+          correctionsPush,
+          alerts,
+          monitoringActive: true,
+        };
 
         controller.enqueue(encoder.encode('result', {
           bpiOutput: { agent: 'OPT-06', siteUrl },
           brandName: siteUrl,
         }));
 
-        const summary = `## 🚀 Optimiseur SEO OPT-06 — ${siteUrl}\n\nL'analyse des opportunités est prête. Connectez **Google Search Console** pour activer le scoring automatique Impact/Effort sur vos vraies positions.\n\n**Ce que cet agent optimise :**\n- Pages en position 4-15 (fruits mûrs à haute priorité)\n- Corrections automatiques : balises title, meta descriptions, Hn\n- Détection des baisses de ranking (alertes -3 positions / 7 jours)\n- Monitoring continu des positions stratégiques\n- Rapport hebdomadaire d'opportunités\n\n⚠️ Pages > 1 000 visites/mois : validation humaine obligatoire avant toute correction.\n\nConnectez GSC dans les paramètres pour activer l'optimisation automatique.`;
-
-        for (const char of summary) {
+        const text = formatOpt06Report(siteUrl, output);
+        for (const char of text) {
           controller.enqueue(encoder.encode('text-delta', { delta: char }));
-          await delay(6);
         }
 
-        controller.enqueue(encoder.encode('finish', { tokensIn: 0, tokensOut: 0, totalSteps: 3, finishReason: 'stop' }));
+        controller.enqueue(encoder.encode('finish', {
+          tokensIn: 0,
+          tokensOut: 0,
+          totalSteps: 4,
+          finishReason: 'stop',
+        }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erreur interne';
-        controller.enqueue(encoder.encode('error', { message }));
+        console.error('[opt-06]', err);
+        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();
       }
@@ -56,4 +132,78 @@ export async function POST(req: Request) {
   return new Response(stream, { headers: SSE_HEADERS });
 }
 
-const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+// ─── Output formatter ─────────────────────────────────────
+
+function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
+  if (output.rankings.length === 0) {
+    return [
+      `## Optimisation SEO & GEO OPT-06 — ${siteUrl}`,
+      '',
+      'Aucune donnée de ranking disponible. Connectez **Google Search Console** pour activer le suivi des positions.',
+    ].join('\n');
+  }
+
+  const lines: string[] = [
+    `## Optimisation SEO & GEO — ${siteUrl}`,
+    '',
+    `**${output.rankings.length} pages suivies** · ${output.opportunities.length} opportunités détectées · ${output.alerts.length} alertes`,
+    '',
+  ];
+
+  const topOpps = [...output.opportunities]
+    .sort((a, b) => b.priorityScore - a.priorityScore)
+    .slice(0, 8);
+
+  if (topOpps.length > 0) {
+    lines.push('### Opportunités prioritaires (Impact/Effort)');
+    for (const opp of topOpps) {
+      const flag = opp.requiresHumanValidation ? ' — validation humaine requise' : '';
+      lines.push(`- **${opp.keyword}** pos. ${opp.currentPosition} · ${opp.optimizationTargets.join(', ')} · score ${opp.priorityScore}${flag}`);
+    }
+    lines.push('');
+  }
+
+  if (output.alerts.length > 0) {
+    lines.push(`### Alertes (${output.alerts.length})`);
+    for (const alert of output.alerts.slice(0, 5)) {
+      lines.push(`- **${alert.severity.toUpperCase()}** ${alert.message}`);
+    }
+    lines.push('');
+  }
+
+  if (output.correctionsPush) {
+    const push = output.correctionsPush;
+    if (push.applied.length > 0) {
+      lines.push(`### Corrections appliquées au CMS (${push.applied.length})`);
+      for (const log of push.applied.slice(0, 5)) {
+        lines.push(`- ${log.url} — ${log.target}`);
+      }
+      lines.push('');
+    }
+    if (push.pending.length > 0) {
+      lines.push(`### Corrections en attente de validation (${push.pending.length})`);
+      for (const log of push.pending.slice(0, 5)) {
+        lines.push(`- ${log.url} — ${log.target} — validation humaine requise`);
+      }
+      lines.push('');
+    }
+    if (push.failed.length > 0) {
+      lines.push(`### Corrections échouées (${push.failed.length})`);
+      for (const f of push.failed.slice(0, 3)) {
+        lines.push(`- ${f.log.url} — ${f.reason}`);
+      }
+      lines.push('');
+    }
+    if (push.csvExport) {
+      lines.push('> Un export CSV des corrections est disponible pour application manuelle.');
+      lines.push('');
+    }
+  } else if (output.correctionsApplied.length > 0) {
+    lines.push(`### Corrections identifiées (${output.correctionsApplied.length})`);
+    for (const log of output.correctionsApplied.slice(0, 5)) {
+      lines.push(`- ${log.url} — ${log.target}`);
+    }
+  }
+
+  return lines.join('\n');
+}

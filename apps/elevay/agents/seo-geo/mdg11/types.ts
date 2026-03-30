@@ -65,6 +65,8 @@ export interface Mdg11Output {
 
 export const META_LENGTH = { min: 155, max: 160 } as const;
 
+export const MDG11_BATCH_SIZE = 50;
+
 export const PAGE_TYPE_CTA: Record<MetaPageType, string> = {
   homepage: 'Découvrez',
   service:  'Demandez un devis',

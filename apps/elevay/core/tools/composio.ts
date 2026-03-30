@@ -1,6 +1,7 @@
 import { OpenAIToolSet } from 'composio-core';
 import type { ConnectionItem } from 'composio-core';
 import { ToolUnavailableError } from '../types';
+import { requireEnv } from '../../src/lib/env';
 
 // ─── Composio client (singleton) ─────────────────────────
 
@@ -9,7 +10,7 @@ let _toolset: OpenAIToolSet | null = null;
 function getToolset(): OpenAIToolSet {
   if (!_toolset) {
     _toolset = new OpenAIToolSet({
-      apiKey: process.env.COMPOSIO_API_KEY!,
+      apiKey: requireEnv('COMPOSIO_API_KEY'),
     });
   }
   return _toolset;
@@ -19,15 +20,15 @@ function getToolset(): OpenAIToolSet {
 // Each value is a Composio integrationId (not authConfigId)
 
 const INTEGRATIONS = {
-  gsc:     process.env.COMPOSIO_GSC_AUTH_CONFIG_ID!,
-  ga:      process.env.COMPOSIO_GA_AUTH_CONFIG_ID!,
-  sheets:  process.env.COMPOSIO_SHEETS_AUTH_CONFIG_ID!,
-  slack:   process.env.COMPOSIO_SLACK_AUTH_CONFIG_ID!,
-  ahrefs:  process.env.COMPOSIO_AHREFS_AUTH_CONFIG_ID!,
-  semrush: process.env.COMPOSIO_SEMRUSH_AUTH_CONFIG_ID!,
-  hubspot: process.env.COMPOSIO_HUBSPOT_AUTH_CONFIG_ID!,
-  shopify: process.env.COMPOSIO_SHOPIFY_AUTH_CONFIG_ID!,
-} as const;
+  gsc:     requireEnv('COMPOSIO_GSC_AUTH_CONFIG_ID'),
+  ga:      requireEnv('COMPOSIO_GA_AUTH_CONFIG_ID'),
+  sheets:  requireEnv('COMPOSIO_SHEETS_AUTH_CONFIG_ID'),
+  slack:   requireEnv('COMPOSIO_SLACK_AUTH_CONFIG_ID'),
+  ahrefs:  requireEnv('COMPOSIO_AHREFS_AUTH_CONFIG_ID'),
+  semrush: requireEnv('COMPOSIO_SEMRUSH_AUTH_CONFIG_ID'),
+  hubspot: requireEnv('COMPOSIO_HUBSPOT_AUTH_CONFIG_ID'),
+  shopify: requireEnv('COMPOSIO_SHOPIFY_AUTH_CONFIG_ID'),
+};
 
 export type ComposioTool = keyof typeof INTEGRATIONS;
 

@@ -34,9 +34,17 @@ export interface ActionPlan {
   monitor: SeoIssue[];    // watch
 }
 
+export interface Tsi07CorrectionResult {
+  applied: CmsCorrection[];
+  pending: SeoIssue[];
+  failed: { issue: SeoIssue; reason: string }[];
+  csvExport: string | null;
+}
+
 export interface Tsi07Output {
   report: TechnicalAuditReport;
   actionPlan: ActionPlan;
   correctionsApplied: CmsCorrection[];
+  correctionsPush: Tsi07CorrectionResult | null;
   monitoringActive: boolean;
 }

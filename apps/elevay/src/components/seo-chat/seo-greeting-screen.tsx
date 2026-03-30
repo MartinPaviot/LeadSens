@@ -21,7 +21,9 @@ export type SeoAction =
   | "opt-audit"
   | "pio-audit"
   | "mdg-audit"
-  | "alt-audit";
+  | "alt-audit"
+  | "wpw09-create"
+  | "bsw10-create";
 
 const SEO_QUICK_REPLIES: {
   id: string;
@@ -64,6 +66,18 @@ const SEO_QUICK_REPLIES: {
     label: "🖼️ ALT texts images",
     description: "SEO images + accessibilité WCAG",
     action: "alt-audit",
+  },
+  {
+    id: "wpw09",
+    label: "📝 Rédiger une page",
+    description: "Landing, service, about — SEO-optimisé",
+    action: "wpw09-create",
+  },
+  {
+    id: "bsw10",
+    label: "📰 Rédiger un article",
+    description: "Article blog + cluster + calendrier",
+    action: "bsw10-create",
   },
 ];
 

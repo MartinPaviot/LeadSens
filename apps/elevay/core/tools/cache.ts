@@ -1,8 +1,9 @@
 import { Redis } from '@upstash/redis';
+import { requireEnv } from '../../src/lib/env';
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  url: requireEnv('UPSTASH_REDIS_REST_URL'),
+  token: requireEnv('UPSTASH_REDIS_REST_TOKEN'),
 });
 
 // ─── TTL presets (seconds) ────────────────────────────────
@@ -39,6 +40,10 @@ export const cacheKey = {
     `session:${sessionId}:${key}`,
 } as const;
 
+// ─── Error tracking ──────────────────────────────────────
+
+let cacheErrorCount = 0;
+
 // ─── Core operations ──────────────────────────────────────
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
@@ -58,9 +63,12 @@ export async function cacheSet<T>(
 ): Promise<void> {
   try {
     await redis.set(key, value, { ex: ttlSeconds });
+    cacheErrorCount = 0; // reset on success
   } catch {
-    // Cache write failure is non-blocking — log but never throw
-    console.warn(`[cache] Failed to write key: ${key}`);
+    cacheErrorCount++;
+    if (cacheErrorCount % 10 === 0) {
+      console.error(`[cache] ${cacheErrorCount} Redis write failures — check Upstash connection`);
+    }
   }
 }
 

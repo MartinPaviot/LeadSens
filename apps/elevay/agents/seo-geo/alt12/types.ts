@@ -61,6 +61,7 @@ export interface Alt12Output {
 }
 
 export const ALT_LENGTH = { min: 50, max: 125 } as const;
+export const ALT12_BATCH_SIZE = 30;
 
 export const IMAGE_TYPE_PATTERNS: Record<ImageType, string[]> = {
   product:    ['product', 'produit', 'shop', 'item', 'article'],

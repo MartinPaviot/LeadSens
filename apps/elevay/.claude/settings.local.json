@@ -105,7 +105,13 @@
       "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/node_modules/composio-core/dist -name *.d.ts -type f)",
       "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/agents -name *.ts -o -name *.tsx)",
       "Bash(grep -r \"from.*core/tools/composio\\\\|import.*composio\" /c/Users/ombel/LeadSens-1/apps/elevay/agents --include=*.ts --include=*.tsx)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(source .env.local)",
+      "Bash(source .env)",
+      "Bash(for dir:*)",
+      "Bash(do echo:*)",
+      "Bash(find agents/seo-geo -type f -name *.ts)",
+      "Bash(find C:UsersombelLeadSens-1appselevay -type f -path */core/tools/export*)"
     ]
   }
 }

@@ -22,7 +22,7 @@ export interface Bsw10Inputs {
   targetKeywords?: string[];
   internalLinksAvailable: string[];
   cta: string;
-  cmsType: 'wordpress' | 'hubspot' | 'shopify' | 'other';
+  cmsType: 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'other';
   calendarDuration?: 30 | 60 | 90;
   kga08Context?: KwScore[];
 }
@@ -65,6 +65,7 @@ export interface Bsw10Output {
   clusterArchitecture?: ClusterArchitecture;
   editorialCalendar?: CalendarEntry[];
   exportReady: boolean;
+  wpDraftUrl?: string;
 }
 
 export const ARTICLE_WORD_COUNT: Record<ArticleFormat, { min: number; max: number }> = {

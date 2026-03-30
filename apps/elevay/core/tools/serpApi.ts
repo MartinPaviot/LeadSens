@@ -1,7 +1,9 @@
 import { ToolUnavailableError } from '../types';
 import { cacheGetOrFetch, cacheKey, TTL } from './cache';
+import { requireEnv } from '../../src/lib/env';
 
 const SERPAPI_BASE = 'https://serpapi.com/search.json';
+const SERPAPI_KEY = requireEnv('SERPAPI_KEY');
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -24,15 +26,21 @@ export interface AiOverviewResult {
 
 async function fetchSerp(params: Record<string, string>): Promise<unknown> {
   const url = new URL(SERPAPI_BASE);
-  url.searchParams.set('api_key', process.env.SERPAPI_KEY!);
+  url.searchParams.set('api_key', SERPAPI_KEY);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!res.ok) {
-    throw new Error(`SerpAPI HTTP ${res.status}`);
+    throw new Error('SerpAPI request failed: HTTP ' + res.status);
   }
+
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('json')) throw new Error('SerpAPI returned non-JSON response: HTTP ' + res.status);
+
   return res.json();
 }
 

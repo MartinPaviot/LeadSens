@@ -1,3 +1,4 @@
+import { kga08InputSchema } from '../schemas';
 import { AgentContext, AgentSession } from '../../../core/types';
 import { Kga08Inputs, Kga08Output } from './types';
 import {
@@ -17,6 +18,7 @@ export async function activate(
   inputs: Kga08Inputs,
   seedKeywords: string[],
 ): Promise<AgentSession> {
+  kga08InputSchema.parse(inputs);
   const session: AgentSession = {
     sessionId: context.sessionId,
     agentCode: 'AGT-SEO-KGA-08',
@@ -34,7 +36,7 @@ export async function activate(
   });
 
   // Step 2 — Expand KW research
-  const expanded = await expandKeywords(inputs, seedKeywords);
+  const expanded = await expandKeywords(inputs, seedKeywords, context.clientProfile.id);
   session.steps.push({
     id: 'expand_kw',
     name: 'Expansion mots-clés par GEO',
@@ -66,15 +68,19 @@ export async function activate(
   session.steps.push({ id: 'action_plan', name: "Plan d'action 90 jours", status: 'done' });
 
   // Step 6 — GBP audit (optional)
-  const gbpAudit = inputs.gbpId ? buildGbpAudit(inputs.gbpId) : undefined;
+  const gbpAudit = inputs.gbpId ? await buildGbpAudit(inputs.gbpId, inputs) : undefined;
   if (inputs.gbpId) {
     session.steps.push({ id: 'gbp', name: 'Audit Google Business Profile', status: 'done' });
   }
 
   // Step 7 — Hreflang plan (optional)
-  const hreflangPlan = buildHreflangPlan(inputs);
+  const hreflangPlan = await buildHreflangPlan(inputs);
   if (inputs.multiCountry) {
-    session.steps.push({ id: 'hreflang', name: 'Plan architecture hreflang', status: 'done' });
+    session.steps.push({
+      id: 'hreflang',
+      name: `Plan architecture hreflang (${hreflangPlan.errors.length} erreur${hreflangPlan.errors.length !== 1 ? 's' : ''})`,
+      status: 'done',
+    });
   }
 
   const output: Kga08Output = {

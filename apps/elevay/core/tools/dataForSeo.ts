@@ -1,11 +1,12 @@
 import { ToolUnavailableError } from '../types';
 import { cacheGetOrFetch, cacheKey, TTL } from './cache';
+import { requireEnv } from '../../src/lib/env';
 
 const DATAFORSEO_BASE = 'https://api.dataforseo.com/v3';
 
 function basicAuth(): string {
-  const login = process.env.DATAFORSEO_LOGIN!;
-  const password = process.env.DATAFORSEO_PASSWORD!;
+  const login = requireEnv('DATAFORSEO_LOGIN');
+  const password = requireEnv('DATAFORSEO_PASSWORD');
   return 'Basic ' + Buffer.from(`${login}:${password}`).toString('base64');
 }
 
@@ -20,16 +21,20 @@ async function dataForSeoPost<T>(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {
-    throw new Error(`DataForSEO ${endpoint} — HTTP ${res.status}`);
+    throw new Error(`DataForSEO API failed: HTTP ${res.status}`);
   }
+
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('json')) throw new Error('DataForSEO API returned non-JSON response: HTTP ' + res.status);
 
   const json = await res.json() as { status_code: number; tasks: { result: T }[] };
 
   if (json.status_code !== 20000) {
-    throw new Error(`DataForSEO ${endpoint} — status ${json.status_code}`);
+    throw new Error(`DataForSEO API failed: status ${json.status_code}`);
   }
 
   return json.tasks[0]?.result ?? ([] as unknown as T);
@@ -55,6 +60,7 @@ export interface CrawlResult {
   metaDescription?: string;
   internalLinks: string[];
   issues: string[];
+  crawlNote?: string;
 }
 
 // ─── Keyword Data API ─────────────────────────────────────
@@ -143,6 +149,10 @@ export async function crawlSite(siteUrl: string): Promise<CrawlResult[]> {
         [{ id: taskId, limit: 100 }],
       );
 
+      const crawlNote = pages.length >= 100
+        ? `Audit partiel — 100 pages analysées. Le site peut contenir davantage de pages.`
+        : undefined;
+
       return pages.map((p) => ({
         url: p.url,
         statusCode: p.status_code,
@@ -152,6 +162,7 @@ export async function crawlSite(siteUrl: string): Promise<CrawlResult[]> {
         metaDescription: p.meta?.description,
         internalLinks: [],
         issues: (p.resource_errors ?? []).map((e) => e.error_message),
+        crawlNote,
       }));
     } catch (err) {
       if (err instanceof ToolUnavailableError) throw err;
@@ -204,6 +215,7 @@ export async function getRankings(
     });
 
     results[keyword] = position;
+    await delay(150);
   }
 
   return results;
@@ -217,8 +229,9 @@ async function pollUntilReady(
   maxSeconds: number,
 ): Promise<void> {
   const start = Date.now();
+  let delayMs = 2000;
   while (Date.now() - start < maxSeconds * 1000) {
-    await delay(2000);
+    await delay(delayMs);
     try {
       type SummaryResult = { crawl_progress: string }[];
       const summary = await dataForSeoPost<SummaryResult>(
@@ -226,11 +239,12 @@ async function pollUntilReady(
         [{ id: taskId }],
       );
       if (summary[0]?.crawl_progress === 'finished') return;
-    } catch {
-      // continue polling
+    } catch (err) {
+      if (err instanceof Error && /HTTP [4]\d\d/.test(err.message)) break;
     }
+    delayMs = Math.min(delayMs * 2, 16_000);
   }
-  throw new Error(`DataForSEO task ${taskId} timed out after ${maxSeconds}s`);
+  throw new Error(`DataForSEO task timed out after ${maxSeconds}s`);
 }
 
 function geoToLocation(geo: string): string {

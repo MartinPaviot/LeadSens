@@ -65,10 +65,18 @@ export interface MonitoringAlert {
   triggeredAt: Date;
 }
 
+export interface CorrectionPushResult {
+  applied: OptimizationLog[];
+  pending: OptimizationLog[];
+  failed: { log: OptimizationLog; reason: string }[];
+  csvExport: string | null;
+}
+
 export interface Opt06Output {
   rankings: PageRanking[];
   opportunities: OptimizationOpportunity[];
   correctionsApplied: OptimizationLog[];
+  correctionsPush: CorrectionPushResult | null;
   alerts: MonitoringAlert[];
   monitoringActive: boolean;
 }

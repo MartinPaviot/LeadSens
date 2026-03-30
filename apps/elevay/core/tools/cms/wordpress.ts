@@ -39,6 +39,9 @@ async function wpFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!creds.siteUrl || !creds.siteUrl.startsWith('http')) {
+    throw new Error('WordPress siteUrl must be a valid URL starting with http');
+  }
   const base = creds.siteUrl.replace(/\/$/, '');
   const res = await fetch(`${base}/wp-json/wp/v2${path}`, {
     ...options,
@@ -47,11 +50,15 @@ async function wpFetch<T>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {
-    throw new Error(`WordPress API ${path} — HTTP ${res.status}`);
+    throw new Error(`WordPress API failed: HTTP ${res.status}`);
   }
+
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('json')) throw new Error('WordPress API returned non-JSON response: HTTP ' + res.status);
 
   return res.json() as Promise<T>;
 }
@@ -132,6 +139,90 @@ export async function wpGetPosts(
   }
 }
 
+// ─── Create page as draft ────────────────────────────────
+
+export async function wpCreatePage(
+  creds: WordPressCredentials,
+  title: string,
+  content: string,
+  metaTitle?: string,
+  metaDescription?: string,
+): Promise<{ id: number; url: string; editUrl: string }> {
+  try {
+    type RawPage = { id: number; link: string };
+    const page = await wpFetch<RawPage>(
+      creds,
+      '/pages',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          content,
+          status: 'draft',
+          ...(metaTitle || metaDescription ? {
+            meta: {
+              ...(metaTitle ? { _yoast_wpseo_title: metaTitle } : {}),
+              ...(metaDescription ? { _yoast_wpseo_metadesc: metaDescription } : {}),
+            },
+          } : {}),
+        }),
+      },
+    );
+
+    const base = creds.siteUrl.replace(/\/$/, '');
+    return {
+      id: page.id,
+      url: page.link,
+      editUrl: `${base}/wp-admin/post.php?post=${page.id}&action=edit`,
+    };
+  } catch (err) {
+    if (err instanceof ToolUnavailableError) throw err;
+    throw new ToolUnavailableError('wordpress:createPage', 'core/tools/cms');
+  }
+}
+
+// ─── Create post as draft ────────────────────────────────
+
+export async function wpCreatePost(
+  creds: WordPressCredentials,
+  title: string,
+  content: string,
+  metaTitle?: string,
+  metaDescription?: string,
+): Promise<{ id: number; url: string; editUrl: string }> {
+  try {
+    type RawPost = { id: number; link: string };
+    const post = await wpFetch<RawPost>(
+      creds,
+      '/posts',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          content,
+          status: 'draft',
+          ...(metaTitle || metaDescription ? {
+            meta: {
+              ...(metaTitle ? { _yoast_wpseo_title: metaTitle } : {}),
+              ...(metaDescription ? { _yoast_wpseo_metadesc: metaDescription } : {}),
+            },
+          } : {}),
+        }),
+      },
+    );
+
+    const base = creds.siteUrl.replace(/\/$/, '');
+    return {
+      id: post.id,
+      url: post.link,
+      editUrl: `${base}/wp-admin/post.php?post=${post.id}&action=edit`,
+    };
+  } catch (err) {
+    if (err instanceof ToolUnavailableError) throw err;
+    throw new ToolUnavailableError('wordpress:createPost', 'core/tools/cms');
+  }
+}
+
 // ─── Update meta (Yoast SEO) ──────────────────────────────
 
 export async function wpUpdateMeta(
@@ -168,6 +259,42 @@ export async function wpUpdateMeta(
   } catch (err) {
     if (err instanceof ToolUnavailableError) throw err;
     throw new ToolUnavailableError('wordpress:updateMeta', 'core/tools/cms');
+  }
+}
+
+// ─── Update canonical (Yoast SEO) ───────────────────────
+
+export async function wpUpdateCanonical(
+  creds: WordPressCredentials,
+  pageId: number,
+  canonicalUrl: string,
+  postType: 'pages' | 'posts' = 'pages',
+): Promise<CmsCorrection> {
+  try {
+    await wpFetch(
+      creds,
+      `/${postType}/${pageId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          meta: {
+            _yoast_wpseo_canonical: canonicalUrl,
+          },
+        }),
+      },
+    );
+
+    return {
+      url: `${creds.siteUrl}/?p=${pageId}`,
+      field: 'canonical',
+      oldValue: '',
+      newValue: canonicalUrl,
+      autoFixable: true,
+      appliedAt: new Date(),
+    };
+  } catch (err) {
+    if (err instanceof ToolUnavailableError) throw err;
+    throw new ToolUnavailableError('wordpress:updateCanonical', 'core/tools/cms');
   }
 }
 

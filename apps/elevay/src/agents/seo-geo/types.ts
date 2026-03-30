@@ -5,6 +5,27 @@ export type SeoCmsType = 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'othe
 export type SeoGeoLevel = 'national' | 'regional' | 'city' | 'multi-geo';
 export type SeoAlertChannel = 'slack' | 'email' | 'report';
 
+export interface WordPressCredentials {
+  siteUrl: string;
+  username: string;
+  applicationPassword: string;
+}
+
+export interface HubSpotCredentials {
+  portalId: string;
+  accessToken: string;
+}
+
+export interface ShopifyCredentials {
+  storeDomain: string;
+  accessToken: string;
+}
+
+export interface WebflowCredentials {
+  accessToken: string;
+  siteId?: string;
+}
+
 export interface SeoAgentProfile {
   siteUrl: string;
   cmsType: SeoCmsType;
@@ -19,6 +40,10 @@ export interface SeoAgentProfile {
     ahrefs: boolean;
     semrush: boolean;
   };
+  wordpressCredentials?: WordPressCredentials;
+  hubspotCredentials?: HubSpotCredentials;
+  shopifyCredentials?: ShopifyCredentials;
+  webflowCredentials?: WebflowCredentials;
 }
 
 export interface SeoAgentOutput<T> {

@@ -1,7 +1,9 @@
 import { ToolUnavailableError } from '../types';
 import { cacheGetOrFetch, cacheKey, TTL } from './cache';
+import { requireEnv } from '../../src/lib/env';
 
 const PAGESPEED_BASE = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
+const PAGESPEED_API_KEY = requireEnv('GOOGLE_PAGESPEED_API_KEY');
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -35,13 +37,18 @@ export async function getCoreWebVitals(
       const endpoint = new URL(PAGESPEED_BASE);
       endpoint.searchParams.set('url', url);
       endpoint.searchParams.set('strategy', strategy);
-      endpoint.searchParams.set('key', process.env.GOOGLE_PAGESPEED_API_KEY!);
+      endpoint.searchParams.set('key', PAGESPEED_API_KEY);
       endpoint.searchParams.set('category', 'performance');
 
-      const res = await fetch(endpoint.toString());
+      const res = await fetch(endpoint.toString(), {
+        signal: AbortSignal.timeout(30_000),
+      });
       if (!res.ok) {
-        throw new Error(`PageSpeed HTTP ${res.status}`);
+        throw new Error('PageSpeed API failed: HTTP ' + res.status);
       }
+
+      const ct = res.headers.get('content-type') ?? '';
+      if (!ct.includes('json')) throw new Error('PageSpeed API returned non-JSON response: HTTP ' + res.status);
 
       const data = await res.json() as PageSpeedRawResponse;
       return parsePageSpeedResponse(url, strategy, data);

@@ -40,6 +40,7 @@ export interface Wpw09PageOutput {
   imageRecommendations: { description: string; altText: string }[];
   wordCount: number;
   exportReady: boolean;
+  wpDraftUrl?: string;
 }
 
 export interface WordCountRange {

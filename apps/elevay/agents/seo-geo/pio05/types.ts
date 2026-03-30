@@ -82,6 +82,9 @@ export interface Pio05Output {
   competitorIntelligence: CompetitorIntelligence[];
   recommendationsForOpt06: string[];
   recommendationsForContent: string[];
+  sheetsUrl?: string;
+  pdfHtml?: string;
+  nextRunAt?: Date;
 }
 
 export const LLM_AXIS_WEIGHTS: Record<LlmCitabilityAxis, number> = {

@@ -1,5 +1,17 @@
 import { auth } from '@/lib/auth';
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
+import { agentRouteSchema } from '@/lib/schemas/seo-routes';
+import { checkRateLimit } from '@/lib/rate-limit';
+import type { AgentContext } from '../../../../../../core/types';
+import {
+  runCrawl,
+  fetchGscData,
+  classifyIssues,
+  buildReport,
+  buildActionPlan,
+  pushTsi07Corrections,
+} from '../../../../../../agents/seo-geo/tsi07/workflow';
+import type { Tsi07Inputs, TechnicalAuditReport, ActionPlan, Tsi07CorrectionResult } from '../../../../../../agents/seo-geo/tsi07/types';
 
 export const maxDuration = 60;
 
@@ -7,13 +19,49 @@ export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return new Response('Unauthorized', { status: 401 });
 
-  const { conversationId, siteUrl } = await req.json() as {
-    conversationId: string;
-    siteUrl: string;
-  };
+  // Rate limit
+  const rl = await checkRateLimit(session.user.id, 'tsi-07');
+  if (!rl.allowed) {
+    return Response.json(
+      { error: 'Rate limit exceeded', retryAfter: rl.retryAfter },
+      { status: 429 },
+    );
+  }
+
+  const parsed = agentRouteSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
+  }
+  const { conversationId, siteUrl, profile } = parsed.data;
 
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
+
+  const context: AgentContext = {
+    clientProfile: {
+      id: session.user.id,
+      siteUrl: profile.siteUrl,
+      cmsType: profile.cmsType,
+      automationLevel: profile.automationLevel,
+      geoLevel: profile.geoLevel,
+      targetGeos: profile.targetGeos,
+      priorityPages: profile.priorityPages,
+      alertChannels: profile.alertChannels,
+      connectedTools: profile.connectedTools,
+    },
+    sessionId: streamId,
+    triggeredBy: 'user',
+  };
+
+  const inputs: Tsi07Inputs = {
+    siteUrl,
+    cmsType: profile.cmsType,
+    automationLevel: profile.automationLevel,
+    priorityPages: profile.priorityPages,
+    alertChannel: profile.alertChannels[0] ?? 'report',
+    gscConnected: profile.connectedTools.gsc,
+    gaConnected: profile.connectedTools.ga,
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -21,32 +69,53 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.retryDirective(3000));
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
-        controller.enqueue(encoder.encode('status', { step: 1, total: 3, label: '[1/3] Crawl du site en cours…' }));
-        await delay(400);
+        // Step 1 — Crawl
+        controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawl du site en cours…' }));
+        const crawlStep = await runCrawl(inputs);
 
-        controller.enqueue(encoder.encode('status', { step: 2, total: 3, label: '[2/3] Classification des erreurs…' }));
-        await delay(300);
+        // Step 2 — GSC (optional)
+        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] Analyse Google Search Console…' }));
+        await fetchGscData(inputs, session.user.id);
 
-        controller.enqueue(encoder.encode('status', { step: 3, total: 3, label: '[3/3] Génération du rapport…' }));
-        await delay(300);
+        // Step 3 — Classify + report
+        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classification et rapport…' }));
+        const crawlResults = crawlStep.data ?? [];
+        const issues = classifyIssues(crawlResults);
+        const report = buildReport(siteUrl, crawlResults, issues);
+        const actionPlan = buildActionPlan(issues);
+
+        // Step 4 — CMS corrections push
+        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Application des corrections CMS…' }));
+        const correctionsPush = await pushTsi07Corrections(
+          issues,
+          inputs.automationLevel,
+          profile.cmsType,
+          profile.wordpressCredentials ?? undefined,
+          profile.hubspotCredentials ?? undefined,
+          profile.shopifyCredentials ?? undefined,
+          profile.webflowCredentials ?? undefined,
+        );
 
         controller.enqueue(encoder.encode('result', {
           bpiOutput: { agent: 'TSI-07', siteUrl },
           brandName: siteUrl,
         }));
 
-        const summary = `## 🔍 Audit Technique TSI-07 — ${siteUrl}\n\nL'audit de votre site est prêt. Connectez **Google Search Console** pour un rapport complet avec données réelles d'indexation, Core Web Vitals et couverture des pages.\n\n**Ce que cet agent analyse :**\n- Erreurs de crawl et pages bloquées\n- Balises canoniques et redirections\n- Vitesse de chargement (Core Web Vitals)\n- Structure des URLs et profondeur d'indexation\n- Sitemap et robots.txt\n\nConnectez GSC dans les paramètres pour activer l'analyse complète.`;
-
-        for (const char of summary) {
+        const text = formatTsi07Report(siteUrl, report, actionPlan, crawlStep.status, correctionsPush);
+        for (const char of text) {
           controller.enqueue(encoder.encode('text-delta', { delta: char }));
-          await delay(6);
         }
 
-        controller.enqueue(encoder.encode('finish', { tokensIn: 0, tokensOut: 0, totalSteps: 3, finishReason: 'stop' }));
+        controller.enqueue(encoder.encode('finish', {
+          tokensIn: 0,
+          tokensOut: 0,
+          totalSteps: 4,
+          finishReason: 'stop',
+        }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Erreur interne';
-        controller.enqueue(encoder.encode('error', { message }));
+        console.error('[tsi-07]', err);
+        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();
       }
@@ -56,4 +125,99 @@ export async function POST(req: Request) {
   return new Response(stream, { headers: SSE_HEADERS });
 }
 
-const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+// ─── Output formatter ─────────────────────────────────────
+
+function formatTsi07Report(
+  siteUrl: string,
+  report: TechnicalAuditReport,
+  plan: ActionPlan,
+  crawlStatus: string,
+  correctionsPush?: Tsi07CorrectionResult | null,
+): string {
+  if (crawlStatus === 'error') {
+    return [
+      `## Audit Technique TSI-07 — ${siteUrl}`,
+      '',
+      'Le crawl a échoué — DataForSEO indisponible. Vérifiez vos variables d\'environnement `DATAFORSEO_LOGIN` et `DATAFORSEO_PASSWORD`.',
+    ].join('\n');
+  }
+
+  const lines: string[] = [
+    `## Audit Technique — ${siteUrl}`,
+    '',
+    `**${report.crawlSummary.totalUrls} pages analysées** — ${report.crawlSummary.indexable} indexables · ${report.crawlSummary.blocked} bloquées · ${report.crawlSummary.errors} erreurs`,
+    `Score automatisable : **${report.autoFixableCount} corrections** applicables sans validation humaine`,
+    '',
+  ];
+
+  if (plan.immediate.length > 0) {
+    lines.push(`### Problèmes critiques (${plan.immediate.length})`);
+    for (const issue of plan.immediate.slice(0, 10)) {
+      lines.push(`- **${issue.type}** — ${issue.description}`);
+      lines.push(`  → ${issue.recommendedAction}`);
+    }
+    if (plan.immediate.length > 10) {
+      lines.push(`  _+ ${plan.immediate.length - 10} autres problèmes critiques_`);
+    }
+    lines.push('');
+  }
+
+  if (plan.thisWeek.length > 0) {
+    lines.push(`### Actions cette semaine (${plan.thisWeek.length})`);
+    for (const issue of plan.thisWeek.slice(0, 8)) {
+      lines.push(`- ${issue.description}`);
+    }
+    if (plan.thisWeek.length > 8) {
+      lines.push(`  _+ ${plan.thisWeek.length - 8} autres_`);
+    }
+    lines.push('');
+  }
+
+  if (plan.thisMonth.length > 0) {
+    lines.push(`### Ce mois (${plan.thisMonth.length} pages sans meta description)`);
+    lines.push(`Utilisez **MDG-11** pour générer les meta descriptions manquantes en lot.`);
+    lines.push('');
+  }
+
+  if (plan.immediate.length === 0 && plan.thisWeek.length === 0 && plan.thisMonth.length === 0) {
+    lines.push('### Aucun problème détecté');
+    lines.push('Votre site ne présente pas d\'erreurs techniques majeures. Continuez à surveiller régulièrement.');
+  }
+
+  // Show correction results
+  if (correctionsPush) {
+    if (correctionsPush.applied.length > 0) {
+      lines.push(`### Corrections appliquées (${correctionsPush.applied.length})`);
+      for (const c of correctionsPush.applied.slice(0, 5)) {
+        lines.push(`- ${c.url} — ${c.field}`);
+      }
+      if (correctionsPush.applied.length > 5) {
+        lines.push(`  _+ ${correctionsPush.applied.length - 5} autres corrections_`);
+      }
+      lines.push('');
+    }
+    if (correctionsPush.pending.length > 0) {
+      lines.push(`### En attente de validation (${correctionsPush.pending.length})`);
+      for (const p of correctionsPush.pending.slice(0, 5)) {
+        lines.push(`- ${p.url} — ${p.type}`);
+      }
+      if (correctionsPush.pending.length > 5) {
+        lines.push(`  _+ ${correctionsPush.pending.length - 5} autres en attente_`);
+      }
+      lines.push('');
+    }
+    if (correctionsPush.failed.length > 0) {
+      lines.push(`### Corrections échouées (${correctionsPush.failed.length})`);
+      for (const f of correctionsPush.failed.slice(0, 5)) {
+        lines.push(`- ${f.issue.url} — ${f.reason}`);
+      }
+      lines.push('');
+    }
+    if (correctionsPush.csvExport) {
+      lines.push('> Export CSV disponible pour les corrections non appliquées automatiquement.');
+      lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}

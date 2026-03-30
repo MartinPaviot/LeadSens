@@ -1,6 +1,8 @@
 import { GracefulFallback } from '../../../core/types';
 import { getKeywordData } from '../../../core/tools/dataForSeo';
 import { getSerp } from '../../../core/tools/serpApi';
+import { semrushGetRelatedKeywords, semrushGetPhraseQuestions } from '../../../core/tools/semrush';
+import { isToolConnected } from '../../../core/tools/composio';
 import {
   Bsw10Inputs,
   ArticleStructure,
@@ -27,17 +29,48 @@ const FALLBACKS: GracefulFallback[] = [
 export async function fetchKeywordsAndPaa(
   inputs: Bsw10Inputs,
   geo: string,
+  userId: string,
 ): Promise<string[]> {
   if (inputs.targetKeywords && inputs.targetKeywords.length > 0) {
     return inputs.targetKeywords;
   }
+
+  let baseKeywords: string[];
   try {
     const seed = inputs.topic.split(' ').slice(0, 3).join(' ');
     const data = await getKeywordData([seed], geo);
-    return data.slice(0, 10).map((k) => k.keyword);
+    baseKeywords = data.slice(0, 10).map((k) => k.keyword);
   } catch {
-    return [inputs.topic];
+    baseKeywords = [inputs.topic];
   }
+
+  // Enrich with SEMrush related keywords + PAA questions if connected
+  const semrushConnected = await isToolConnected('semrush', userId);
+
+  if (semrushConnected) {
+    try {
+      const [related, questions] = await Promise.allSettled([
+        semrushGetRelatedKeywords(inputs.topic, geo, userId, 10),
+        semrushGetPhraseQuestions(inputs.topic, geo, userId, 10),
+      ]);
+
+      if (related.status === 'fulfilled') {
+        for (const kw of related.value.map((k) => k.keyword)) {
+          if (!baseKeywords.includes(kw)) baseKeywords.push(kw);
+        }
+      }
+
+      if (questions.status === 'fulfilled') {
+        for (const q of questions.value) {
+          if (!baseKeywords.includes(q)) baseKeywords.push(q);
+        }
+      }
+    } catch {
+      // SEMrush enrichment failed — keep DataForSEO keywords
+    }
+  }
+
+  return baseKeywords;
 }
 
 export async function benchmarkCompetitors(keyword: string, geo: string) {

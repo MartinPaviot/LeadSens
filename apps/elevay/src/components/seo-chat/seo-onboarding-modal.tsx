@@ -33,6 +33,9 @@ type StepInputs = {
   alertSlack: boolean;
   alertEmail: boolean;
   alertReport: boolean;
+  wpSiteUrl: string;
+  wpUsername: string;
+  wpAppPassword: string;
 };
 
 const EMPTY_INPUTS: StepInputs = {
@@ -47,13 +50,15 @@ const EMPTY_INPUTS: StepInputs = {
   alertSlack: false,
   alertEmail: false,
   alertReport: true,
+  wpSiteUrl: '',
+  wpUsername: '',
+  wpAppPassword: '',
 };
-
-const TOTAL_STEPS = 8;
 
 const STEP_LABELS: Record<string, string> = {
   site_url: 'URL du site',
   cms: 'CMS',
+  wordpress_credentials: 'WordPress',
   tools_connection: 'Connexion outils',
   automation_level: 'Automatisation',
   geo: 'Dimension GEO',
@@ -62,10 +67,16 @@ const STEP_LABELS: Record<string, string> = {
   confirmation: 'Confirmation',
 };
 
-const STEP_ORDER = [
-  'site_url', 'cms', 'tools_connection', 'automation_level',
-  'geo', 'priority_pages', 'alert_channel', 'confirmation',
-] as const;
+function buildStepOrder(cms: string): string[] {
+  const base = [
+    'site_url', 'cms', 'tools_connection', 'automation_level',
+    'geo', 'priority_pages', 'alert_channel', 'confirmation',
+  ];
+  if (cms.toLowerCase().includes('wordpress') || cms.toLowerCase().includes('wp')) {
+    base.splice(2, 0, 'wordpress_credentials');
+  }
+  return base;
+}
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -147,6 +158,8 @@ function isStepValid(step: string, inputs: StepInputs): boolean {
       return true; // optional
     case 'alert_channel':
       return true; // report is default
+    case 'wordpress_credentials':
+      return true; // always optional — can skip
     case 'confirmation':
       return true;
     default:
@@ -165,6 +178,8 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
   const [inputs, setInputs] = useState<StepInputs>(EMPTY_INPUTS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Client-only step overlay — 'wordpress_credentials' is not an API step
+  const [localOverrideStep, setLocalOverrideStep] = useState<'wordpress_credentials' | null>(null);
 
   // ─── Start on open ────────────────────────────────────
 
@@ -197,8 +212,15 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
   // ─── Answer handler ───────────────────────────────────
 
   const handleNext = useCallback(async (skipAnswer?: string) => {
-    if (!currentState || !currentQuestion) return;
     if (isLoading) return;
+
+    // wordpress_credentials is client-only — just clear the override and advance
+    if (localOverrideStep === 'wordpress_credentials') {
+      setLocalOverrideStep(null);
+      return;
+    }
+
+    if (!currentState || !currentQuestion) return;
 
     const answer = skipAnswer ?? buildAnswer(currentState.currentStep, inputs);
 
@@ -228,6 +250,14 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
           priorityPages: p.priorityPages,
           alertChannels: p.alertChannels as SeoAlertChannel[],
           connectedTools: p.connectedTools,
+          wordpressCredentials:
+            inputs.wpSiteUrl && inputs.wpUsername && inputs.wpAppPassword
+              ? {
+                  siteUrl: inputs.wpSiteUrl,
+                  username: inputs.wpUsername,
+                  applicationPassword: inputs.wpAppPassword,
+                }
+              : undefined,
         };
         localStorage.setItem('elevay_seo_profile', JSON.stringify(profile));
         onComplete(profile);
@@ -235,6 +265,10 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         setHistory((prev) => [...prev, { state: currentState, question: currentQuestion, inputs }]);
         setCurrentState(data.state);
         setCurrentQuestion(data.question);
+        // Insert client-only wordpress_credentials step before tools_connection for WP users
+        if (data.state.currentStep === 'tools_connection' && inputs.cms.toLowerCase() === 'wordpress') {
+          setLocalOverrideStep('wordpress_credentials');
+        }
         setInputs(EMPTY_INPUTS);
       }
     } catch (err) {
@@ -242,11 +276,23 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
     } finally {
       setIsLoading(false);
     }
-  }, [currentState, currentQuestion, inputs, isLoading, onComplete]);
+  }, [currentState, currentQuestion, inputs, isLoading, localOverrideStep, onComplete]);
 
   // ─── Back handler ─────────────────────────────────────
 
   const handleBack = useCallback(() => {
+    if (localOverrideStep === 'wordpress_credentials') {
+      // Go back to cms — pop the history entry we pushed when entering wp step
+      const prev = history[history.length - 1];
+      if (!prev) return;
+      setHistory((h) => h.slice(0, -1));
+      setCurrentState(prev.state);
+      setCurrentQuestion(prev.question);
+      setInputs(prev.inputs);
+      setLocalOverrideStep(null);
+      setError(null);
+      return;
+    }
     const prev = history[history.length - 1];
     if (!prev) return;
     setHistory((h) => h.slice(0, -1));
@@ -254,12 +300,14 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
     setCurrentQuestion(prev.question);
     setInputs(prev.inputs);
     setError(null);
-  }, [history]);
+  }, [history, localOverrideStep]);
 
   // ─── Derived ──────────────────────────────────────────
 
-  const currentStep = currentState?.currentStep ?? 'site_url';
-  const stepIndex = STEP_ORDER.indexOf(currentStep as typeof STEP_ORDER[number]);
+  const stepOrder = buildStepOrder(inputs.cms);
+  const TOTAL_STEPS = stepOrder.length;
+  const currentStep: string = localOverrideStep ?? (currentState?.currentStep ?? 'site_url');
+  const stepIndex = stepOrder.indexOf(currentStep);
   const stepNumber = stepIndex + 1;
   const stepLabel = STEP_LABELS[currentStep] ?? '';
   const canGoBack = history.length > 0;
@@ -309,6 +357,45 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
                 </button>
               ))}
             </div>
+          </div>
+        );
+
+      case 'wordpress_credentials':
+        return (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
+              Connectez WordPress pour injecter metas, ALT texts et redirections directement.
+              <span className="block mt-1 font-medium" style={{ color: '#17c3b2' }}>
+                Optionnel — cliquez sur Passer pour continuer sans connecter.
+              </span>
+            </p>
+            <input
+              type="url"
+              placeholder="https://monsite.fr"
+              value={inputs.wpSiteUrl}
+              onChange={(e) => setInputs((p) => ({ ...p, wpSiteUrl: e.target.value }))}
+              className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+            <input
+              type="text"
+              placeholder="Nom d'utilisateur WordPress"
+              value={inputs.wpUsername}
+              onChange={(e) => setInputs((p) => ({ ...p, wpUsername: e.target.value }))}
+              className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+            <input
+              type="password"
+              placeholder="Application Password (WP Admin → Utilisateurs → Profil)"
+              value={inputs.wpAppPassword}
+              onChange={(e) => setInputs((p) => ({ ...p, wpAppPassword: e.target.value }))}
+              className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+              style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+            />
+            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              Générez un Application Password depuis WP Admin → Utilisateurs → Profil → Application Passwords
+            </p>
           </div>
         );
 
@@ -570,7 +657,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
           </div>
 
           <div className="flex items-center gap-2">
-            {!isRequired && currentStep !== 'confirmation' && (
+            {(!isRequired || currentStep === 'wordpress_credentials') && currentStep !== 'confirmation' && (
               <Button
                 variant="ghost"
                 onClick={() => void handleNext(currentQuestion?.skipLabel ? 'je ne sais pas' : '')}

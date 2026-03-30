@@ -21,10 +21,18 @@ import {
   streamPio05Audit,
   streamMdg11Audit,
   streamAlt12Audit,
+  streamWpw09Page,
+  streamBsw10Article,
 } from "@/agents/seo-geo/client";
 import type { SeoAgentProfile } from "@/agents/seo-geo/types";
 import { SeoGreetingScreen, type SeoAction } from "./seo-greeting-screen";
 import { SeoOnboardingModal } from "./seo-onboarding-modal";
+import {
+  SeoAgentForms,
+  type Wpw09FormData,
+  type Bsw10FormData,
+  type Kga08FormData,
+} from "./seo-agent-forms";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -40,20 +48,30 @@ const MAX_RETRIES = 3;
 const DEFAULT_RETRY_MS = 3000;
 const SEO_PROFILE_KEY = "elevay_seo_profile";
 
-const ACTION_MAP: Record<
-  SeoAction,
-  (
-    conversationId: string,
-    siteUrl: string,
-    onChunk: (c: string) => void,
-  ) => Promise<void>
+/** Actions that stream directly without a form */
+const DIRECT_ACTION_MAP: Partial<
+  Record<
+    SeoAction,
+    (
+      conversationId: string,
+      siteUrl: string,
+      profile: SeoAgentProfile,
+      onChunk: (c: string) => void,
+    ) => Promise<void>
+  >
 > = {
   "tsi-audit": streamTsi07Audit,
-  "kga-audit": streamKga08Audit,
   "opt-audit": streamOpt06Audit,
   "pio-audit": streamPio05Audit,
   "mdg-audit": streamMdg11Audit,
   "alt-audit": streamAlt12Audit,
+};
+
+/** Actions that require a form before streaming */
+const FORM_ACTIONS: Record<string, "wpw09" | "bsw10" | "kga08"> = {
+  "wpw09-create": "wpw09",
+  "bsw10-create": "bsw10",
+  "kga-audit": "kga08",
 };
 
 // ─── Main Component ──────────────────────────────────────
@@ -68,6 +86,7 @@ export function SeoAgentChat() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [activityLabel, setActivityLabel] = useState<string | null>(null);
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
+  const [openForm, setOpenForm] = useState<"wpw09" | "bsw10" | "kga08" | null>(null);
 
   const conversationIdRef = useRef(generateId());
   const abortRef = useRef<AbortController | null>(null);
@@ -89,17 +108,16 @@ export function SeoAgentChat() {
 
   const siteUrl = seoProfile?.siteUrl ?? "";
 
-  // ─── Stream a SEO agent ───────────────────────────────
+  // ─── Stream a SEO agent (generic streamer) ─────────────
 
-  const streamSeoAgent = useCallback(
-    async (action: SeoAction) => {
-      if (isStreaming || !siteUrl) return;
+  const runStream = useCallback(
+    async (streamFn: (onChunk: (c: string) => void) => Promise<void>) => {
+      if (isStreaming) return;
 
       setHasUserSentMessage(true);
       pendingContentRef.current = "";
       retryCountRef.current = 0;
 
-      const convId = conversationIdRef.current;
       const assistantId = generateId();
 
       setMessages((prev) => [
@@ -109,8 +127,6 @@ export function SeoAgentChat() {
 
       setIsStreaming(true);
       setActivityLabel("Analyse en cours…");
-
-      const streamFn = ACTION_MAP[action];
 
       try {
         const parser = createParser({
@@ -172,7 +188,7 @@ export function SeoAgentChat() {
           onComment() {},
         });
 
-        await streamFn(convId, siteUrl, (chunk) => parser.feed(chunk));
+        await streamFn((chunk) => parser.feed(chunk));
 
         if (pendingContentRef.current) {
           const finalContent = pendingContentRef.current;
@@ -197,7 +213,64 @@ export function SeoAgentChat() {
         setActivityLabel(null);
       }
     },
-    [isStreaming, siteUrl],
+    [isStreaming],
+  );
+
+  // ─── Form submit handlers ─────────────────────────────
+
+  const handleWpw09Submit = useCallback(
+    (data: Wpw09FormData) => {
+      if (!seoProfile) return;
+      setOpenForm(null);
+      const convId = conversationIdRef.current;
+      void runStream((onChunk) =>
+        streamWpw09Page(convId, seoProfile, {
+          pageType: data.pageType,
+          brief: data.brief,
+          brandTone: data.brandTone,
+          targetAudience: data.targetAudience,
+          internalLinksAvailable: [],
+          exportFormat: data.exportFormat,
+          targetKeywords: data.targetKeywords.length > 0 ? data.targetKeywords : undefined,
+        }, onChunk),
+      );
+    },
+    [seoProfile, runStream],
+  );
+
+  const handleBsw10Submit = useCallback(
+    (data: Bsw10FormData) => {
+      if (!seoProfile) return;
+      setOpenForm(null);
+      const convId = conversationIdRef.current;
+      void runStream((onChunk) =>
+        streamBsw10Article(convId, seoProfile, {
+          topic: data.topic,
+          mode: data.mode,
+          articleFormat: data.articleFormat,
+          targetAudience: data.targetAudience,
+          expertiseLevel: "intermediate",
+          objective: "traffic",
+          brandTone: data.brandTone,
+          cta: data.cta,
+          internalLinksAvailable: [],
+          targetKeywords: data.targetKeywords.length > 0 ? data.targetKeywords : undefined,
+        }, onChunk),
+      );
+    },
+    [seoProfile, runStream],
+  );
+
+  const handleKga08Submit = useCallback(
+    (data: Kga08FormData) => {
+      if (!seoProfile || !siteUrl) return;
+      setOpenForm(null);
+      const convId = conversationIdRef.current;
+      void runStream((onChunk) =>
+        streamKga08Audit(convId, siteUrl, seoProfile, onChunk, data.seedKeywords),
+      );
+    },
+    [seoProfile, siteUrl, runStream],
   );
 
   // ─── Regular chat (text input → /api/agents/chat) ─────
@@ -336,9 +409,23 @@ export function SeoAgentChat() {
 
   const handleQuickReply = useCallback(
     (action: string) => {
-      void streamSeoAgent(action as SeoAction);
+      const seoAction = action as SeoAction;
+
+      // Actions that require a form first
+      const formType = FORM_ACTIONS[seoAction];
+      if (formType) {
+        setOpenForm(formType);
+        return;
+      }
+
+      // Direct streaming actions
+      const directFn = DIRECT_ACTION_MAP[seoAction];
+      if (directFn && siteUrl && seoProfile) {
+        const convId = conversationIdRef.current;
+        void runStream((onChunk) => directFn(convId, siteUrl, seoProfile, onChunk));
+      }
     },
-    [streamSeoAgent],
+    [siteUrl, seoProfile, runStream],
   );
 
   // Reset on unmount
@@ -377,6 +464,14 @@ export function SeoAgentChat() {
           onClose={() => setShowOnboarding(false)}
         />
       )}
+
+      <SeoAgentForms
+        open={openForm}
+        onClose={() => setOpenForm(null)}
+        onSubmitWpw09={handleWpw09Submit}
+        onSubmitBsw10={handleBsw10Submit}
+        onSubmitKga08={handleKga08Submit}
+      />
 
       <div className="flex h-dvh" aria-label="SEO & GEO chat">
         <div className="flex-1 flex flex-col min-w-0">

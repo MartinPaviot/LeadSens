@@ -1,13 +1,24 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { wpw09InputSchema } from '../schemas';
 import { AgentContext, AgentSession } from '../../../core/types';
-import { Wpw09Inputs, Wpw09PageOutput } from './types';
+import { Wpw09Inputs, Wpw09PageOutput, PAGE_WORD_COUNT } from './types';
 import { benchmarkSerp, fetchKeywords, buildStructure, buildPageOutput } from './workflow';
-import { WPW09_SYSTEM_PROMPT } from './prompt';
+import { WPW09_SYSTEM_PROMPT, PAGE_TYPE_ANGLES } from './prompt';
+import { wpCreatePage, type WordPressCredentials } from '../../../core/tools/cms/wordpress';
+import { hubCreatePage, type HubSpotCredentials } from '../../../core/tools/cms/hubspot';
+import { shopifyCreatePage, type ShopifyCredentials } from '../../../core/tools/cms/shopify';
+import { webflowCreatePage, type WebflowCredentials } from '../../../core/tools/cms/webflow';
 
 export async function activate(
   context: AgentContext,
   inputs: Wpw09Inputs,
   geo = 'FR',
+  wpCredentials?: WordPressCredentials,
+  hubCreds?: HubSpotCredentials,
+  shopifyCreds?: ShopifyCredentials,
+  webflowCreds?: WebflowCredentials,
 ): Promise<AgentSession> {
+  wpw09InputSchema.parse(inputs);
   const session: AgentSession = {
     sessionId: context.sessionId,
     agentCode: 'AGT-SEO-WPW-09',
@@ -40,8 +51,36 @@ export async function activate(
     status: 'done',
   });
 
-  // Step 4 — Content generation (stub — LLM call in production)
-  const bodyContent = `<!-- Contenu généré par AGT-SEO-WPW-09 pour : ${inputs.brief} -->`;
+  // Step 4 — LLM content generation (Claude)
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const structureAsText = [
+    `H1: ${structure.h1Options[0]}`,
+    `Sections: ${structure.h2s.join(' | ')}`,
+    `Mots-clés: ${keywords.join(', ')}`,
+    `Ton: ${inputs.brandTone}`,
+    `Public: ${inputs.targetAudience}`,
+    `Angle: ${PAGE_TYPE_ANGLES[inputs.pageType]}`,
+    `Longueur cible: ${PAGE_WORD_COUNT[inputs.pageType].min}–${PAGE_WORD_COUNT[inputs.pageType].max} mots`,
+    `Liens internes disponibles: ${inputs.internalLinksAvailable.join(', ')}`,
+  ].join('\n');
+
+  let bodyContent = '';
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system: WPW09_SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: `Rédige le contenu complet de cette page en HTML sémantique (h2, h3, p, ul, a).\n\nBrief : ${inputs.brief}\n\n${structureAsText}\n\nRègle : intègre naturellement les mots-clés, ajoute ${inputs.internalLinksAvailable.length > 0 ? '2-5 liens internes' : 'des CTAs'}, termine par un CTA clair.`,
+      }],
+    });
+    const textBlock = message.content.find((c) => c.type === 'text');
+    bodyContent = textBlock && 'text' in textBlock ? textBlock.text : '';
+  } catch {
+    bodyContent = `<!-- LLM indisponible — contenu pour : ${inputs.brief} -->`;
+  }
 
   // Step 5 — Assemble output
   const pageOutput = buildPageOutput(inputs, structure, bodyContent);
@@ -50,6 +89,84 @@ export async function activate(
     name: 'Rédaction contenu complet',
     status: 'done',
   });
+
+  // Step 6 — Push to CMS as draft (if connected)
+  if (context.clientProfile.automationLevel !== 'audit') {
+    if (inputs.cmsType === 'wordpress' && wpCredentials) {
+      try {
+        const draft = await wpCreatePage(
+          wpCredentials,
+          pageOutput.h1,
+          pageOutput.bodyContent,
+          pageOutput.metaTitle,
+          pageOutput.metaDescription,
+        );
+        pageOutput.wpDraftUrl = draft.editUrl;
+        session.steps.push({
+          id: 'cms_push',
+          name: `Brouillon WordPress créé → ${draft.editUrl}`,
+          status: 'done',
+        });
+      } catch {
+        session.steps.push({
+          id: 'cms_push',
+          name: 'Push WordPress échoué — contenu disponible en export',
+          status: 'skipped',
+        });
+      }
+    } else if (inputs.cmsType === 'hubspot' && hubCreds) {
+      try {
+        const slug = pageOutput.h1.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const draft = await hubCreatePage(hubCreds, {
+          title: pageOutput.h1,
+          content: pageOutput.bodyContent,
+          slug,
+          metaDescription: pageOutput.metaDescription,
+        });
+        pageOutput.wpDraftUrl = draft.editUrl;
+        session.steps.push({
+          id: 'cms_push',
+          name: `Brouillon HubSpot créé → ${draft.editUrl}`,
+          status: 'done',
+        });
+      } catch {
+        session.steps.push({
+          id: 'cms_push',
+          name: 'Push HubSpot échoué — contenu disponible en export',
+          status: 'skipped',
+        });
+      }
+    } else if (inputs.cmsType === 'shopify' && shopifyCreds) {
+      try {
+        const draft = await shopifyCreatePage(shopifyCreds, {
+          title: pageOutput.h1,
+          content: pageOutput.bodyContent,
+          metaDescription: pageOutput.metaDescription,
+        });
+        pageOutput.wpDraftUrl = draft.editUrl;
+        session.steps.push({
+          id: 'cms_push',
+          name: `Page Shopify créée (non publiée) → ${draft.editUrl}`,
+          status: 'done',
+        });
+      } catch {
+        session.steps.push({
+          id: 'cms_push',
+          name: 'Push Shopify échoué — contenu disponible en export',
+          status: 'skipped',
+        });
+      }
+    } else if (inputs.cmsType === 'webflow' && webflowCreds) {
+      try {
+        const slug = pageOutput.h1.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const draft = await webflowCreatePage(webflowCreds, { title: pageOutput.h1, content: pageOutput.bodyContent, slug, metaDescription: pageOutput.metaDescription });
+        pageOutput.wpDraftUrl = draft.editUrl;
+        session.steps.push({ id: 'cms_push', name: `Brouillon Webflow créé → ${draft.editUrl}`, status: 'done' });
+      } catch {
+        session.steps.push({ id: 'cms_push', name: 'Push Webflow échoué — contenu disponible en export', status: 'skipped' });
+      }
+    }
+  }
 
   session.output = pageOutput satisfies Wpw09PageOutput;
   return session;
