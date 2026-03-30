@@ -73,13 +73,13 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.retryDirective(3000));
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
-        controller.enqueue(encoder.encode('status', { step: 1, total: 5, label: '[1/5] Recherche de mots-clés…' }));
+        controller.enqueue(encoder.encode('status', { step: 1, total: 5, label: '[1/5] Keyword research…' }));
         // activate() runs all steps sequentially: fetchKeywords → benchmarkSerp → buildStructure → LLM → buildPageOutput
-        controller.enqueue(encoder.encode('status', { step: 2, total: 5, label: '[2/5] Benchmark SERP concurrents…' }));
-        controller.enqueue(encoder.encode('status', { step: 3, total: 5, label: '[3/5] Structure H1/H2/H3…' }));
-        controller.enqueue(encoder.encode('status', { step: 4, total: 5, label: '[4/5] Rédaction du contenu (Claude)…' }));
+        controller.enqueue(encoder.encode('status', { step: 2, total: 5, label: '[2/5] SERP competitor benchmark…' }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 5, label: '[3/5] H1/H2/H3 structure…' }));
+        controller.enqueue(encoder.encode('status', { step: 4, total: 5, label: '[4/5] Writing content (Claude)…' }));
         const agentSession = await activate(context, inputs, profile.targetGeos[0] ?? 'FR', profile.wordpressCredentials ?? undefined, profile.hubspotCredentials ?? undefined, profile.shopifyCredentials ?? undefined, profile.webflowCredentials ?? undefined);
-        controller.enqueue(encoder.encode('status', { step: 5, total: 5, label: '[5/5] Finalisation et export…' }));
+        controller.enqueue(encoder.encode('status', { step: 5, total: 5, label: '[5/5] Finalizing and export…' }));
 
         controller.enqueue(encoder.encode('result', {
           bpiOutput: { agent: 'WPW-09', siteUrl: profile.siteUrl },
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
 
 function formatWpw09Output(output: Wpw09PageOutput | null): string {
   if (!output) {
-    return '## WPW-09 — Erreur\n\nLa génération de la page a échoué.';
+    return '## WPW-09 — Error\n\nPage generation failed.';
   }
 
   const lines: string[] = [
@@ -143,7 +143,7 @@ function formatWpw09Output(output: Wpw09PageOutput | null): string {
 
   if (output.wpDraftUrl) {
     lines.push('');
-    lines.push(`> Brouillon CMS créé : [Éditer le brouillon](${output.wpDraftUrl})`);
+    lines.push(`> CMS draft created: [Edit draft](${output.wpDraftUrl})`);
   }
 
   return lines.join('\n');

@@ -126,7 +126,7 @@ export function SeoAgentChat() {
       ]);
 
       setIsStreaming(true);
-      setActivityLabel("Analyse en cours…");
+      setActivityLabel("Analysis in progress…");
 
       try {
         const parser = createParser({

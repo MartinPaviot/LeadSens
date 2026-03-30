@@ -47,8 +47,8 @@ export async function activate(
   const report = buildReport(inputs.siteUrl, crawlResults, issues);
   const actionPlan = buildActionPlan(issues);
 
-  session.steps.push({ id: 'classify', name: 'Classification des problèmes', status: 'done' });
-  session.steps.push({ id: 'report', name: 'Génération du rapport', status: 'done' });
+  session.steps.push({ id: 'classify', name: 'Issue classification', status: 'done' });
+  session.steps.push({ id: 'report', name: 'Report generation', status: 'done' });
 
   // Step 5 — Push corrections to CMS
   const correctionsPush = await pushTsi07Corrections(

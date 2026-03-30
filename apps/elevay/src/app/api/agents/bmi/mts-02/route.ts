@@ -89,7 +89,7 @@ function withStatus<T>(
   controller: ReadableStreamDefaultController<Uint8Array>,
 ): Promise<ModuleResult<T>> {
   controller.enqueue(
-    encoder.encode("status", { step, total: 5, label: `[${step}/5] ${label} en cours…` }),
+    encoder.encode("status", { step, total: 5, label: `[${step}/5] ${label} in progress…` }),
   );
   return promise
     .then((result) => {
@@ -145,7 +145,7 @@ function formatMtsAsMarkdown(brandName: string, payload: MtsOutput): string {
     angles || "*Aucun angle identifié*",
     ``,
     `### 🗓️ Roadmap 30 jours`,
-    roadmap || "*Roadmap non disponible*",
+    roadmap || "*Roadmap not available*",
   ].join("\n");
 }
 
@@ -293,7 +293,7 @@ async function handleMtsRequest(req: Request) {
 
         // ── Phase C — synthèse + LLM ──────────────────────────────────────
         controller.enqueue(
-          encoder.encode("status", { step: 5, total: 5, label: "[5/5] Synthèse et scoring en cours…" }),
+          encoder.encode("status", { step: 5, total: 5, label: "[5/5] Synthesis and scoring in progress…" }),
         );
 
         // ── Synthèse ──────────────────────────────────────────────────────

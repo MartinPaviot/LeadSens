@@ -85,7 +85,7 @@ export async function POST(req: Request) {
             currentMeta: p.metaDescription,
           }));
         } else {
-          controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawl du site…' }));
+          controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawling site…' }));
           const crawlResults = await crawlSite(siteUrl).catch(() => [] as CrawlResult[]);
           pageList = crawlResults.map((p) => ({
             url: p.url,
@@ -95,12 +95,12 @@ export async function POST(req: Request) {
         }
 
         // Step 2 — Generate meta descriptions
-        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: `[2/4] Génération des meta descriptions (${pageList.length} pages)…` }));
+        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: `[2/4] Generating meta descriptions (${pageList.length} pages)…` }));
         const agentSession = await activate(context, inputs, pageList, wpCreds ?? undefined, profile.hubspotCredentials ?? undefined, profile.shopifyCredentials ?? undefined, profile.webflowCredentials ?? undefined);
 
         // Step 3+4 — Quality report
-        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Contrôle qualité 155-160 caractères…' }));
-        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Rapport final…' }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Quality check 155-160 characters…' }));
+        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Final report…' }));
 
         controller.enqueue(encoder.encode('result', {
           bpiOutput: { agent: 'MDG-11', siteUrl },

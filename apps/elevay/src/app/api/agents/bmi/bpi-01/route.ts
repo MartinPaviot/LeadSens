@@ -61,7 +61,7 @@ function withStatus<T>(
   controller: ReadableStreamDefaultController<Uint8Array>,
 ): Promise<ModuleResult<T>> {
   controller.enqueue(
-    encoder.encode("status", { step, total: 8, label: `[${step}/8] ${label} en cours…` }),
+    encoder.encode("status", { step, total: 8, label: `[${step}/8] ${label} in progress…` }),
   );
   return promise
     .then((result) => {
@@ -173,7 +173,7 @@ function formatBpiAsMarkdown(brandName: string, payload: BpiOutput): string {
     wins || "*Aucun quick win identifié*",
     ``,
     `### 🗺️ Roadmap 90 jours`,
-    roadmap || "*Roadmap non disponible*",
+    roadmap || "*Roadmap not available*",
   ].join("\n");
 }
 
@@ -342,7 +342,7 @@ async function handleBpiRequest(req: Request) {
 
         // ── Appel LLM consolidé ───────────────────────────────────────────
         controller.enqueue(
-          encoder.encode("status", { label: "Analyse LLM en cours…" }),
+          encoder.encode("status", { label: "LLM analysis in progress…" }),
         );
 
         const prompt = buildConsolidatedPrompt(profile, results, scores, previousScores);

@@ -66,14 +66,13 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.retryDirective(3000));
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
-        controller.enqueue(encoder.encode('status', { step: 1, total: 3, label: '[1/3] Recherche de mots-clés en cours…' }));
-        // Optimistic status — activate() handles its own step sequencing
-        controller.enqueue(encoder.encode('status', { step: 2, total: 3, label: '[2/3] Scoring GEO et opportunités…' }));
+        controller.enqueue(encoder.encode('status', { step: 1, total: 3, label: '[1/3] Keyword research in progress…' }));
+        controller.enqueue(encoder.encode('status', { step: 2, total: 3, label: '[2/3] GEO scoring and opportunities…' }));
         const parsedSeeds = Array.isArray(seedKeywords)
           ? seedKeywords.filter((k): k is string => typeof k === 'string' && k.trim().length > 0).map((k) => k.trim())
           : [];
         const agentSession = await activate(context, inputs, parsedSeeds);
-        controller.enqueue(encoder.encode('status', { step: 3, total: 3, label: "[3/3] Plan d'action 90 jours…" }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 3, label: '[3/3] 90-day action plan…' }));
 
         controller.enqueue(encoder.encode('result', {
           bpiOutput: { agent: 'KGA-08', siteUrl },
@@ -116,29 +115,29 @@ function formatKga08Report(
     return [
       `## Stratégie Mots-Clés KGA-08 — ${siteUrl}`,
       '',
-      `L'analyse a retourné une erreur : ${reason}`,
+      `Analysis returned an error: ${reason}`,
       '',
-      'Connectez **Google Search Console** dans les paramètres pour activer l\'analyse complète des mots-clés.',
+      'Connect **Google Search Console** in settings to enable full keyword analysis.',
     ].join('\n');
   }
 
   const lines: string[] = [
-    `## Stratégie Mots-Clés — ${siteUrl}`,
+    `## Keyword Strategy — ${siteUrl}`,
     '',
-    `**${output.kwScores.length} mots-clés analysés** · ${output.cityLandingPages.length} city pages recommandées`,
+    `**${output.kwScores.length} keywords analysed** · ${output.cityLandingPages.length} city pages recommended`,
     '',
   ];
 
   if (output.kwScores.length > 0) {
-    lines.push('### Top opportunités (M1)');
+    lines.push('### Top opportunities (M1)');
     for (const kw of output.actionPlan.month1.slice(0, 8)) {
-      lines.push(`- **${kw.keyword}** — potentiel ${kw.trafficPotential} · difficulté ${kw.seoDifficulty} · ${kw.geo}`);
+      lines.push(`- **${kw.keyword}** — potential ${kw.trafficPotential} · difficulty ${kw.seoDifficulty} · ${kw.geo}`);
     }
     lines.push('');
   }
 
   if (output.geoMarketScores.length > 0) {
-    lines.push('### Marchés GEO prioritaires');
+    lines.push('### Priority GEO markets');
     for (const geo of output.geoMarketScores.slice(0, 5)) {
       lines.push(`- **${geo.geo}** — Score ${geo.totalScore}/100`);
     }
@@ -146,17 +145,17 @@ function formatKga08Report(
   }
 
   if (output.cityLandingPages.length > 0) {
-    lines.push(`### City landing pages à créer (${output.cityLandingPages.length})`);
+    lines.push(`### City landing pages to create (${output.cityLandingPages.length})`);
     for (const page of output.cityLandingPages.slice(0, 5)) {
-      lines.push(`- \`${page.recommendedUrl}\` — ${page.keyword} (${page.monthlyVolume}/mois)`);
+      lines.push(`- \`${page.recommendedUrl}\` — ${page.keyword} (${page.monthlyVolume}/mo)`);
     }
     lines.push('');
   }
 
   if (Object.keys(output.clusterMap).length > 0) {
-    lines.push('### Clusters thématiques');
+    lines.push('### Topic clusters');
     for (const [cluster, kws] of Object.entries(output.clusterMap).slice(0, 4)) {
-      lines.push(`- **${cluster}** (${(kws as unknown[]).length} mots-clés)`);
+      lines.push(`- **${cluster}** (${(kws as unknown[]).length} keywords)`);
     }
   }
 

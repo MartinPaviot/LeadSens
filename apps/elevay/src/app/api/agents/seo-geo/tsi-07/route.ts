@@ -70,15 +70,15 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
         // Step 1 — Crawl
-        controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawl du site en cours…' }));
+        controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawling site…' }));
         const crawlStep = await runCrawl(inputs);
 
         // Step 2 — GSC (optional)
-        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] Analyse Google Search Console…' }));
+        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] Google Search Console analysis…' }));
         await fetchGscData(inputs, session.user.id);
 
         // Step 3 — Classify + report
-        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classification et rapport…' }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classification and report…' }));
         const crawlResults = crawlStep.data ?? [];
         const issues = classifyIssues(crawlResults);
         const report = buildReport(siteUrl, crawlResults, issues);
@@ -138,7 +138,7 @@ function formatTsi07Report(
     return [
       `## Audit Technique TSI-07 — ${siteUrl}`,
       '',
-      'Le crawl a échoué — DataForSEO indisponible. Vérifiez vos variables d\'environnement `DATAFORSEO_LOGIN` et `DATAFORSEO_PASSWORD`.',
+      'Crawl failed — DataForSEO unavailable. Check your `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` environment variables.',
     ].join('\n');
   }
 
@@ -207,7 +207,7 @@ function formatTsi07Report(
       lines.push('');
     }
     if (correctionsPush.failed.length > 0) {
-      lines.push(`### Corrections échouées (${correctionsPush.failed.length})`);
+      lines.push(`### Failed corrections (${correctionsPush.failed.length})`);
       for (const f of correctionsPush.failed.slice(0, 5)) {
         lines.push(`- ${f.issue.url} — ${f.reason}`);
       }

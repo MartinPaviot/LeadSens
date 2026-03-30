@@ -33,32 +33,32 @@ const SEO_QUICK_REPLIES: {
 }[] = [
   {
     id: "tsi07",
-    label: "🔍 Audit technique",
+    label: "🔍 Technical audit",
     description: "Crawl, indexation, Core Web Vitals",
     action: "tsi-audit",
   },
   {
     id: "kga08",
-    label: "📊 Stratégie mots-clés",
-    description: "KW research + plan 90 jours",
+    label: "📊 Keyword strategy",
+    description: "KW research + 90-day plan",
     action: "kga-audit",
   },
   {
     id: "opt06",
-    label: "🚀 Optimiser mes pages",
-    description: "Pages en position 4-15",
+    label: "🚀 Optimize my pages",
+    description: "Pages in position 4-15",
     action: "opt-audit",
   },
   {
     id: "pio05",
-    label: "🧠 Score citabilité IA",
-    description: "Visibilité Google SGE, Copilot, Perplexity",
+    label: "🧠 AI citability score",
+    description: "Google SGE, Copilot, Perplexity visibility",
     action: "pio-audit",
   },
   {
     id: "mdg11",
-    label: "✍️ Générer les metas",
-    description: "Meta descriptions CTR-optimisées",
+    label: "✍️ Generate metas",
+    description: "CTR-optimized meta descriptions",
     action: "mdg-audit",
   },
   {

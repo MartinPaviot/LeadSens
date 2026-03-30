@@ -208,7 +208,25 @@
   --aui-thread-max-width: 720px;
 }
 
+/* SEO Dashboard sidebar */
+:root {
+  --seo-sidebar: #0e1117;
+  --seo-sidebar-foreground: #e4e4e7;
+  --seo-sidebar-muted: #71717a;
+  --seo-sidebar-active: #17c3b2;
+}
+
+/* Chat overlay slide-up */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .animate-fade-in-up { animation: none; }
+  .animate-slide-up { animation: none; }
 }

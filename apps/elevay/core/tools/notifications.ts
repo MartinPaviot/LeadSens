@@ -18,13 +18,13 @@ interface ScheduledDraftAlert {
  */
 export async function sendScheduledDraftAlert(alert: ScheduledDraftAlert): Promise<void> {
   const message = [
-    `📝 *${alert.agentName}* a créé un brouillon`,
+    `📝 *${alert.agentName}* created a new draft`,
     ``,
-    `**Sujet :** ${alert.topic || '(auto-généré)'}`,
-    alert.keyword ? `**Mot-clé :** ${alert.keyword}` : null,
-    `**Brouillon :** ${alert.draftUrl}`,
+    `**Topic:** ${alert.topic || '(auto-generated)'}`,
+    alert.keyword ? `**Keyword:** ${alert.keyword}` : null,
+    `**Draft:** ${alert.draftUrl}`,
     ``,
-    `⚠️ *Valider avant publication* — ce contenu a été généré automatiquement.`,
+    `⚠️ *Review before publishing* — this content was generated automatically.`,
   ].filter(Boolean).join('\n');
 
   for (const channel of alert.alertChannels) {
@@ -69,7 +69,8 @@ async function sendDraftEmailAlert(alert: ScheduledDraftAlert): Promise<void> {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.elevay.io';
-  const subject = `Nouveau draft prêt — "${alert.topic || 'contenu auto-généré'}"`;
+  const subject = `New draft ready — "${alert.topic || 'auto-generated content'}"`;
+
   const html = buildDraftEmailHtml({
     agentName: alert.agentName,
     topic: alert.topic,
@@ -132,21 +133,21 @@ function buildDraftEmailHtml(params: {
 
         <!-- Body -->
         <tr><td style="padding:32px;">
-          <h1 style="margin:0 0 8px;font-size:20px;color:#18181b;">Nouveau brouillon prêt</h1>
+          <h1 style="margin:0 0 8px;font-size:20px;color:#18181b;">New draft ready</h1>
           <p style="margin:0 0 24px;font-size:14px;color:#71717a;">
-            <strong>${agentName}</strong> a généré du contenu automatiquement.
-            Vérifiez et validez avant publication.
+            <strong>${agentName}</strong> generated content automatically.
+            Review and approve before publishing.
           </p>
 
           <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:8px;margin-bottom:24px;">
             <tr><td style="padding:16px;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="padding:4px 0;font-size:13px;color:#71717a;width:100px;">Sujet</td>
-                  <td style="padding:4px 0;font-size:13px;color:#18181b;font-weight:500;">${escapeHtml(topic || '(auto-généré)')}</td>
+                  <td style="padding:4px 0;font-size:13px;color:#71717a;width:100px;">Topic</td>
+                  <td style="padding:4px 0;font-size:13px;color:#18181b;font-weight:500;">${escapeHtml(topic || '(auto-generated)')}</td>
                 </tr>
                 ${keyword ? `<tr>
-                  <td style="padding:4px 0;font-size:13px;color:#71717a;">Mot-clé</td>
+                  <td style="padding:4px 0;font-size:13px;color:#71717a;">Keyword</td>
                   <td style="padding:4px 0;font-size:13px;color:#18181b;font-weight:500;">${escapeHtml(keyword)}</td>
                 </tr>` : ''}
                 <tr>
@@ -162,7 +163,7 @@ function buildDraftEmailHtml(params: {
             <tr><td align="center">
               <a href="${escapeHtml(draftUrl)}" target="_blank"
                  style="display:inline-block;padding:12px 32px;background-color:#17C3B2;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
-                Voir le brouillon
+                View draft
               </a>
             </td></tr>
           </table>
@@ -173,11 +174,11 @@ function buildDraftEmailHtml(params: {
               <td align="center" style="padding:8px;">
                 <a href="${escapeHtml(approveUrl)}" target="_blank"
                    style="display:inline-block;padding:10px 24px;background-color:#2C6BED;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;border-radius:6px;margin-right:8px;">
-                  ✓ Approuver
+                  ✓ Approve
                 </a>
                 <a href="${escapeHtml(rejectUrl)}" target="_blank"
                    style="display:inline-block;padding:10px 24px;background-color:#ffffff;color:#71717a;font-size:13px;font-weight:500;text-decoration:none;border-radius:6px;border:1px solid #e4e4e7;">
-                  ✕ Rejeter
+                  ✕ Reject
                 </a>
               </td>
             </tr>
@@ -187,7 +188,7 @@ function buildDraftEmailHtml(params: {
         <!-- Footer -->
         <tr><td style="padding:16px 32px;border-top:1px solid #f4f4f5;">
           <p style="margin:0;font-size:11px;color:#a1a1aa;text-align:center;">
-            Ce contenu a été généré automatiquement par Elevay. Validez-le avant publication.
+            This content was generated automatically by Elevay. Review before publishing.
           </p>
         </td></tr>
       </table>

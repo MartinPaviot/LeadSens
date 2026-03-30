@@ -65,7 +65,7 @@ export function AgentProgress({ modules, isExpanded, onToggle }: AgentProgressPr
       >
         <ModuleIcon status={activeStatus === "idle" ? "running" : activeStatus} />
         <span className="flex-1 text-sm font-medium">
-          {activeLabel} en cours…
+          {activeLabel} in progress…
         </span>
         {isExpanded ? (
           <CaretUp className="size-4 text-muted-foreground shrink-0" />

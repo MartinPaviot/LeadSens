@@ -91,7 +91,7 @@ function withStatus<T>(
   controller: ReadableStreamDefaultController<Uint8Array>,
 ): Promise<ModuleResult<T>> {
   controller.enqueue(
-    encoder.encode("status", { step, total: 6, label: `[${step}/6] ${label} en cours…` }),
+    encoder.encode("status", { step, total: 6, label: `[${step}/6] ${label} in progress…` }),
   );
   return promise
     .then(result => {
@@ -158,7 +158,7 @@ function formatCiaAsMarkdown(brandName: string, payload: CiaOutput): string {
     opportunities || "*Aucune opportunité identifiée*",
     ``,
     `### 🗓️ Plan d'action 60 jours`,
-    plan || "*Plan non disponible*",
+    plan || "*Plan not available*",
   ].join("\n");
 }
 
@@ -293,7 +293,7 @@ async function handleCiaRequest(req: Request) {
 
         // ── Phase B — M5 Benchmark (calcul pur) ───────────────────────────
         controller.enqueue(
-          encoder.encode("status", { step: 5, total: 6, label: "[5/6] Benchmark en cours…" }),
+          encoder.encode("status", { step: 5, total: 6, label: "[5/6] Benchmark in progress…" }),
         );
 
         const benchmarkResult = await fetchBenchmark(profile, {
@@ -323,7 +323,7 @@ async function handleCiaRequest(req: Request) {
 
         // ── Phase C — LLM consolidé ────────────────────────────────────────
         controller.enqueue(
-          encoder.encode("status", { step: 6, total: 6, label: "[6/6] Recommandations en cours…" }),
+          encoder.encode("status", { step: 6, total: 6, label: "[6/6] Recommendations in progress…" }),
         );
 
         const scores = benchmarkData

@@ -37,12 +37,12 @@ export async function activate(
   const rankings = await auditRankings(inputs, context.clientProfile.id);
   session.steps.push({
     id: 'audit_rankings',
-    name: 'Audit ranking actuel',
+    name: 'Current ranking audit',
     status: rankings.length > 0 ? 'done' : 'error',
   });
 
   if (rankings.length === 0) {
-    session.output = { error: 'Aucune donnée de ranking disponible' };
+    session.output = { error: 'No ranking data available' };
     return session;
   }
 
@@ -98,7 +98,7 @@ export async function activate(
   const alerts = detectAlerts(rankings, previousRankings);
   session.steps.push({
     id: 'alerts',
-    name: `Alertes détectées (${alerts.length})`,
+    name: `Alerts detected (${alerts.length})`,
     status: 'done',
   });
 

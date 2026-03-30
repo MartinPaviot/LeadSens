@@ -146,7 +146,7 @@ function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
   const lines: string[] = [
     `## Optimisation SEO & GEO — ${siteUrl}`,
     '',
-    `**${output.rankings.length} pages suivies** · ${output.opportunities.length} opportunités détectées · ${output.alerts.length} alertes`,
+    `**${output.rankings.length} pages tracked** · ${output.opportunities.length} opportunities found · ${output.alerts.length} alerts`,
     '',
   ];
 
@@ -188,7 +188,7 @@ function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
       lines.push('');
     }
     if (push.failed.length > 0) {
-      lines.push(`### Corrections échouées (${push.failed.length})`);
+      lines.push(`### Failed corrections (${push.failed.length})`);
       for (const f of push.failed.slice(0, 3)) {
         lines.push(`- ${f.log.url} — ${f.reason}`);
       }

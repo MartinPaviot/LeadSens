@@ -81,12 +81,12 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.retryDirective(3000));
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
-        controller.enqueue(encoder.encode('status', { step: 1, total: 5, label: '[1/5] Recherche mots-clés + PAA…' }));
-        controller.enqueue(encoder.encode('status', { step: 2, total: 5, label: '[2/5] Benchmark top 5 concurrents…' }));
-        controller.enqueue(encoder.encode('status', { step: 3, total: 5, label: '[3/5] Structure article H2/H3…' }));
-        controller.enqueue(encoder.encode('status', { step: 4, total: 5, label: '[4/5] Rédaction de l\'article (Claude)…' }));
+        controller.enqueue(encoder.encode('status', { step: 1, total: 5, label: '[1/5] Keyword research + PAA…' }));
+        controller.enqueue(encoder.encode('status', { step: 2, total: 5, label: '[2/5] Top 5 competitor benchmark…' }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 5, label: '[3/5] Article H2/H3 structure…' }));
+        controller.enqueue(encoder.encode('status', { step: 4, total: 5, label: '[4/5] Writing article (Claude)…' }));
         const agentSession = await activate(context, inputs, profile.targetGeos[0] ?? 'FR', profile.wordpressCredentials ?? undefined, profile.hubspotCredentials ?? undefined, profile.shopifyCredentials ?? undefined, profile.webflowCredentials ?? undefined);
-        controller.enqueue(encoder.encode('status', { step: 5, total: 5, label: '[5/5] Cluster et calendrier éditorial…' }));
+        controller.enqueue(encoder.encode('status', { step: 5, total: 5, label: '[5/5] Cluster and editorial calendar…' }));
 
         controller.enqueue(encoder.encode('result', {
           bpiOutput: { agent: 'BSW-10', siteUrl: profile.siteUrl },
@@ -125,7 +125,7 @@ function formatBsw10Output(
   articleFormat: Bsw10Inputs['articleFormat'],
 ): string {
   if (!output) {
-    return '## BSW-10 — Erreur\n\nLa génération de l\'article a échoué.';
+    return '## BSW-10 — Error\n\nArticle generation failed.';
   }
 
   const title = output.articleStructure.titleOptions[0] ?? 'Article';
@@ -142,27 +142,27 @@ function formatBsw10Output(
 
   if (output.clusterArchitecture) {
     lines.push('', '---', '', '### Architecture Topic Cluster');
-    lines.push(`**Pilier** : ${output.clusterArchitecture.pillarTopic} (${output.clusterArchitecture.pillarWordCount} mots)`);
+    lines.push(`**Pillar** : ${output.clusterArchitecture.pillarTopic} (${output.clusterArchitecture.pillarWordCount} words)`);
     lines.push(`**Satellites** : ${output.clusterArchitecture.satellites.length} articles`);
     for (const sat of output.clusterArchitecture.satellites.slice(0, 5)) {
-      lines.push(`- [${sat.publishOrder}] ${sat.topic} — ${sat.format} (${sat.estimatedWordCount} mots)`);
+      lines.push(`- [${sat.publishOrder}] ${sat.topic} — ${sat.format} (${sat.estimatedWordCount} words)`);
     }
-    lines.push(`**Maillage** : ${output.clusterArchitecture.internalLinkingLogic}`);
+    lines.push(`**Internal linking** : ${output.clusterArchitecture.internalLinkingLogic}`);
   }
 
   if (output.editorialCalendar && output.editorialCalendar.length > 0) {
-    lines.push('', '### Calendrier éditorial');
+    lines.push('', '### Editorial calendar');
     for (const entry of output.editorialCalendar.slice(0, 8)) {
       lines.push(`- **${entry.publishDate}** — ${entry.topic} (${entry.format})`);
     }
     if (output.editorialCalendar.length > 8) {
-      lines.push(`  _+ ${output.editorialCalendar.length - 8} articles planifiés_`);
+      lines.push(`  _+ ${output.editorialCalendar.length - 8} articles planned_`);
     }
   }
 
   if (output.wpDraftUrl) {
     lines.push('');
-    lines.push(`> Brouillon CMS créé : [Éditer le brouillon](${output.wpDraftUrl})`);
+    lines.push(`> CMS draft created: [Edit draft](${output.wpDraftUrl})`);
   }
 
   return lines.join('\n');

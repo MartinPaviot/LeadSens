@@ -32,7 +32,7 @@ export async function activate(
   const keywords = await fetchKeywords(inputs, geo);
   session.steps.push({
     id: 'keywords',
-    name: 'Collecte mots-clés',
+    name: 'Keyword research',
     status: keywords.length > 0 ? 'done' : 'skipped',
   });
 
@@ -40,7 +40,7 @@ export async function activate(
   const serpResults = await benchmarkSerp(keywords, geo);
   session.steps.push({
     id: 'serp',
-    name: 'Benchmark SERP top 5',
+    name: 'SERP benchmark top 5',
     status: serpResults.length > 0 ? 'done' : 'skipped',
   });
 
@@ -48,7 +48,7 @@ export async function activate(
   const structure = buildStructure(inputs, keywords, serpResults);
   session.steps.push({
     id: 'structure',
-    name: 'Structure H1/H2/H3',
+    name: 'H1/H2/H3 structure',
     status: 'done',
   });
 
@@ -87,7 +87,7 @@ export async function activate(
   const pageOutput = buildPageOutput(inputs, structure, bodyContent);
   session.steps.push({
     id: 'content',
-    name: 'Rédaction contenu complet',
+    name: 'Full content writing',
     status: 'done',
   });
 
@@ -107,13 +107,13 @@ export async function activate(
         pageOutput.wpDraftUrl = draft.editUrl;
         session.steps.push({
           id: 'cms_push',
-          name: `Brouillon WordPress créé → ${draft.editUrl}`,
+          name: `WordPress draft created → ${draft.editUrl}`,
           status: 'done',
         });
       } catch {
         session.steps.push({
           id: 'cms_push',
-          name: 'Push WordPress échoué — contenu disponible en export',
+          name: 'WordPress push failed — content available for export',
           status: 'skipped',
         });
       }
@@ -129,13 +129,13 @@ export async function activate(
         pageOutput.wpDraftUrl = draft.editUrl;
         session.steps.push({
           id: 'cms_push',
-          name: `Brouillon HubSpot créé → ${draft.editUrl}`,
+          name: `HubSpot draft created → ${draft.editUrl}`,
           status: 'done',
         });
       } catch {
         session.steps.push({
           id: 'cms_push',
-          name: 'Push HubSpot échoué — contenu disponible en export',
+          name: 'HubSpot push failed — content available for export',
           status: 'skipped',
         });
       }
@@ -149,13 +149,13 @@ export async function activate(
         pageOutput.wpDraftUrl = draft.editUrl;
         session.steps.push({
           id: 'cms_push',
-          name: `Page Shopify créée (non publiée) → ${draft.editUrl}`,
+          name: `Shopify page created (unpublished) → ${draft.editUrl}`,
           status: 'done',
         });
       } catch {
         session.steps.push({
           id: 'cms_push',
-          name: 'Push Shopify échoué — contenu disponible en export',
+          name: 'Shopify push failed — content available for export',
           status: 'skipped',
         });
       }
@@ -164,9 +164,9 @@ export async function activate(
         const slug = pageOutput.h1.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const draft = await webflowCreatePage(webflowCreds, { title: pageOutput.h1, content: pageOutput.bodyContent, slug, metaDescription: pageOutput.metaDescription });
         pageOutput.wpDraftUrl = draft.editUrl;
-        session.steps.push({ id: 'cms_push', name: `Brouillon Webflow créé → ${draft.editUrl}`, status: 'done' });
+        session.steps.push({ id: 'cms_push', name: `Webflow draft created → ${draft.editUrl}`, status: 'done' });
       } catch {
-        session.steps.push({ id: 'cms_push', name: 'Push Webflow échoué — contenu disponible en export', status: 'skipped' });
+        session.steps.push({ id: 'cms_push', name: 'Webflow push failed — content available for export', status: 'skipped' });
       }
     }
   }

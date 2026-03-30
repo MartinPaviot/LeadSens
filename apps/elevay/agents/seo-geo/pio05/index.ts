@@ -114,14 +114,14 @@ export async function activate(
       });
       session.steps.push({
         id: 'schedule',
-        name: `Prochain rapport planifié : ${nextRunAt.toLocaleDateString('fr-FR')}`,
+        name: `Next report scheduled: ${nextRunAt.toLocaleDateString('en-US')}`,
         status: 'done',
       });
     } catch {
       // Inngest scheduling failed — non-blocking
       session.steps.push({
         id: 'schedule',
-        name: 'Planification échouée — rapport disponible à la demande',
+        name: 'Scheduling failed — report available on demand',
         status: 'skipped',
       });
     }

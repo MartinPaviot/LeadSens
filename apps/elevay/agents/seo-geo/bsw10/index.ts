@@ -38,7 +38,7 @@ export async function activate(
   const keywords = await fetchKeywordsAndPaa(inputs, geo, context.clientProfile.id);
   session.steps.push({
     id: 'keywords',
-    name: 'Mots-clés + PAA',
+    name: 'Keywords + PAA',
     status: keywords.length > 0 ? 'done' : 'skipped',
   });
 
@@ -46,7 +46,7 @@ export async function activate(
   const competitors = await benchmarkCompetitors(keywords[0] ?? inputs.topic, geo);
   session.steps.push({
     id: 'benchmark',
-    name: 'Benchmark top 5 concurrents',
+    name: 'Top 5 competitor benchmark',
     status: competitors.length > 0 ? 'done' : 'skipped',
   });
 
@@ -54,7 +54,7 @@ export async function activate(
   const articleStructure = buildArticleStructure(inputs, keywords);
   session.steps.push({
     id: 'structure',
-    name: 'Structure article H2/H3',
+    name: 'Article H2/H3 structure',
     status: 'done',
   });
 
@@ -94,7 +94,7 @@ export async function activate(
   }
   session.steps.push({
     id: 'content',
-    name: 'Rédaction article',
+    name: 'Article writing',
     status: 'done',
   });
 
@@ -106,7 +106,7 @@ export async function activate(
     clusterArchitecture = buildClusterArchitecture(inputs, keywords);
     session.steps.push({
       id: 'cluster',
-      name: 'Architecture Topic Cluster',
+      name: 'Topic Cluster architecture',
       status: 'done',
     });
 
@@ -114,7 +114,7 @@ export async function activate(
       editorialCalendar = buildEditorialCalendar(inputs, clusterArchitecture);
       session.steps.push({
         id: 'calendar',
-        name: 'Calendrier éditorial',
+        name: 'Editorial calendar',
         status: 'done',
       });
     }
@@ -147,13 +147,13 @@ export async function activate(
         output.wpDraftUrl = draft.editUrl;
         session.steps.push({
           id: 'cms_push',
-          name: `Brouillon WordPress créé → ${draft.editUrl}`,
+          name: `WordPress draft created → ${draft.editUrl}`,
           status: 'done',
         });
       } catch {
         session.steps.push({
           id: 'cms_push',
-          name: 'Push WordPress échoué — contenu disponible en export',
+          name: 'WordPress push failed — content available for export',
           status: 'skipped',
         });
       }
@@ -169,13 +169,13 @@ export async function activate(
         output.wpDraftUrl = draft.editUrl;
         session.steps.push({
           id: 'cms_push',
-          name: `Brouillon HubSpot créé → ${draft.editUrl}`,
+          name: `HubSpot draft created → ${draft.editUrl}`,
           status: 'done',
         });
       } catch {
         session.steps.push({
           id: 'cms_push',
-          name: 'Push HubSpot échoué — contenu disponible en export',
+          name: 'HubSpot push failed — content available for export',
           status: 'skipped',
         });
       }
@@ -184,7 +184,7 @@ export async function activate(
       void shopifyCreds;
       session.steps.push({
         id: 'cms_push',
-        name: 'Shopify ne supporte pas les brouillons de blog — export Markdown disponible',
+        name: 'Shopify does not support blog drafts — Markdown export available',
         status: 'skipped',
       });
     } else if (inputs.cmsType === 'webflow' && webflowCreds) {
@@ -193,9 +193,9 @@ export async function activate(
         const slug = selectedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const draft = await webflowCreatePost(webflowCreds, { title: selectedTitle, content: bodyContent, slug });
         output.wpDraftUrl = draft.editUrl;
-        session.steps.push({ id: 'cms_push', name: `Brouillon Webflow créé → ${draft.editUrl}`, status: 'done' });
+        session.steps.push({ id: 'cms_push', name: `Webflow draft created → ${draft.editUrl}`, status: 'done' });
       } catch {
-        session.steps.push({ id: 'cms_push', name: 'Push Webflow échoué — contenu disponible en export', status: 'skipped' });
+        session.steps.push({ id: 'cms_push', name: 'Webflow push failed — content available for export', status: 'skipped' });
       }
     }
   }

@@ -75,7 +75,7 @@ export async function activate(
   );
   session.steps.push({
     id: 'classify',
-    name: 'Classification images + mots-clés',
+    name: 'Image classification + keywords',
     status: 'done',
   });
 
@@ -89,7 +89,7 @@ export async function activate(
   }
   session.steps.push({
     id: 'generate',
-    name: `Génération ALT texts (${allResults.length} images)`,
+    name: `ALT text generation (${allResults.length} images)`,
     status: 'done',
   });
 
@@ -97,7 +97,7 @@ export async function activate(
   const qualityReport = buildQualityReport(allResults);
   session.steps.push({
     id: 'quality',
-    name: 'Rapport qualité WCAG + SEO',
+    name: 'WCAG + SEO quality report',
     status: 'done',
   });
 

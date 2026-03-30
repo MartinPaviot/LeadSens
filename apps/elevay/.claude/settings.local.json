@@ -123,7 +123,11 @@
       "Read(//c/core/tools/cms/**)",
       "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay -type f -name *.spec.ts -o -name *.test.ts -o -name composio*)",
       "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/app/api/auth -type f -name *.ts)",
-      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay -name *test* -o -name *setup* -o -name *.config.*)"
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay -name *test* -o -name *setup* -o -name *.config.*)",
+      "Bash(find C:UsersombelLeadSens-1appselevaysrc -name *.config.* -type f)",
+      "Bash(find \"src/app/\\(seo-dashboard\\)\" -name \"*.tsx\")",
+      "Bash(find /Users/ombel/LeadSens-1/apps/elevay -name tailwind.config.* -o -name tsconfig.*)",
+      "Bash(find src/app/onboarding src/components/onboarding src/app/api/onboarding src/lib/onboarding-store.ts -name *.ts -o -name *.tsx)"
     ]
   }
 }

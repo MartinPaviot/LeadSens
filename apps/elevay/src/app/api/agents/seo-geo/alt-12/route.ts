@@ -67,11 +67,11 @@ export async function POST(req: Request) {
         let text: string;
 
         if (wpCreds && profile.cmsType === 'wordpress') {
-          controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawl des images WordPress…' }));
+          controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawling WordPress images…' }));
           const { wpGetImages } = await import('../../../../../../core/tools/cms/wordpress');
           const images = await wpGetImages(wpCreds).catch(() => []);
 
-          controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: `[2/4] ${images.length} images détectées…` }));
+          controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: `[2/4] ${images.length} images found…` }));
           const imageList = images.map((img) => ({
             url: img.url,
             pageUrl: profile.siteUrl,
@@ -80,8 +80,8 @@ export async function POST(req: Request) {
             filename: img.filename,
           }));
 
-          controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classification produit / héro / déco…' }));
-          controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Génération ALT texts WCAG 2.1…' }));
+          controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classifying product / hero / decorative…' }));
+          controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Generating WCAG 2.1 ALT texts…' }));
           const agentSession = await activate(context, inputs, imageList, wpCreds ?? undefined, profile.hubspotCredentials ?? undefined, profile.shopifyCredentials ?? undefined, profile.webflowCredentials ?? undefined);
 
           controller.enqueue(encoder.encode('result', {
@@ -98,19 +98,19 @@ export async function POST(req: Request) {
           }));
 
           text = [
-            `**ALT-12 — Mode export**`,
+            `**ALT-12 — Export mode**`,
             ``,
             profile.cmsType === 'wordpress'
-              ? `Credentials WordPress non renseignés. Ajoutez-les dans l'onboarding pour l'injection directe.`
+              ? `WordPress credentials not provided. Add them in onboarding for direct injection.`
               : profile.cmsType === 'hubspot'
-                ? `Credentials HubSpot non renseignés. Ajoutez-les dans l'onboarding pour l'injection directe.`
+                ? `HubSpot credentials not provided. Add them in onboarding for direct injection.`
                 : profile.cmsType === 'shopify'
-                  ? `Credentials Shopify non renseignés. Ajoutez-les dans l'onboarding pour l'injection directe.`
+                  ? `Shopify credentials not provided. Add them in onboarding for direct injection.`
                   : profile.cmsType === 'webflow'
-                    ? `Credentials Webflow non renseignés. Ajoutez-les dans l'onboarding pour l'injection directe.`
-                    : `Connexion ${profile.cmsType} via les paramètres requise pour l'injection directe.`,
+                    ? `Webflow credentials not provided. Add them in onboarding for direct injection.`
+                    : `${profile.cmsType} connection required in settings for direct injection.`,
             ``,
-            `L'export CSV reste disponible après analyse.`,
+            `CSV export is available after analysis.`,
           ].join('\n');
         }
 

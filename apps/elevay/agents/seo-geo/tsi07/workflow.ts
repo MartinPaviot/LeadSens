@@ -52,14 +52,14 @@ export async function runCrawl(
     const results = await crawlSite(inputs.siteUrl);
     return {
       id: 'crawl',
-      name: 'Crawl complet du site',
+      name: 'Full site crawl',
       status: 'done',
       data: results,
     };
   } catch {
     return {
       id: 'crawl',
-      name: 'Crawl complet du site',
+      name: 'Full site crawl',
       status: 'error',
     };
   }

@@ -338,9 +338,9 @@ function Kga08Form({ onSubmit }: { onSubmit: (data: Kga08FormData) => void }) {
 // ─── Main Form Modal ──────────────────────────────────────
 
 const FORM_TITLES: Record<FormType, string> = {
-  wpw09: "Rédiger une page SEO",
-  bsw10: "Rédiger un article de blog",
-  kga08: "Stratégie mots-clés",
+  wpw09: "Write an SEO page",
+  bsw10: "Write a blog article",
+  kga08: "Keyword strategy",
 };
 
 export function SeoAgentForms({

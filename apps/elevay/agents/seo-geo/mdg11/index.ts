@@ -84,7 +84,7 @@ export async function activate(
   const qualityReport = buildQualityReport(allResults);
   session.steps.push({
     id: 'quality',
-    name: 'Rapport qualité',
+    name: 'Quality report',
     status: 'done',
   });
 

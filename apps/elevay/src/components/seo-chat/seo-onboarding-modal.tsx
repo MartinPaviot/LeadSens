@@ -554,8 +554,8 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
               )}>
                 <input type="checkbox" checked disabled className="mt-0.5 accent-[#17c3b2]" />
                 <div>
-                  <div className="text-sm font-medium text-foreground/50">Rapport hebdomadaire</div>
-                  <div className="text-xs text-muted-foreground">Toujours activé — rapport dans l&apos;app</div>
+                  <div className="text-sm font-medium text-foreground/50">Weekly report</div>
+                  <div className="text-xs text-muted-foreground">Always enabled — report available in-app</div>
                 </div>
               </label>
             </div>

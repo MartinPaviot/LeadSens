@@ -105,7 +105,7 @@ function formatPio05Report(siteUrl: string, output: Pio05Output | null): string 
     return [
       `## Intelligence SEO & GEO PIO-05 — ${siteUrl}`,
       '',
-      'Analyse non disponible. Connectez **Google Search Console** pour activer le dashboard complet.',
+      'Analysis not available. Connect **Google Search Console** to enable the full dashboard.',
     ].join('\n');
   }
 

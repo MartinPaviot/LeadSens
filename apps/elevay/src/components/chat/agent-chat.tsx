@@ -1159,7 +1159,7 @@ export default function AgentChat() {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: result.message ?? "Export non disponible." }
+                  ? { ...m, content: result.message ?? "Export not available." }
                   : m,
               ),
             );
@@ -1167,14 +1167,14 @@ export default function AgentChat() {
         } else {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId ? { ...m, content: "⚠️ Erreur lors de l'export." } : m,
+              m.id === assistantId ? { ...m, content: "⚠️ Export failed." } : m,
             ),
           );
         }
       } catch {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, content: "⚠️ Erreur lors de l'export." } : m,
+            m.id === assistantId ? { ...m, content: "⚠️ Export failed." } : m,
           ),
         );
       } finally {

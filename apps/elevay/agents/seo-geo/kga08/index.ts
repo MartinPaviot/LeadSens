@@ -39,7 +39,7 @@ export async function activate(
   const expanded = await expandKeywords(inputs, seedKeywords, context.clientProfile.id);
   session.steps.push({
     id: 'expand_kw',
-    name: 'Expansion mots-clés par GEO',
+    name: 'GEO keyword expansion',
     status: expanded.length > 0 ? 'done' : 'error',
   });
 
