@@ -66,7 +66,7 @@ export async function fetchBenchmark(
       source: "benchmark:maps+trustpilot+reuse",
       error: {
         code: "BENCHMARK_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Erreur inconnue",
+        message: err instanceof Error ? err.message : "Unknown error",
       },
       degraded: true,
     };

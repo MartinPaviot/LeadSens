@@ -11,11 +11,23 @@ const COMPOSIO_APP_NAME: Record<string, string> = {
   x:           "twitter",
   googledrive: "googledrive",
   googledocs:  "googledocs",
+  gsc:         "google_search_console",
+  ga:          "google_analytics",
+  slack:       "slack",
+  ahrefs:      "ahrefs",
+  semrush:     "semrush",
 };
 
 /** Per-platform Composio Auth Config ID override */
 const COMPOSIO_AUTH_CONFIG_ID: Record<string, string | undefined> = {
   linkedin: process.env.COMPOSIO_LINKEDIN_AUTH_CONFIG_ID,
+  gsc:      process.env.COMPOSIO_GSC_AUTH_CONFIG_ID,
+  ga:       process.env.COMPOSIO_GA_AUTH_CONFIG_ID,
+  ahrefs:   process.env.COMPOSIO_AHREFS_AUTH_CONFIG_ID,
+  semrush:  process.env.COMPOSIO_SEMRUSH_AUTH_CONFIG_ID,
+  slack:    process.env.COMPOSIO_SLACK_AUTH_CONFIG_ID,
+  shopify:  process.env.COMPOSIO_SHOPIFY_AUTH_CONFIG_ID,
+  hubspot:  process.env.COMPOSIO_HUBSPOT_AUTH_CONFIG_ID,
 };
 
 const VALID_PLATFORMS = Object.keys(COMPOSIO_APP_NAME);
@@ -48,15 +60,8 @@ export async function POST(
     const appName = COMPOSIO_APP_NAME[platform]!;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/social/${platform}/callback`;
 
-    console.log("[social-connect] COMPOSIO_API_KEY:", process.env.COMPOSIO_API_KEY?.slice(0, 8) + "...");
-    console.log("[social-connect] appName:", appName);
-    console.log("[social-connect] entityId:", user.workspaceId);
-    console.log("[social-connect] redirectUri:", redirectUri);
-
-    if (platform === "linkedin") {
-      console.log("[linkedin-connect] authConfigId:", process.env.COMPOSIO_LINKEDIN_AUTH_CONFIG_ID);
-      console.log("[linkedin-connect] entityId:", session.user.id);
-    }
+    const authConfigId = COMPOSIO_AUTH_CONFIG_ID[platform];
+    console.log("[social-connect]", { platform, appName, authConfigId: authConfigId ?? "none", redirectUri });
 
     try {
       const toolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY, entityId: user.workspaceId });
@@ -69,13 +74,12 @@ export async function POST(
         }),
       });
       console.log("[social-connect] redirectUrl:", connection?.redirectUrl);
-      return Response.json({ redirectUrl: connection.redirectUrl });
+      return Response.json({ redirectUrl: connection.redirectUrl }, {
+        headers: { "Cross-Origin-Opener-Policy": "unsafe-none" },
+      });
     } catch (composioErr) {
-      if (platform === "linkedin") {
-        console.error("[linkedin-connect] full error:", JSON.stringify(composioErr, null, 2));
-      }
-      console.error("[social-connect] Composio error:", composioErr instanceof Error
-        ? { message: composioErr.message, name: composioErr.name, stack: composioErr.stack?.split("\n")[0] }
+      console.error(`[social-connect] Composio error for ${platform}:`, composioErr instanceof Error
+        ? { message: composioErr.message, name: composioErr.name }
         : composioErr);
 
       // Graceful fallback: store "pending" in DB (merge with existing connections)

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const VALID_PLATFORMS = ["linkedin", "linkedin-community", "instagram", "tiktok", "facebook", "x", "googledrive", "googledocs"] as const;
+const VALID_PLATFORMS = ["linkedin", "linkedin-community", "instagram", "tiktok", "facebook", "x", "googledrive", "googledocs", "gsc", "ga", "slack", "ahrefs", "semrush"] as const;
 type Platform = (typeof VALID_PLATFORMS)[number];
 
 function isPlatform(v: string): v is Platform {

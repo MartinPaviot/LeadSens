@@ -263,7 +263,7 @@ export function AppSidebar() {
                 className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
               >
                 <House className="size-3.5 shrink-0" />
-                <span>Accueil</span>
+                <span>Home</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -279,8 +279,8 @@ export function AppSidebar() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={pathname.startsWith("/seo-chat")}
-                onClick={() => { router.push("/seo-chat"); if (isMobile) setOpenMobile(false); }}
+                isActive={pathname.startsWith("/dashboard")}
+                onClick={() => { router.push("/dashboard"); if (isMobile) setOpenMobile(false); }}
                 size="sm"
                 className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
               >

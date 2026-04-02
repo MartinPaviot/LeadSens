@@ -203,7 +203,7 @@ export async function fetchYoutube(
       source: "youtube:data-api-v3",
       error: {
         code: "YOUTUBE_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Erreur inconnue",
+        message: err instanceof Error ? err.message : "Unknown error",
       },
       degraded: true,
     };

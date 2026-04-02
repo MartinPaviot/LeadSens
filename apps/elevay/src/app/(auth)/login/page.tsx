@@ -30,10 +30,10 @@ export default function LoginPage() {
       {
         email,
         password,
-        callbackURL: "/chat",
+        callbackURL: "/",
       },
       {
-        onSuccess: () => router.push("/chat"),
+        onSuccess: () => router.push("/"),
         onError: (ctx) => {
           toast.error(ctx.error.message ?? "Sign in failed");
           setIsPending(false);
@@ -54,7 +54,7 @@ export default function LoginPage() {
             variant="outline"
             className="w-full"
             onClick={() =>
-              signIn.social({ provider: "google", callbackURL: "/chat" })
+              signIn.social({ provider: "google", callbackURL: "/" })
             }
           >
             <GoogleLogo className="size-5" />

@@ -1,12 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 
 export interface OnboardingData {
+  brandName: string;
   siteUrl: string;
   language: string;
   sector: string;
-  targetAudience: string;
   toneOfVoice: string;
-  primaryCta: string;
   cmsType: 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'none' | 'other';
   otherCms?: string;
   connectedTools: {
@@ -19,6 +18,8 @@ export interface OnboardingData {
     ahrefs: boolean;
     semrush: boolean;
   };
+  ahrefsApiKey?: string;
+  semrushApiKey?: string;
   automationLevel: 'audit' | 'semi-auto' | 'full-auto';
   alertChannel: 'email' | 'slack' | 'digest';
 }
@@ -33,12 +34,11 @@ const STORAGE_KEY = 'elevay_onboarding_state';
 const DEFAULT_STATE: OnboardingState = {
   currentStep: 0,
   data: {
+    brandName: '',
     siteUrl: '',
     language: 'en',
     sector: '',
-    targetAudience: '',
     toneOfVoice: 'professional',
-    primaryCta: '',
     cmsType: 'none',
     connectedTools: {
       gsc: false,
@@ -56,7 +56,6 @@ const DEFAULT_STATE: OnboardingState = {
 };
 
 function loadState(): OnboardingState {
-  if (typeof window === 'undefined') return DEFAULT_STATE;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_STATE;
@@ -67,7 +66,6 @@ function loadState(): OnboardingState {
 }
 
 function saveState(state: OnboardingState): void {
-  if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -83,10 +81,12 @@ export function clearOnboardingState(): void {
 
 export function useOnboardingStore() {
   const [state, setState] = useState<OnboardingState>(DEFAULT_STATE);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Load from localStorage on mount
+  // Load from localStorage after mount — prevents hydration mismatch
   useEffect(() => {
     setState(loadState());
+    setHydrated(true);
   }, []);
 
   const setStep = useCallback((step: number) => {
@@ -119,5 +119,5 @@ export function useOnboardingStore() {
     });
   }, []);
 
-  return { state, setStep, updateData, updateTools };
+  return { state, hydrated, setStep, updateData, updateTools };
 }

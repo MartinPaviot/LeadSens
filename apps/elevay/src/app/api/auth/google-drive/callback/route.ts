@@ -14,7 +14,7 @@ const CLOSE_POPUP_HTML = (email: string, origin: string) => `<!DOCTYPE html>
 const ERROR_HTML = (message: string) => `<!DOCTYPE html>
 <html><body>
   <p style="font-family:sans-serif;padding:20px;color:#ef4444">${message}</p>
-  <button onclick="window.close()" style="margin-top:12px;padding:8px 16px;cursor:pointer">Fermer</button>
+  <button onclick="window.close()" style="margin-top:12px;padding:8px 16px;cursor:pointer">Close</button>
 </body></html>`;
 
 export async function GET(req: Request) {
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   const origin = `${url.protocol}//${url.host}`;
 
   if (errorParam) {
-    return new Response(ERROR_HTML("Connexion Google annulée."), {
+    return new Response(ERROR_HTML("Google connection cancelled."), {
       headers: { "Content-Type": "text/html" },
     });
   }
@@ -35,14 +35,14 @@ export async function GET(req: Request) {
   const cookieStore = await cookies();
   const savedState = cookieStore.get("google_oauth_state")?.value;
   if (!state || !savedState || state !== savedState) {
-    return new Response(ERROR_HTML("Erreur de sécurité (état invalide)."), {
+    return new Response(ERROR_HTML("Security error (invalid state)."), {
       headers: { "Content-Type": "text/html" },
     });
   }
   cookieStore.delete("google_oauth_state");
 
   if (!code) {
-    return new Response(ERROR_HTML("Code d'autorisation manquant."), {
+    return new Response(ERROR_HTML("Missing authorization code."), {
       headers: { "Content-Type": "text/html" },
     });
   }
@@ -50,14 +50,14 @@ export async function GET(req: Request) {
   // Auth check
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) {
-    return new Response(ERROR_HTML("Session expirée. Reconnectez-vous."), {
+    return new Response(ERROR_HTML("Session expired. Please sign in again."), {
       headers: { "Content-Type": "text/html" },
     });
   }
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user?.workspaceId) {
-    return new Response(ERROR_HTML("Espace de travail introuvable."), {
+    return new Response(ERROR_HTML("Workspace not found."), {
       headers: { "Content-Type": "text/html" },
     });
   }
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
   };
 
   if (!tokens.access_token) {
-    return new Response(ERROR_HTML(`Échange de token échoué : ${tokens.error ?? "erreur inconnue"}`), {
+    return new Response(ERROR_HTML(`Token exchange failed: ${tokens.error ?? "unknown error"}`), {
       headers: { "Content-Type": "text/html" },
     });
   }
@@ -93,7 +93,7 @@ export async function GET(req: Request) {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   const profile = await profileRes.json() as { email?: string };
-  const email = profile.email ?? session.user.email ?? "inconnu";
+  const email = profile.email ?? session.user.email ?? "unknown";
 
   // Upsert integration
   await prisma.integration.upsert({

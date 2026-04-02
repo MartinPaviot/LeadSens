@@ -24,8 +24,12 @@ export interface SeoOnboardingModalProps {
 type StepInputs = {
   siteUrl: string;
   cms: string;
+  otherCmsName: string;
   gscConnected: boolean;
   gaConnected: boolean;
+  ahrefsConnected: boolean;
+  semrushConnected: boolean;
+  slackConnected: boolean;
   automationLevel: string;
   geoLevel: string;
   geoDetails: string;
@@ -41,8 +45,12 @@ type StepInputs = {
 const EMPTY_INPUTS: StepInputs = {
   siteUrl: '',
   cms: '',
+  otherCmsName: '',
   gscConnected: false,
   gaConnected: false,
+  ahrefsConnected: false,
+  semrushConnected: false,
+  slackConnected: false,
   automationLevel: '',
   geoLevel: '',
   geoDetails: '',
@@ -56,14 +64,14 @@ const EMPTY_INPUTS: StepInputs = {
 };
 
 const STEP_LABELS: Record<string, string> = {
-  site_url: 'URL du site',
+  site_url: 'Website URL',
   cms: 'CMS',
   wordpress_credentials: 'WordPress',
-  tools_connection: 'Connexion outils',
-  automation_level: 'Automatisation',
-  geo: 'Dimension GEO',
-  priority_pages: 'Pages prioritaires',
-  alert_channel: 'Alertes',
+  tools_connection: 'Connect tools',
+  automation_level: 'Automation',
+  geo: 'Geographic scope',
+  priority_pages: 'Priority pages',
+  alert_channel: 'Alerts',
   confirmation: 'Confirmation',
 };
 
@@ -117,7 +125,10 @@ function buildAnswer(step: string, inputs: StepInputs): string {
       const parts: string[] = [];
       if (inputs.gscConnected) parts.push('gsc');
       if (inputs.gaConnected) parts.push('ga');
-      return parts.length > 0 ? parts.join(' ') : 'aucun';
+      if (inputs.ahrefsConnected) parts.push('ahrefs');
+      if (inputs.semrushConnected) parts.push('semrush');
+      if (inputs.slackConnected) parts.push('slack');
+      return parts.length > 0 ? parts.join(' ') : 'none';
     }
     case 'automation_level':
       return inputs.automationLevel;
@@ -127,16 +138,16 @@ function buildAnswer(step: string, inputs: StepInputs): string {
       return detail ? `${base} ${detail}` : base;
     }
     case 'priority_pages':
-      return inputs.priorityPages.trim() || 'je ne sais pas';
+      return inputs.priorityPages.trim() || 'not sure yet';
     case 'alert_channel': {
       const parts: string[] = [];
       if (inputs.alertSlack) parts.push('slack');
       if (inputs.alertEmail) parts.push('email');
-      if (parts.length === 0) parts.push('rapport');
+      if (parts.length === 0) parts.push('report');
       return parts.join(' ');
     }
     case 'confirmation':
-      return 'Oui';
+      return 'Yes';
     default:
       return '';
   }
@@ -167,6 +178,18 @@ function isStepValid(step: string, inputs: StepInputs): boolean {
   }
 }
 
+// ─── OAuth helpers ────────────────────────────────────────
+
+type OAuthPlatform = 'gsc' | 'ga' | 'ahrefs' | 'semrush' | 'slack';
+
+const OAUTH_API_MAP: Record<OAuthPlatform, string> = {
+  gsc: 'gsc',
+  ga: 'ga',
+  ahrefs: 'ahrefs',
+  semrush: 'semrush',
+  slack: 'slack',
+};
+
 // ─── Component ────────────────────────────────────────────
 
 type HistoryEntry = { state: OnboardingState; question: OnboardingQuestion; inputs: StepInputs };
@@ -178,6 +201,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
   const [inputs, setInputs] = useState<StepInputs>(EMPTY_INPUTS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   // Client-only step overlay — 'wordpress_credentials' is not an API step
   const [localOverrideStep, setLocalOverrideStep] = useState<'wordpress_credentials' | null>(null);
 
@@ -194,12 +218,12 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start' }),
       });
-      if (!res.ok) throw new Error('Erreur de démarrage');
+      if (!res.ok) throw new Error('Failed to start onboarding');
       const data = await res.json() as { state: OnboardingState; question: OnboardingQuestion };
       setCurrentState(data.state);
       setCurrentQuestion(data.question);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inattendue');
+      setError(err instanceof Error ? err.message : 'Unexpected error');
     } finally {
       setIsLoading(false);
     }
@@ -208,6 +232,56 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
   useEffect(() => {
     if (open) void start();
   }, [open, start]);
+
+  // ─── OAuth connect handler ────────────────────────────
+
+  const handleOAuthConnect = useCallback(async (platform: OAuthPlatform) => {
+    setConnectingPlatform(platform);
+    try {
+      const apiPlatform = OAUTH_API_MAP[platform];
+      const res = await fetch(`/api/auth/social/${apiPlatform}/connect`, { method: "POST" });
+      if (!res.ok) {
+        setConnectingPlatform(null);
+        return;
+      }
+      const data = await res.json() as { redirectUrl?: string | null };
+      if (!data.redirectUrl) {
+        setConnectingPlatform(null);
+        return;
+      }
+
+      const popup = window.open(data.redirectUrl, `connect-${platform}`, "width=600,height=700,popup=1");
+      if (!popup) {
+        setConnectingPlatform(null);
+        return;
+      }
+      const openedPopup = popup;
+
+      function cleanup() {
+        window.removeEventListener("message", onMessage);
+        clearInterval(closeWatcher);
+        setConnectingPlatform(null);
+      }
+
+      function onMessage(e: MessageEvent<unknown>) {
+        if (typeof e.data !== "object" || !e.data || !("type" in e.data)) return;
+        const msg = e.data as { type: string; platform?: string };
+        if (msg.type !== "SOCIAL_CONNECTED") return;
+        const key = `${platform}Connected` as keyof StepInputs;
+        setInputs((p) => ({ ...p, [key]: true }));
+        cleanup();
+        openedPopup.close();
+      }
+
+      const closeWatcher = setInterval(() => {
+        if (openedPopup.closed) cleanup();
+      }, 500);
+
+      window.addEventListener("message", onMessage);
+    } catch {
+      setConnectingPlatform(null);
+    }
+  }, []);
 
   // ─── Answer handler ───────────────────────────────────
 
@@ -233,7 +307,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'answer', state: currentState, answer }),
       });
-      if (!res.ok) throw new Error('Erreur de traitement');
+      if (!res.ok) throw new Error('Processing error');
 
       const data = await res.json() as
         | { state: OnboardingState; question: OnboardingQuestion; complete: false }
@@ -272,7 +346,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         setInputs(EMPTY_INPUTS);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inattendue');
+      setError(err instanceof Error ? err.message : 'Unexpected error');
     } finally {
       setIsLoading(false);
     }
@@ -282,7 +356,6 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
 
   const handleBack = useCallback(() => {
     if (localOverrideStep === 'wordpress_credentials') {
-      // Go back to cms — pop the history entry we pushed when entering wp step
       const prev = history[history.length - 1];
       if (!prev) return;
       setHistory((h) => h.slice(0, -1));
@@ -326,7 +399,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             <p className="text-sm text-muted-foreground">{currentQuestion.message}</p>
             <Input
               type="url"
-              placeholder="https://monsite.fr"
+              placeholder="https://yoursite.com"
               value={inputs.siteUrl}
               onChange={(e) => setInputs((p) => ({ ...p, siteUrl: e.target.value }))}
               onKeyDown={(e) => { if (e.key === 'Enter' && canProceed) void handleNext(); }}
@@ -339,24 +412,34 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         return (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{currentQuestion.message}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(['wordpress', 'hubspot', 'shopify', 'webflow', 'other'] as const).map((cms) => (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {(['wordpress', 'hubspot', 'shopify', 'webflow', 'none', 'other'] as const).map((cms) => (
                 <button
                   key={cms}
                   type="button"
-                  onClick={() => setInputs((p) => ({ ...p, cms }))}
+                  onClick={() => setInputs((p) => ({ ...p, cms, otherCmsName: cms === 'other' ? p.otherCmsName : '' }))}
                   className={cn(
                     "px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-150 capitalize",
                     inputs.cms === cms
                       ? "border-primary text-primary bg-primary/5"
                       : "border-border text-foreground/70 hover:border-primary/50",
-                    cms === 'other' && 'col-span-2',
                   )}
                 >
-                  {cms === 'other' ? 'Autre CMS' : cms.charAt(0).toUpperCase() + cms.slice(1)}
+                  {cms === 'none' ? 'No CMS' : cms === 'other' ? 'Other' : cms.charAt(0).toUpperCase() + cms.slice(1)}
                 </button>
               ))}
             </div>
+            {inputs.cms === 'other' && (
+              <div className="animate-fade-in-up">
+                <Input
+                  type="text"
+                  value={inputs.otherCmsName}
+                  onChange={(e) => setInputs((p) => ({ ...p, otherCmsName: e.target.value }))}
+                  placeholder="Which CMS do you use?"
+                  className="mt-2"
+                />
+              </div>
+            )}
           </div>
         );
 
@@ -364,14 +447,14 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         return (
           <div className="flex flex-col gap-4">
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-              Connectez WordPress pour injecter metas, ALT texts et redirections directement.
+              Connect WordPress to inject metas, ALT texts, and redirections directly.
               <span className="block mt-1 font-medium" style={{ color: '#17c3b2' }}>
-                Optionnel — cliquez sur Passer pour continuer sans connecter.
+                Optional — click Skip to continue without connecting.
               </span>
             </p>
             <input
               type="url"
-              placeholder="https://monsite.fr"
+              placeholder="https://yoursite.com"
               value={inputs.wpSiteUrl}
               onChange={(e) => setInputs((p) => ({ ...p, wpSiteUrl: e.target.value }))}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
@@ -379,7 +462,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             />
             <input
               type="text"
-              placeholder="Nom d'utilisateur WordPress"
+              placeholder="WordPress username"
               value={inputs.wpUsername}
               onChange={(e) => setInputs((p) => ({ ...p, wpUsername: e.target.value }))}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
@@ -387,14 +470,14 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             />
             <input
               type="password"
-              placeholder="Application Password (WP Admin → Utilisateurs → Profil)"
+              placeholder="Application Password (WP Admin → Users → Profile)"
               value={inputs.wpAppPassword}
               onChange={(e) => setInputs((p) => ({ ...p, wpAppPassword: e.target.value }))}
               className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
               style={{ background: 'var(--background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
             />
             <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
-              Générez un Application Password depuis WP Admin → Utilisateurs → Profil → Application Passwords
+              Generate an Application Password from WP Admin → Users → Profile → Application Passwords
             </p>
           </div>
         );
@@ -405,28 +488,44 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             <p className="text-sm text-muted-foreground">{currentQuestion.message}</p>
             <div className="space-y-2">
               {([
-                { key: 'gscConnected' as const, label: 'Google Search Console', desc: 'Positions, clics, impressions' },
-                { key: 'gaConnected' as const, label: 'Google Analytics', desc: 'Trafic, sessions, conversions' },
-              ]).map(({ key, label, desc }) => (
-                <label
-                  key={key}
-                  className={cn(
-                    "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150",
-                    inputs[key] ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={inputs[key]}
-                    onChange={(e) => setInputs((p) => ({ ...p, [key]: e.target.checked }))}
-                    className="mt-0.5 accent-[#17c3b2]"
-                  />
-                  <div>
-                    <div className="text-sm font-medium">{label}</div>
-                    <div className="text-xs text-muted-foreground">{desc}</div>
-                  </div>
-                </label>
-              ))}
+                { key: 'gscConnected' as const, platform: 'gsc' as OAuthPlatform, label: 'Google Search Console', desc: 'Rankings, clicks, impressions' },
+                { key: 'gaConnected' as const, platform: 'ga' as OAuthPlatform, label: 'Google Analytics', desc: 'Traffic, sessions, conversions' },
+                { key: 'ahrefsConnected' as const, platform: 'ahrefs' as OAuthPlatform, label: 'Ahrefs', desc: 'Backlink analysis, domain rating' },
+                { key: 'semrushConnected' as const, platform: 'semrush' as OAuthPlatform, label: 'SEMrush', desc: 'Keyword research, competitor analysis' },
+                { key: 'slackConnected' as const, platform: 'slack' as OAuthPlatform, label: 'Slack', desc: 'Real-time notifications in your workspace' },
+              ]).map(({ key, platform, label, desc }) => {
+                const connected = inputs[key];
+                const connecting = connectingPlatform === platform;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      if (!connected && !connecting) void handleOAuthConnect(platform);
+                    }}
+                    disabled={connected || connecting}
+                    className={cn(
+                      "flex items-center gap-3 w-full p-3 rounded-xl border text-left transition-all duration-150",
+                      connected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
+                      connecting && "opacity-70",
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{label}</div>
+                      <div className="text-xs text-muted-foreground">{desc}</div>
+                    </div>
+                    <span
+                      className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        backgroundColor: connected ? 'rgba(23,195,178,0.1)' : 'var(--muted)',
+                        color: connected ? '#17C3B2' : 'var(--muted-foreground)',
+                      }}
+                    >
+                      {connecting ? 'Connecting…' : connected ? 'Connected' : 'Connect'}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
@@ -434,12 +533,12 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
       case 'automation_level':
         return (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground text-xs whitespace-pre-line">{currentQuestion.message}</p>
+            <p className="text-sm text-muted-foreground">{currentQuestion.message}</p>
             <div className="space-y-2">
               {([
-                { value: 'audit', label: 'Audit seul', desc: 'Rapports uniquement, vous exécutez' },
-                { value: 'semi-auto', label: 'Semi-auto', desc: 'Corrections sans risque auto, validation pour le reste' },
-                { value: 'full-auto', label: 'Full auto', desc: 'Tout automatique selon les règles configurées' },
+                { value: 'audit', label: 'Audit only', desc: 'Reports only — you decide what to apply and do it yourself.' },
+                { value: 'semi-auto', label: 'Semi-automatic', desc: 'Elevay applies nothing without your approval. Every correction and draft is shown to you first.' },
+                { value: 'full-auto', label: 'Full automatic', desc: 'Elevay silently fixes technical issues (broken metas, missing alt texts, canonicals). You only approve content before publishing.' },
               ]).map(({ value, label, desc }) => (
                 <label
                   key={value}
@@ -470,12 +569,12 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         return (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{currentQuestion.message.split('\n')[0]}</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {([
-                { value: 'national', label: '🌍 National' },
-                { value: 'regional', label: '📍 Régional' },
-                { value: 'city', label: '🏙️ Local' },
-                { value: 'multi-geo', label: '🌐 Multi-pays' },
+                { value: 'national', label: 'National' },
+                { value: 'regional', label: 'Regional' },
+                { value: 'city', label: 'Local / City' },
+                { value: 'multi-geo', label: 'Multi-country' },
               ]).map(({ value, label }) => (
                 <button
                   key={value}
@@ -495,9 +594,9 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             {inputs.geoLevel && inputs.geoLevel !== 'national' && (
               <Input
                 placeholder={
-                  inputs.geoLevel === 'regional' ? "ex : Île-de-France"
-                  : inputs.geoLevel === 'city' ? "ex : Paris, Lyon, Marseille"
-                  : "ex : FR, BE, CH"
+                  inputs.geoLevel === 'regional' ? "e.g. California, Ile-de-France"
+                  : inputs.geoLevel === 'city' ? "e.g. Paris, London, New York"
+                  : "e.g. US, UK, FR"
                 }
                 value={inputs.geoDetails}
                 onChange={(e) => setInputs((p) => ({ ...p, geoDetails: e.target.value }))}
@@ -513,7 +612,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             <p className="text-sm text-muted-foreground">{currentQuestion.message}</p>
             <textarea
               className="w-full min-h-[100px] px-3 py-2 rounded-xl border border-border text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-              placeholder={"/ma-page-1\nhttps://monsite.fr/produit\n…"}
+              placeholder={"/my-page\nhttps://yoursite.com/product\n…"}
               value={inputs.priorityPages}
               onChange={(e) => setInputs((p) => ({ ...p, priorityPages: e.target.value }))}
             />
@@ -526,8 +625,8 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             <p className="text-sm text-muted-foreground">{currentQuestion.message}</p>
             <div className="space-y-2">
               {([
-                { key: 'alertSlack' as const, label: 'Slack', desc: 'Notifications en temps réel dans votre workspace' },
-                { key: 'alertEmail' as const, label: 'Email', desc: 'Récapitulatif hebdomadaire par email' },
+                { key: 'alertSlack' as const, label: 'Slack', desc: 'Real-time notifications in your workspace' },
+                { key: 'alertEmail' as const, label: 'Email', desc: 'Weekly summary sent to your email' },
               ]).map(({ key, label, desc }) => (
                 <label
                   key={key}
@@ -581,7 +680,8 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
   return (
     <Dialog open={open} onOpenChange={() => { /* blocked — no close without completion */ }}>
       <DialogContent
-        className="max-w-[520px] p-8 max-h-[90vh] overflow-y-auto pb-6"
+        className="p-8 max-h-[90vh] overflow-y-auto pb-6"
+        style={{ maxWidth: 'min(680px, 95vw)' }}
         showCloseButton={false}
       >
         {/* Logo */}
@@ -595,7 +695,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             {stepLabel}
           </DialogTitle>
           <p className="text-sm text-muted-foreground text-center">
-            Configuration de votre espace SEO &amp; GEO.
+            Configure your SEO &amp; GEO workspace.
           </p>
         </DialogHeader>
 
@@ -603,7 +703,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
         <div className="space-y-1 mb-6">
           <div className="flex justify-end">
             <span className="text-xs text-muted-foreground">
-              Étape {stepNumber} sur {TOTAL_STEPS}
+              Step {stepNumber} of {TOTAL_STEPS}
             </span>
           </div>
           <div className="h-1 w-full rounded-full bg-border overflow-hidden">
@@ -641,7 +741,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
                 disabled={isLoading}
                 className="h-10 px-4 rounded-xl"
               >
-                Retour
+                Back
               </Button>
             )}
             {!canGoBack && (
@@ -651,7 +751,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
                 disabled={isLoading}
                 className="h-10 px-4 rounded-xl text-muted-foreground"
               >
-                Fermer
+                Close
               </Button>
             )}
           </div>
@@ -660,11 +760,11 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
             {(!isRequired || currentStep === 'wordpress_credentials') && currentStep !== 'confirmation' && (
               <Button
                 variant="ghost"
-                onClick={() => void handleNext(currentQuestion?.skipLabel ? 'je ne sais pas' : '')}
+                onClick={() => void handleNext(currentQuestion?.skipLabel ? 'not sure yet' : '')}
                 disabled={isLoading}
                 className="h-10 px-4 rounded-xl text-muted-foreground text-sm"
               >
-                {currentQuestion?.skipLabel ?? 'Passer'}
+                {currentQuestion?.skipLabel ?? 'Skip'}
               </Button>
             )}
             {currentStep === 'confirmation' ? (
@@ -675,7 +775,7 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
                   disabled={isLoading}
                   className="h-12 px-4 rounded-xl"
                 >
-                  Recommencer
+                  Start over
                 </Button>
                 <GradientButton
                   onClick={() => void handleNext()}
@@ -684,9 +784,9 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
                   {isLoading ? (
                     <span className="flex items-center gap-2">
                       <span className="size-4 border-2 border-white/60 border-r-transparent rounded-full animate-spin" />
-                      Enregistrement…
+                      Saving…
                     </span>
-                  ) : 'Confirmer'}
+                  ) : 'Confirm'}
                 </GradientButton>
               </div>
             ) : (
@@ -697,9 +797,9 @@ export function SeoOnboardingModal({ open, onComplete, onClose }: SeoOnboardingM
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="size-4 border-2 border-white/60 border-r-transparent rounded-full animate-spin" />
-                    Chargement…
+                    Loading…
                   </span>
-                ) : 'Suivant'}
+                ) : 'Next'}
               </GradientButton>
             )}
           </div>

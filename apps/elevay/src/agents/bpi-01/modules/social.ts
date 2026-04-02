@@ -305,7 +305,7 @@ export async function fetchSocial(
       source: "social:apify",
       error: {
         code: "SOCIAL_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Erreur inconnue",
+        message: err instanceof Error ? err.message : "Unknown error",
       },
       degraded: true,
     };

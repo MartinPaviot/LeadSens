@@ -210,7 +210,7 @@ export async function fetchPress(
       source: "press:composio-news",
       error: {
         code: "PRESS_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Erreur inconnue",
+        message: err instanceof Error ? err.message : "Unknown error",
       },
       degraded: true,
     };

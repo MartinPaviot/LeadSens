@@ -90,11 +90,11 @@ function OptionGrid({
 
 const PAGE_TYPES = [
   { value: "landing", label: "Landing page" },
-  { value: "service", label: "Page service" },
-  { value: "about", label: "Page About" },
-  { value: "pillar", label: "Page pilier" },
-  { value: "contact", label: "Page contact" },
-  { value: "category", label: "Page catégorie" },
+  { value: "service", label: "Service page" },
+  { value: "about", label: "About page" },
+  { value: "pillar", label: "Pillar page" },
+  { value: "contact", label: "Contact page" },
+  { value: "category", label: "Category page" },
 ];
 
 const EXPORT_FORMATS = [
@@ -120,8 +120,8 @@ function Wpw09Form({ onSubmit }: { onSubmit: (data: Wpw09FormData) => void }) {
         .split(",")
         .map((k) => k.trim())
         .filter(Boolean),
-      brandTone: brandTone.trim() || "professionnel",
-      targetAudience: targetAudience.trim() || "décideurs B2B",
+      brandTone: brandTone.trim() || "professional",
+      targetAudience: targetAudience.trim() || "B2B decision-makers",
       exportFormat,
       cta: cta.trim(),
     });
@@ -129,53 +129,53 @@ function Wpw09Form({ onSubmit }: { onSubmit: (data: Wpw09FormData) => void }) {
 
   return (
     <div className="space-y-4">
-      <FormField label="Type de page">
+      <FormField label="Page type">
         <OptionGrid options={PAGE_TYPES} value={pageType} onChange={setPageType} />
       </FormField>
 
-      <FormField label="Brief / sujet *">
+      <FormField label="Brief / topic *">
         <textarea
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
-          placeholder="Décrivez le contenu de la page en quelques phrases..."
+          placeholder="Describe the page content in a few sentences..."
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </FormField>
 
-      <FormField label="Mots-clés cibles (séparés par des virgules)">
+      <FormField label="Target keywords (comma-separated)">
         <Input
           value={keywords}
           onChange={(e) => setKeywords(e.target.value)}
-          placeholder="seo local, référencement naturel, ..."
+          placeholder="local seo, organic search, ..."
         />
       </FormField>
 
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Ton de marque">
+        <FormField label="Brand tone">
           <Input
             value={brandTone}
             onChange={(e) => setBrandTone(e.target.value)}
-            placeholder="professionnel"
+            placeholder="professional"
           />
         </FormField>
-        <FormField label="Audience cible">
+        <FormField label="Target audience">
           <Input
             value={targetAudience}
             onChange={(e) => setTargetAudience(e.target.value)}
-            placeholder="décideurs B2B"
+            placeholder="B2B decision-makers"
           />
         </FormField>
       </div>
 
-      <FormField label="CTA (appel à l'action)">
+      <FormField label="CTA (call to action)">
         <Input
           value={cta}
           onChange={(e) => setCta(e.target.value)}
-          placeholder="Demandez un devis gratuit"
+          placeholder="Get a free quote"
         />
       </FormField>
 
-      <FormField label="Format d'export">
+      <FormField label="Export format">
         <OptionGrid options={EXPORT_FORMATS} value={exportFormat} onChange={setExportFormat} />
       </FormField>
 
@@ -185,7 +185,7 @@ function Wpw09Form({ onSubmit }: { onSubmit: (data: Wpw09FormData) => void }) {
         className="w-full"
         style={{ background: "var(--elevay-gradient-btn)" }}
       >
-        Générer la page
+        Generate page
       </Button>
     </div>
   );
@@ -194,19 +194,19 @@ function Wpw09Form({ onSubmit }: { onSubmit: (data: Wpw09FormData) => void }) {
 // ─── BSW-10 Form ──────────────────────────────────────────
 
 const ARTICLE_FORMATS = [
-  { value: "guide", label: "Guide complet" },
-  { value: "list", label: "Liste / Top N" },
-  { value: "tutorial", label: "Tutoriel" },
-  { value: "comparison", label: "Comparatif" },
-  { value: "case-study", label: "Étude de cas" },
+  { value: "guide", label: "Complete guide" },
+  { value: "list", label: "List / Top N" },
+  { value: "tutorial", label: "Tutorial" },
+  { value: "comparison", label: "Comparison" },
+  { value: "case-study", label: "Case study" },
   { value: "opinion", label: "Opinion" },
-  { value: "glossary", label: "Glossaire" },
+  { value: "glossary", label: "Glossary" },
 ];
 
 const ARTICLE_MODES = [
-  { value: "single", label: "Article seul" },
-  { value: "cluster", label: "Cluster thématique" },
-  { value: "calendar", label: "Cluster + calendrier" },
+  { value: "single", label: "Single article" },
+  { value: "cluster", label: "Topic cluster" },
+  { value: "calendar", label: "Cluster + calendar" },
 ];
 
 function Bsw10Form({ onSubmit }: { onSubmit: (data: Bsw10FormData) => void }) {
@@ -228,19 +228,19 @@ function Bsw10Form({ onSubmit }: { onSubmit: (data: Bsw10FormData) => void }) {
         .split(",")
         .map((k) => k.trim())
         .filter(Boolean),
-      brandTone: brandTone.trim() || "professionnel",
-      targetAudience: targetAudience.trim() || "marketeurs",
-      cta: cta.trim() || "Découvrir notre solution",
+      brandTone: brandTone.trim() || "professional",
+      targetAudience: targetAudience.trim() || "marketers",
+      cta: cta.trim() || "Discover our solution",
     });
   }, [topic, mode, articleFormat, keywords, brandTone, targetAudience, cta, onSubmit]);
 
   return (
     <div className="space-y-4">
-      <FormField label="Sujet de l'article *">
+      <FormField label="Article topic *">
         <Input
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="Ex: Guide du SEO local en 2025"
+          placeholder="e.g. Complete guide to local SEO in 2025"
         />
       </FormField>
 
@@ -252,36 +252,36 @@ function Bsw10Form({ onSubmit }: { onSubmit: (data: Bsw10FormData) => void }) {
         <OptionGrid options={ARTICLE_FORMATS} value={articleFormat} onChange={setArticleFormat} />
       </FormField>
 
-      <FormField label="Mots-clés cibles (séparés par des virgules)">
+      <FormField label="Target keywords (comma-separated)">
         <Input
           value={keywords}
           onChange={(e) => setKeywords(e.target.value)}
-          placeholder="seo local, référencement naturel, ..."
+          placeholder="local seo, organic search, ..."
         />
       </FormField>
 
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Ton de marque">
+        <FormField label="Brand tone">
           <Input
             value={brandTone}
             onChange={(e) => setBrandTone(e.target.value)}
-            placeholder="professionnel"
+            placeholder="professional"
           />
         </FormField>
-        <FormField label="Audience cible">
+        <FormField label="Target audience">
           <Input
             value={targetAudience}
             onChange={(e) => setTargetAudience(e.target.value)}
-            placeholder="marketeurs"
+            placeholder="marketers"
           />
         </FormField>
       </div>
 
-      <FormField label="CTA (appel à l'action)">
+      <FormField label="CTA (call to action)">
         <Input
           value={cta}
           onChange={(e) => setCta(e.target.value)}
-          placeholder="Découvrir notre solution"
+          placeholder="Discover our solution"
         />
       </FormField>
 
@@ -291,7 +291,7 @@ function Bsw10Form({ onSubmit }: { onSubmit: (data: Bsw10FormData) => void }) {
         className="w-full"
         style={{ background: "var(--elevay-gradient-btn)" }}
       >
-        Rédiger l&apos;article
+        Write article
       </Button>
     </div>
   );
@@ -313,23 +313,23 @@ function Kga08Form({ onSubmit }: { onSubmit: (data: Kga08FormData) => void }) {
 
   return (
     <div className="space-y-4">
-      <FormField label="Mots-clés de départ (séparés par des virgules)">
+      <FormField label="Seed keywords (comma-separated)">
         <textarea
           value={keywords}
           onChange={(e) => setKeywords(e.target.value)}
-          placeholder="seo local, référencement naturel, agence web lyon, ..."
+          placeholder="local seo, organic search, web agency, ..."
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </FormField>
       <p className="text-xs text-muted-foreground">
-        Laissez vide pour une analyse basée uniquement sur votre site et GSC.
+        Leave empty for an analysis based only on your site and GSC.
       </p>
       <Button
         onClick={handleSubmit}
         className="w-full"
         style={{ background: "var(--elevay-gradient-btn)" }}
       >
-        Lancer l&apos;analyse
+        Run analysis
       </Button>
     </div>
   );

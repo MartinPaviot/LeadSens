@@ -1,14 +1,14 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@leadsens/db';
 import { z } from 'zod';
 
 const completeSchema = z.object({
+  brandName: z.string().optional(),
   siteUrl: z.string().url(),
   language: z.string().min(1),
   sector: z.string().optional(),
-  targetAudience: z.string().optional(),
   toneOfVoice: z.string().optional(),
-  primaryCta: z.string().optional(),
   cmsType: z.enum(['wordpress', 'hubspot', 'shopify', 'webflow', 'none', 'other']),
   otherCms: z.string().optional(),
   connectedTools: z.object({
@@ -21,6 +21,8 @@ const completeSchema = z.object({
     ahrefs: z.boolean(),
     semrush: z.boolean(),
   }),
+  ahrefsApiKey: z.string().optional(),
+  semrushApiKey: z.string().optional(),
   automationLevel: z.enum(['audit', 'semi-auto', 'full-auto']),
   alertChannel: z.enum(['email', 'slack', 'digest']),
 });
@@ -45,11 +47,19 @@ export async function POST(req: Request) {
   const d = parsed.data;
 
   // Map onboarding fields to ElevayBrandProfile schema
-  const brandName = user.name ?? new URL(d.siteUrl).hostname;
+  const brandName = d.brandName?.trim() || (user.name ?? new URL(d.siteUrl).hostname);
   const alertChannels: string[] = [];
   if (d.alertChannel === 'email') alertChannels.push('email');
   if (d.alertChannel === 'slack') alertChannels.push('slack');
   if (d.alertChannel === 'digest') alertChannels.push('report');
+
+  // Build social_connections with API keys
+  const socialConnections: Record<string, string> = {};
+  if (d.ahrefsApiKey) socialConnections.ahrefsApiKey = d.ahrefsApiKey;
+  if (d.semrushApiKey) socialConnections.semrushApiKey = d.semrushApiKey;
+  const socialConnectionsJson = Object.keys(socialConnections).length > 0
+    ? (socialConnections as unknown as Prisma.InputJsonValue)
+    : undefined;
 
   await prisma.elevayBrandProfile.upsert({
     where: { workspaceId: user.workspaceId },
@@ -66,6 +76,7 @@ export async function POST(req: Request) {
       priority_channels: ['SEO'],
       objective: 'acquisition',
       report_recurrence: 'on_demand',
+      ...(socialConnectionsJson && { social_connections: socialConnectionsJson }),
     },
     update: {
       brand_name: brandName,
@@ -73,6 +84,7 @@ export async function POST(req: Request) {
       country: d.language === 'en' ? 'US' : d.language === 'fr' ? 'FR' : d.language.toUpperCase(),
       language: d.language,
       sector: d.sector,
+      ...(socialConnectionsJson && { social_connections: socialConnectionsJson }),
     },
   });
 

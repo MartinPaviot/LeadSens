@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X } from "@phosphor-icons/react";
 import { Button } from "@leadsens/ui";
+import { SeoAgentChat } from "@/components/seo-chat/seo-agent-chat";
 
 interface ChatOverlayProps {
   open: boolean;
@@ -11,6 +12,12 @@ interface ChatOverlayProps {
 }
 
 export function ChatOverlay({ open, onClose }: ChatOverlayProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -29,7 +36,7 @@ export function ChatOverlay({ open, onClose }: ChatOverlayProps) {
     };
   }, [open, handleKeyDown]);
 
-  if (typeof window === "undefined") return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div
@@ -47,7 +54,7 @@ export function ChatOverlay({ open, onClose }: ChatOverlayProps) {
         }`}
       >
         {/* Header with gradient accent */}
-        <div className="relative flex items-center justify-between px-4 py-3">
+        <div className="relative flex items-center justify-between px-4 py-3 shrink-0">
           <div
             className="absolute inset-x-0 top-0 h-[2px]"
             style={{ background: 'var(--elevay-gradient)' }}
@@ -66,14 +73,9 @@ export function ChatOverlay({ open, onClose }: ChatOverlayProps) {
           </Button>
         </div>
 
-        {/* Chat body */}
-        <div className="flex flex-1 flex-col items-center justify-center bg-elevay-mesh p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            SEO Chat — connect the existing chat component here.
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Try: &quot;Run a technical audit&quot;, &quot;Write an article about...&quot;
-          </p>
+        {/* Chat body — renders real SEO chat */}
+        <div className="flex-1 overflow-hidden">
+          {open && <SeoAgentChat embedded />}
         </div>
       </div>
     </div>,

@@ -45,6 +45,6 @@ export async function GET(
       window.opener?.postMessage({type:"SOCIAL_CONNECTED",platform:${platformJson}},${originJson});
       window.close();
     </script></body></html>`,
-    { headers: { "Content-Type": "text/html" } },
+    { headers: { "Content-Type": "text/html", "Cross-Origin-Opener-Policy": "unsafe-none" } },
   );
 }

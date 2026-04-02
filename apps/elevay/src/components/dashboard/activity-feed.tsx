@@ -26,7 +26,7 @@ function timeAgo(dateStr: string): string {
   const then = new Date(dateStr).getTime();
   const diffSeconds = Math.round((now - then) / 1000);
 
-  const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
   if (diffSeconds < 60) return rtf.format(-diffSeconds, 'second');
   const diffMinutes = Math.round(diffSeconds / 60);

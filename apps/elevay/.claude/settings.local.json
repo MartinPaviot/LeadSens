@@ -127,7 +127,15 @@
       "Bash(find C:UsersombelLeadSens-1appselevaysrc -name *.config.* -type f)",
       "Bash(find \"src/app/\\(seo-dashboard\\)\" -name \"*.tsx\")",
       "Bash(find /Users/ombel/LeadSens-1/apps/elevay -name tailwind.config.* -o -name tsconfig.*)",
-      "Bash(find src/app/onboarding src/components/onboarding src/app/api/onboarding src/lib/onboarding-store.ts -name *.ts -o -name *.tsx)"
+      "Bash(find src/app/onboarding src/components/onboarding src/app/api/onboarding src/lib/onboarding-store.ts -name *.ts -o -name *.tsx)",
+      "Bash(find \"C:\\\\Users\\\\ombel\\\\LeadSens-1\\\\apps\\\\elevay/src/app/\\(dashboard\\)\" -type f -name \"*.tsx\")",
+      "Bash(find C:UsersombelLeadSens-1appselevay -type f -name *agent*marketplace* -o -name *brand-intel*)",
+      "Bash(find \"C:\\\\Users\\\\ombel\\\\LeadSens-1\\\\apps\\\\elevay\\\\src\\\\app\\\\\\(seo-dashboard\\)\" -type f -name \"*.tsx\")",
+      "Bash(ls -la src/app/\\\\\\(seo-dashboard\\\\\\)/)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(cd:*)",
+      "Bash(xxd)"
     ]
   }
 }

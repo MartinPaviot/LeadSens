@@ -170,7 +170,7 @@ export async function fetchSeo(
       source: "seo:dataforseo",
       error: {
         code: "SEO_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Erreur inconnue",
+        message: err instanceof Error ? err.message : "Unknown error",
       },
       degraded: true,
     };

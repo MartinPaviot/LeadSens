@@ -80,10 +80,10 @@ function buildMtsSummary(output: MtsOutput): string {
   const angle = differentiating_angles[0] ?? null;
   const sat = saturated_topics[0]?.topic ?? null;
   return [
-    `📈 **Analyse de marché — ${session_context.sector}**`,
-    top3 ? `Top tendances : ${top3}` : null,
-    angle ? `Angle différenciant : ${angle}` : null,
-    sat ? `À éviter : ~~${sat}~~` : null,
+    `📈 **Market analysis — ${session_context.sector}**`,
+    top3 ? `Top trends: ${top3}` : null,
+    angle ? `Differentiating angle: ${angle}` : null,
+    sat ? `Avoid: ~~${sat}~~` : null,
   ].filter(Boolean).join("\n");
 }
 
@@ -92,17 +92,17 @@ function buildCiaSummary(output: CiaOutput, brandName: string): string {
   const client = competitor_scores.find((c) => c.is_client);
   const others = [...competitor_scores.filter((c) => !c.is_client)].sort((a, b) => b.global_score - a.global_score);
   const scoresLine = [client, ...others].filter(Boolean)
-    .map((c) => c!.is_client ? `**vous : ${c!.global_score}/100** (${c!.level})` : `${c!.entity} : ${c!.global_score}/100`)
+    .map((c) => c!.is_client ? `**you: ${c!.global_score}/100** (${c!.level})` : `${c!.entity}: ${c!.global_score}/100`)
     .join(" · ");
   const redAxes = strategic_zones.filter((z) => z.zone === "red").map((z) => z.axis).join(", ") || null;
   const greenAxes = strategic_zones.filter((z) => z.zone === "green").map((z) => z.axis).join(", ") || null;
   const zonesLine = [redAxes ? `❌ ${redAxes}` : null, greenAxes ? `✅ ${greenAxes}` : null].filter(Boolean).join(" · ") || null;
   const opp = opportunities[0] ? `${opportunities[0].description} (${opportunities[0].timeframe})` : null;
   return [
-    `🎯 **Analyse concurrentielle — ${brandName}**`,
+    `🎯 **Competitive analysis — ${brandName}**`,
     scoresLine,
-    zonesLine ? `Zones : ${zonesLine}` : null,
-    opp ? `Opportunité : ${opp}` : null,
+    zonesLine ? `Zones: ${zonesLine}` : null,
+    opp ? `Opportunity: ${opp}` : null,
   ].filter(Boolean).join("\n");
 }
 

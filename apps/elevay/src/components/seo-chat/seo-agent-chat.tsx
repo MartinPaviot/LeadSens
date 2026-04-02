@@ -5,14 +5,13 @@ import { createParser } from "eventsource-parser";
 import { AgentRuntimeProvider } from "@/components/chat/agent-runtime-provider";
 import { ElevayThread } from "@/components/chat/thread";
 import { GreetingLoader } from "@/components/chat/greeting-loader";
-import { ThemeToggle } from "@/components/chat/theme-toggle";
 import {
   AgentActivityContext,
-  useSidebar,
   Button,
 } from "@leadsens/ui";
-import { SidebarSimple, Gear } from "@phosphor-icons/react";
-import { SettingsModal } from "@/components/chat/settings-modal";
+import { Gear, Sun, Moon } from "@phosphor-icons/react";
+import { useTheme } from "next-themes";
+import { SeoSettingsModal } from "@/components/dashboard/seo-settings-modal";
 import type { SSEEventName, SSEEventPayload } from "@/lib/sse";
 import {
   streamTsi07Audit,
@@ -76,8 +75,13 @@ const FORM_ACTIONS: Record<string, "wpw09" | "bsw10" | "kga08"> = {
 
 // ─── Main Component ──────────────────────────────────────
 
-export function SeoAgentChat() {
-  const { state: sidebarState, toggleSidebar } = useSidebar();
+interface SeoAgentChatProps {
+  embedded?: boolean;
+}
+
+export function SeoAgentChat({ embedded = false }: SeoAgentChatProps) {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [seoProfile, setSeoProfile] = useState<SeoAgentProfile | null>(null);
@@ -95,13 +99,13 @@ export function SeoAgentChat() {
   const retryIntervalRef = useRef(DEFAULT_RETRY_MS);
   const updateScheduledRef = useRef(false);
 
+  useEffect(() => { setMounted(true); }, []);
+
   // ─── Load profile from localStorage ──────────────────
 
   useEffect(() => {
     const stored = localStorage.getItem(SEO_PROFILE_KEY);
-    if (!stored) {
-      setShowOnboarding(true);
-    } else {
+    if (stored) {
       setSeoProfile(JSON.parse(stored) as SeoAgentProfile);
     }
   }, []);
@@ -171,7 +175,7 @@ export function SeoAgentChat() {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, content: `Erreur : ${payload.message}` }
+                      ? { ...m, content: `Error: ${payload.message}` }
                       : m,
                   ),
                 );
@@ -203,7 +207,7 @@ export function SeoAgentChat() {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, content: "Une erreur est survenue. Réessayez." }
+                ? { ...m, content: "An error occurred. Please try again." }
                 : m,
             ),
           );
@@ -473,74 +477,67 @@ export function SeoAgentChat() {
         onSubmitKga08={handleKga08Submit}
       />
 
-      <div className="flex h-dvh" aria-label="SEO & GEO chat">
+      <div className={embedded ? "flex h-full w-full flex-col" : "flex h-dvh"} aria-label="SEO & GEO chat">
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
-          <header className="relative z-50 flex items-center justify-between px-4 py-1.5 border-b bg-background/95 backdrop-blur-sm shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              {sidebarState === "collapsed" && (
+          {/* Header — matches dashboard-shell topbar */}
+          <header className="flex shrink-0 items-center justify-between border-b border-border/60 bg-background px-4 py-3 sm:px-6 md:px-8">
+            <h1 className="text-sm font-semibold text-foreground sm:text-base">SEO & GEO</h1>
+            <div className="flex items-center gap-1.5">
+              {mounted && (
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="size-6 shrink-0"
-                  onClick={toggleSidebar}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 >
-                  <SidebarSimple className="size-3.5" />
+                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                 </Button>
               )}
-              <span className="text-xs font-medium text-muted-foreground truncate">
-                SEO & GEO
-              </span>
-              {seoProfile?.siteUrl && (
-                <span className="text-xs text-muted-foreground/50 truncate hidden sm:block">
-                  — {seoProfile.siteUrl}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <ThemeToggle />
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-6"
+                size="sm"
+                className="h-8 w-8 p-0"
                 onClick={() => setShowSettings(true)}
                 title="Settings"
               >
-                <Gear className="size-3.5" />
+                <Gear size={16} />
               </Button>
             </div>
           </header>
 
-          <AgentRuntimeProvider
-            messages={messages}
-            isStreaming={isStreaming}
-            onSend={handleSend}
-            onCancel={handleCancel}
-          >
-            {showGreetingScreen ? (
-              <SeoGreetingScreen
-                isStreaming={isStreaming}
-                siteUrl={siteUrl || undefined}
-                onQuickReply={handleQuickReply}
-              />
-            ) : messages.length === 0 ? (
-              <GreetingLoader />
-            ) : (
-              <ElevayThread
-                isStreaming={isStreaming}
-                lastSuggestion={null}
-                onSuggestionAction={handleQuickReply}
-              />
-            )}
-          </AgentRuntimeProvider>
+          {showGreetingScreen ? (
+            <SeoGreetingScreen
+              isStreaming={isStreaming}
+              siteUrl={siteUrl || undefined}
+              onQuickReply={handleQuickReply}
+              onSend={handleSend}
+            />
+          ) : (
+            <AgentRuntimeProvider
+              messages={messages}
+              isStreaming={isStreaming}
+              onSend={handleSend}
+              onCancel={handleCancel}
+            >
+              {messages.length === 0 ? (
+                <GreetingLoader />
+              ) : (
+                <ElevayThread
+                  isStreaming={isStreaming}
+                  lastSuggestion={null}
+                  onSuggestionAction={handleQuickReply}
+                />
+              )}
+            </AgentRuntimeProvider>
+          )}
         </div>
 
         <div className="sr-only" aria-live="polite">
-          {isStreaming && (activityLabel || "Agent en cours de réponse…")}
+          {isStreaming && (activityLabel || "Agent responding…")}
         </div>
       </div>
 
-      <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
+      <SeoSettingsModal open={showSettings} onOpenChange={setShowSettings} />
     </AgentActivityContext.Provider>
   );
 }

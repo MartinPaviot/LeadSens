@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
   Search,
   TrendingUp,
@@ -12,6 +13,8 @@ import {
   Lock,
   ArrowRight,
   Sparkles,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────
@@ -52,7 +55,7 @@ const AGENT_FAMILIES: AgentFamily[] = [
       "Technical audit, keyword strategy, SEO writing, continuous optimization, and AI visibility (SGE, Copilot, Perplexity).",
     agentCount: 8,
     status: "available",
-    route: "/seo-chat",
+    route: "/dashboard",
     gradient: "from-[#17c3b2] to-[#0ea5a0]",
     icon: <TrendingUp size={28} strokeWidth={1.5} />,
     agents: [
@@ -71,9 +74,9 @@ const AGENT_FAMILIES: AgentFamily[] = [
     id: "brand-intel",
     category: "brand",
     name: "Brand & Market Intelligence",
-    tagline: "Comprenez votre marché en temps réel",
+    tagline: "Understand your market in real time",
     description:
-      "Analyse de positionnement, veille concurrentielle, tendances marché et intelligence de marque pour des décisions fondées sur la data.",
+      "Brand positioning analysis, competitive monitoring, market trends, and brand intelligence for data-driven decisions.",
     agentCount: 3,
     status: "available",
     route: "/chat",
@@ -86,48 +89,48 @@ const AGENT_FAMILIES: AgentFamily[] = [
     id: "social",
     category: "social",
     name: "Social Media",
-    tagline: "Contenu et stratégie sur tous les réseaux",
+    tagline: "Content and strategy across all platforms",
     description:
-      "Génération de contenu, calendrier éditorial, analyse de performance et recommandations par plateforme.",
+      "Content creation, editorial calendar, performance analysis, and recommendations by platform.",
     agentCount: 0,
     status: "coming-soon",
     route: "",
     gradient: "from-[#8b5cf6] to-[#6d28d9]",
     icon: <Share2 size={28} strokeWidth={1.5} />,
-    agents: ["Content creator", "Calendrier éditorial", "Analytics social"],
+    agents: ["Content creator", "Editorial calendar", "Social analytics"],
   },
   {
     id: "email",
     category: "email",
     name: "Email Marketing",
-    tagline: "Campagnes email qui convertissent",
+    tagline: "Email campaigns that convert",
     description:
-      "Rédaction, segmentation, A/B testing et optimisation de delivrabilité pour maximiser vos taux d'ouverture et de conversion.",
+      "Copywriting, segmentation, A/B testing, and deliverability optimization to maximize your open and conversion rates.",
     agentCount: 0,
     status: "coming-soon",
     route: "",
     gradient: "from-[#f59e0b] to-[#d97706]",
     icon: <Mail size={28} strokeWidth={1.5} />,
-    agents: ["Rédaction campagnes", "Segmentation", "A/B testing"],
+    agents: ["Campaign copywriting", "Segmentation", "A/B testing"],
   },
   {
     id: "analytics",
     category: "analytics",
     name: "Performance & Analytics",
-    tagline: "Vos KPIs marketing au même endroit",
+    tagline: "All your marketing KPIs in one place",
     description:
-      "Dashboard unifié, reporting automatisé et recommandations intelligentes basées sur toutes vos sources de données marketing.",
+      "Unified dashboard, automated reporting, and intelligent recommendations based on all your marketing data sources.",
     agentCount: 0,
     status: "coming-soon",
     route: "",
     gradient: "from-[#ec4899] to-[#be185d]",
     icon: <BarChart2 size={28} strokeWidth={1.5} />,
-    agents: ["Dashboard unifié", "Reporting auto", "Recommandations"],
+    agents: ["Unified dashboard", "Auto reporting", "Recommendations"],
   },
 ];
 
 const CATEGORIES: { id: AgentCategory; label: string }[] = [
-  { id: "all", label: "Tout" },
+  { id: "all", label: "All" },
   { id: "seo", label: "SEO & GEO" },
   { id: "brand", label: "Brand Intel" },
   { id: "social", label: "Social Media" },
@@ -139,8 +142,12 @@ const CATEGORIES: { id: AgentCategory; label: string }[] = [
 
 export function AgentMarketplace() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [activeCategory, setActiveCategory] = useState<AgentCategory>("all");
   const [search, setSearch] = useState("");
+
+  useEffect(() => { setMounted(true); }, []);
 
   const filtered = AGENT_FAMILIES.filter((f) => {
     const matchCat = activeCategory === "all" || f.category === activeCategory;
@@ -153,6 +160,17 @@ export function AgentMarketplace() {
 
   return (
     <div className="min-h-screen px-6 py-10 max-w-6xl mx-auto">
+      {/* Theme toggle — top right */}
+      {mounted && (
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-10 text-center">
         <div
@@ -160,20 +178,20 @@ export function AgentMarketplace() {
           style={{ background: "rgba(23,195,178,0.12)", color: "#17c3b2" }}
         >
           <Sparkles size={12} />
-          Vos agents marketing IA
+          Your AI marketing agents
         </div>
         <h1
           className="text-3xl font-semibold tracking-tight mb-3"
           style={{ color: "var(--foreground)" }}
         >
-          Que voulez-vous accomplir aujourd&apos;hui ?
+          What do you want to accomplish today?
         </h1>
         <p
           className="text-base max-w-xl mx-auto"
           style={{ color: "var(--muted-foreground)" }}
         >
-          Choisissez une famille d&apos;agents. Chaque famille regroupe des
-          agents spécialisés qui travaillent ensemble.
+          Choose an agent family. Each family includes specialised agents
+          that work together.
         </p>
       </div>
 
@@ -187,7 +205,7 @@ export function AgentMarketplace() {
           />
           <input
             type="text"
-            placeholder="Rechercher…"
+            placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border outline-none transition-colors"
@@ -238,7 +256,7 @@ export function AgentMarketplace() {
           className="text-center py-20"
           style={{ color: "var(--muted-foreground)" }}
         >
-          Aucune famille d&apos;agents ne correspond à votre recherche.
+          No agent families match your search.
         </div>
       )}
     </div>
@@ -297,7 +315,7 @@ function AgentCard({
               }}
             >
               <Lock size={11} />
-              Bientôt disponible
+              Coming soon
             </div>
           </div>
         )}

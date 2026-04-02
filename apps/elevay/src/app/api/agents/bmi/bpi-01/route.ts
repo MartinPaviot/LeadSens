@@ -183,7 +183,7 @@ export async function POST(req: Request) {
   try {
     return await handleBpiRequest(req);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur interne inattendue";
+    const message = err instanceof Error ? err.message : "Unexpected internal error";
     const encoder = new SSEEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -236,7 +236,7 @@ async function handleBpiRequest(req: Request) {
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(
-          encoder.encode("error", { message: "Profil de marque non configuré. Rendez-vous dans les paramètres pour renseigner votre marque." }),
+          encoder.encode("error", { message: "Brand profile not configured. Go to settings to set up your brand." }),
         );
         controller.enqueue(encoder.encode("stream-end", {}));
         controller.close();
@@ -455,7 +455,7 @@ async function handleBpiRequest(req: Request) {
         );
         controller.enqueue(encoder.encode("stream-end", {}));
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Erreur inattendue";
+        const message = err instanceof Error ? err.message : "Unexpected error";
         controller.enqueue(encoder.encode("error", { message }));
       } finally {
         controller.close();

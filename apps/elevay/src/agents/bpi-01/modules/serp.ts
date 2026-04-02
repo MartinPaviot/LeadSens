@@ -135,7 +135,7 @@ export async function fetchSerp(
       source: "serp:serpapi",
       error: {
         code: "SERP_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Erreur inconnue",
+        message: err instanceof Error ? err.message : "Unknown error",
       },
       degraded: true,
     };

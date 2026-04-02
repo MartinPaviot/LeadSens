@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "@phosphor-icons/react";
 import { Button } from "@leadsens/ui";
@@ -20,16 +20,60 @@ const STEPS = [
   { id: 'notifications', label: 'Alerts', title: 'Notifications', description: 'How do you want to be notified when content is ready?' },
 ];
 
+interface ExistingProfile {
+  brand_url: string;
+  language: string;
+  sector: string | null;
+  social_connections: Record<string, boolean> | null;
+}
+
 export function OnboardingShell() {
   const router = useRouter();
-  const { state, setStep, updateData, updateTools } = useOnboardingStore();
+  const { state, hydrated, setStep, updateData, updateTools } = useOnboardingStore();
   const [submitting, setSubmitting] = useState(false);
+  const [isUpdate, setIsUpdate] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
 
   const step = state.currentStep;
   const totalSteps = STEPS.length;
   const progress = ((step + 1) / totalSteps) * 100;
   const isLast = step === totalSteps - 1;
   const isFirst = step === 0;
+
+  // Fetch existing profile and pre-fill if exists
+  useEffect(() => {
+    if (prefilled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/onboarding/profile');
+        if (!res.ok) return;
+        const data = await res.json() as { profile: ExistingProfile | null };
+        if (cancelled || !data.profile) return;
+        setIsUpdate(true);
+        setPrefilled(true);
+        const p = data.profile;
+        updateData({
+          siteUrl: p.brand_url ?? '',
+          language: p.language ?? 'en',
+          sector: p.sector ?? '',
+        });
+        if (p.social_connections) {
+          const sc = p.social_connections;
+          updateTools({
+            gsc: sc.gsc === true,
+            ga: sc.ga === true,
+            slack: sc.slack === true,
+            ahrefs: sc.ahrefs === true,
+            semrush: sc.semrush === true,
+          });
+        }
+      } catch {
+        // Best-effort — continue with empty form
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [prefilled, updateData, updateTools]);
 
   const canContinue = useCallback(() => {
     const d = state.data;
@@ -76,15 +120,17 @@ export function OnboardingShell() {
 
   const currentStep = STEPS[step];
 
+  if (!hydrated) {
+    return <div className="flex h-screen items-center justify-center bg-background" />;
+  }
+
   return (
     <div className="relative flex h-screen flex-col" style={{ background: 'radial-gradient(ellipse at 70% 20%, rgba(23,195,178,0.05), transparent 60%)' }}>
       {/* ── Header ────────────────────────────────────────── */}
       <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: 'linear-gradient(135deg, #17C3B2, #2C6BED)' }}>
-            <span className="text-xs font-bold text-white">E</span>
-          </div>
-          <span className="text-sm font-semibold text-foreground">Elevay</span>
+          <img src="/logo-elevay.svg" alt="Elevay" className="h-7 w-7 rounded-lg" />
+          <span className="text-sm font-semibold text-foreground">Set up your agents</span>
         </div>
         <span className="text-xs text-muted-foreground">
           Step {step + 1} of {totalSteps}
@@ -128,7 +174,7 @@ export function OnboardingShell() {
           <div className="mt-6">
             {step === 0 && <StepBusiness data={state.data} onChange={updateData} />}
             {step === 1 && <StepCms data={state.data} onChange={updateData} />}
-            {step === 2 && <StepTools data={state.data} cmsType={state.data.cmsType} onToggle={updateTools} />}
+            {step === 2 && <StepTools data={state.data} cmsType={state.data.cmsType} onToggle={updateTools} onChange={updateData} />}
             {step === 3 && <StepAutomation data={state.data} onChange={updateData} />}
             {step === 4 && <StepNotifications data={state.data} onChange={updateData} slackConnected={state.data.connectedTools.slack} />}
           </div>
@@ -180,7 +226,7 @@ export function OnboardingShell() {
             className="rounded-full px-5 py-2 text-sm font-medium text-white shadow-sm transition-all duration-150 hover:shadow-md disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #17C3B2, #2C6BED)' }}
           >
-            {submitting ? 'Saving…' : isLast ? 'Get started' : 'Continue'}
+            {submitting ? 'Saving…' : isLast ? (isUpdate ? 'Save changes' : 'Get started') : 'Continue'}
           </button>
         </div>
       </div>

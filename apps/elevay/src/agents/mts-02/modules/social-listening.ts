@@ -117,8 +117,8 @@ function buildSignal(
 function unavailableSignal(platform: string): SocialSignal {
   return {
     platform,
-    dominant_format: "inconnu",
-    dominant_tone: "inconnu",
+    dominant_format: "unknown",
+    dominant_tone: "unknown",
     trending_hooks: [],
     engagement_benchmark: 0,
     available: false,
