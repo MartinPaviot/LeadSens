@@ -15,6 +15,7 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Users,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────
@@ -24,6 +25,7 @@ type AgentCategory =
   | "all"
   | "seo"
   | "brand"
+  | "influence"
   | "social"
   | "email"
   | "analytics";
@@ -86,6 +88,21 @@ const AGENT_FAMILIES: AgentFamily[] = [
     badge: "3 agents",
   },
   {
+    id: "influence",
+    category: "influence",
+    name: "Influencer & Campaigns",
+    tagline: "Find the perfect influencers for your brand",
+    description:
+      "AI-powered influencer discovery, compatibility scoring, collaboration briefs, and campaign planning across Instagram, TikTok, YouTube, and LinkedIn.",
+    agentCount: 1,
+    status: "available",
+    route: "/influence",
+    gradient: "from-[#17c3b2] to-[#0ea5a0]",
+    icon: <Users size={28} strokeWidth={1.5} />,
+    agents: ["Influencer Discovery"],
+    badge: "1 agent",
+  },
+  {
     id: "social",
     category: "social",
     name: "Social Media",
@@ -133,6 +150,7 @@ const CATEGORIES: { id: AgentCategory; label: string }[] = [
   { id: "all", label: "All" },
   { id: "seo", label: "SEO & GEO" },
   { id: "brand", label: "Brand Intel" },
+  { id: "influence", label: "Influence" },
   { id: "social", label: "Social Media" },
   { id: "email", label: "Email" },
   { id: "analytics", label: "Analytics" },

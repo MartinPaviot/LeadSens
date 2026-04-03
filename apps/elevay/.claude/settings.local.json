@@ -135,7 +135,9 @@
       "Bash(cat:*)",
       "Bash(mkdir:*)",
       "Bash(cd:*)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(xargs head:*)",
+      "Bash(ls src/app/\\\\\\(dashboard\\\\\\)/influence/page.tsx)"
     ]
   }
 }
