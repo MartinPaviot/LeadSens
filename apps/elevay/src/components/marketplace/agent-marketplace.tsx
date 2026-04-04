@@ -81,7 +81,7 @@ const AGENT_FAMILIES: AgentFamily[] = [
       "Brand positioning analysis, competitive monitoring, market trends, and brand intelligence for data-driven decisions.",
     agentCount: 3,
     status: "available",
-    route: "/chat",
+    route: "/brand-intel",
     gradient: "from-[#FF7A3D] to-[#e05a20]",
     icon: <Brain size={28} strokeWidth={1.5} />,
     agents: ["Brand Performance", "Market Trends", "Competitive Intel"],

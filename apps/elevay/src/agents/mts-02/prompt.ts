@@ -1,5 +1,5 @@
 import type { ElevayAgentProfile, ModuleResult } from "../_shared/types";
-import type { MtsSessionContext, TrendsData, ContentPerformanceData, CompetitiveContentData, SocialListeningData } from "./types";
+import type { MtsSessionContext, MtsPreviousComparison, TrendsData, ContentPerformanceData, CompetitiveContentData, SocialListeningData } from "./types";
 import type { MtsScores } from "./scoring";
 import { formatLanguage } from "../_shared/utils";
 import type { SynthesisResult } from "./modules/synthesis";
@@ -49,6 +49,7 @@ export function buildConsolidatedPrompt(
   results: ModuleResults,
   synthesis: SynthesisResult,
   scores: MtsScores,
+  previousData?: MtsPreviousComparison,
 ): string {
   // ── Contexte ──────────────────────────────────────────────────────────────
   const brandContext = `
@@ -96,6 +97,18 @@ Topics saturés (à exclure de la roadmap) :
 ${synthesis.saturated_topics.map((t) => `  - ${t.topic} : ${t.reason}`).join("\n") || "  Aucun"}
 `.trim();
 
+  // ── Comparaison historique ────────────────────────────────────────────────
+  const historicalSection = previousData
+    ? `
+## RAPPORT PRÉCÉDENT (${previousData.date.slice(0, 10)})
+- Score global précédent : ${previousData.global_score}/100
+- Topics en tendance : ${previousData.trending_topics.join(", ") || "aucun"}
+- Topics saturés : ${previousData.saturated_topics.join(", ") || "aucun"}
+
+Identifie les sujets qui ont monté, ceux qui ont saturé, et les nouveaux signaux apparus depuis.
+`.trim()
+    : "";
+
   // ── Instructions ──────────────────────────────────────────────────────────
   const instructions = `
 ## INSTRUCTIONS
@@ -108,33 +121,32 @@ ${synthesis.saturated_topics.map((t) => `  - ${t.topic} : ${t.reason}`).join("\n
     {
       "topic": "...",
       "opportunity_score": 75,
-      "classification": "strong_trend",   // weak_signal | strong_trend | saturation | buzz
+      "growth_4w": 42,
+      "best_channel": "LinkedIn",
+      "classification": "strong_trend",
       "source_confirmation": ["Google Trends", "DataForSEO", "Competitive gap"],
       "estimated_horizon": "3-6 mois",
       "suggested_angle": "..."
     }
   ],
   "saturated_topics": [
-    // Topics à éviter — max 5
     { "topic": "...", "reason": "..." }
   ],
   "differentiating_angles": [
-    // 3 angles maximum — formulés directement, actionnables
     "...", "...", "..."
   ],
   "roadmap_30d": [
-    // 4 semaines × canaux prioritaires (focus : ${context.priority_channels.join(", ")})
     {
       "week": 1,
       "canal": "LinkedIn",
       "format": "carrousel",
       "suggested_title": "...",
       "topic": "...",
-      "priority": "high"   // high | medium | low
+      "priority": "high",
+      "objective": "branding"
     }
   ],
   "format_matrix": [
-    // 1 entrée par canal pertinent
     {
       "canal": "LinkedIn",
       "dominant_format": "carrousel",
@@ -146,13 +158,29 @@ ${synthesis.saturated_topics.map((t) => `  - ${t.topic} : ${t.reason}`).join("\n
 
 Règles :
 - Priorise les topics par score d'opportunité (données fournies ci-dessus)
+- growth_4w : % de croissance sur 4 semaines du sujet
+- best_channel : canal où le sujet a le plus de traction (SEO, LinkedIn, YouTube, TikTok, X)
 - Les topics saturés ne doivent PAS apparaître dans trending_topics ni dans la roadmap
 - La roadmap doit couvrir les 4 semaines avec une progression logique : signal faible → tendance forte
 - Les titres suggérés doivent être concrets, pas génériques
+- objective : "SEO" (articles/guides), "lead_gen" (gated content, webinar), "branding" (thought leadership), "activation" (engagement posts, hooks)
 - Volume roadmap selon canal : LinkedIn 3-4 posts/sem, SEO 2-3 articles/mois, YouTube 1-2 vidéos/mois
+- Canaux prioritaires : ${context.priority_channels.join(", ")}
 - Réponds en ${formatLanguage(profile.language)}
 - Ignore les sources marquées "INDISPONIBLE"
 `.trim();
 
-  return [brandContext, "", modulesSection, "", scoresSection, "", instructions].join("\n");
+  return [
+    brandContext,
+    "",
+    modulesSection,
+    "",
+    scoresSection,
+    historicalSection ? "" : null,
+    historicalSection || null,
+    "",
+    instructions,
+  ]
+    .filter((s) => s !== null)
+    .join("\n");
 }

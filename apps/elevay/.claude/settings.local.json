@@ -137,7 +137,8 @@
       "Bash(cd:*)",
       "Bash(xxd)",
       "Bash(xargs head:*)",
-      "Bash(ls src/app/\\\\\\(dashboard\\\\\\)/influence/page.tsx)"
+      "Bash(ls src/app/\\\\\\(dashboard\\\\\\)/influence/page.tsx)",
+      "Bash(ls -la src/app/\\\\\\(dashboard\\\\\\)/brand-intel/page.tsx)"
     ]
   }
 }

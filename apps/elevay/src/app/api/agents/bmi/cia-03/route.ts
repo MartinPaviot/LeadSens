@@ -13,6 +13,7 @@ import { calculateCiaScores } from "@/agents/cia-03/scoring";
 import { getLatestOutputByAgent } from "@/lib/agent-history";
 import type {
   CiaOutput,
+  CiaPreviousComparison,
   CiaSessionContext,
   CompetitorScore,
   StrategicZone,
@@ -108,58 +109,211 @@ function withStatus<T>(
     });
 }
 
-// ── Markdown formatter ────────────────────────────────────────────────────────
+// ── Markdown formatter — 9 blocs ─────────────────────────────────────────────
 
 function formatCiaAsMarkdown(brandName: string, payload: CiaOutput): string {
   const brandEntry = payload.competitor_scores.find(s => s.is_client);
-  const competitors = payload.competitor_scores.filter(s => !s.is_client);
+  const competitors = payload.competitor_scores.filter(s => !s.is_client).sort((a, b) => b.global_score - a.global_score);
+  const leader = competitors[0];
+  const today = payload.analysis_date.slice(0, 10);
+  const objectiveLabels: Record<string, string> = { lead_gen: "Lead generation", acquisition: "Acquisition", retention: "Rétention", branding: "Branding" };
+  const prevDelta = payload.previous && brandEntry
+    ? (() => {
+        const prevBrand = payload.previous.competitor_scores.find(s => s.entity === brandEntry.entity);
+        return prevBrand ? ` *(${brandEntry.global_score >= prevBrand.global_score ? "+" : ""}${brandEntry.global_score - prevBrand.global_score} pts vs précédent)*` : "";
+      })()
+    : "";
 
-  const scoresTable = [brandEntry, ...competitors]
-    .filter(Boolean)
-    .map(s => `| ${s!.entity} | ${s!.global_score} | ${s!.level} | ${s!.seo_score} | ${s!.product_score} | ${s!.social_score} | ${s!.content_score} |`)
-    .join("\n");
-
-  const zonesTable = payload.strategic_zones
-    .map(z => `| ${z.axis} | ${z.zone === "green" ? "🟢" : z.zone === "red" ? "🔴" : z.zone === "saturated" ? "🟠" : "⬜"} ${z.zone} | ${z.directive} |`)
-    .join("\n");
-
-  const threats = payload.threats
-    .map(t => `- **[${t.urgency}]** ${t.description}`)
-    .join("\n");
-
-  const opportunities = payload.opportunities
-    .map(o => `- **[${o.impact}/${o.effort}]** ${o.description} *(${o.timeframe})*`)
-    .join("\n");
-
-  const plan = payload.action_plan_60d
-    .map(p => {
-      const actions = p.actions.map(a => `  - ${a}`).join("\n");
-      return `**${p.label}**\n*Objectif :* ${p.objective}\n${actions}`;
-    })
-    .join("\n\n");
-
-  return [
-    `## 🔍 Analyse concurrentielle — ${brandName}`,
+  // ── En-tête ───────────────────────────────────────────────────────────────
+  const header = [
+    `## Analyse concurrentielle — ${brandName}`,
     ``,
-    `### 📊 Scores compétitifs`,
-    `| Entité | Global | Niveau | SEO | Produit | Social | Contenu |`,
-    `|--------|--------|--------|-----|---------|--------|---------|`,
-    scoresTable || "*Aucune donnée*",
-    ``,
-    `### 🗺️ Zones stratégiques`,
-    `| Axe | Zone | Directive |`,
-    `|-----|------|-----------|`,
-    zonesTable || "*Aucune zone identifiée*",
-    ``,
-    `### ⚠️ Menaces prioritaires`,
-    threats || "*Aucune menace identifiée*",
-    ``,
-    `### 🎯 Opportunités`,
-    opportunities || "*Aucune opportunité identifiée*",
-    ``,
-    `### 🗓️ Plan d'action 60 jours`,
-    plan || "*Plan not available*",
+    `**Score compétitivité : ${payload.brand_score}/100**${prevDelta}`,
+    `Concurrents : ${competitors.map(c => c.entity).join(", ")} · Canal : ${payload.analysis_context.priority_channels.join(", ")} · Objectif : ${objectiveLabels[payload.analysis_context.objective] ?? payload.analysis_context.objective} · ${today}`,
   ].join("\n");
+
+  // ── Bloc 1 — Classement compétitif global ─────────────────────────────────
+  const allScored = [brandEntry, ...competitors].filter(Boolean);
+  const scoreRows = allScored
+    .map(s => `| ${s!.entity}${s!.is_client ? " **(vous)**" : ""} | **${s!.global_score}/100** | ${s!.level} |`)
+    .join("\n");
+  const leaderDelta = brandEntry && leader ? `Delta vs leader (${leader.entity}) : **${brandEntry.global_score - leader.global_score} pts**` : "";
+
+  const bloc1 = [
+    `### Classement compétitif global`,
+    `| Entité | Score | Niveau |`,
+    `|--------|-------|--------|`,
+    scoreRows || "| *Aucune donnée* | | |",
+    ``,
+    leaderDelta,
+  ].filter(Boolean).join("\n");
+
+  // ── Bloc 2 — Analyse Produit & Messaging ──────────────────────────────────
+  const msgLines: string[] = [`### Analyse Produit & Messaging`];
+  if (payload.product_messaging.length > 0) {
+    payload.product_messaging.forEach(m => {
+      msgLines.push(``, `**${m.competitor_url}**`);
+      msgLines.push(`- Hero : *"${m.hero_message.slice(0, 120)}"*`);
+      msgLines.push(`- Value prop : *"${m.value_prop.slice(0, 150)}"*`);
+      msgLines.push(`- CTA : ${m.primary_cta} · Posture tarifaire : ${m.pricing_posture} · Angle : ${m.dominant_angle}`);
+      msgLines.push(`- Clarté messaging : **${m.messaging_clarity_score}/100** · Différenciation : **${m.differentiation_score}/100**`);
+    });
+  } else {
+    msgLines.push(`*Données messaging indisponibles*`);
+  }
+  const bloc2 = msgLines.join("\n");
+
+  // ── Bloc 3 — Analyse SEO & Acquisition ────────────────────────────────────
+  const seoLines: string[] = [`### Analyse SEO & Acquisition`];
+  const allSeo = [payload.seo_data.brand_seo, ...payload.seo_data.competitors_seo];
+  if (allSeo.length > 0) {
+    seoLines.push(``, `| Entité | DA | Backlinks | Trafic est. | Score SEO | Ads | Snippets |`);
+    seoLines.push(`|--------|----|-----------|-------------|-----------|-----|----------|`);
+    allSeo.forEach(s => {
+      seoLines.push(`| ${s.entity_url} | ${s.domain_authority} | ${s.backlink_count.toLocaleString()} | ${s.estimated_traffic.toLocaleString()} | ${s.seo_score}/100 | ${s.has_google_ads ? "Oui" : "Non"} | ${s.featured_snippets} |`);
+    });
+    // Positions sur mots-clés
+    const kwKeys = Object.keys(payload.seo_data.brand_seo.serp_positions);
+    if (kwKeys.length > 0) {
+      seoLines.push(``, `**Positions mots-clés stratégiques :**`);
+      seoLines.push(`| Entité | ${kwKeys.join(" | ")} |`);
+      seoLines.push(`|--------|${kwKeys.map(() => "---").join("|")}|`);
+      allSeo.forEach(s => {
+        const positions = kwKeys.map(kw => `${s.serp_positions[kw] ?? "–"}`).join(" | ");
+        seoLines.push(`| ${s.entity_url} | ${positions} |`);
+      });
+    }
+  } else {
+    seoLines.push(`*Données SEO indisponibles*`);
+  }
+  const bloc3 = seoLines.join("\n");
+
+  // ── Bloc 4 — Analyse Social Media ─────────────────────────────────────────
+  const socialLines: string[] = [`### Analyse Social Media`];
+  if (payload.social_matrix.length > 0) {
+    payload.social_matrix.forEach(sp => {
+      socialLines.push(``, `**${sp.competitor_url}** (score social : ${sp.social_score}/100)`);
+      const activePlatforms = sp.platforms.filter(p => p.available);
+      if (activePlatforms.length > 0) {
+        activePlatforms.forEach(p => {
+          const hooks = p.recurring_hooks.slice(0, 3).map(h => `*"${h}"*`).join(", ");
+          socialLines.push(`- **${p.platform}** — ${p.publication_frequency} · engagement moy. ${p.avg_engagement} · format : ${p.dominant_formats.join(", ")} · ton : ${p.dominant_tone}`);
+          if (hooks) socialLines.push(`  Hooks : ${hooks}`);
+        });
+      } else {
+        socialLines.push(`- Aucune plateforme active`);
+      }
+    });
+  } else {
+    socialLines.push(`*Données sociales indisponibles*`);
+  }
+  const bloc4 = socialLines.join("\n");
+
+  // ── Bloc 5 — Analyse Contenu ──────────────────────────────────────────────
+  const contentLines: string[] = [`### Analyse Contenu`];
+  if (payload.content_competitors.length > 0) {
+    payload.content_competitors.forEach(cc => {
+      contentLines.push(``, `**${cc.competitor_url}** (score contenu : ${cc.content_score}/100)`);
+      contentLines.push(`- Fréquence blog : ${cc.blog_frequency} · Thèmes : ${cc.dominant_themes.slice(0, 5).join(", ")}`);
+      if (cc.lead_magnet_types.length > 0) contentLines.push(`- Lead magnets : ${cc.lead_magnet_types.join(", ")}`);
+      if (cc.youtube_video_count > 0) contentLines.push(`- YouTube : ${cc.youtube_video_count} vidéos · angle dominant : ${cc.youtube_dominant_angle ?? "—"}`);
+    });
+  }
+  if (payload.content_gap_map.length > 0) {
+    contentLines.push(``, `**Gap map éditorial :**`);
+    contentLines.push(`| Sujet | Couverture concurrents | Opportunité |`);
+    contentLines.push(`|-------|------------------------|-------------|`);
+    payload.content_gap_map.forEach(g => {
+      contentLines.push(`| ${g.angle} | ${g.competitor_coverage} | ${g.opportunity} |`);
+    });
+  }
+  if (payload.content_competitors.length === 0 && payload.content_gap_map.length === 0) {
+    contentLines.push(`*Données contenu indisponibles*`);
+  }
+  const bloc5 = contentLines.join("\n");
+
+  // ── Bloc 6 — Benchmark consolidé ──────────────────────────────────────────
+  const benchLines: string[] = [`### Benchmark consolidé`];
+  if (allScored.length > 0) {
+    benchLines.push(``, `| Entité | SEO | Produit | Social | Contenu | Positionnement | Global |`);
+    benchLines.push(`|--------|-----|---------|--------|---------|----------------|--------|`);
+    allScored.forEach(s => {
+      benchLines.push(`| ${s!.entity}${s!.is_client ? " **(vous)**" : ""} | ${s!.seo_score} | ${s!.product_score} | ${s!.social_score} | ${s!.content_score} | ${s!.positioning_score} | **${s!.global_score}** |`);
+    });
+  }
+  if (payload.strategic_zones.length > 0) {
+    benchLines.push(``, `**Zones stratégiques :**`);
+    benchLines.push(`| Axe | Zone | Directive |`);
+    benchLines.push(`|-----|------|-----------|`);
+    payload.strategic_zones.forEach(z => {
+      const icon = z.zone === "green" ? "🟢" : z.zone === "red" ? "🔴" : z.zone === "saturated" ? "🟠" : "⬜";
+      benchLines.push(`| ${z.axis} | ${icon} ${z.zone} | ${z.directive} |`);
+    });
+  }
+  const bloc6 = benchLines.join("\n");
+
+  // ── Bloc 7 — Recommandations stratégiques ─────────────────────────────────
+  const recoLines: string[] = [`### Recommandations stratégiques`];
+  if (payload.threats.length > 0) {
+    recoLines.push(``, `**Menaces majeures :**`);
+    payload.threats.forEach((t, i) => {
+      recoLines.push(`${i + 1}. **[${t.urgency}]** ${t.description}`);
+    });
+  }
+  if (payload.opportunities.length > 0) {
+    recoLines.push(``, `**Opportunités immédiates :**`);
+    payload.opportunities.forEach((o, i) => {
+      recoLines.push(`${i + 1}. **${o.description}** — effort: ${o.effort} · impact: ${o.impact} · ${o.timeframe}`);
+    });
+  }
+  if (payload.threats.length === 0 && payload.opportunities.length === 0) {
+    recoLines.push(`*Aucune recommandation*`);
+  }
+  const bloc7 = recoLines.join("\n");
+
+  // ── Bloc 8 — Plan d'action 60 jours ───────────────────────────────────────
+  const planLines: string[] = [`### Plan d'action 60 jours`];
+  if (payload.action_plan_60d.length > 0) {
+    payload.action_plan_60d.forEach(p => {
+      planLines.push(``, `**${p.label}**`);
+      planLines.push(`*Objectif :* ${p.objective}`);
+      p.actions.forEach(a => planLines.push(`  - ${a}`));
+    });
+  } else {
+    planLines.push(`*Plan non disponible*`);
+  }
+  const bloc8 = planLines.join("\n");
+
+  // ── Bloc 9 — Évolution vs précédent ───────────────────────────────────────
+  let bloc9 = "";
+  if (payload.previous) {
+    const prevMap = new Map(payload.previous.competitor_scores.map(s => [s.entity, s.global_score]));
+    const evolutions: string[] = [];
+    allScored.forEach(s => {
+      const prev = prevMap.get(s!.entity);
+      if (prev !== undefined) {
+        const delta = s!.global_score - prev;
+        if (delta > 0) evolutions.push(`- **${s!.entity}** : +${delta} pts (${prev} → ${s!.global_score})`);
+        else if (delta < 0) evolutions.push(`- **${s!.entity}** : ${delta} pts (${prev} → ${s!.global_score})`);
+        else evolutions.push(`- **${s!.entity}** : stable (${s!.global_score})`);
+      }
+    });
+    // New competitors not in previous
+    const newEntities = allScored
+      .filter(s => !prevMap.has(s!.entity))
+      .map(s => `- **${s!.entity}** : nouveau (${s!.global_score}/100)`);
+
+    bloc9 = [
+      `### Évolution vs analyse précédente (${payload.previous.date.slice(0, 10)})`,
+      ``,
+      ...evolutions,
+      ...(newEntities.length > 0 ? [``, `**Nouveaux concurrents :**`, ...newEntities] : []),
+    ].join("\n");
+  }
+
+  const blocs = [header, bloc1, bloc2, bloc3, bloc4, bloc5, bloc6, bloc7, bloc8];
+  if (bloc9) blocs.push(bloc9);
+  return blocs.join("\n\n");
 }
 
 // ── Route POST ────────────────────────────────────────────────────────────────
@@ -330,16 +484,20 @@ async function handleCiaRequest(req: Request) {
           ? calculateCiaScores(benchmarkData, profile)
           : { competitor_scores: [], brand_global_score: 0 };
 
-        // Récupérer l'historique pour previous_scores
-        let previous_scores: Record<string, number> | undefined;
+        // Récupérer l'historique pour comparaison
+        let previousData: CiaPreviousComparison | undefined;
         try {
           const lastRun = await getLatestOutputByAgent(workspaceId, "CIA-03");
           if (lastRun) {
             const lastPayload = lastRun.payload as Partial<CiaOutput>;
             if (lastPayload.competitor_scores) {
-              previous_scores = Object.fromEntries(
-                lastPayload.competitor_scores.map(s => [s.entity, s.global_score]),
-              );
+              previousData = {
+                date: (lastRun as { analysis_date?: string }).analysis_date ?? new Date().toISOString(),
+                competitor_scores: lastPayload.competitor_scores.map(s => ({
+                  entity: s.entity,
+                  global_score: s.global_score,
+                })),
+              };
             }
           }
         } catch {
@@ -366,6 +524,8 @@ async function handleCiaRequest(req: Request) {
 
         // ── Assembler le payload final ────────────────────────────────────
         const payload: CiaOutput = {
+          brand_score:     scores.brand_global_score,
+          analysis_date:   new Date().toISOString(),
           analysis_context:  context,
           competitor_scores: analysis.competitor_scores.length > 0
             ? analysis.competitor_scores
@@ -388,8 +548,9 @@ async function handleCiaRequest(req: Request) {
             },
             competitors_seo: [],
           },
-          social_matrix:   socialResult?.data?.competitors ?? [],
-          content_gap_map: contentResult?.data?.editorial_gap_map ?? [],
+          social_matrix:       socialResult?.data?.competitors ?? [],
+          content_gap_map:     contentResult?.data?.editorial_gap_map ?? [],
+          content_competitors: contentResult?.data?.competitors ?? [],
           threats:         analysis.threats.length > 0
             ? analysis.threats
             : recoContext?.threats ?? [],
@@ -399,7 +560,7 @@ async function handleCiaRequest(req: Request) {
           action_plan_60d: analysis.action_plan_60d.length > 0
             ? analysis.action_plan_60d
             : recoContext?.action_plan_template ?? [],
-          previous_scores,
+          ...(previousData ? { previous: previousData } : {}),
         };
 
         const agentOutput: AgentOutput<CiaOutput> = {

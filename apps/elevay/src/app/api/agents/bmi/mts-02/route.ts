@@ -15,6 +15,8 @@ import { fetchCompetitive } from "@/agents/mts-02/modules/competitive";
 import { fetchSocialListening } from "@/agents/mts-02/modules/social-listening";
 import type {
   MtsOutput,
+  MtsMode,
+  MtsPreviousComparison,
   MtsSessionContext,
   RoadmapEntry,
   TrendingTopic,
@@ -106,47 +108,165 @@ function withStatus<T>(
     });
 }
 
-// ── Markdown formatter ────────────────────────────────────────────────────────
+// ── Markdown formatter — 6 blocs ─────────────────────────────────────────────
 
 function formatMtsAsMarkdown(brandName: string, payload: MtsOutput): string {
-  const topTopics = payload.trending_topics
+  const modeLabel = payload.mode === "récurrent" ? "Récurrent" : "Ponctuel";
+  const prevDelta = payload.previous
+    ? ` *(${payload.global_score >= payload.previous.global_score ? "+" : ""}${payload.global_score - payload.previous.global_score} pts vs ${payload.previous.date.slice(0, 10)})*`
+    : "";
+
+  // ── En-tête ───────────────────────────────────────────────────────────────
+  const header = [
+    `## Analyse tendances — ${brandName}`,
+    ``,
+    `**Score opportunité : ${payload.global_score}/100**${prevDelta}`,
+    `Secteur : ${payload.sector} · Période : ${payload.analysis_period} · Mode : ${modeLabel}`,
+  ].join("\n");
+
+  // ── Bloc 1 — Tendances macro ──────────────────────────────────────────────
+  const trendRows = payload.trending_topics
     .slice(0, 5)
-    .map(
-      (t) =>
-        `| ${t.topic} | **${t.opportunity_score}/100** | ${t.classification} | ${t.estimated_horizon} |`,
+    .map((t) =>
+      `| ${t.topic} | **${t.opportunity_score}/100** | +${Math.round(t.growth_4w)}% | ${t.classification} | ${t.best_channel} |`,
     )
     .join("\n");
 
-  const angles = payload.differentiating_angles
+  const satRows = payload.saturated_topics
+    .slice(0, 5)
+    .map((s) => `- ~~${s.topic}~~ — ${s.reason}`)
+    .join("\n");
+
+  const bloc1 = [
+    `### Tendances macro`,
+    ``,
+    `**Top 5 sujets en montée :**`,
+    `| Sujet | Score | Croissance 4 sem. | Classification | Meilleur canal |`,
+    `|-------|-------|--------------------|----------------|----------------|`,
+    trendRows || "| *Aucun topic identifié* | | | | |",
+    ``,
+    `**Sujets saturés à éviter :**`,
+    satRows || "*Aucun sujet saturé*",
+  ].join("\n");
+
+  // ── Bloc 2 — Formats & angles ─────────────────────────────────────────────
+  const fmtRows = payload.format_matrix
+    .map((f) => `| ${f.canal} | ${f.dominant_format} | ${f.dominant_tone} | ${f.example} |`)
+    .join("\n");
+
+  const anglesList = payload.differentiating_angles
     .map((a, i) => `${i + 1}. ${a}`)
     .join("\n");
 
+  const bloc2 = [
+    `### Formats & angles qui performent`,
+    ``,
+    `| Canal | Format dominant | Ton dominant | Exemple |`,
+    `|-------|----------------|-------------|---------|`,
+    fmtRows || "| *Pas de données* | | | |",
+    ``,
+    `**Angles différenciants :**`,
+    anglesList || "*Aucun angle identifié*",
+  ].join("\n");
+
+  // ── Bloc 3 — Gap map concurrentiel ────────────────────────────────────────
+  const gapRows = payload.content_gap_map
+    .sort((a, b) => b.opportunity_score - a.opportunity_score)
+    .slice(0, 8)
+    .map((g) => `| ${g.topic} | ${g.estimated_volume.toLocaleString()} | ${g.competitor_coverage} | ${g.opportunity_score}/100 |`)
+    .join("\n");
+
+  const bloc3 = [
+    `### Gap map concurrentiel contenu`,
+    ``,
+    `| Sujet | Volume estimé | Couverture concurrents | Score opportunité |`,
+    `|-------|---------------|------------------------|-------------------|`,
+    gapRows || "| *Pas de données* | | | |",
+  ].join("\n");
+
+  // ── Bloc 4 — Signaux sociaux ──────────────────────────────────────────────
+  const signalBlocs = payload.social_signals
+    .filter((s) => s.available)
+    .map((s) => {
+      const hooks = s.trending_hooks.slice(0, 3).map((h) => `*"${h}"*`).join(", ");
+      return `**${s.platform}** — Format : ${s.dominant_format} · Ton : ${s.dominant_tone} · Engagement moyen : ${s.engagement_benchmark}\n  Hooks récurrents : ${hooks || "—"}`;
+    })
+    .join("\n\n");
+
+  const weakSignals = payload.trending_topics
+    .filter((t) => t.classification === "weak_signal")
+    .slice(0, 3)
+    .map((t) => `- ${t.topic} (${t.opportunity_score}/100, horizon ${t.estimated_horizon})`)
+    .join("\n");
+
+  const bloc4 = [
+    `### Signaux sociaux émergents`,
+    ``,
+    signalBlocs || "*Pas de signaux sociaux disponibles*",
+    ``,
+    `**Signaux faibles à surveiller :**`,
+    weakSignals || "*Aucun signal faible détecté*",
+  ].join("\n");
+
+  // ── Bloc 5 — Roadmap 30 jours ────────────────────────────────────────────
   const roadmap = [1, 2, 3, 4]
     .map((week) => {
       const entries = payload.roadmap_30d.filter((e) => e.week === week);
       if (entries.length === 0) return null;
       const lines = entries
-        .map((e) => `  - **[${e.priority}]** ${e.canal} · ${e.format} — *${e.suggested_title}*`)
+        .map((e) => `  - **[${e.priority}]** ${e.canal} · ${e.format} — *${e.suggested_title}* (${e.objective})`)
         .join("\n");
       return `**Semaine ${week}**\n${lines}`;
     })
     .filter(Boolean)
     .join("\n\n");
 
-  return [
-    `## 📈 Analyse tendances — ${brandName}`,
+  const bloc5 = [
+    `### Roadmap contenu 30 jours`,
     ``,
-    `### 🚀 Top opportunités`,
-    `| Sujet | Score | Classification | Horizon |`,
-    `|-------|-------|----------------|---------|`,
-    topTopics || "*Aucun topic identifié*",
-    ``,
-    `### 🎯 Angles différenciants`,
-    angles || "*Aucun angle identifié*",
-    ``,
-    `### 🗓️ Roadmap 30 jours`,
-    roadmap || "*Roadmap not available*",
+    roadmap || "*Roadmap non disponible*",
   ].join("\n");
+
+  // ── Bloc 6 — Évolution vs précédent ───────────────────────────────────────
+  let bloc6 = "";
+  if (payload.previous && payload.mode === "récurrent") {
+    const prevTopics = new Set(payload.previous.trending_topics);
+    const prevSaturated = new Set(payload.previous.saturated_topics);
+    const currentTopics = new Set(payload.trending_topics.map((t) => t.topic));
+    const currentSaturated = new Set(payload.saturated_topics.map((s) => s.topic));
+
+    const newTrending = payload.trending_topics
+      .filter((t) => !prevTopics.has(t.topic))
+      .map((t) => `- **${t.topic}** (${t.opportunity_score}/100)`)
+      .join("\n");
+
+    const becameSaturated = payload.saturated_topics
+      .filter((s) => prevTopics.has(s.topic) && !prevSaturated.has(s.topic))
+      .map((s) => `- ~~${s.topic}~~ — ${s.reason}`)
+      .join("\n");
+
+    const disappeared = [...prevTopics]
+      .filter((t) => !currentTopics.has(t) && !currentSaturated.has(t))
+      .map((t) => `- ${t}`)
+      .join("\n");
+
+    bloc6 = [
+      `### Évolution vs rapport précédent`,
+      ``,
+      `**Nouveaux sujets en tendance :**`,
+      newTrending || "*Aucun nouveau sujet*",
+      ``,
+      `**Sujets devenus saturés :**`,
+      becameSaturated || "*Aucun sujet passé en saturation*",
+      ``,
+      `**Sujets disparus :**`,
+      disappeared || "*Aucun sujet disparu*",
+    ].join("\n");
+  }
+
+  const blocs = [header, bloc1, bloc2, bloc3, bloc4, bloc5];
+  if (bloc6) blocs.push(bloc6);
+  return blocs.join("\n\n");
 }
 
 // ── Route POST ────────────────────────────────────────────────────────────────
@@ -233,6 +353,33 @@ async function handleMtsRequest(req: Request) {
     secondary_keyword: brandProfileRecord.secondary_keyword,
   };
 
+  // ── Run précédent pour comparaison historique ──────────────────────────────
+  const previousRunRecord = await prisma.elevayAgentRun.findFirst({
+    where: { workspaceId, agentCode: "MTS-02", status: { in: ["COMPLETED", "PARTIAL"] } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const previousData: MtsPreviousComparison | undefined = previousRunRecord
+    ? (() => {
+        const output = previousRunRecord.output as {
+          payload?: {
+            global_score?: number;
+            opportunity_scores?: Record<string, number>;
+            trending_topics?: Array<{ topic: string }>;
+            saturated_topics?: Array<{ topic: string }>;
+          };
+        } | null;
+        const p = output?.payload;
+        if (!p?.opportunity_scores) return undefined;
+        return {
+          date: previousRunRecord.createdAt.toISOString(),
+          global_score: p.global_score ?? 0,
+          trending_topics: (p.trending_topics ?? []).map((t) => t.topic),
+          saturated_topics: (p.saturated_topics ?? []).map((t) => t.topic),
+        };
+      })()
+    : undefined;
+
   // ── SSE Stream ────────────────────────────────────────────────────────────
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
@@ -315,7 +462,7 @@ async function handleMtsRequest(req: Request) {
 
         // ── Appel LLM consolidé ───────────────────────────────────────────
 
-        const prompt = buildConsolidatedPrompt(profile, context, results, synthesis, scores);
+        const prompt = buildConsolidatedPrompt(profile, context, results, synthesis, scores, previousData);
         const llmResponse = await callLLM({
           system: SYSTEM_PROMPT,
           prompt,
@@ -325,7 +472,12 @@ async function handleMtsRequest(req: Request) {
         const analysis = parseLLMAnalysis(llmResponse.content);
 
         // ── Assembler le payload final ─────────────────────────────────────
+        const mode: MtsMode = previousData ? "récurrent" : "ponctuel";
         const payload: MtsOutput = {
+          global_score: scores.global_score,
+          sector: context.sector,
+          analysis_period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+          mode,
           session_context: context,
           trending_topics: analysis.trending_topics.length > 0
             ? analysis.trending_topics
@@ -343,6 +495,7 @@ async function handleMtsRequest(req: Request) {
             : synthesis.differentiating_angles,
           roadmap_30d: analysis.roadmap_30d,
           opportunity_scores: scores.opportunity_scores,
+          ...(previousData ? { previous: previousData } : {}),
         };
 
         const agentOutput: AgentOutput<MtsOutput> = {

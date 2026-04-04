@@ -53,10 +53,10 @@ const EXPORT_PATTERNS: Record<string, "pdf" | "gdoc" | "slides"> = {
 // ─── Summary builders ────────────────────────────────────
 
 function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
-  const { scores, top_risks, quick_wins, benchmark_data } = bpiOutput;
-  const scoreBreakdown = `Réputation ${scores.reputation} · Visibilité ${scores.visibility} · Social ${scores.social} · Compétitif ${scores.competitive}`;
-  const risk = top_risks[0] ? `⚠️ ${top_risks[0].description} [${top_risks[0].urgency}]` : null;
-  const win = quick_wins[0] ? `✅ ${quick_wins[0].action} (${quick_wins[0].estimated_time})` : null;
+  const { scores, priorities_90d, benchmark_data } = bpiOutput;
+  const scoreBreakdown = `SERP ${scores.serp} · Presse ${scores.press} · YouTube ${scores.youtube} · Social ${scores.social} · SEO ${scores.seo} · Benchmark ${scores.benchmark}`;
+  const urgentPriority = priorities_90d.find((p) => p.tag === "Urgent");
+  const priorityLine = urgentPriority ? `⚠️ ${urgentPriority.action}` : null;
   const topComp = benchmark_data?.radar.length
     ? benchmark_data.radar.reduce((a, b) => a.serp_share + a.seo_score > b.serp_share + b.seo_score ? a : b)
     : null;
@@ -64,23 +64,23 @@ function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
   return [
     `🔍 **Audit de présence — ${brandName}** — Score global **${scores.global}/100**`,
     scoreBreakdown,
-    risk,
-    win,
+    priorityLine,
     compLine,
   ].filter(Boolean).join("\n");
 }
 
 function buildMtsSummary(output: MtsOutput): string {
-  const { session_context, trending_topics, saturated_topics, differentiating_angles } = output;
+  const { session_context, trending_topics, saturated_topics, differentiating_angles, global_score, mode } = output;
+  const modeLabel = mode === "récurrent" ? " (recurring)" : "";
   const top3 = [...trending_topics]
     .sort((a, b) => b.opportunity_score - a.opportunity_score)
     .slice(0, 3)
-    .map((t) => `**${t.topic}** (${t.opportunity_score}/100)`)
+    .map((t) => `**${t.topic}** (${t.opportunity_score}/100, +${Math.round(t.growth_4w)}%)`)
     .join(" · ");
   const angle = differentiating_angles[0] ?? null;
   const sat = saturated_topics[0]?.topic ?? null;
   return [
-    `📈 **Market analysis — ${session_context.sector}**`,
+    `**Market analysis — ${session_context.sector}${modeLabel}** — Score **${global_score}/100**`,
     top3 ? `Top trends: ${top3}` : null,
     angle ? `Differentiating angle: ${angle}` : null,
     sat ? `Avoid: ~~${sat}~~` : null,
@@ -88,19 +88,16 @@ function buildMtsSummary(output: MtsOutput): string {
 }
 
 function buildCiaSummary(output: CiaOutput, brandName: string): string {
-  const { competitor_scores, strategic_zones, opportunities } = output;
-  const client = competitor_scores.find((c) => c.is_client);
+  const { competitor_scores, strategic_zones, opportunities, brand_score } = output;
   const others = [...competitor_scores.filter((c) => !c.is_client)].sort((a, b) => b.global_score - a.global_score);
-  const scoresLine = [client, ...others].filter(Boolean)
-    .map((c) => c!.is_client ? `**you: ${c!.global_score}/100** (${c!.level})` : `${c!.entity}: ${c!.global_score}/100`)
-    .join(" · ");
+  const othersLine = others.slice(0, 3).map((c) => `${c.entity}: ${c.global_score}`).join(" · ");
   const redAxes = strategic_zones.filter((z) => z.zone === "red").map((z) => z.axis).join(", ") || null;
   const greenAxes = strategic_zones.filter((z) => z.zone === "green").map((z) => z.axis).join(", ") || null;
   const zonesLine = [redAxes ? `❌ ${redAxes}` : null, greenAxes ? `✅ ${greenAxes}` : null].filter(Boolean).join(" · ") || null;
   const opp = opportunities[0] ? `${opportunities[0].description} (${opportunities[0].timeframe})` : null;
   return [
-    `🎯 **Competitive analysis — ${brandName}**`,
-    scoresLine,
+    `**Competitive analysis — ${brandName}** — Score **${brand_score}/100**`,
+    othersLine ? `Concurrents : ${othersLine}` : null,
     zonesLine ? `Zones: ${zonesLine}` : null,
     opp ? `Opportunity: ${opp}` : null,
   ].filter(Boolean).join("\n");

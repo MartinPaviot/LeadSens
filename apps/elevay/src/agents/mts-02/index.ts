@@ -82,6 +82,10 @@ export async function run(
 
   // Construire le payload MtsOutput (roadmap_30d et trending_topics finaux générés par LLM dans la route)
   const payload: MtsOutput = {
+    global_score: 0,  // calculé par la route après scoring
+    sector: context.sector,
+    analysis_period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+    mode: "ponctuel",
     session_context: context,
     trending_topics: synthesis.trending_topics,
     saturated_topics: synthesis.saturated_topics,

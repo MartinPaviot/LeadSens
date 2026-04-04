@@ -125,40 +125,35 @@ export interface TrustpilotData {
 
 // ── BpiOutput — section 6 agentBPI-01.md ──────────────────────────────────────
 
-export interface Risk {
-  description: string
-  urgency: 'high' | 'medium' | 'low'
-  source: string
+export interface AxisDiagnostic {
+  axis: 'serp' | 'press' | 'youtube' | 'social' | 'seo' | 'benchmark'
+  diagnostic: string  // 1 phrase business, pas de jargon technique
 }
 
-export interface QuickWin {
+export interface Priority90d {
   action: string
-  impact: 'high' | 'medium' | 'low'
-  effort: 'low' | 'medium' | 'high'
-  estimated_time: string
-}
-
-export interface RoadmapPhase {
-  phase: 1 | 2 | 3
-  label: string
-  objective: string
-  actions: string[]
+  tag: 'Urgent' | 'Moyen terme' | 'Quick win'
+  source_problem: string  // 1 phrase expliquant le problème source
 }
 
 export interface BpiOutput {
   scores: {
     global: number
-    reputation: number
-    visibility: number
+    serp: number
+    press: number
+    youtube: number
     social: number
-    competitive: number
+    seo: number
+    benchmark: number
     completeness: number // 0.0–1.0 ratio of modules that returned data
     previous?: {
       global: number
-      reputation: number
-      visibility: number
+      serp: number
+      press: number
+      youtube: number
       social: number
-      competitive: number
+      seo: number
+      benchmark: number
       date: string
     }
   }
@@ -170,8 +165,7 @@ export interface BpiOutput {
   benchmark_data: BenchmarkData | null
   googleMapsReputation?: GoogleMapsData
   trustpilot?: TrustpilotData
-  top_risks: Risk[]
-  quick_wins: QuickWin[]
-  roadmap_90d: RoadmapPhase[]
+  axis_diagnostics: AxisDiagnostic[]
+  priorities_90d: Priority90d[]
   warning?: string
 }

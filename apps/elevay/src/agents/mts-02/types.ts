@@ -100,9 +100,11 @@ export interface SocialListeningData {
 export interface TrendingTopic {
   topic: string
   opportunity_score: number
+  growth_4w: number                // % croissance sur 4 semaines (≈30j)
+  best_channel: string             // canal où la tendance est la plus forte
   classification: "weak_signal" | "strong_trend" | "saturation" | "buzz"
-  source_confirmation: string[]  // sources confirmant la tendance
-  estimated_horizon: string      // ex: "4-8 semaines"
+  source_confirmation: string[]    // sources confirmant la tendance
+  estimated_horizon: string        // ex: "4-8 semaines"
   suggested_angle: string
 }
 
@@ -118,6 +120,7 @@ export interface RoadmapEntry {
   suggested_title: string
   topic: string
   priority: "high" | "medium" | "low"
+  objective: "SEO" | "lead_gen" | "branding" | "activation"
 }
 
 export interface FormatEntry {
@@ -127,7 +130,22 @@ export interface FormatEntry {
   example: string
 }
 
+export type MtsMode = "ponctuel" | "récurrent"
+
+export interface MtsPreviousComparison {
+  date: string
+  global_score: number
+  trending_topics: string[]    // noms uniquement pour comparaison
+  saturated_topics: string[]
+}
+
 export interface MtsOutput {
+  // En-tête
+  global_score: number
+  sector: string
+  analysis_period: string        // ex: "avril 2026"
+  mode: MtsMode
+
   session_context: MtsSessionContext
   trending_topics: TrendingTopic[]
   saturated_topics: SaturatedTopic[]
@@ -137,6 +155,9 @@ export interface MtsOutput {
   differentiating_angles: string[]       // 3 max
   roadmap_30d: RoadmapEntry[]
   opportunity_scores: Record<string, number>  // topic → score
+
+  // Comparaison historique (mode récurrent)
+  previous?: MtsPreviousComparison
 }
 
 // ── Input ─────────────────────────────────────────────────────────────────────

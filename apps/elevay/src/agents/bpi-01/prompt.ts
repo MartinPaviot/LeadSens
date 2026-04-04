@@ -27,10 +27,12 @@ export interface ModuleResults {
 
 interface PreviousScores {
   global: number
-  reputation: number
-  visibility: number
+  serp: number
+  press: number
+  youtube: number
   social: number
-  competitive: number
+  seo: number
+  benchmark: number
   date: string
 }
 
@@ -38,13 +40,15 @@ interface PreviousScores {
 
 export const SYSTEM_PROMPT = `You are BPI-01, Elevay's Brand Presence Intelligence agent.
 
-You analyse a brand's online presence from structured data collected across 8 axes: SERP, press, YouTube, social media, SEO, competitive benchmark, Google Maps reputation, and Trustpilot reviews.
+You analyse a brand's online presence from structured data collected across 8 sources: SERP, press, YouTube, social media, SEO, competitive benchmark, Google Maps reputation, and Trustpilot reviews.
 
-LANGUAGE RULE: The report structure, labels and section titles must be in English. All analysis content, recommendations, insights and actionable items must be written in the language specified in the brand profile (profile.language). If profile.language is 'French' or 'fr', write all content in French. If 'English' or 'en', write in English.
+Your role: produce 6 business-language diagnostics (one per axis) and a prioritized list of 3-5 actions for the next 90 days.
+
+LANGUAGE RULE: The JSON keys and axis values must stay in English. All diagnostic text, action descriptions, and source_problem explanations must be written in the language specified in the brand profile (profile.language). If profile.language is 'French' or 'fr', write all content in French. If 'English' or 'en', write in English.
 
 ABSOLUTE RULE: respond ONLY with valid JSON. No text before or after. No markdown. No explanation. No \`\`\`json block. Raw JSON only.
 
-If a data point is marked "INDISPONIBLE", ignore it in your analysis and note the limitation in the relevant field.`;
+If a data point is marked "INDISPONIBLE", ignore it in your analysis and note the limitation in the relevant diagnostic.`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -66,13 +70,8 @@ function deltaStr(current: number, previous: number): string {
 
 /**
  * Construit le prompt utilisateur envoyé à Claude (1 seul appel LLM par audit).
- * Le LLM doit retourner le fragment JSON { top_risks, quick_wins, roadmap_90d }.
+ * Le LLM doit retourner le fragment JSON { axis_diagnostics, priorities_90d }.
  * Les scores sont déjà calculés côté serveur et passés en contexte.
- *
- * @param profile     Profil de la marque
- * @param results     Résultats des 7 modules
- * @param scores      Scores calculés par calculateBpiScores
- * @param previousRun Scores du run précédent (comparaison historique)
  */
 export function buildConsolidatedPrompt(
   profile: ElevayAgentProfile,
@@ -114,11 +113,6 @@ export function buildConsolidatedPrompt(
       lines.push(`- Top avis négatifs :`);
       d.top_negative_reviews.forEach((t) => lines.push(`  • "${t.slice(0, 120)}..."`));
     }
-    lines.push(
-      "",
-      "Instructions : Analyze Google Maps reputation data. Identify key themes in positive and negative reviews.",
-      "Highlight reputation risks and opportunities.",
-    );
     return lines.join("\n");
   }
 
@@ -150,23 +144,27 @@ ${moduleSection("[8] TRUSTPILOT REPUTATION", results.trustpilot)}
       : "";
 
   const scoresSection = `
-## SCORES CALCULÉS (pondération : Réputation 35% · Visibilité 30% · Social 20% · Compétitif 15%)
-- Score global      : ${scores.global}/100
-- Réputation (35%)  : ${scores.reputation}/100
-- Visibilité (30%)  : ${scores.visibility}/100
-- Social (20%)      : ${scores.social}/100
-- Compétitif (15%)  : ${scores.competitive}/100${degradedNote}
+## SCORES CALCULÉS (6 axes : SERP 20% · Presse 15% · YouTube 15% · Social 15% · SEO 20% · Benchmark 15%)
+- Score global        : ${scores.global}/100
+- SERP (20%)          : ${scores.serp}/100
+- Presse (15%)        : ${scores.press}/100
+- YouTube (15%)       : ${scores.youtube}/100
+- Social (15%)        : ${scores.social}/100
+- SEO (20%)           : ${scores.seo}/100
+- Benchmark (15%)     : ${scores.benchmark}/100${degradedNote}
 `.trim();
 
   // ── Comparaison historique ────────────────────────────────────────────────
   const historicalSection = previousRun
     ? `
 ## COMPARAISON AVEC LE RUN PRÉCÉDENT (${previousRun.date})
-- Global      : ${previousRun.global}/100 → ${scores.global}/100 (${deltaStr(scores.global, previousRun.global)})
-- Réputation  : ${previousRun.reputation}/100 → ${scores.reputation}/100 (${deltaStr(scores.reputation, previousRun.reputation)})
-- Visibilité  : ${previousRun.visibility}/100 → ${scores.visibility}/100 (${deltaStr(scores.visibility, previousRun.visibility)})
-- Social      : ${previousRun.social}/100 → ${scores.social}/100 (${deltaStr(scores.social, previousRun.social)})
-- Compétitif  : ${previousRun.competitive}/100 → ${scores.competitive}/100 (${deltaStr(scores.competitive, previousRun.competitive)})
+- Global    : ${previousRun.global}/100 → ${scores.global}/100 (${deltaStr(scores.global, previousRun.global)})
+- SERP      : ${previousRun.serp}/100 → ${scores.serp}/100 (${deltaStr(scores.serp, previousRun.serp)})
+- Presse    : ${previousRun.press}/100 → ${scores.press}/100 (${deltaStr(scores.press, previousRun.press)})
+- YouTube   : ${previousRun.youtube}/100 → ${scores.youtube}/100 (${deltaStr(scores.youtube, previousRun.youtube)})
+- Social    : ${previousRun.social}/100 → ${scores.social}/100 (${deltaStr(scores.social, previousRun.social)})
+- SEO       : ${previousRun.seo}/100 → ${scores.seo}/100 (${deltaStr(scores.seo, previousRun.seo)})
+- Benchmark : ${previousRun.benchmark}/100 → ${scores.benchmark}/100 (${deltaStr(scores.benchmark, previousRun.benchmark)})
 `.trim()
     : "";
 
@@ -177,26 +175,27 @@ ${moduleSection("[8] TRUSTPILOT REPUTATION", results.trustpilot)}
 À partir des données ci-dessus, génère UNIQUEMENT le JSON suivant (sans markdown, sans texte avant ou après) :
 
 {
-  "top_risks": [
-    // 5 items maximum — urgency: "high" | "medium" | "low"
-    { "description": "...", "urgency": "high", "source": "SERP|presse|youtube|social|SEO|benchmark" }
+  "axis_diagnostics": [
+    { "axis": "serp", "diagnostic": "..." },
+    { "axis": "press", "diagnostic": "..." },
+    { "axis": "youtube", "diagnostic": "..." },
+    { "axis": "social", "diagnostic": "..." },
+    { "axis": "seo", "diagnostic": "..." },
+    { "axis": "benchmark", "diagnostic": "..." }
   ],
-  "quick_wins": [
-    // 5 items maximum — effort: "low" | "medium" | "high", impact: "high" | "medium" | "low"
-    { "action": "...", "impact": "high", "effort": "low", "estimated_time": "2h" }
-  ],
-  "roadmap_90d": [
-    // Exactement 3 phases : Mois 1, Mois 2, Mois 3
-    { "phase": 1, "label": "Mois 1 — ...", "objective": "...", "actions": ["...", "...", "..."] },
-    { "phase": 2, "label": "Mois 2 — ...", "objective": "...", "actions": ["...", "...", "..."] },
-    { "phase": 3, "label": "Mois 3 — ...", "objective": "...", "actions": ["...", "...", "..."] }
+  "priorities_90d": [
+    { "action": "...", "tag": "Urgent", "source_problem": "..." },
+    { "action": "...", "tag": "Moyen terme", "source_problem": "..." },
+    { "action": "...", "tag": "Quick win", "source_problem": "..." }
   ]
 }
 
 Règles :
-- Priorise les risques par urgence réelle basée sur les données (pas générique)
-- Les quick wins doivent être actionnables en moins de 1 semaine (effort "low") ou 1 mois (effort "medium")
-- La roadmap 90j doit suivre une logique de progression : stabilisation → accélération → scaling
+- axis_diagnostics : exactement 6 diagnostics (un par axe). Chaque diagnostic est UNE PHRASE en langage business, compréhensible par un dirigeant non-technique. Pas de jargon SEO/marketing. Focus sur ce que ça signifie concrètement pour la marque.
+- priorities_90d : 3 à 5 actions priorisées pour les 90 prochains jours
+  - tag : "Urgent" (à faire cette semaine), "Moyen terme" (ce mois-ci), ou "Quick win" (facile et rapide)
+  - source_problem : UNE PHRASE expliquant quelle donnée a révélé ce problème
+- Priorise par impact réel sur la visibilité et la réputation de la marque
 - Réponds en ${formatLanguage(profile.language)}
 `.trim();
 

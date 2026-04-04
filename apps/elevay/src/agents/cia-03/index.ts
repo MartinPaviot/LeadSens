@@ -91,7 +91,11 @@ export async function run(
     : null;
 
   // Construire le payload CiaOutput (raffiné par LLM dans la route)
+  const brandEntry = benchmarkData?.competitor_scores.find(s => s.is_client);
+
   const payload: CiaOutput = {
+    brand_score:     brandEntry?.global_score ?? 0,
+    analysis_date:   new Date().toISOString(),
     analysis_context:  context,
     competitor_scores: benchmarkData?.competitor_scores ?? [],
     strategic_zones:   benchmarkData?.strategic_zones ?? [],
@@ -110,8 +114,9 @@ export async function run(
       },
       competitors_seo: [],
     },
-    social_matrix:  socialResult?.data?.competitors ?? [],
-    content_gap_map: contentResult?.data?.editorial_gap_map ?? [],
+    social_matrix:       socialResult?.data?.competitors ?? [],
+    content_gap_map:     contentResult?.data?.editorial_gap_map ?? [],
+    content_competitors: contentResult?.data?.competitors ?? [],
     threats:         recoContext?.threats ?? [],
     opportunities:   recoContext?.opportunities ?? [],
     action_plan_60d: recoContext?.action_plan_template ?? [],

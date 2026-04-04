@@ -7,24 +7,27 @@ import type {
   SeoData,
   BenchmarkData,
   GoogleMapsData,
+  TrustpilotData,
 } from "./types";
 
 export interface BpiScores {
   global: number
-  reputation: number
-  visibility: number
+  serp: number
+  press: number
+  youtube: number
   social: number
-  competitive: number
+  seo: number
+  benchmark: number
   completeness: number // 0.0–1.0 ratio of modules that returned data
 }
 
 interface ScoredComponent {
-  name: keyof BpiScores
-  weight: number       // poids nominal (35 / 30 / 20 / 15)
+  name: keyof Omit<BpiScores, 'completeness'>
+  weight: number
   score: number | null // null = source indisponible
 }
 
-/** Moyenne pondérée sur les sources disponibles dans une composante */
+/** Moyenne pondérée sur les sources disponibles */
 function weightedMean(
   entries: { score: number; weight: number }[],
 ): number | null {
@@ -60,16 +63,18 @@ function pressToScore(data: PressData): number {
 }
 
 /**
- * calculateBpiScores — section 5.1 agentBPI-01.md
+ * calculateBpiScores — 6 axes directs
  *
- * Pondération nominale :
- *   Réputation         35% — SERP reputation + YouTube reputation + presse + avis (Maps/TP)
- *   Visibilité         30% — SERP visibility + SEO score + YouTube reach
- *   Présence sociale   20% — Social score
- *   Dominance compét.  15% — Benchmark competitive score
+ * Pondération globale :
+ *   SERP        20% — visibility + reputation + Google Maps + Trustpilot
+ *   Presse      15% — pressToScore
+ *   YouTube     15% — reputation_score
+ *   Social      15% — social_score
+ *   SEO         20% — seo_score
+ *   Benchmark   15% — competitive_score
  *
- * Mode dégradé (section 5.3) : si une composante est null,
- * son poids est redistribué proportionnellement sur les autres.
+ * Mode dégradé : si un axe est null, son poids est redistribué
+ * proportionnellement sur les autres.
  */
 export function calculateBpiScores(results: {
   serp: ModuleResult<SerpData> | null
@@ -79,84 +84,55 @@ export function calculateBpiScores(results: {
   seo: ModuleResult<SeoData> | null
   benchmark: ModuleResult<BenchmarkData> | null
   googleMaps?: ModuleResult<GoogleMapsData> | null
+  trustpilot?: ModuleResult<TrustpilotData> | null
 }): BpiScores {
-  const { serp, press, youtube, social, seo, benchmark, googleMaps } = results;
+  const { serp, press, youtube, social, seo, benchmark, googleMaps, trustpilot } = results;
 
-  // Completeness: count how many of the 7 modules returned data
-  const totalModules = 7;
-  const filledModules = [serp, press, youtube, social, seo, benchmark, googleMaps]
+  // Completeness: count how many of the 8 modules returned data
+  const totalModules = 8;
+  const filledModules = [serp, press, youtube, social, seo, benchmark, googleMaps, trustpilot]
     .filter((m) => m?.data != null).length;
   const completeness = Math.round((filledModules / totalModules) * 100) / 100;
 
-  // ── Réputation (35%) ────────────────────────────────────────────────
-  const reputationSources: { score: number; weight: number }[] = [];
-
+  // ── SERP (20%) — blend visibility + reputation + avis ──────────────────────
+  let serpScore: number | null = null;
   if (serp?.data) {
-    reputationSources.push({ score: serp.data.reputation_score, weight: 30 });
-  }
-  if (youtube?.data) {
-    reputationSources.push({ score: youtube.data.reputation_score, weight: 30 });
-  }
-  if (press?.data) {
-    reputationSources.push({ score: pressToScore(press.data), weight: 20 });
-  }
-  // Préférer le module Google Maps dédié si disponible, sinon fallback benchmark mocké
-  if (googleMaps?.data?.found && googleMaps.data.reputation_score !== undefined) {
-    reputationSources.push({ score: googleMaps.data.reputation_score, weight: 10 });
-  } else if (benchmark?.data?.google_maps) {
-    reputationSources.push({
-      score: Math.round((benchmark.data.google_maps.rating / 5) * 100),
-      weight: 10,
-    });
-  }
-  if (benchmark?.data?.trustpilot) {
-    reputationSources.push({
-      score: Math.round((benchmark.data.trustpilot.rating / 5) * 100),
-      weight: 10,
-    });
+    const serpSources: { score: number; weight: number }[] = [
+      { score: serp.data.visibility_score, weight: 40 },
+      { score: serp.data.reputation_score, weight: 40 },
+    ];
+    if (googleMaps?.data?.found && googleMaps.data.reputation_score !== undefined) {
+      serpSources.push({ score: googleMaps.data.reputation_score, weight: 10 });
+    }
+    if (trustpilot?.data?.found && trustpilot.data.rating !== undefined) {
+      serpSources.push({ score: Math.round((trustpilot.data.rating / 5) * 100), weight: 10 });
+    }
+    serpScore = weightedMean(serpSources);
   }
 
-  // ── Visibilité (30%) ────────────────────────────────────────────────
-  const visibilitySources: { score: number; weight: number }[] = [];
+  // ── Presse (15%) ───────────────────────────────────────────────────────────
+  const pressScore = press?.data ? pressToScore(press.data) : null;
 
-  if (serp?.data) {
-    visibilitySources.push({ score: serp.data.visibility_score, weight: 40 });
-  }
-  if (seo?.data) {
-    visibilitySources.push({ score: seo.data.seo_score, weight: 45 });
-  }
-  if (youtube?.data) {
-    // YouTube reach : normalisé depuis video_count (0-50+ → 0-100)
-    const youtubeReach = Math.min(100, Math.round((youtube.data.video_count / 50) * 100));
-    visibilitySources.push({ score: youtubeReach, weight: 15 });
-  }
+  // ── YouTube (15%) ──────────────────────────────────────────────────────────
+  const youtubeScore = youtube?.data ? youtube.data.reputation_score : null;
 
-  // ── Présence sociale (20%) ──────────────────────────────────────────
-  const socialSources: { score: number; weight: number }[] = [];
+  // ── Social (15%) ───────────────────────────────────────────────────────────
+  const socialScore = social?.data ? social.data.social_score : null;
 
-  if (social?.data) {
-    socialSources.push({ score: social.data.social_score, weight: 100 });
-  }
+  // ── SEO (20%) ──────────────────────────────────────────────────────────────
+  const seoScore = seo?.data ? seo.data.seo_score : null;
 
-  // ── Dominance concurrentielle (15%) ────────────────────────────────
-  const competitiveSources: { score: number; weight: number }[] = [];
+  // ── Benchmark (15%) ────────────────────────────────────────────────────────
+  const benchmarkScore = benchmark?.data ? benchmark.data.competitive_score : null;
 
-  if (benchmark?.data) {
-    competitiveSources.push({ score: benchmark.data.competitive_score, weight: 100 });
-  }
-
-  // ── Calcul des 4 composantes ───────────────────────────────────────
-  const reputation = weightedMean(reputationSources);
-  const visibility = weightedMean(visibilitySources);
-  const socialScore = weightedMean(socialSources);
-  const competitive = weightedMean(competitiveSources);
-
-  // ── Score global avec redistribution des poids (section 5.3) ──────
+  // ── Score global avec redistribution des poids ─────────────────────────────
   const components: ScoredComponent[] = [
-    { name: "reputation", weight: 35, score: reputation },
-    { name: "visibility", weight: 30, score: visibility },
-    { name: "social", weight: 20, score: socialScore },
-    { name: "competitive", weight: 15, score: competitive },
+    { name: "serp",      weight: 20, score: serpScore },
+    { name: "press",     weight: 15, score: pressScore },
+    { name: "youtube",   weight: 15, score: youtubeScore },
+    { name: "social",    weight: 15, score: socialScore },
+    { name: "seo",       weight: 20, score: seoScore },
+    { name: "benchmark", weight: 15, score: benchmarkScore },
   ];
 
   const available = components.filter((c) => c.score !== null);
@@ -172,10 +148,12 @@ export function calculateBpiScores(results: {
 
   return {
     global,
-    reputation: reputation ?? 0,
-    visibility: visibility ?? 0,
-    social: socialScore ?? 0,
-    competitive: competitive ?? 0,
+    serp:      serpScore ?? 0,
+    press:     pressScore ?? 0,
+    youtube:   youtubeScore ?? 0,
+    social:    socialScore ?? 0,
+    seo:       seoScore ?? 0,
+    benchmark: benchmarkScore ?? 0,
     completeness,
   };
 }

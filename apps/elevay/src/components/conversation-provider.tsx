@@ -40,13 +40,20 @@ interface ConversationContextValue {
 
 const ConversationContext = createContext<ConversationContextValue | null>(null);
 
+const FALLBACK: ConversationContextValue = {
+  activeId: null,
+  chatKey: 0,
+  conversations: [],
+  isLoading: false,
+  selectConversation: () => {},
+  startNewChat: () => {},
+  refreshConversations: async () => {},
+  registerNewConversation: () => {},
+};
+
 export function useConversations() {
   const ctx = useContext(ConversationContext);
-  if (!ctx)
-    throw new Error(
-      "useConversations must be used within ConversationProvider",
-    );
-  return ctx;
+  return ctx ?? FALLBACK;
 }
 
 // ─── Provider ───────────────────────────────────────────

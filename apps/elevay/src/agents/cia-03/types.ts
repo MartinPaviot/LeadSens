@@ -157,9 +157,20 @@ export interface RecommendationsContext {
   action_plan_template: ActionPhase[]
 }
 
+// ── Comparaison historique ────────────────────────────────────────────────────
+
+export interface CiaPreviousComparison {
+  date: string
+  competitor_scores: Array<{ entity: string; global_score: number }>
+}
+
 // ── Output final CIA-03 ───────────────────────────────────────────────────────
 
 export interface CiaOutput {
+  // En-tête
+  brand_score: number             // score global du client
+  analysis_date: string           // ISO 8601
+
   analysis_context: CiaSessionContext
   competitor_scores: CompetitorScore[]
   strategic_zones: StrategicZone[]
@@ -167,10 +178,11 @@ export interface CiaOutput {
   seo_data: SeoAcquisitionData
   social_matrix: SocialProfile[]
   content_gap_map: ContentGap[]
+  content_competitors: CompetitorContent[]   // détails contenu par concurrent
   threats: Threat[]
   opportunities: Opportunity[]
   action_plan_60d: ActionPhase[]
-  previous_scores?: Record<string, number>
+  previous?: CiaPreviousComparison
 }
 
 // ── Input ─────────────────────────────────────────────────────────────────────

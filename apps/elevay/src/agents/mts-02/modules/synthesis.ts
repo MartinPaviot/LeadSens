@@ -128,6 +128,18 @@ function buildFormatMatrix(
   return matrix;
 }
 
+// ── Best channel helper ──────────────────────────────────────────────────────
+
+function determineBestChannel(socialSignals: SocialSignal[]): string {
+  const available = socialSignals.filter((s) => s.available);
+  if (available.length > 0) {
+    return available.reduce((a, b) =>
+      b.engagement_benchmark > a.engagement_benchmark ? b : a,
+    ).platform;
+  }
+  return "SEO";
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function runSynthesis(input: SynthesisInput): SynthesisResult {
@@ -205,6 +217,8 @@ export function runSynthesis(input: SynthesisInput): SynthesisResult {
     trending_topics.push({
       topic: kw.keyword,
       opportunity_score: score,
+      growth_4w: kw.growth_30d,
+      best_channel: determineBestChannel(allSocialSignals),
       classification,
       source_confirmation: sources,
       estimated_horizon: estimateHorizon(classification),

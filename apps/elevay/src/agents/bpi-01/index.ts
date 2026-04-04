@@ -78,9 +78,8 @@ export async function run(profile: ElevayAgentProfile): Promise<AgentOutput<BpiO
     benchmark_data:        benchmarkResult?.data  ?? null,
     googleMapsReputation:  googleMapsResult?.data ?? undefined,
     // Remplis par l'appel LLM consolidé (buildConsolidatedPrompt → callLlm)
-    top_risks:   [],
-    quick_wins:  [],
-    roadmap_90d: [],
+    axis_diagnostics: [],
+    priorities_90d:   [],
     ...(scores.completeness < 0.3
       ? { warning: 'Score based on partial data — less than 30% of modules returned data' }
       : {}),

@@ -3,9 +3,9 @@ import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-p
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import type { BpiOutput, Risk, QuickWin, RoadmapPhase } from "@/agents/bpi-01/types";
+import type { BpiOutput, Priority90d } from "@/agents/bpi-01/types";
 import type { MtsOutput, TrendingTopic, SaturatedTopic, RoadmapEntry } from "@/agents/mts-02/types";
-import type { CiaOutput, CompetitorScore, StrategicZone, ActionPhase } from "@/agents/cia-03/types";
+import type { CiaOutput, CompetitorScore, StrategicZone, Threat, ActionPhase } from "@/agents/cia-03/types";
 import type { AgentOutput } from "@/agents/_shared/types";
 
 // ── Input validation ──────────────────────────────────────────────────────────
@@ -22,32 +22,20 @@ function buildMarkdownReport(brandName: string, payload: BpiOutput): string {
 
   const rows = (
     [
-      ["Reputation", scores.reputation],
-      ["Visibility", scores.visibility],
-      ["Social presence", scores.social],
-      ["Competitive dominance", scores.competitive],
+      ["SERP",                     scores.serp],
+      ["Press",                    scores.press],
+      ["YouTube",                  scores.youtube],
+      ["Social media",             scores.social],
+      ["Organic SEO",              scores.seo],
+      ["Competitive benchmark",    scores.benchmark],
     ] as [string, number][]
   )
     .map(([label, score]) => `| ${label} | **${score}/100** |`)
     .join("\n");
 
-  const risks = payload.top_risks
-    .map((r: Risk, i: number) => `${i + 1}. **[${r.urgency}]** ${r.description} *(${r.source})*`)
+  const priorities = payload.priorities_90d
+    .map((p: Priority90d, i: number) => `${i + 1}. **[${p.tag}]** ${p.action}\n   *${p.source_problem}*`)
     .join("\n");
-
-  const wins = payload.quick_wins
-    .map(
-      (w: QuickWin) =>
-        `- **${w.action}** — impact: ${w.impact} · effort: ${w.effort} · ⏱ ${w.estimated_time}`,
-    )
-    .join("\n");
-
-  const roadmap = payload.roadmap_90d
-    .map(
-      (p: RoadmapPhase) =>
-        `**${p.label}** — ${p.objective}\n${p.actions.map((a: string) => `  - ${a}`).join("\n")}`,
-    )
-    .join("\n\n");
 
   return [
     `# Brand Presence Audit — ${brandName}`,
@@ -58,14 +46,8 @@ function buildMarkdownReport(brandName: string, payload: BpiOutput): string {
     `|------|-------|`,
     rows,
     ``,
-    `## Priority risks`,
-    risks || "*No risks identified*",
-    ``,
-    `## Quick wins`,
-    wins || "*No quick wins identified*",
-    ``,
-    `## 90-day roadmap`,
-    roadmap || "*Roadmap not available*",
+    `## 90-day priorities`,
+    priorities || "*No priorities identified*",
   ].join("\n");
 }
 
@@ -77,7 +59,7 @@ function buildMtsMarkdownReport(sector: string, payload: MtsOutput): string {
     .slice(0, 5);
 
   const topics = top5
-    .map((t: TrendingTopic) => `- **${t.topic}** (${t.opportunity_score}/100) — ${t.suggested_angle}`)
+    .map((t: TrendingTopic) => `- **${t.topic}** (${t.opportunity_score}/100, +${Math.round(t.growth_4w)}%) — ${t.best_channel} — ${t.suggested_angle}`)
     .join("\n");
 
   const saturated = payload.saturated_topics
@@ -85,11 +67,13 @@ function buildMtsMarkdownReport(sector: string, payload: MtsOutput): string {
     .join("\n");
 
   const roadmap = payload.roadmap_30d
-    .map((e: RoadmapEntry) => `- Week ${e.week} · ${e.canal} · ${e.format}: ${e.suggested_title}`)
+    .map((e: RoadmapEntry) => `- Week ${e.week} · ${e.canal} · ${e.format}: ${e.suggested_title} (${e.objective})`)
     .join("\n");
 
   return [
     `# Market Trends — ${sector}`,
+    ``,
+    `**Score: ${payload.global_score}/100** · ${payload.analysis_period} · ${payload.mode}`,
     ``,
     `## Top opportunities`,
     topics || "*None identified*",
@@ -105,41 +89,47 @@ function buildMtsMarkdownReport(sector: string, payload: MtsOutput): string {
 // ── CIA Markdown report builder ───────────────────────────────────────────────
 
 function buildCiaMarkdownReport(brandName: string, payload: CiaOutput): string {
-  const client = payload.competitor_scores.find((c: CompetitorScore) => c.is_client);
-  const others = [...payload.competitor_scores.filter((c: CompetitorScore) => !c.is_client)]
-    .sort((a, b) => b.global_score - a.global_score);
-
-  const scores = [client, ...others].filter(Boolean)
-    .map((c) => `| ${c!.entity}${c!.is_client ? " *(vous)*" : ""} | **${c!.global_score}/100** | ${c!.level} | ${c!.seo_score} | ${c!.social_score} | ${c!.content_score} |`)
+  const allScored = payload.competitor_scores;
+  const scores = allScored
+    .map((c: CompetitorScore) => `| ${c.entity}${c.is_client ? " *(vous)*" : ""} | **${c.global_score}/100** | ${c.level} | ${c.seo_score} | ${c.product_score} | ${c.social_score} | ${c.content_score} |`)
     .join("\n");
 
-  const greenZones = payload.strategic_zones.filter((z: StrategicZone) => z.zone === "green")
-    .map((z: StrategicZone) => `- ✅ **${z.axis}** — ${z.directive}`).join("\n");
-  const redZones = payload.strategic_zones.filter((z: StrategicZone) => z.zone === "red")
-    .map((z: StrategicZone) => `- ❌ **${z.axis}** — ${z.directive}`).join("\n");
+  const zones = payload.strategic_zones
+    .map((z: StrategicZone) => `| ${z.axis} | ${z.zone} | ${z.directive} |`)
+    .join("\n");
+
+  const threats = payload.threats
+    .map((t) => `- **[${t.urgency}]** ${t.description}`)
+    .join("\n");
 
   const opps = payload.opportunities
     .map((o) => `- **${o.description}** — effort: ${o.effort} · impact: ${o.impact} · ${o.timeframe}`)
     .join("\n");
 
   const plan = payload.action_plan_60d
-    .map((p: ActionPhase) => `**Phase ${p.phase} — ${p.label}** : ${p.objective}\n${p.actions.map((a: string) => `  - ${a}`).join("\n")}`)
+    .map((p: ActionPhase) => `**${p.label}** : ${p.objective}\n${p.actions.map((a: string) => `  - ${a}`).join("\n")}`)
     .join("\n\n");
 
   return [
     `# Competitive Analysis — ${brandName}`,
     ``,
-    `## Global scores`,
-    `| Entity | Score | Level | SEO | Social | Content |`,
-    `|--------|-------|-------|-----|--------|---------|`,
+    `**Score: ${payload.brand_score}/100** · ${payload.analysis_date.slice(0, 10)}`,
+    ``,
+    `## Competitive ranking`,
+    `| Entity | Score | Level | SEO | Product | Social | Content |`,
+    `|--------|-------|-------|-----|---------|--------|---------|`,
     scores,
     ``,
     `## Strategic zones`,
-    greenZones || "*No green zones*",
-    redZones || "*No red zones*",
+    `| Axis | Zone | Directive |`,
+    `|------|------|-----------|`,
+    zones || "| *None* | | |",
+    ``,
+    `## Threats`,
+    threats || "*None*",
     ``,
     `## Opportunities`,
-    opps || "*None identified*",
+    opps || "*None*",
     ``,
     `## 60-day action plan`,
     plan || "*Plan not available*",
@@ -276,16 +266,10 @@ function scoreColor(score: number): string {
   return score >= 70 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
 }
 
-const urgencyColors: Record<string, string> = {
-  high: "#ef4444",
-  medium: "#f59e0b",
-  low: "#6b7280",
-};
-
-const effortColors: Record<string, string> = {
-  low: "#22c55e",
-  medium: "#f59e0b",
-  high: "#ef4444",
+const tagColors: Record<string, string> = {
+  "Urgent": "#ef4444",
+  "Moyen terme": "#f59e0b",
+  "Quick win": "#22c55e",
 };
 
 // ── PDF component ─────────────────────────────────────────────────────────────
@@ -300,17 +284,17 @@ function AuditPDF({ brandName, payload }: { brandName: string; payload: BpiOutpu
   });
 
   const axes: [string, number][] = [
-    ["Reputation", scores.reputation],
-    ["Visibility", scores.visibility],
-    ["Social presence", scores.social],
-    ["Competitive dominance", scores.competitive],
+    ["SERP",                     scores.serp],
+    ["Press",                    scores.press],
+    ["YouTube",                  scores.youtube],
+    ["Social media",             scores.social],
+    ["Organic SEO",              scores.seo],
+    ["Competitive benchmark",    scores.benchmark],
   ];
-
-  const phases = payload.roadmap_90d.slice(0, 3);
 
   return (
     <Document>
-      {/* Page 1 — scores, risks, quick wins */}
+      {/* Page 1 — scores + priorities */}
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header}>
@@ -341,26 +325,15 @@ function AuditPDF({ brandName, payload }: { brandName: string; payload: BpiOutpu
           </View>
         ))}
 
-        {/* Top risks */}
-        <Text style={styles.sectionTitle}>Priority risks</Text>
-        {payload.top_risks.slice(0, 5).map((risk: Risk, i: number) => (
+        {/* 90-day priorities */}
+        <Text style={styles.sectionTitle}>90-day priorities</Text>
+        {payload.priorities_90d.slice(0, 5).map((prio: Priority90d, i: number) => (
           <View key={i} style={styles.riskRow}>
-            <View style={[styles.badge, { backgroundColor: urgencyColors[risk.urgency] ?? "#6b7280" }]}>
-              <Text style={styles.badgeText}>{risk.urgency.toUpperCase()}</Text>
-            </View>
-            <Text style={styles.riskText}>{risk.description}</Text>
-          </View>
-        ))}
-
-        {/* Quick wins */}
-        <Text style={styles.sectionTitle}>Quick wins</Text>
-        {payload.quick_wins.slice(0, 5).map((win: QuickWin, i: number) => (
-          <View key={i} style={styles.riskRow}>
-            <View style={[styles.badge, { backgroundColor: effortColors[win.effort] ?? "#6b7280" }]}>
-              <Text style={styles.badgeText}>{win.effort.toUpperCase()}</Text>
+            <View style={[styles.badge, { backgroundColor: tagColors[prio.tag] ?? "#6b7280" }]}>
+              <Text style={styles.badgeText}>{prio.tag.toUpperCase()}</Text>
             </View>
             <Text style={styles.riskText}>
-              {win.action} — impact: {win.impact} · {win.estimated_time}
+              {prio.action} — {prio.source_problem}
             </Text>
           </View>
         ))}
@@ -381,24 +354,6 @@ function AuditPDF({ brandName, payload }: { brandName: string; payload: BpiOutpu
           </>
         )}
       </Page>
-
-      {/* Page 2 — 90-day roadmap */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>90-day roadmap</Text>
-        <View style={styles.roadmapGrid}>
-          {phases.map((phase: RoadmapPhase) => (
-            <View key={phase.phase} style={styles.roadmapCol}>
-              <Text style={styles.phaseLabel}>{phase.label}</Text>
-              <Text style={styles.phaseObjective}>{phase.objective}</Text>
-              {phase.actions.map((action: string, j: number) => (
-                <Text key={j} style={styles.phaseAction}>
-                  • {action}
-                </Text>
-              ))}
-            </View>
-          ))}
-        </View>
-      </Page>
     </Document>
   );
 }
@@ -418,6 +373,7 @@ function MtsPDF({ sector, payload }: { sector: string; payload: MtsOutput }) {
   const dateStr = new Date().toLocaleDateString("en-US", {
     day: "numeric", month: "long", year: "numeric",
   });
+  const globalColor = scoreColor(payload.global_score);
 
   return (
     <Document>
@@ -425,7 +381,11 @@ function MtsPDF({ sector, payload }: { sector: string; payload: MtsOutput }) {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Market Trends — {sector}</Text>
-            <Text style={styles.subtitle}>Generated on {dateStr}</Text>
+            <Text style={styles.subtitle}>Generated on {dateStr} · {payload.analysis_period} · {payload.mode}</Text>
+          </View>
+          <View style={[styles.scoreCircle, { backgroundColor: globalColor }]}>
+            <Text style={styles.scoreNumber}>{payload.global_score}</Text>
+            <Text style={styles.scoreDenom}>/100</Text>
           </View>
         </View>
         <Text style={styles.sectionTitle}>Top opportunities</Text>
@@ -434,7 +394,7 @@ function MtsPDF({ sector, payload }: { sector: string; payload: MtsOutput }) {
             <View style={[styles.badge, { backgroundColor: "#6366f1" }]}>
               <Text style={styles.badgeText}>{t.opportunity_score}</Text>
             </View>
-            <Text style={styles.riskText}>{t.topic} — {t.suggested_angle}</Text>
+            <Text style={styles.riskText}>{t.topic} (+{Math.round(t.growth_4w)}% · {t.best_channel}) — {t.suggested_angle}</Text>
           </View>
         ))}
         {payload.saturated_topics.length > 0 && (
@@ -450,7 +410,7 @@ function MtsPDF({ sector, payload }: { sector: string; payload: MtsOutput }) {
         <Text style={styles.sectionTitle}>30-Day Content Roadmap</Text>
         {payload.roadmap_30d.map((entry: RoadmapEntry, i: number) => (
           <View key={i} style={{ marginBottom: 8 }}>
-            <Text style={styles.phaseLabel}>Week {entry.week} — {entry.canal} ({entry.format})</Text>
+            <Text style={styles.phaseLabel}>Week {entry.week} — {entry.canal} ({entry.format}) — {entry.objective}</Text>
             <Text style={styles.riskText}>{entry.suggested_title}</Text>
             <Text style={[styles.riskText, { color: "#6b7280" }]}>Topic: {entry.topic}</Text>
           </View>
@@ -472,6 +432,7 @@ function CiaPDF({ brandName, payload }: { brandName: string; payload: CiaOutput 
   const dateStr = new Date().toLocaleDateString("en-US", {
     day: "numeric", month: "long", year: "numeric",
   });
+  const globalColor = scoreColor(payload.brand_score);
 
   return (
     <Document>
@@ -481,14 +442,28 @@ function CiaPDF({ brandName, payload }: { brandName: string; payload: CiaOutput 
             <Text style={styles.title}>Competitive Analysis — {brandName}</Text>
             <Text style={styles.subtitle}>Generated on {dateStr}</Text>
           </View>
+          <View style={[styles.scoreCircle, { backgroundColor: globalColor }]}>
+            <Text style={styles.scoreNumber}>{payload.brand_score}</Text>
+            <Text style={styles.scoreDenom}>/100</Text>
+          </View>
         </View>
-        <Text style={styles.sectionTitle}>Competitor scores</Text>
+        <Text style={styles.sectionTitle}>Competitive ranking</Text>
         {payload.competitor_scores.map((c: CompetitorScore, i: number) => (
-          <View key={i} style={styles.riskRow}>
-            <View style={[styles.badge, { backgroundColor: c.is_client ? "#0ea5e9" : "#6b7280" }]}>
-              <Text style={styles.badgeText}>{c.global_score}</Text>
+          <View key={i} style={styles.axisRow}>
+            <Text style={styles.axisLabel}>{c.entity}{c.is_client ? " (vous)" : ""}</Text>
+            <Text style={styles.axisScore}>{c.global_score}/100</Text>
+            <View style={styles.barBg}>
+              <View style={[styles.barFill, { width: `${c.global_score}%`, backgroundColor: c.is_client ? "#0ea5e9" : scoreColor(c.global_score) }]} />
             </View>
-            <Text style={styles.riskText}>{c.entity} — {c.level}</Text>
+          </View>
+        ))}
+        <Text style={styles.sectionTitle}>Threats</Text>
+        {payload.threats.slice(0, 3).map((t: Threat, i: number) => (
+          <View key={i} style={styles.riskRow}>
+            <View style={[styles.badge, { backgroundColor: t.urgency === "critical" ? "#ef4444" : t.urgency === "medium" ? "#f59e0b" : "#6b7280" }]}>
+              <Text style={styles.badgeText}>{t.urgency.toUpperCase()}</Text>
+            </View>
+            <Text style={styles.riskText}>{t.description}</Text>
           </View>
         ))}
       </Page>
