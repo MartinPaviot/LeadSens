@@ -57,10 +57,10 @@ function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
   const scoreBreakdown = `SERP ${scores.serp} · Presse ${scores.press} · YouTube ${scores.youtube} · Social ${scores.social} · SEO ${scores.seo} · Benchmark ${scores.benchmark}`;
   const urgentPriority = priorities_90d.find((p) => p.tag === "Urgent");
   const priorityLine = urgentPriority ? `⚠️ ${urgentPriority.action}` : null;
-  const topComp = benchmark_data?.radar.length
-    ? benchmark_data.radar.reduce((a, b) => a.serp_share + a.seo_score > b.serp_share + b.seo_score ? a : b)
+  const topComp = benchmark_data?.competitors?.length
+    ? benchmark_data.competitors.reduce((a, b) => a.overall_score > b.overall_score ? a : b)
     : null;
-  const compLine = topComp ? `🏆 Concurrent dominant : **${topComp.name}** (SERP ${topComp.serp_share} · SEO ${topComp.seo_score})` : null;
+  const compLine = topComp ? `🏆 Concurrent dominant : **${topComp.name}** (Score ${topComp.overall_score})` : null;
   return [
     `🔍 **Audit de présence — ${brandName}** — Score global **${scores.global}/100**`,
     scoreBreakdown,

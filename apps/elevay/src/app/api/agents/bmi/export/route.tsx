@@ -339,15 +339,15 @@ function AuditPDF({ brandName, payload }: { brandName: string; payload: BpiOutpu
         ))}
 
         {/* Trustpilot — shown only if data available */}
-        {payload.trustpilot?.found && payload.trustpilot.rating !== undefined && (
+        {payload.trustpilot?.rating != null && (
           <>
             <Text style={styles.sectionTitle}>Trustpilot</Text>
             <View style={styles.riskRow}>
-              <View style={[styles.badge, { backgroundColor: scoreColor(payload.trustpilot.rating * 20) }]}>
+              <View style={[styles.badge, { backgroundColor: scoreColor(payload.trustpilot.trust_score) }]}>
                 <Text style={styles.badgeText}>{payload.trustpilot.rating}/5</Text>
               </View>
               <Text style={styles.riskText}>
-                {payload.trustpilot.sentiment_label ?? "–"}
+                Trust score: {payload.trustpilot.trust_score}
                 {payload.trustpilot.review_count ? ` · ${payload.trustpilot.review_count} reviews` : ""}
               </Text>
             </View>
@@ -460,7 +460,7 @@ function CiaPDF({ brandName, payload }: { brandName: string; payload: CiaOutput 
         <Text style={styles.sectionTitle}>Threats</Text>
         {payload.threats.slice(0, 3).map((t: Threat, i: number) => (
           <View key={i} style={styles.riskRow}>
-            <View style={[styles.badge, { backgroundColor: t.urgency === "critical" ? "#ef4444" : t.urgency === "medium" ? "#f59e0b" : "#6b7280" }]}>
+            <View style={[styles.badge, { backgroundColor: t.urgency === "high" ? "#ef4444" : t.urgency === "medium" ? "#f59e0b" : "#6b7280" }]}>
               <Text style={styles.badgeText}>{t.urgency.toUpperCase()}</Text>
             </View>
             <Text style={styles.riskText}>{t.description}</Text>

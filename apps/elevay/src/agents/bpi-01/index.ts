@@ -1,96 +1,190 @@
-import type { AgentOutput, ElevayAgentProfile, ModuleResult } from "../_shared/types";
-import type { BpiOutput } from "./types";
-import { calculateBpiScores } from "./scoring";
-import { SYSTEM_PROMPT } from "./prompt";
-import { fetchSerp } from "./modules/serp";
-import { fetchPress } from "./modules/press";
-import { fetchYoutube } from "./modules/youtube";
-import { fetchSocial } from "./modules/social";
-import { fetchSeo } from "./modules/seo";
-import { fetchBenchmark } from "./modules/benchmark";
-import { fetchGoogleMapsReputation } from "./modules/google-maps";
+import { callLLM } from "@/agents/_shared/llm"
+import type { AgentProfile, AgentOutput } from "@/agents/_shared/types"
+import { fetchSerp } from "./modules/serp"
+import { fetchPress } from "./modules/press"
+import { fetchYoutube } from "./modules/youtube"
+import { fetchSocial } from "./modules/social"
+import { fetchSeo } from "./modules/seo"
+import { fetchBenchmark } from "./modules/benchmark"
+import { fetchGoogleMaps } from "./modules/google-maps"
+import { fetchTrustpilot } from "./modules/trustpilot"
+import { calculateBpiScores } from "./scoring"
+import { getSystemPrompt, buildConsolidatedPrompt } from "./prompt"
+import type { BpiOutput, AxisDiagnostic, Priority90d } from "./types"
 
-export { SYSTEM_PROMPT };
-
-/** Extrait un ModuleResult depuis un PromiseSettledResult.
- *  Si la promesse a rejeté (throw inattendu malgré la règle no-throw),
- *  on retourne null et on logue la source comme dégradée. */
-function extractResult<T>(
-  result: PromiseSettledResult<ModuleResult<T>>,
-  source: string,
-  degraded: string[],
-): ModuleResult<T> | null {
-  if (result.status === "fulfilled") {
-    if (result.value.degraded) degraded.push(source);
-    return result.value;
-  }
-  // Throw inattendu — filet de sécurité
-  degraded.push(source);
-  return null;
+interface LlmBpiResponse {
+  axis_diagnostics: AxisDiagnostic[]
+  priorities_90d: Priority90d[]
 }
 
-export async function run(profile: ElevayAgentProfile): Promise<AgentOutput<BpiOutput>> {
+function isLlmBpiResponse(v: unknown): v is LlmBpiResponse {
+  if (!v || typeof v !== "object") return false
+  const obj = v as Record<string, unknown>
+  return (
+    Array.isArray(obj["axis_diagnostics"]) &&
+    Array.isArray(obj["priorities_90d"])
+  )
+}
+
+export async function runBpi01(
+  profile: AgentProfile,
+): Promise<AgentOutput<BpiOutput>> {
+  // 1. Run all 8 modules in parallel
   const [
-    serpSettled,
-    pressSettled,
-    youtubeSettled,
-    socialSettled,
-    seoSettled,
-    benchmarkSettled,
-    googleMapsSettled,
+    serpResult,
+    pressResult,
+    youtubeResult,
+    socialResult,
+    seoResult,
+    benchmarkResult,
+    googleMapsResult,
+    trustpilotResult,
   ] = await Promise.allSettled([
     fetchSerp(profile),
     fetchPress(profile),
     fetchYoutube(profile),
     fetchSocial(profile),
     fetchSeo(profile),
-    fetchBenchmark(profile, profile.competitors.map((c) => c.name)),
-    fetchGoogleMapsReputation(profile),
-  ]);
+    fetchBenchmark(profile),
+    fetchGoogleMaps(profile),
+    fetchTrustpilot(profile),
+  ])
 
-  const degraded_sources: string[] = [];
+  // 2. Extract data and collect degraded sources
+  const serp =
+    serpResult.status === "fulfilled" ? serpResult.value.data : null
+  const press =
+    pressResult.status === "fulfilled" ? pressResult.value.data : null
+  const youtube =
+    youtubeResult.status === "fulfilled" ? youtubeResult.value.data : null
+  const socialModule =
+    socialResult.status === "fulfilled" ? socialResult.value : null
+  const social = socialModule?.data ?? null
+  const socialEnrichment =
+    socialModule && "enrichment" in socialModule
+      ? socialModule.enrichment
+      : undefined
+  const seo =
+    seoResult.status === "fulfilled" ? seoResult.value.data : null
+  const benchmark =
+    benchmarkResult.status === "fulfilled"
+      ? benchmarkResult.value.data
+      : null
+  const googleMaps =
+    googleMapsResult.status === "fulfilled"
+      ? googleMapsResult.value.data
+      : null
+  const trustpilot =
+    trustpilotResult.status === "fulfilled"
+      ? trustpilotResult.value.data
+      : null
 
-  const serpResult      = extractResult(serpSettled,       "serp",       degraded_sources);
-  const pressResult     = extractResult(pressSettled,      "press",      degraded_sources);
-  const youtubeResult   = extractResult(youtubeSettled,    "youtube",    degraded_sources);
-  const socialResult    = extractResult(socialSettled,     "social",     degraded_sources);
-  const seoResult       = extractResult(seoSettled,        "seo",        degraded_sources);
-  const benchmarkResult = extractResult(benchmarkSettled,  "benchmark",  degraded_sources);
-  const googleMapsResult = extractResult(googleMapsSettled, "gmaps",     degraded_sources);
+  const degradedSources: string[] = []
+  if (
+    serpResult.status === "fulfilled" &&
+    (!serpResult.value.success || serpResult.value.degraded)
+  )
+    degradedSources.push("serp")
+  if (serpResult.status === "rejected") degradedSources.push("serp")
+  if (
+    pressResult.status === "fulfilled" &&
+    (!pressResult.value.success || pressResult.value.degraded)
+  )
+    degradedSources.push("press")
+  if (pressResult.status === "rejected") degradedSources.push("press")
+  if (
+    youtubeResult.status === "fulfilled" &&
+    (!youtubeResult.value.success || youtubeResult.value.degraded)
+  )
+    degradedSources.push("youtube")
+  if (youtubeResult.status === "rejected") degradedSources.push("youtube")
+  if (
+    socialResult.status === "fulfilled" &&
+    (!socialResult.value.success || socialResult.value.degraded)
+  )
+    degradedSources.push("social")
+  if (socialResult.status === "rejected") degradedSources.push("social")
+  if (
+    seoResult.status === "fulfilled" &&
+    (!seoResult.value.success || seoResult.value.degraded)
+  )
+    degradedSources.push("seo")
+  if (seoResult.status === "rejected") degradedSources.push("seo")
+  if (
+    benchmarkResult.status === "fulfilled" &&
+    (!benchmarkResult.value.success || benchmarkResult.value.degraded)
+  )
+    degradedSources.push("benchmark")
+  if (benchmarkResult.status === "rejected")
+    degradedSources.push("benchmark")
 
+  // 3. Calculate scores
   const scores = calculateBpiScores({
-    serp:       serpResult,
-    press:      pressResult,
-    youtube:    youtubeResult,
-    social:     socialResult,
-    seo:        seoResult,
-    benchmark:  benchmarkResult,
-    googleMaps: googleMapsResult,
-  });
+    serp,
+    press,
+    youtube,
+    social,
+    seo,
+    benchmark,
+  })
 
+  // 4. Build prompt and call LLM (1 single call)
+  const llmResponse = await callLLM({
+    system: getSystemPrompt(profile.language ?? "English"),
+    user: buildConsolidatedPrompt(
+      profile,
+      scores,
+      {
+        serp,
+        press,
+        youtube,
+        social,
+        seo,
+        benchmark,
+        googleMaps,
+        trustpilot,
+      },
+      socialEnrichment as Parameters<typeof buildConsolidatedPrompt>[3],
+    ),
+    maxTokens: 4096,
+    temperature: 0.3,
+  })
+
+  // 5. Parse LLM response
+  let axisDiagnostics: AxisDiagnostic[] = []
+  let priorities90d: Priority90d[] = []
+  let warning: string | undefined
+
+  if (isLlmBpiResponse(llmResponse.parsed)) {
+    axisDiagnostics = llmResponse.parsed.axis_diagnostics
+    priorities90d = llmResponse.parsed.priorities_90d
+  } else {
+    warning =
+      "AI analysis returned partial results — some diagnostics may be unavailable"
+  }
+
+  // 6. Assemble output
   const payload: BpiOutput = {
     scores,
-    serp_data:             serpResult?.data       ?? null,
-    press_data:            pressResult?.data      ?? null,
-    youtube_data:          youtubeResult?.data    ?? null,
-    social_data:           socialResult?.data     ?? null,
-    seo_data:              seoResult?.data        ?? null,
-    benchmark_data:        benchmarkResult?.data  ?? null,
-    googleMapsReputation:  googleMapsResult?.data ?? undefined,
-    // Remplis par l'appel LLM consolidé (buildConsolidatedPrompt → callLlm)
-    axis_diagnostics: [],
-    priorities_90d:   [],
-    ...(scores.completeness < 0.3
-      ? { warning: 'Score based on partial data — less than 30% of modules returned data' }
-      : {}),
-  };
+    serp_data: serp,
+    press_data: press,
+    youtube_data: youtube,
+    social_data: social,
+    seo_data: seo,
+    benchmark_data: benchmark,
+    googleMapsReputation: googleMaps,
+    trustpilot,
+    axis_diagnostics: axisDiagnostics,
+    priorities_90d: priorities90d,
+    warning,
+  }
 
   return {
-    agent_code:    "BPI-01",
+    agent_code: "BPI-01",
     analysis_date: new Date().toISOString(),
     brand_profile: profile,
     payload,
-    degraded_sources,
-    version:       "1.0",
-  };
+    degraded_sources: degradedSources,
+    version: "1.0",
+  }
 }

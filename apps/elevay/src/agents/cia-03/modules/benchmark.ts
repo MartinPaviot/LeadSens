@@ -1,206 +1,237 @@
-import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
-import { getLatestOutputByAgent } from "@/lib/agent-history";
+import type { AgentProfile } from '@/agents/_shared/types'
 import type {
-  ProductMessagingData,
+  MessagingAnalysis,
   SeoAcquisitionData,
-  SocialMediaData,
+  SocialProfile,
   ContentAnalysisData,
   CompetitorScore,
   StrategicZone,
-  RadarEntry,
-  BenchmarkData,
-} from "../types";
+} from '../types'
 
-// ── Types d'entrée ────────────────────────────────────────────────────────────
+const DIMENSION_WEIGHTS = {
+  seo: 0.25,
+  product: 0.25,
+  social: 0.20,
+  content: 0.20,
+  positioning: 0.10,
+} as const
 
-export interface BenchmarkInputs {
-  messaging: ModuleResult<ProductMessagingData> | null
-  seo:       ModuleResult<SeoAcquisitionData>   | null
-  social:    ModuleResult<SocialMediaData>       | null
-  content:   ModuleResult<ContentAnalysisData>  | null
+function getLevel(score: number): CompetitorScore['level'] {
+  if (score >= 80) return 'dominant'
+  if (score >= 65) return 'strong'
+  if (score >= 50) return 'competitive'
+  if (score >= 35) return 'weak'
+  return 'vulnerable'
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function levelFromScore(score: number): CompetitorScore["level"] {
-  if (score < 40)  return "vulnerable";
-  if (score < 55)  return "weak";
-  if (score < 70)  return "competitive";
-  if (score < 85)  return "strong";
-  return "dominant";
+function classifyZone(brandScore: number, avgCompetitorScore: number): StrategicZone['zone'] {
+  const gap = brandScore - avgCompetitorScore
+  if (gap <= -20) return 'red'
+  if (avgCompetitorScore >= 70) return 'saturated'
+  if (gap >= 15) return 'green'
+  return 'neutral'
 }
 
-function avg(nums: number[]): number {
-  if (nums.length === 0) return 0;
-  return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+function deriveSeoScore(
+  entity: string,
+  seo: SeoAcquisitionData | null,
+  isBrand: boolean,
+): number {
+  if (!seo) return 50
+  if (isBrand) {
+    const da = seo.brand_seo.domain_authority ?? 50
+    const kwCount = Math.min(seo.brand_seo.top_keywords.length * 10, 50)
+    return Math.min(100, Math.round((da + kwCount) / 2))
+  }
+  const comp = seo.competitors_seo.find((c) =>
+    entity.toLowerCase().includes(c.domain.split('.')[0]?.toLowerCase() ?? ''),
+  )
+  if (!comp) return 50
+  return comp.domain_authority ?? 50
 }
 
-// ── Zones stratégiques ────────────────────────────────────────────────────────
-
-function detectZone(
-  brandScore: number,
-  competitorScores: number[],
-): StrategicZone["zone"] {
-  if (competitorScores.length === 0) return "neutral";
-  const avgComp = avg(competitorScores);
-  const competitorsAbove = competitorScores.filter(s => s > brandScore).length;
-
-  if (avgComp > 70)                    return "saturated";   // tous très présents
-  if (competitorsAbove >= 2)           return "red";         // brand < 2+ concurrents
-  if (Math.abs(brandScore - avgComp) <= 15) return "neutral";
-  if (avgComp < 50 && brandScore >= avgComp) return "green"; // faiblement exploité
-  return "neutral";
+function deriveProductScore(
+  entity: string,
+  messaging: MessagingAnalysis[] | null,
+  isBrand: boolean,
+): number {
+  if (!messaging) return 50
+  // Find matching messaging entry by URL or position
+  const entry = isBrand
+    ? messaging[0]
+    : messaging.find((m) =>
+        m.competitor_url.toLowerCase().includes(entity.toLowerCase()),
+      )
+  if (!entry) return 50
+  if (!entry.scraping_success) return 50
+  return Math.round((entry.messaging_clarity_score + entry.differentiation_score) / 2)
 }
 
-const ZONE_DESCRIPTIONS: Record<StrategicZone["zone"], string> = {
-  red:       "Axe déficitaire — concurrents significativement plus forts",
-  saturated: "Marché saturé — tous les acteurs très présents, différenciation difficile",
-  neutral:   "Position équilibrée — pas d'avantage concurrentiel notable",
-  green:     "Opportunité — axe faiblement exploité par les concurrents",
-};
+function deriveSocialScore(
+  entity: string,
+  social: SocialProfile[] | null,
+  brandSocialScoreOverride?: number,
+  isBrand?: boolean,
+): number {
+  if (isBrand && brandSocialScoreOverride !== undefined) return brandSocialScoreOverride
+  if (!social) return 50
+  const entityProfiles = social.filter(
+    (p) => p.entity.toLowerCase() === entity.toLowerCase(),
+  )
+  if (entityProfiles.length === 0) return 50
 
-const ZONE_DIRECTIVES: Record<StrategicZone["zone"], string> = {
-  red:       "Investissement prioritaire requis pour combler l'écart",
-  saturated: "Chercher un angle de niche ou renoncer à cet axe",
-  neutral:   "Maintenir et améliorer progressivement",
-  green:     "Prendre la tête rapidement avec du contenu ciblé et des actions concrètes",
-};
+  const scores = entityProfiles.map((p) => {
+    if (p.followers === null) return 30
+    if (p.followers >= 100000) return 90
+    if (p.followers >= 10000) return 70
+    if (p.followers >= 1000) return 50
+    return 30
+  })
+  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+}
 
-// ── Module principal (zéro appel API) ─────────────────────────────────────────
+function deriveContentScore(
+  entity: string,
+  content: ContentAnalysisData | null,
+  isBrand: boolean,
+): number {
+  if (!content) return 50
+  if (isBrand) {
+    let score = 30
+    const bc = content.brand_content
+    if (bc.content_themes.length > 3) score += 20
+    if (bc.has_youtube) score += 15
+    if (bc.has_lead_magnets) score += 15
+    if (bc.avg_word_count && bc.avg_word_count > 800) score += 10
+    if (bc.blog_frequency.includes('week')) score += 10
+    return Math.min(100, score)
+  }
+  const comp = content.competitors_content.find(
+    (c) => c.name.toLowerCase() === entity.toLowerCase(),
+  )
+  if (!comp) return 50
+  let score = 30
+  if (comp.content_themes.length > 3) score += 20
+  if (comp.has_youtube) score += 15
+  if (comp.unique_angles.length > 2) score += 15
+  if (comp.blog_frequency.includes('week')) score += 10
+  return Math.min(100, score)
+}
 
-export async function runBenchmark(
-  profile: ElevayAgentProfile,
-  inputs: BenchmarkInputs,
-  workspaceId?: string,
-): Promise<BenchmarkData> {
-  // ── Scores par concurrent ──────────────────────────────────────────────────
+function derivePositioningScore(
+  entity: string,
+  messaging: MessagingAnalysis[] | null,
+  isBrand: boolean,
+): number {
+  if (!messaging) return 50
+  const entry = isBrand
+    ? messaging[0]
+    : messaging.find((m) =>
+        m.competitor_url.toLowerCase().includes(entity.toLowerCase()),
+      )
+  if (!entry || !entry.scraping_success) return 50
+  // Positioning = differentiation + clarity weighted
+  return Math.round(entry.differentiation_score * 0.6 + entry.messaging_clarity_score * 0.4)
+}
 
-  const competitorUrls = profile.competitors.map(c => c.url);
+const ZONE_AXES: StrategicZone['axis'][] = ['seo', 'product', 'social', 'content', 'paid', 'youtube']
 
-  const scores: CompetitorScore[] = competitorUrls.map(url => {
-    // SEO score
-    const seoScore = inputs.seo?.data?.competitors_seo.find(s => s.entity_url === url)?.seo_score ?? 0;
+const ZONE_DESCRIPTIONS: Record<StrategicZone['zone'], (axis: string) => string> = {
+  red: (axis) => `Significant gap in ${axis} — competitors dominate`,
+  saturated: (axis) => `${axis} is saturated — costly to gain market share`,
+  neutral: (axis) => `Neutral position in ${axis} — no advantage or gap`,
+  green: (axis) => `Advantage in ${axis} — leverage this position`,
+}
 
-    // Product score = moyenne clarity + differentiation
-    const messaging = inputs.messaging?.data?.competitors.find(m => m.competitor_url === url);
-    const productScore = messaging
-      ? Math.round((messaging.messaging_clarity_score + messaging.differentiation_score) / 2)
-      : 0;
+const ZONE_DIRECTIVES: Record<StrategicZone['zone'], (axis: string) => string> = {
+  red: (axis) => `Invest heavily in ${axis} or pivot strategy`,
+  saturated: (axis) => `Differentiate ${axis} approach rather than competing head-on`,
+  neutral: (axis) => `Maintain ${axis} position and monitor`,
+  green: (axis) => `Capitalize on ${axis} advantage — accelerate`,
+}
 
-    // Social score
-    const socialScore = inputs.social?.data?.competitors.find(s => s.competitor_url === url)?.social_score ?? 0;
+export function fetchBenchmark(inputs: {
+  messaging: MessagingAnalysis[] | null
+  seo: SeoAcquisitionData | null
+  social: SocialProfile[] | null
+  content: ContentAnalysisData | null
+  brandSocialScore?: number
+  profile: AgentProfile
+}): { scores: CompetitorScore[]; strategic_zones: StrategicZone[] } {
+  const { messaging, seo, social, content, brandSocialScore, profile } = inputs
 
-    // Content score
-    const contentScore = inputs.content?.data?.competitors.find(c => c.competitor_url === url)?.content_score ?? 0;
+  const entities = [
+    { name: profile.brand_name, isBrand: true },
+    ...profile.competitors.map((c) => ({ name: c.name, isBrand: false })),
+  ]
 
-    const positioning_score = avg([seoScore, productScore, socialScore, contentScore]);
-    const global_score       = avg([seoScore, productScore, socialScore, contentScore]);
+  const scores: CompetitorScore[] = entities.map((entity) => {
+    const seoScore = deriveSeoScore(entity.name, seo, entity.isBrand)
+    const productScore = deriveProductScore(entity.name, messaging, entity.isBrand)
+    const socialScore = deriveSocialScore(entity.name, social, brandSocialScore, entity.isBrand)
+    const contentScore = deriveContentScore(entity.name, content, entity.isBrand)
+    const positioningScore = derivePositioningScore(entity.name, messaging, entity.isBrand)
+
+    const globalScore = Math.round(
+      seoScore * DIMENSION_WEIGHTS.seo +
+        productScore * DIMENSION_WEIGHTS.product +
+        socialScore * DIMENSION_WEIGHTS.social +
+        contentScore * DIMENSION_WEIGHTS.content +
+        positioningScore * DIMENSION_WEIGHTS.positioning,
+    )
 
     return {
-      entity:            url,
-      is_client:         false,
-      seo_score:         seoScore,
-      product_score:     productScore,
-      social_score:      socialScore,
-      content_score:     contentScore,
-      positioning_score,
-      global_score,
-      level:             levelFromScore(global_score),
-    };
-  });
-
-  // ── Score de la marque cliente ─────────────────────────────────────────────
-
-  const brandSeoScore     = inputs.seo?.data?.brand_seo.seo_score ?? 0;
-  const brandProductScore = 50; // pas de self-messaging — neutre par défaut
-
-  // Fetch real brand social score from latest BPI-01 run if available
-  let brandSocialScore = 0;
-  if (workspaceId) {
-    try {
-      const lastBpi = await getLatestOutputByAgent(workspaceId, 'BPI-01');
-      const bpiPayload = lastBpi?.payload as { scores?: { social?: number } } | undefined;
-      brandSocialScore = bpiPayload?.scores?.social ?? 0;
-    } catch {
-      // best-effort — keep 0
+      entity: entity.name,
+      is_client: entity.isBrand,
+      seo_score: seoScore,
+      product_score: productScore,
+      social_score: socialScore,
+      content_score: contentScore,
+      positioning_score: positioningScore,
+      global_score: globalScore,
+      level: getLevel(globalScore),
     }
+  })
+
+  // Strategic zones — compare brand vs avg competitors per axis
+  const brandScore = scores.find((s) => s.is_client)
+  const compScores = scores.filter((s) => !s.is_client)
+
+  const avgByAxis = (accessor: (s: CompetitorScore) => number): number => {
+    if (compScores.length === 0) return 50
+    return Math.round(compScores.reduce((sum, s) => sum + accessor(s), 0) / compScores.length)
   }
 
-  const brandContentScore = 0;
+  const axisAccessors: Record<string, (s: CompetitorScore) => number> = {
+    seo: (s) => s.seo_score,
+    product: (s) => s.product_score,
+    social: (s) => s.social_score,
+    content: (s) => s.content_score,
+    paid: () => 50, // no paid data yet
+    youtube: (s) => s.content_score, // proxy from content
+  }
 
-  scores.unshift({
-    entity:            profile.brand_url,
-    is_client:         true,
-    seo_score:         brandSeoScore,
-    product_score:     brandProductScore,
-    social_score:      brandSocialScore,
-    content_score:     brandContentScore,
-    positioning_score: avg([brandSeoScore, brandProductScore, brandSocialScore, brandContentScore]),
-    global_score:      avg([brandSeoScore, brandProductScore, brandSocialScore, brandContentScore]),
-    level:             levelFromScore(avg([brandSeoScore, brandProductScore])),
-  });
+  const brandAxisScores: Record<string, number> = {
+    seo: brandScore?.seo_score ?? 50,
+    product: brandScore?.product_score ?? 50,
+    social: brandScore?.social_score ?? 50,
+    content: brandScore?.content_score ?? 50,
+    paid: 50,
+    youtube: brandScore?.content_score ?? 50,
+  }
 
-  // ── Zones stratégiques ─────────────────────────────────────────────────────
+  const strategic_zones: StrategicZone[] = ZONE_AXES.map((axis) => {
+    const brandAxisScore = brandAxisScores[axis] ?? 50
+    const avgComp = avgByAxis(axisAccessors[axis] ?? (() => 50))
+    const zone = classifyZone(brandAxisScore, avgComp)
 
-  const brandEntry = scores[0];
-  const competitorEntries = scores.slice(1);
-
-  const axes: StrategicZone["axis"][] = ["seo", "product", "social", "content"];
-  const axisKey: Record<StrategicZone["axis"], keyof CompetitorScore> = {
-    seo:     "seo_score",
-    product: "product_score",
-    social:  "social_score",
-    content: "content_score",
-    paid:    "seo_score",     // proxy si pas de données paid
-    youtube: "content_score", // proxy
-  };
-
-  const strategic_zones: StrategicZone[] = axes.map(axis => {
-    const key = axisKey[axis];
-    const brandScore = brandEntry[key] as number;
-    const compScores = competitorEntries.map(e => e[key] as number);
-    const zone = detectZone(brandScore, compScores);
     return {
       axis,
       zone,
-      description: ZONE_DESCRIPTIONS[zone],
-      directive:   ZONE_DIRECTIVES[zone],
-    };
-  });
+      description: ZONE_DESCRIPTIONS[zone](axis),
+      directive: ZONE_DIRECTIVES[zone](axis),
+    }
+  })
 
-  // ── Radar data ─────────────────────────────────────────────────────────────
-
-  const radar_data: RadarEntry[] = scores.map(s => ({
-    entity:      s.entity,
-    seo:         s.seo_score,
-    product:     s.product_score,
-    social:      s.social_score,
-    content:     s.content_score,
-    positioning: s.positioning_score,
-  }));
-
-  return { competitor_scores: scores, strategic_zones, radar_data };
-}
-
-// ── Export wrappé en ModuleResult (pour la route) ─────────────────────────────
-
-export async function fetchBenchmark(
-  profile: ElevayAgentProfile,
-  inputs: BenchmarkInputs,
-  workspaceId?: string,
-): Promise<ModuleResult<BenchmarkData>> {
-  try {
-    const data = await runBenchmark(profile, inputs, workspaceId);
-    return { success: true, data, source: "benchmark:pure-calc" };
-  } catch (err) {
-    return {
-      success: false,
-      data:    null,
-      source:  "benchmark:pure-calc",
-      error: {
-        code:    "BENCHMARK_ERROR",
-        message: err instanceof Error ? err.message : String(err),
-      },
-    };
-  }
+  return { scores, strategic_zones }
 }

@@ -1,343 +1,177 @@
-import { ComposioToolSet } from "composio-core";
+import { env } from "@/lib/env"
 
-export { getLinkedInConnection } from "@/lib/composio-linkedin";
+// ── Generic fetch helper with retry ─────────────────────────────────────────
 
-// ─── Singleton client ────────────────────────────────────────────────────────
-
-let _client: ComposioToolSet | null = null;
-
-function getClient(): ComposioToolSet {
-  if (_client) return _client;
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) throw new Error("COMPOSIO_API_KEY is not set");
-  _client = new ComposioToolSet({ apiKey, entityId: "default" });
-  return _client;
-}
-
-// ─── Retry helper ────────────────────────────────────────────────────────────
-
-async function withRetry<T>(
-  fn: () => Promise<T>,
+async function fetchWithRetry<T>(
+  url: string,
+  options: RequestInit,
   retries: number,
-  delayMs: number,
-): Promise<T> {
-  let lastError: unknown;
+): Promise<T | null> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      if (attempt < retries) {
-        await new Promise((r) =>
-          setTimeout(r, delayMs * Math.pow(2, attempt)),
-        );
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!res.ok) {
+        console.warn(`[API] ${res.status} ${res.statusText} — ${url}`)
+        if (attempt === retries) return null
+      } else {
+        return (await res.json()) as T
       }
+    } catch (err) {
+      console.warn("[API] fetch failed:", url, String(err))
+      if (attempt === retries) return null
     }
+    await new Promise<void>((r) => setTimeout(r, 1000 * (attempt + 1)))
   }
-  throw lastError;
+  return null
 }
 
-// ─── Core executor ───────────────────────────────────────────────────────────
+// ── SerpAPI — Google SERP results ───────────────────────────────────────────
 
-async function execute(
-  actionName: string,
-  params: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const client = getClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = (await client.executeAction({ actionName, params } as any)) as {
-    data: Record<string, unknown>;
-    error?: string;
-    successful?: boolean;
-  };
-  if (result.error) {
-    throw new Error(`Composio [${actionName}]: ${result.error}`);
-  }
-  return result.data;
-}
-
-// ─── Response types ───────────────────────────────────────────────────────────
-
-export interface SerpOrganicResult {
-  position: number;
-  link: string;
-  title: string;
-  snippet: string;
-  displayed_link?: string;
-}
-
-export interface SerpResponse {
-  organic_results: SerpOrganicResult[];
-  search_information?: { total_results?: number };
-}
-
-export interface NewsArticle {
-  title: string;
-  url: string;
-  source: string | { name?: string };
-  publishedAt?: string;
-  published_at?: string;
-  description?: string;
-  snippet?: string;
-}
-
-export interface NewsResponse {
-  articles?: NewsArticle[];
-  news_results?: NewsArticle[];
-  totalArticles?: number;
-}
-
-export interface KeywordDataResponse {
-  rank: number;
-  backlinks: number;
-  referring_domains: number;
-  broken_backlinks?: number;
-  new_backlinks?: number;
-  lost_backlinks?: number;
-}
-
-export interface YoutubeVideoItem {
-  id: { videoId: string };
-  snippet: {
-    title: string;
-    channelTitle: string;
-    publishedAt: string;
-    description?: string;
-  };
-}
-
-export interface YoutubeSearchResponse {
-  items: YoutubeVideoItem[];
-  nextPageToken?: string;
-  pageInfo?: { totalResults: number };
-}
-
-export interface YoutubeCommentItem {
-  snippet: {
-    topLevelComment: {
-      snippet: {
-        textDisplay: string;
-        textOriginal?: string;
-        likeCount?: number;
-      };
-    };
-    totalReplyCount?: number;
-  };
-}
-
-export interface YoutubeCommentsResponse {
-  items: YoutubeCommentItem[];
-  nextPageToken?: string;
-  pageInfo?: { totalResults: number };
-}
-
-export type SocialPostItem = Record<string, unknown>;
-
-export interface SocialResponse {
-  items: SocialPostItem[];
-}
-
-// ─── Platform → env var ───────────────────────────────────────────────────────
-
-const APIFY_TASK_ENV: Record<string, string> = {
-  instagram: "APIFY_TASK_INSTAGRAM",
-  twitter:   "APIFY_TASK_TWITTER",
-  tiktok:    "APIFY_TASK_TIKTOK",
-  linkedin:  "APIFY_TASK_LINKEDIN",
-  facebook:  "APIFY_TASK_FACEBOOK",
-};
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-/**
- * SERP — SerpAPI via Composio (retry ×2, 1s exponentiel)
- * Utilisé par modules/serp.ts (max 7 appels/audit)
- */
-export async function searchSerp(
-  query: string,
-  country: string,
-): Promise<SerpResponse> {
-  return withRetry(
-    async () => {
-      const data = await execute("SERPAPI_GOOGLE_LIGHT_SEARCH", {
-        q: query,
-        gl: country.toLowerCase().slice(0, 2),
-        num: 10,
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return data as unknown as SerpResponse;
-    },
+async function searchSerp(q: string, num = 10): Promise<unknown> {
+  const key = env.SERPAPI_KEY
+  if (!key) return null
+  const params = new URLSearchParams({
+    api_key: key,
+    q,
+    num: String(num),
+    engine: "google",
+  })
+  return fetchWithRetry(
+    `https://serpapi.com/search.json?${params}`,
+    { method: "GET" },
     2,
-    1000,
-  );
+  )
 }
 
-/**
- * News — Composio Search News (retry ×1, 500ms)
- * Utilisé par modules/press.ts (max 3 appels/audit)
- */
-export async function searchNews(
-  query: string,
-  language: string,
-): Promise<NewsResponse> {
-  return withRetry(
-    async () => {
-      const data = await execute("COMPOSIO_SEARCH_NEWS", {
-        query,
-        hl: language.toLowerCase().slice(0, 2),
-        when: "m", // past month
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return data as unknown as NewsResponse;
-    },
+// ── GNews — news articles ───────────────────────────────────────────────────
+
+async function searchNews(q: string, lang = "fr"): Promise<unknown> {
+  const key = env.GNEWS_API_KEY
+  if (!key) return null
+  const params = new URLSearchParams({
+    apikey: key,
+    q,
+    lang,
+    max: "10",
+  })
+  return fetchWithRetry(
+    `https://gnews.io/api/v4/search?${params}`,
+    { method: "GET" },
     1,
-    500,
-  );
+  )
 }
 
-/**
- * SEO — DataForSEO backlinks summary (retry ×2, 1s exponentiel)
- * Retourne rank DataForSEO + backlinks + referring_domains
- * Utilisé par modules/seo.ts (cache 30j)
- */
-export async function getKeywordData(
-  domain: string,
-  _country: string,
-): Promise<KeywordDataResponse> {
-  return withRetry(
-    async () => {
-      const data = await execute("DATAFORSEO_GET_BACKLINKS_SUMMARY_LIVE", {
-        target: domain,
-        include_subdomains: true,
-      });
-      // DataForSEO wraps les résultats dans tasks[0].result[0]
-      const tasks = data["tasks"] as
-        | Array<{ result?: KeywordDataResponse[] }>
-        | undefined;
-      const result = tasks?.[0]?.result?.[0];
-      if (!result) throw new Error("DataForSEO: empty result");
-      return result;
-    },
-    2,
-    1000,
-  );
-}
+// ── YouTube Data API v3 — video search ──────────────────────────────────────
 
-/**
- * YouTube search — YouTube Data API v3 (pas de retry, géré par le module)
- * Utilisé par modules/youtube.ts (max 3 appels de recherche)
- */
-export async function searchYoutube(
-  query: string,
-): Promise<YoutubeSearchResponse> {
-  return withRetry(
-    async () => {
-      const data = await execute("YOUTUBE_SEARCH_YOU_TUBE", {
-        q: query,
-        type: "video",
-        maxResults: 10,
-        part: "snippet",
-      });
-      return data as unknown as YoutubeSearchResponse;
-    },
+async function getYoutube(q: string): Promise<unknown> {
+  const key = env.YOUTUBE_API_KEY
+  if (!key) return null
+  // Search first to get video IDs
+  const searchParams = new URLSearchParams({
+    key,
+    part: "snippet",
+    q,
+    maxResults: "10",
+    type: "video",
+  })
+  const searchResult = await fetchWithRetry<{
+    items?: Array<{ id?: { videoId?: string }; snippet?: { title?: string } }>
+  }>(
+    `https://www.googleapis.com/youtube/v3/search?${searchParams}`,
+    { method: "GET" },
     1,
-    500,
-  );
-}
+  )
+  if (!searchResult?.items?.length) return searchResult
 
-/**
- * YouTube comments — max 10 commentaires par vidéo
- * Utilisé par modules/youtube.ts pour analyse sentiment
- */
-export async function getYoutubeComments(
-  videoId: string,
-  maxResults = 10,
-): Promise<YoutubeCommentsResponse> {
-  return withRetry(
-    async () => {
-      const data = await execute("YOUTUBE_LIST_COMMENT_THREADS2", {
-        videoId,
-        part: "snippet",
-        maxResults,
-        order: "relevance",
-      });
-      return data as unknown as YoutubeCommentsResponse;
-    },
+  // Fetch statistics for found videos
+  const videoIds = searchResult.items
+    .map((item) => item.id?.videoId)
+    .filter(Boolean)
+    .join(",")
+
+  if (!videoIds) return searchResult
+
+  const statsParams = new URLSearchParams({
+    key,
+    part: "snippet,statistics",
+    id: videoIds,
+  })
+  const statsResult = await fetchWithRetry(
+    `https://www.googleapis.com/youtube/v3/videos?${statsParams}`,
+    { method: "GET" },
     1,
-    500,
-  );
+  )
+
+  return statsResult ?? searchResult
 }
 
-/**
- * Social — Apify actor tasks via direct REST API (no Composio)
- * Composio action APIFY_ACTOR_TASK_RUN_SYNC_GET_DATASET_ITEMS_POST is unavailable.
- * Uses fetch against https://api.apify.com/v2/actor-tasks/{taskId}/run-sync-get-dataset-items
- * Plateformes supportées : instagram, twitter, tiktok
- */
-export async function socialSearch(
-  query: string,
-  platform: string,
-  workspaceId?: string,
-): Promise<SocialResponse> {
-  if (platform.toLowerCase() === "linkedin" && workspaceId) {
-    const { getLinkedInConnection: getConn } = await import("@/lib/composio-linkedin");
-    const connType = await getConn(workspaceId);
-    if (connType === "community") {
-      // TODO: appeler les actions Composio r_organization_social une fois les action names confirmés
-      // Pour l'instant : fallback sur Apify (même comportement que connType === "user")
-    }
-  }
+// ── DataForSEO — keyword data ───────────────────────────────────────────────
 
-  const envVar = APIFY_TASK_ENV[platform.toLowerCase()];
-  if (!envVar) {
-    throw new Error(`No Apify task configured for platform: ${platform}`);
-  }
-
-  const taskId = process.env[envVar];
-  if (!taskId) {
-    throw new Error(`Env var ${envVar} is not set`);
-  }
-
-  const apifyToken = process.env.APIFY_TOKEN;
-  if (!apifyToken) {
-    throw new Error("APIFY_TOKEN is not set");
-  }
-
-  const isInstagram = platform.toLowerCase() === "instagram";
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), isInstagram ? 60_000 : 30_000);
-  const taskInput = isInstagram
-    ? { usernames: [query], resultsLimit: 10 }
-    : { query, maxItems: 20 };
-  const waitTime = isInstagram ? 55 : 25;
-
-  const url = `https://api.apify.com/v2/actor-tasks/${taskId}/run-sync-get-dataset-items?waitForFinish=${waitTime}`;
-  let res: Response;
-  try {
-    res = await fetch(url, {
+async function getKeywords(
+  keywords: string[],
+  country = "fr",
+): Promise<unknown> {
+  const login = env.DATAFORSEO_LOGIN
+  const password = env.DATAFORSEO_PASSWORD
+  if (!login || !password) return null
+  const auth = Buffer.from(`${login}:${password}`).toString("base64")
+  return fetchWithRetry(
+    "https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live",
+    {
       method: "POST",
       headers: {
+        Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apifyToken}`,
       },
-      body: JSON.stringify(taskInput),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+      body: JSON.stringify([
+        {
+          keywords,
+          location_name:
+            country === "fr"
+              ? "France"
+              : country === "us"
+                ? "United States"
+                : country,
+          language_name: "French",
+        },
+      ]),
+    },
+    2,
+  )
+}
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Apify task ${taskId} [${platform}] failed [${res.status}]: ${text.slice(0, 200)}`);
-  }
+// ── Firecrawl — web scraping ────────────────────────────────────────────────
 
-  const data = (await res.json()) as unknown;
-  if (Array.isArray(data)) {
-    return { items: data as SocialPostItem[] };
-  }
-  const obj = data as Record<string, unknown>;
-  const items = (obj["items"] as SocialPostItem[] | undefined) ?? [];
-  return { items };
+async function scrapeUrl(url: string): Promise<unknown> {
+  const key = env.FIRECRAWL_API_KEY
+  if (!key) return null
+  const result = await fetchWithRetry<{
+    success?: boolean
+    data?: unknown
+  }>(
+    "https://api.firecrawl.dev/v1/scrape",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, formats: ["markdown"] }),
+    },
+    1,
+  )
+  return result?.data ?? result
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+export const composio = {
+  searchSerp,
+  searchNews,
+  getYoutube,
+  getKeywords,
+  scrapeUrl,
 }

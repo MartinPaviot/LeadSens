@@ -1,158 +1,167 @@
-import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
-import type { CompetitorContent, ContentGap, ContentAnalysisData } from "../types";
-import { searchSerp, searchYoutube, searchNews } from "../../_shared/composio";
-import { shouldRunSocialPlatform } from "@/lib/channel-filter";
+import { composio } from '@/agents/_shared/composio'
+import type { AgentProfile, ModuleResult } from '@/agents/_shared/types'
+import type { ContentAnalysisData } from '../types'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const STOP_WORDS = new Set([
-  "the","and","for","that","with","this","from","are","was","were","has","have",
-  "not","but","one","all","you","can","will","more","about","its","our","your",
-  "les","des","une","est","qui","que","dans","sur","par","pour","avec","aux",
-  "son","ses","leur","leurs","mais","ou","et","donc","or","ni","car","ce","se",
-]);
-
-function extractTopics(snippets: string[], maxTopics = 8): string[] {
-  const freq = new Map<string, number>();
-  for (const snippet of snippets) {
-    const words = snippet.toLowerCase().split(/\W+/).filter(w =>
-      w.length > 4 && !STOP_WORDS.has(w) && !/^\d+$/.test(w)
-    );
-    for (const w of words) freq.set(w, (freq.get(w) ?? 0) + 1);
+interface ScrapedPage {
+  markdown?: string
+  metadata?: {
+    title?: string
+    description?: string
   }
-  return [...freq.entries()]
-    .filter(([, count]) => count >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, maxTopics)
-    .map(([word]) => word);
 }
 
-function inferLeadMagnetTypes(snippets: string[]): string[] {
-  const text = snippets.join(" ").toLowerCase();
-  const types: string[] = [];
-  if (/\bebook\b|\bguide\b|\bwhitepaper\b/.test(text)) types.push("ebook");
-  if (/\bwebinar\b|\bwebinaire\b/.test(text)) types.push("webinar");
-  if (/\btemplate\b|\bmodèle\b|\bchecklist\b/.test(text)) types.push("template");
-  if (/\btrial\b|\bessai\b|\bfree\b|\bgratuit\b/.test(text)) types.push("free trial");
-  if (/\bdemo\b|\bdémonstration\b/.test(text)) types.push("demo");
-  if (/\bcalculat\b|\boutil\b|\btool\b/.test(text)) types.push("calculateur");
-  return types;
+interface SerpResult {
+  organic_results?: Array<{
+    title?: string
+    link?: string
+    snippet?: string
+    position?: number
+  }>
 }
 
-// ── Module principal ──────────────────────────────────────────────────────────
+function extractBlogFrequency(markdown: string): string {
+  // Count article-like headings as proxy
+  const articleCount = (markdown.match(/^##?\s+/gm) ?? []).length
+  if (articleCount >= 10) return '3+/week'
+  if (articleCount >= 5) return '1-2/week'
+  if (articleCount >= 2) return '1/week'
+  if (articleCount >= 1) return '< 1/week'
+  return 'Unknown'
+}
+
+function extractThemes(markdown: string): string[] {
+  const headings = markdown.match(/^##?\s+(.+)$/gm) ?? []
+  const themes = headings
+    .map((h) => h.replace(/^##?\s+/, '').trim())
+    .filter((h) => h.length > 3 && h.length < 100)
+    .slice(0, 10)
+  return [...new Set(themes)]
+}
+
+function estimateWordCount(markdown: string): number | null {
+  if (!markdown) return null
+  const words = markdown.split(/\s+/).length
+  // Average per article (rough)
+  const articles = Math.max((markdown.match(/^##?\s+/gm) ?? []).length, 1)
+  return Math.round(words / articles)
+}
+
+function hasYoutubeEmbeds(markdown: string): boolean {
+  return /youtube\.com|youtu\.be/i.test(markdown)
+}
+
+function hasLeadMagnets(markdown: string): boolean {
+  return /télécharg|download|ebook|guide\s+gratuit|free\s+guide|whitepaper|webinar|newsletter/i.test(
+    markdown,
+  )
+}
 
 export async function fetchContentAnalysis(
-  profile: ElevayAgentProfile,
-  priority_channels?: string[],
+  profile: AgentProfile,
 ): Promise<ModuleResult<ContentAnalysisData>> {
   try {
-    const competitorContents: CompetitorContent[] = await Promise.all(
-      profile.competitors.map(async competitor => {
-        const allSnippets: string[] = [];
-        let youtubeVideoCount = 0;
-        let youtubeDominantAngle: string | null = null;
-        let blogFrequency = "unknown";
+    // Scrape brand blog + competitor blogs
+    const blogUrls = [
+      { name: profile.brand_name, url: `${profile.brand_url.replace(/\/$/, '')}/blog`, isBrand: true },
+      ...profile.competitors.map((c) => ({
+        name: c.name,
+        url: `${c.url.replace(/\/$/, '')}/blog`,
+        isBrand: false,
+      })),
+    ]
 
-        // 1. Blog content via site: SERP
-        try {
-          const serpRes = await searchSerp(`site:${competitor.url}`, profile.country);
-          const results = serpRes.organic_results ?? [];
-          allSnippets.push(...results.map(r => `${r.title} ${r.snippet}`));
+    const scrapeResults = await Promise.allSettled(
+      blogUrls.map((entry) => composio.scrapeUrl(entry.url)),
+    )
 
-          // Fréquence blog approximée par le nombre de résultats
-          const total = serpRes.search_information?.total_results ?? results.length;
-          if (total > 100)      blogFrequency = "quotidien";
-          else if (total > 30)  blogFrequency = "hebdomadaire";
-          else if (total > 10)  blogFrequency = "mensuel";
-          else if (total > 0)   blogFrequency = "occasionnel";
-        } catch {
-          // non-bloquant
-        }
+    // Brand content
+    const brandScrape = scrapeResults[0]
+    const brandMarkdown =
+      brandScrape?.status === 'fulfilled'
+        ? ((brandScrape.value as ScrapedPage | null)?.markdown ?? '')
+        : ''
 
-        // 2. YouTube (uniquement si YouTube actif dans les canaux)
-        if (shouldRunSocialPlatform("YouTube", priority_channels)) try {
-          const ytRes = await searchYoutube(`${competitor.name} ${profile.primary_keyword}`);
-          const items = ytRes.items ?? [];
-          youtubeVideoCount = ytRes.pageInfo?.totalResults ?? items.length;
-          if (items.length > 0) {
-            const titles = items.slice(0, 5).map(v => v.snippet.title);
-            allSnippets.push(...titles);
-            // Dominant angle depuis les titres YouTube
-            const combined = titles.join(" ").toLowerCase();
-            if (/\bhow to\b|\bcomment\b|\btutoriel\b|\bguide\b/.test(combined)) youtubeDominantAngle = "tutoriel";
-            else if (/\breview\b|\bavis\b|\btest\b/.test(combined)) youtubeDominantAngle = "review";
-            else if (/\bcase study\b|\bcas client\b|\btémoignage\b/.test(combined)) youtubeDominantAngle = "social proof";
-            else if (/\bnews\b|\bactualité\b|\bbreaking\b/.test(combined)) youtubeDominantAngle = "actualité";
-            else youtubeDominantAngle = "démonstration";
-          }
-        } catch {
-          // non-bloquant
-        }
+    const brandContent: ContentAnalysisData['brand_content'] = {
+      blog_frequency: extractBlogFrequency(brandMarkdown),
+      avg_word_count: estimateWordCount(brandMarkdown),
+      content_themes: extractThemes(brandMarkdown),
+      has_youtube: hasYoutubeEmbeds(brandMarkdown),
+      has_lead_magnets: hasLeadMagnets(brandMarkdown),
+    }
 
-        // 3. News pour fréquence
-        try {
-          const newsRes = await searchNews(competitor.name, profile.language);
-          const articles = newsRes.articles ?? newsRes.news_results ?? [];
-          allSnippets.push(...articles.slice(0, 5).map(a => `${a.title} ${a.description ?? a.snippet ?? ""}`));
-        } catch {
-          // non-bloquant
-        }
+    // Competitor content
+    const competitorsContent: ContentAnalysisData['competitors_content'] = []
+    for (let i = 0; i < profile.competitors.length; i++) {
+      const comp = profile.competitors[i]!
+      const result = scrapeResults[i + 1]
+      const markdown =
+        result?.status === 'fulfilled'
+          ? ((result.value as ScrapedPage | null)?.markdown ?? '')
+          : ''
 
-        const dominant_themes = extractTopics(allSnippets);
-        const lead_magnet_types = inferLeadMagnetTypes(allSnippets);
+      const themes = extractThemes(markdown)
+      const brandThemeSet = new Set(brandContent.content_themes.map((t) => t.toLowerCase()))
+      const uniqueAngles = themes.filter((t) => !brandThemeSet.has(t.toLowerCase()))
 
-        const serpCount = allSnippets.length;
-        const content_score = Math.min(100, serpCount * 5 + youtubeVideoCount * 10);
-
-        return {
-          competitor_url:          competitor.url,
-          blog_frequency:          blogFrequency,
-          dominant_themes,
-          lead_magnet_types,
-          youtube_video_count:     youtubeVideoCount,
-          youtube_dominant_angle:  youtubeDominantAngle,
-          content_score,
-        };
+      competitorsContent.push({
+        name: comp.name,
+        blog_frequency: extractBlogFrequency(markdown),
+        content_themes: themes,
+        has_youtube: hasYoutubeEmbeds(markdown),
+        unique_angles: uniqueAngles.slice(0, 5),
       })
-    );
+    }
 
-    // Gap map : angles couverts vs angles non couverts
-    const allThemeSets = competitorContents.map(c => new Set(c.dominant_themes));
-    const allThemes = new Set(competitorContents.flatMap(c => c.dominant_themes));
+    // Content gap map: search for sector keywords and check brand coverage
+    const gapKeywords = [profile.primary_keyword, profile.secondary_keyword].filter(Boolean)
+    const serpResults = await Promise.allSettled(
+      gapKeywords.map((kw) => composio.searchSerp(kw, 10)),
+    )
 
-    const editorial_gap_map: ContentGap[] = [...allThemes].map(angle => {
-      const coveringCount = allThemeSets.filter(s => s.has(angle)).length;
-      const total = allThemeSets.length;
-      let coverage: ContentGap["competitor_coverage"];
-      if (coveringCount === 0)               coverage = "none";
-      else if (coveringCount / total < 0.34) coverage = "low";
-      else if (coveringCount / total < 0.67) coverage = "medium";
-      else                                   coverage = "high";
+    const brandDomain = new URL(profile.brand_url).hostname.replace(/^www\./, '')
+    const contentGapMap: ContentAnalysisData['content_gap_map'] = []
 
-      const opportunity = coverage === "none"
-        ? `Angle inexploité par tous les concurrents — opportunité de différenciation forte`
-        : coverage === "low"
-          ? `Peu exploité — potentiel de prise de position rapide`
-          : `Angle saturé — différenciation difficile`;
+    for (let i = 0; i < gapKeywords.length; i++) {
+      const kw = gapKeywords[i]!
+      const result = serpResults[i]
+      const raw =
+        result?.status === 'fulfilled' ? (result.value as SerpResult | null) : null
+      const organics = raw?.organic_results ?? []
 
-      return { angle, competitor_coverage: coverage, opportunity };
-    });
+      const brandInTop10 = organics.some((r) =>
+        r.link?.toLowerCase().includes(brandDomain),
+      )
+
+      if (!brandInTop10) {
+        contentGapMap.push({
+          keyword: kw,
+          brand_covered: false,
+          opportunity: `Brand not in top 10 for "${kw}" — content opportunity`,
+        })
+      } else {
+        contentGapMap.push({
+          keyword: kw,
+          brand_covered: true,
+          opportunity: `Already ranking — optimize existing content`,
+        })
+      }
+    }
 
     return {
       success: true,
-      data: { competitors: competitorContents, editorial_gap_map },
-      source: "content:serp+youtube+news",
-    };
+      data: {
+        brand_content: brandContent,
+        competitors_content: competitorsContent,
+        content_gap_map: contentGapMap,
+      },
+      source: 'content',
+    }
   } catch (err) {
     return {
       success: false,
       data: null,
-      source: "content:serp+youtube+news",
-      error: {
-        code:    "CONTENT_ANALYSIS_ERROR",
-        message: err instanceof Error ? err.message : String(err),
-      },
-      degraded: true,
-    };
+      source: 'content',
+      error: { code: 'FETCH_FAILED', message: String(err) },
+    }
   }
 }

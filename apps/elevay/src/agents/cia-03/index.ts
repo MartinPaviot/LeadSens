@@ -1,141 +1,157 @@
-import type { AgentOutput, ElevayAgentProfile, ModuleResult } from "../_shared/types";
+import { callLLM } from '@/agents/_shared/llm'
+import type { AgentProfile, AgentOutput } from '@/agents/_shared/types'
+import { fetchProductMessaging } from './modules/product-messaging'
+import { fetchSeoAcquisition } from './modules/seo-acquisition'
+import { fetchSocialMedia } from './modules/social-media'
+import { fetchContentAnalysis } from './modules/content'
+import { fetchBenchmark } from './modules/benchmark'
+import { buildRecommendations } from './modules/recommendations'
+import { getSystemPrompt, buildConsolidatedPrompt } from './prompt'
 import type {
   CiaOutput,
   CiaSessionContext,
-  ProductMessagingData,
-  SeoAcquisitionData,
-  SocialMediaData,
-  ContentAnalysisData,
-} from "./types";
-import { SYSTEM_PROMPT } from "./prompt";
-import { fetchProductMessaging } from "./modules/product-messaging";
-import { fetchSeoAcquisition } from "./modules/seo-acquisition";
-import { fetchSocialMedia } from "./modules/social-media";
-import { fetchContentAnalysis } from "./modules/content";
-import { fetchBenchmark } from "./modules/benchmark";
-import { buildRecommendations } from "./modules/recommendations";
+  StrategicZone,
+  Threat,
+  Opportunity,
+} from './types'
 
-export { SYSTEM_PROMPT };
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function extractResult<T>(
-  settled: PromiseSettledResult<ModuleResult<T>>,
-  source: string,
-  degraded: string[],
-): ModuleResult<T> | null {
-  if (settled.status === "fulfilled") {
-    if (settled.value.degraded) degraded.push(source);
-    return settled.value;
-  }
-  degraded.push(source);
-  return null;
+interface LlmCiaResponse {
+  strategic_zones: StrategicZone[]
+  threats: Threat[]
+  opportunities: Opportunity[]
 }
 
-// ── run ───────────────────────────────────────────────────────────────────────
+function isLlmCiaResponse(v: unknown): v is LlmCiaResponse {
+  if (!v || typeof v !== 'object') return false
+  const obj = v as Record<string, unknown>
+  return (
+    Array.isArray(obj['strategic_zones']) &&
+    Array.isArray(obj['threats']) &&
+    Array.isArray(obj['opportunities'])
+  )
+}
 
-/**
- * Orchestre les 6 modules CIA-03.
- * M1-M4 en parallèle → M5 benchmark (pur calcul) → M6 recommandations (pur calcul).
- * Pas d'appel LLM ici — délégué à la route API.
- */
-export async function run(
-  profile: ElevayAgentProfile,
+export async function runCia03(
+  profile: AgentProfile,
   context: CiaSessionContext,
-  workspaceId?: string,
-): Promise<{
-  agentOutput: AgentOutput<CiaOutput>
-  moduleResults: {
-    messaging:  ModuleResult<ProductMessagingData> | null
-    seo:        ModuleResult<SeoAcquisitionData>   | null
-    social:     ModuleResult<SocialMediaData>       | null
-    content:    ModuleResult<ContentAnalysisData>  | null
-  }
-}> {
-  const degraded_sources: string[] = [];
-
-  // M1-M4 en parallèle
-  const [messagingSettled, seoSettled, socialSettled, contentSettled] =
+  brandSocialScore?: number,
+): Promise<AgentOutput<CiaOutput>> {
+  // Phase 1 — 4 modules in parallel
+  const [messagingResult, seoResult, socialResult, contentResult] =
     await Promise.allSettled([
       fetchProductMessaging(profile),
       fetchSeoAcquisition(profile),
       fetchSocialMedia(profile),
       fetchContentAnalysis(profile),
-    ]);
+    ])
 
-  const messagingResult = extractResult(messagingSettled, "product-messaging", degraded_sources);
-  const seoResult       = extractResult(seoSettled,       "seo-acquisition",   degraded_sources);
-  const socialResult    = extractResult(socialSettled,    "social-media",      degraded_sources);
-  const contentResult   = extractResult(contentSettled,   "content",           degraded_sources);
+  const messaging =
+    messagingResult.status === 'fulfilled' ? messagingResult.value.data : null
+  const seo =
+    seoResult.status === 'fulfilled' ? seoResult.value.data : null
+  const social =
+    socialResult.status === 'fulfilled' ? socialResult.value.data : null
+  const content =
+    contentResult.status === 'fulfilled' ? contentResult.value.data : null
 
-  // M5 — benchmark (calcul pur, enriched with BPI-01 social score when available)
-  const benchmarkResult = await fetchBenchmark(profile, {
-    messaging: messagingResult,
-    seo:       seoResult,
-    social:    socialResult,
-    content:   contentResult,
-  }, workspaceId);
-  if (!benchmarkResult.success) degraded_sources.push("benchmark");
+  const degradedSources: string[] = []
+  if (messagingResult.status === 'fulfilled' && !messagingResult.value.success)
+    degradedSources.push('product-messaging')
+  if (messagingResult.status === 'rejected') degradedSources.push('product-messaging')
+  if (seoResult.status === 'fulfilled' && !seoResult.value.success)
+    degradedSources.push('seo-acquisition')
+  if (seoResult.status === 'rejected') degradedSources.push('seo-acquisition')
+  if (socialResult.status === 'fulfilled' && !socialResult.value.success)
+    degradedSources.push('social-media')
+  if (socialResult.status === 'rejected') degradedSources.push('social-media')
+  if (contentResult.status === 'fulfilled' && !contentResult.value.success)
+    degradedSources.push('content')
+  if (contentResult.status === 'rejected') degradedSources.push('content')
 
-  // M6 — recommandations (calcul pur)
-  const benchmarkData = benchmarkResult.data;
-  const recoContext = benchmarkData
-    ? buildRecommendations(
-        benchmarkData.strategic_zones,
-        benchmarkData.competitor_scores,
-        context,
-        context.priority_channels,
-        contentResult?.data?.competitors[0]?.dominant_themes[0] ?? "contenu éducatif",
-        messagingResult?.data?.competitors[0]?.dominant_angle ?? "ROI",
-      )
-    : null;
+  // Phase 2 — Benchmark (pure calculation)
+  const { scores, strategic_zones } = fetchBenchmark({
+    messaging,
+    seo,
+    social,
+    content,
+    brandSocialScore,
+    profile,
+  })
 
-  // Construire le payload CiaOutput (raffiné par LLM dans la route)
-  const brandEntry = benchmarkData?.competitor_scores.find(s => s.is_client);
+  // Phase 2b — Recommendations (pure calculation)
+  const { threats, opportunities, action_plan_60d } = buildRecommendations({
+    scores,
+    zones: strategic_zones,
+    content,
+    seo,
+    context,
+  })
+
+  // Phase 3 — LLM refinement
+  const llmResponse = await callLLM({
+    system: getSystemPrompt(profile.language ?? 'English'),
+    user: buildConsolidatedPrompt(profile, scores, strategic_zones, threats, opportunities),
+    maxTokens: 4096,
+    temperature: 0.3,
+  })
+
+  // Merge LLM enrichments if parseable
+  let finalZones = strategic_zones
+  let finalThreats = threats
+  let finalOpportunities = opportunities
+
+  if (isLlmCiaResponse(llmResponse.parsed)) {
+    const refined = llmResponse.parsed
+    // Merge LLM zones — keep axis/zone, update description/directive
+    if (refined.strategic_zones.length > 0) {
+      finalZones = strategic_zones.map((original) => {
+        const llmZone = refined.strategic_zones.find((z) => z.axis === original.axis)
+        if (llmZone) {
+          return {
+            ...original,
+            description: llmZone.description || original.description,
+            directive: llmZone.directive || original.directive,
+          }
+        }
+        return original
+      })
+    }
+    if (refined.threats.length > 0) finalThreats = refined.threats
+    if (refined.opportunities.length > 0) finalOpportunities = refined.opportunities
+  }
+
+  const brandScore = scores.find((s) => s.is_client)
 
   const payload: CiaOutput = {
-    brand_score:     brandEntry?.global_score ?? 0,
-    analysis_date:   new Date().toISOString(),
-    analysis_context:  context,
-    competitor_scores: benchmarkData?.competitor_scores ?? [],
-    strategic_zones:   benchmarkData?.strategic_zones ?? [],
-    product_messaging: messagingResult?.data?.competitors ?? [],
-    seo_data:          seoResult?.data ?? {
+    brand_score: brandScore?.global_score ?? 0,
+    analysis_date: new Date().toISOString(),
+    analysis_context: context,
+    competitor_scores: scores,
+    strategic_zones: finalZones,
+    product_messaging: messaging ?? [],
+    seo_data: seo ?? {
       brand_seo: {
-        entity_url: profile.brand_url,
-        domain_authority: 0,
-        estimated_keywords: 0,
-        estimated_traffic: 0,
-        backlink_count: 0,
-        serp_positions: {},
-        has_google_ads: false,
-        featured_snippets: 0,
-        seo_score: 0,
+        domain: profile.brand_url,
+        domain_authority: null,
+        organic_traffic_estimate: null,
+        top_keywords: [],
       },
       competitors_seo: [],
     },
-    social_matrix:       socialResult?.data?.competitors ?? [],
-    content_gap_map:     contentResult?.data?.editorial_gap_map ?? [],
-    content_competitors: contentResult?.data?.competitors ?? [],
-    threats:         recoContext?.threats ?? [],
-    opportunities:   recoContext?.opportunities ?? [],
-    action_plan_60d: recoContext?.action_plan_template ?? [],
-  };
+    social_matrix: social ?? [],
+    content_gap_map: content?.content_gap_map ?? [],
+    content_competitors: content?.competitors_content ?? [],
+    threats: finalThreats,
+    opportunities: finalOpportunities,
+    action_plan_60d,
+  }
 
   return {
-    agentOutput: {
-      agent_code:    "CIA-03",
-      analysis_date: new Date().toISOString(),
-      brand_profile: profile,
-      payload,
-      degraded_sources,
-      version:       "1.0",
-    },
-    moduleResults: {
-      messaging: messagingResult,
-      seo:       seoResult,
-      social:    socialResult,
-      content:   contentResult,
-    },
-  };
+    agent_code: 'CIA-03',
+    analysis_date: new Date().toISOString(),
+    brand_profile: profile,
+    payload,
+    degraded_sources: degradedSources,
+    version: '1.0',
+  }
 }

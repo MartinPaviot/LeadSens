@@ -1,23 +1,21 @@
-import type { CompetitorScore } from "./types";
-import type { ElevayAgentProfile } from "../_shared/types";
-import type { BenchmarkData } from "./types";
+import type { AgentProfile } from '@/agents/_shared/types'
+import type {
+  MessagingAnalysis,
+  SeoAcquisitionData,
+  SocialProfile,
+  ContentAnalysisData,
+  CompetitorScore,
+} from './types'
+import { fetchBenchmark } from './modules/benchmark'
 
-export interface CiaScores {
-  competitor_scores: CompetitorScore[]
-  brand_global_score: number
-}
-
-/** Calcule les scores compétitifs depuis le benchmark (spec §4 — pondération 4×25%) */
-export function calculateCiaScores(
-  benchmarkData: BenchmarkData,
-  profile: ElevayAgentProfile,
-): CiaScores {
-  const brand = benchmarkData.competitor_scores.find(
-    s => s.is_client || s.entity === profile.brand_url,
-  );
-
-  return {
-    competitor_scores: benchmarkData.competitor_scores,
-    brand_global_score: brand?.global_score ?? 0,
-  };
+export function calculateCompetitorScores(inputs: {
+  messaging: MessagingAnalysis[] | null
+  seo: SeoAcquisitionData | null
+  social: SocialProfile[] | null
+  content: ContentAnalysisData | null
+  brandSocialScore?: number
+  profile: AgentProfile
+}): CompetitorScore[] {
+  const { scores } = fetchBenchmark(inputs)
+  return scores
 }

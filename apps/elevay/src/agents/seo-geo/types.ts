@@ -1,4 +1,4 @@
-// SEO-GEO specific profile — does NOT extend ElevayAgentProfile (different domain)
+// SEO-GEO specific profile — does NOT extend AgentProfile (different domain)
 
 export type SeoAutomationLevel = 'audit' | 'semi-auto' | 'full-auto';
 export type SeoCmsType = 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'other';

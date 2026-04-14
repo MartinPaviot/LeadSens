@@ -19,6 +19,7 @@ model User {
   updatedAt     DateTime   @updatedAt
   accounts      Account[]
   sessions      Session[]
+  memberships   WorkspaceMember[]
   workspace     Workspace? @relation(fields: [workspaceId], references: [id])
 
   @@map("user")
@@ -78,6 +79,21 @@ model Workspace {
   updatedAt       DateTime        @updatedAt
   companyDna              Json?
   onboardingCompletedAt   DateTime?
+
+  // Organization profile
+  industry        String?
+  size            String?         // "1-10" | "11-50" | "51-200" | "200+"
+  country         String?
+  description     String?         @db.VarChar(200)
+  valueProp       String?
+  logo            String?         // URL
+  targetMarkets   String[]        @default([])
+  timezone        String?         @default("Europe/Paris")
+  dryRunMode      Boolean         @default(true)
+
+  // Lightweight settings (tone, limits, brand voice, etc.)
+  settings        Json?
+
   agentFeedbacks  AgentFeedback[]
   agentMemories  AgentMemory[]
   aiEvents       AIEvent[]
@@ -89,6 +105,8 @@ model Workspace {
   companyCaches      CompanyCache[]
   replyThreads       ReplyThread[]
   users              User[]
+  icps               WorkspaceIcp[]
+  members            WorkspaceMember[]
   elevayBrandProfile ElevayBrandProfile?
   elevayAgentRuns    ElevayAgentRun[]   @relation("WorkspaceAgentRuns")
 
@@ -451,6 +469,11 @@ model ElevayBrandProfile {
   exportFormat       String         @default("pdf")
   report_recurrence  String?        // 'on_demand'|'weekly'|'monthly'|'quarterly'
   social_connections Json?          // { linkedin: bool, instagram: bool, ... }
+  // Social OAuth via Composio (brand-intel agents)
+  facebookConnected          Boolean  @default(false)
+  facebookComposioAccountId  String?
+  instagramConnected         Boolean  @default(false)
+  instagramComposioAccountId String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -474,6 +497,39 @@ model ElevayAgentRun {
 
   @@index([workspaceId, agentCode, createdAt])
   @@map("elevay_agent_run")
+}
+
+model WorkspaceIcp {
+  id                       String   @id @default(cuid())
+  workspaceId              String
+  personaName              String
+  jobTitles                String[] @default([])
+  targetIndustries         String[] @default([])
+  companySizeMin           Int?
+  companySizeMax           Int?
+  targetGeos               String[] @default([])
+  intentKeywords           String[] @default([])
+  disqualificationCriteria String[] @default([])
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  workspace                Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("workspace_icp")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String    @default("viewer") // owner | admin | viewer
+  invitedAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_member")
 }
 
 enum ReplyThreadStatus {

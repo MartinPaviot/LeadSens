@@ -1,42 +1,55 @@
-// Brand & Market Intelligence — Design tokens
+// Re-export from the canonical design tokens
+export {
+  getScoreColor,
+  getDeltaColor,
+  AGENT_TOKENS,
+  ZONE_TOKENS,
+  URGENCY_TOKENS,
+  BRAND,
+  GRADIENTS,
+} from "@/lib/design-tokens"
+
+// Backward-compat aliases for old Elevay components (cards/, charts/, ui/)
+export { getScoreColor as scoreColor } from "@/lib/design-tokens"
 
 export const COLORS = {
-  teal: '#17c3b2',
-  orange: '#FF7A3D',
-  blue: '#2c6bed',
-  bg: '#FFF7ED',
-  textPrimary: '#1a1a1a',
-  textSecondary: '#6b6b6b',
-  border: 'rgba(0,0,0,0.08)',
-  white: '#ffffff',
-} as const;
-
-export const GRADIENTS = {
-  cta: 'linear-gradient(135deg, #17c3b2, #2c6bed)',
-  trilogy: 'linear-gradient(160deg, #FFF7ED, #ffffff)',
-  cardHover: 'linear-gradient(135deg, rgba(23,195,178,0.06), rgba(44,107,237,0.06))',
-} as const;
+  teal: "#17c3b2",
+  orange: "#FF7A3D",
+  blue: "#2c6bed",
+  bg: "#FFF7ED",
+  textPrimary: "#1a1a1a",
+  textSecondary: "#6b6b6b",
+  border: "rgba(0,0,0,0.08)",
+  white: "#ffffff",
+} as const
 
 export const URGENCY = {
-  urgent: { bg: '#FFECE8', color: '#C0390E', label: 'Urgent' },
-  moyen: { bg: '#FFF3DC', color: '#A05C00', label: 'Moyen terme' },
-  quickwin: { bg: '#E6F9F5', color: '#0A7A68', label: 'Quick win' },
-} as const;
+  urgent: { bg: "#FFECE8", color: "#C0390E", label: "Urgent" },
+  moyen: { bg: "#FFF3DC", color: "#A05C00", label: "Moyen terme" },
+  quickwin: { bg: "#E6F9F5", color: "#0A7A68", label: "Quick win" },
+} as const
 
-export function scoreColor(score: number): string {
-  if (score >= 70) return COLORS.teal;
-  if (score >= 50) return COLORS.orange;
-  return '#E24B4A';
+export const AGENT_NAMES: Record<string, string> = {
+  bpi01: "Audit de présence",
+  mts02: "Tendances marché",
+  cia03: "Veille concurrentielle",
 }
 
-export const AGENT_NAMES = {
-  bpi01: 'Audit de marque',
-  mts02: 'Tendances marché',
-  cia03: 'Veille concurrentielle',
-} as const;
+export const AGENT_COLORS: Record<string, string> = {
+  bpi01: "#2c6bed",
+  mts02: "#7c3aed",
+  cia03: "#FF7A3D",
+}
 
-export const AGENT_COLORS = {
-  bpi01: COLORS.teal,
-  mts02: COLORS.blue,
-  cia03: COLORS.orange,
-} as const;
+// Tailwind class helpers
+export function getScoreColorClass(score: number): string {
+  if (score >= 70) return "text-teal"
+  if (score >= 50) return "text-orange"
+  return "text-destructive"
+}
+
+export function getScoreBg(score: number): string {
+  if (score >= 70) return "bg-teal"
+  if (score >= 50) return "bg-orange"
+  return "bg-destructive"
+}

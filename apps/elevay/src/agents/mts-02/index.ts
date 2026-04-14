@@ -1,116 +1,125 @@
-import type { AgentOutput, ElevayAgentProfile, ModuleResult } from "../_shared/types";
-import type { MtsOutput, MtsSessionContext, TrendsData, ContentPerformanceData, CompetitiveContentData, SocialListeningData } from "./types";
-import { SYSTEM_PROMPT } from "./prompt";
-import { fetchTrends } from "./modules/trends";
-import { fetchContent } from "./modules/content";
-import { fetchCompetitive } from "./modules/competitive";
-import { fetchSocialListening } from "./modules/social-listening";
-import { runSynthesis } from "./modules/synthesis";
+import { callLLM } from '@/agents/_shared/llm'
+import type { AgentProfile, AgentOutput } from '@/agents/_shared/types'
+import { fetchTrends } from './modules/trends'
+import { fetchContent } from './modules/content'
+import { fetchCompetitive } from './modules/competitive'
+import { fetchSocialListening } from './modules/social-listening'
+import { runSynthesis } from './modules/synthesis'
+import { calculateMtsScore } from './scoring'
+import { getSystemPrompt, buildConsolidatedPrompt } from './prompt'
+import type {
+  MtsOutput,
+  MtsSessionContext,
+  TrendingTopic,
+  SaturatedTopic,
+  RoadmapEntry,
+} from './types'
 
-export { SYSTEM_PROMPT };
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function extractResult<T>(
-  result: PromiseSettledResult<ModuleResult<T>>,
-  source: string,
-  degraded: string[],
-): ModuleResult<T> | null {
-  if (result.status === "fulfilled") {
-    if (result.value.degraded) degraded.push(source);
-    return result.value;
-  }
-  degraded.push(source);
-  return null;
+interface LlmMtsResponse {
+  trending_topics: TrendingTopic[]
+  saturated_topics: SaturatedTopic[]
+  differentiating_angles: string[]
+  roadmap_30d: RoadmapEntry[]
 }
 
-// ── run ───────────────────────────────────────────────────────────────────────
+function isLlmMtsResponse(v: unknown): v is LlmMtsResponse {
+  if (!v || typeof v !== 'object') return false
+  const obj = v as Record<string, unknown>
+  return (
+    Array.isArray(obj['trending_topics']) &&
+    Array.isArray(obj['saturated_topics']) &&
+    Array.isArray(obj['differentiating_angles']) &&
+    Array.isArray(obj['roadmap_30d'])
+  )
+}
 
-/**
- * Orchestre les 5 modules MTS-02.
- * Modules 1-4 en parallèle → Module 5 (synthèse) après.
- * Pas d'appel LLM ici — délégué à la route API.
- */
-export async function run(
-  profile: ElevayAgentProfile,
+export async function runMts02(
+  profile: AgentProfile,
   context: MtsSessionContext,
-): Promise<{
-  agentOutput: AgentOutput<MtsOutput>
-  moduleResults: {
-    trends: ModuleResult<TrendsData> | null
-    content: ModuleResult<ContentPerformanceData> | null
-    competitive: ModuleResult<CompetitiveContentData> | null
-    socialListening: ModuleResult<SocialListeningData> | null
+): Promise<AgentOutput<MtsOutput>> {
+  const degradedSources: string[] = []
+
+  // ── Phase 1: Parallel ──────────────────────────────────────────────────────
+  const [trendsResult, competitiveResult, socialResult] = await Promise.allSettled([
+    fetchTrends(profile),
+    fetchCompetitive(profile),
+    fetchSocialListening(profile),
+  ])
+
+  const trendsModule =
+    trendsResult.status === 'fulfilled' ? trendsResult.value : null
+  const competitiveModule =
+    competitiveResult.status === 'fulfilled' ? competitiveResult.value : null
+  const socialModule =
+    socialResult.status === 'fulfilled' ? socialResult.value : null
+
+  const trends = trendsModule?.success ? trendsModule.data : null
+  const competitive = competitiveModule?.success ? competitiveModule.data : null
+  const social = socialModule?.success ? socialModule.data : null
+
+  if (!trends) degradedSources.push('trends')
+  if (!competitive) degradedSources.push('competitive')
+  if (!social) degradedSources.push('social-listening')
+
+  // ── Phase 2: Sequential — fetchContent depends on TrendsData ──────────────
+  const contentResult = await fetchContent(profile, trends)
+  const content = contentResult.success ? contentResult.data : null
+  if (!content) degradedSources.push('content')
+
+  // ── Phase 3: Pure synthesis (zero API) ────────────────────────────────────
+  const synthesis = runSynthesis({ trends, content, competitive, social, profile })
+
+  // ── Score ─────────────────────────────────────────────────────────────────
+  const globalScore = calculateMtsScore(synthesis)
+
+  // ── Phase 4: Single LLM call ──────────────────────────────────────────────
+  const llmResponse = await callLLM({
+    system: getSystemPrompt(profile.language ?? 'English'),
+    user: buildConsolidatedPrompt(profile, context, synthesis, globalScore),
+    maxTokens: 4096,
+    temperature: 0.4,
+  })
+
+  // Parse LLM output
+  let trendingTopics = synthesis.trending_topics
+  let saturatedTopics = synthesis.saturated_topics
+  let differentiatingAngles: string[] = []
+  let roadmap30d: RoadmapEntry[] = []
+  if (isLlmMtsResponse(llmResponse.parsed)) {
+    trendingTopics = llmResponse.parsed.trending_topics
+    saturatedTopics = llmResponse.parsed.saturated_topics
+    differentiatingAngles = llmResponse.parsed.differentiating_angles
+    roadmap30d = llmResponse.parsed.roadmap_30d
   }
-}> {
-  const degraded_sources: string[] = [];
 
-  // Modules 1-4 en parallèle
-  const [
-    trendsSettled,
-    competitiveSettled,
-    socialListeningSettled,
-  ] = await Promise.allSettled([
-    fetchTrends(profile, context.sector),
-    fetchCompetitive(profile, context.sector),
-    fetchSocialListening(profile, context.sector),
-  ]);
+  // Build opportunity scores map (O(1) access in UI)
+  const opportunityScores: Record<string, number> = {}
+  for (const t of trendingTopics) {
+    opportunityScores[t.topic] = t.opportunity_score
+  }
 
-  const trendsResult = extractResult(trendsSettled, "trends", degraded_sources);
-  const competitiveResult = extractResult(competitiveSettled, "competitive", degraded_sources);
-  const socialListeningResult = extractResult(socialListeningSettled, "social-listening", degraded_sources);
-
-  // Le module content dépend des keywords en croissance de trends
-  const risingKeywords = trendsResult?.data?.rising_keywords ?? [];
-  const contentSettled = await fetchContent(profile, risingKeywords)
-    .then((r) => ({ status: "fulfilled" as const, value: r }))
-    .catch((err: unknown) => ({ status: "rejected" as const, reason: err }));
-
-  const contentResult = extractResult(
-    contentSettled as PromiseSettledResult<ModuleResult<ContentPerformanceData>>,
-    "content",
-    degraded_sources,
-  );
-
-  // Module 5 — synthèse (pur calcul, sans API)
-  const synthesis = runSynthesis({
-    trends: trendsResult,
-    content: contentResult,
-    competitive: competitiveResult,
-    socialListening: socialListeningResult,
-  });
-
-  // Construire le payload MtsOutput (roadmap_30d et trending_topics finaux générés par LLM dans la route)
   const payload: MtsOutput = {
-    global_score: 0,  // calculé par la route après scoring
+    global_score: globalScore,
     sector: context.sector,
-    analysis_period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
-    mode: "ponctuel",
+    analysis_period: '30 jours',
+    mode: 'ponctuel',
     session_context: context,
-    trending_topics: synthesis.trending_topics,
-    saturated_topics: synthesis.saturated_topics,
+    trending_topics: trendingTopics,
+    saturated_topics: saturatedTopics,
     content_gap_map: synthesis.content_gap_map,
     format_matrix: synthesis.format_matrix,
     social_signals: synthesis.social_signals,
-    differentiating_angles: synthesis.differentiating_angles,
-    roadmap_30d: [],  // rempli après appel LLM dans la route
-    opportunity_scores: synthesis.opportunity_scores,
-  };
+    differentiating_angles: differentiatingAngles,
+    roadmap_30d: roadmap30d,
+    opportunity_scores: opportunityScores,
+  }
 
   return {
-    agentOutput: {
-      agent_code: "MTS-02",
-      analysis_date: new Date().toISOString(),
-      brand_profile: profile,
-      payload,
-      degraded_sources,
-      version: "1.0",
-    },
-    moduleResults: {
-      trends: trendsResult,
-      content: contentResult,
-      competitive: competitiveResult,
-      socialListening: socialListeningResult,
-    },
-  };
+    agent_code: 'MTS-02',
+    analysis_date: new Date().toISOString(),
+    brand_profile: profile,
+    payload,
+    degraded_sources: degradedSources,
+    version: '1.0',
+  }
 }

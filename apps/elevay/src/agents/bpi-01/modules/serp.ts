@@ -1,143 +1,99 @@
-import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
-import type { SerpData } from "../types";
-import { searchSerp } from "../../_shared/composio";
-import type { SerpOrganicResult } from "../../_shared/composio";
+import { composio } from '@/agents/_shared/composio'
+import type { ModuleResult } from '@/agents/_shared/types'
+import type { AgentProfile } from '@/agents/_shared/types'
+import type { SerpData } from '../types'
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function extractDomain(url: string): string {
-  return url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0].toLowerCase();
+interface SerpResult {
+  organic_results?: Array<{
+    position?: number
+    link?: string
+    snippet?: string
+  }>
 }
 
-const NEGATIVE_MARKERS = [
-  "scam",
-  "arnaque",
-  "problème",
-  "fraude",
-  "avis négatif",
-  "escroquerie",
-  "danger",
-];
-
-function hasNegativeContent(results: SerpOrganicResult[]): boolean {
-  return results.some((r) => {
-    const text = `${r.title} ${r.snippet ?? ""}`.toLowerCase();
-    return NEGATIVE_MARKERS.some((m) => text.includes(m));
-  });
+function extractVisibilityScore(position: number | null): number {
+  if (position === null) return 0
+  if (position === 1) return 100
+  if (position <= 3) return 85
+  if (position <= 5) return 70
+  if (position <= 10) return 50
+  return 20
 }
 
-function collectNegativeSnippets(results: SerpOrganicResult[]): string[] {
-  return results
-    .filter((r) => {
-      const text = `${r.title} ${r.snippet ?? ""}`.toLowerCase();
-      return NEGATIVE_MARKERS.some((m) => text.includes(m));
-    })
-    .map((r) => `${r.title}: ${r.snippet ?? ""}`);
-}
-
-function findDomainPosition(
-  results: SerpOrganicResult[],
-  domain: string,
-): number | null {
-  const match = results.find((r) => extractDomain(r.link) === domain);
-  return match ? match.position : null;
-}
-
-function calcVisibility(position: number | null): number {
-  return position !== null ? Math.max(0, 108 - position * 8) : 0;
-}
-
-// ─── Module ───────────────────────────────────────────────────────────────────
-
-/**
- * Module 1 — Audit SERP intelligent
- * Source : SerpAPI via Composio
- * Limite : 5 requêtes par audit (budget 7)
- * Retry : ×2, délai 1s exponentiel (géré dans composio.searchSerp)
- */
-export async function fetchSerp(
-  profile: ElevayAgentProfile,
-): Promise<ModuleResult<SerpData>> {
+export async function fetchSerp(profile: AgentProfile): Promise<ModuleResult<SerpData>> {
   try {
-    const { brand_name, brand_url, primary_keyword, country, competitors } =
-      profile;
-    const brandDomain = extractDomain(brand_url);
-
     const queries = [
-      brand_name,                         // q1 → official_site_position
-      `${brand_name} avis`,               // q2 → sentiment avis
-      `${brand_name} problème`,           // q3 → contenus négatifs
-      `${brand_name} scam`,               // q4 → signaux réputationnels
-      primary_keyword,                    // q5 → positions organiques
-    ];
+      profile.brand_name,
+      `${profile.brand_name} ${profile.primary_keyword}`,
+      `avis ${profile.brand_name}`,
+      profile.competitors[0]?.name ?? profile.brand_name,
+      profile.competitors[1]?.name ?? profile.brand_name,
+    ]
 
-    const settled = await Promise.allSettled(
-      queries.map((q) => searchSerp(q, country)),
-    );
+    const results = await Promise.allSettled(
+      queries.map((q) => composio.searchSerp(q, 10)),
+    )
 
-    if (settled.every((r) => r.status === "rejected")) {
-      return {
-        success: false,
-        data: null,
-        source: "serp:serpapi",
-        error: { code: "SERP_FETCH_FAILED", message: "All SERP queries failed" },
-        degraded: true,
-      };
+    const brandResult = results[0]
+    const raw = brandResult?.status === 'fulfilled' ? (brandResult.value as SerpResult | null) : null
+
+    if (!raw) {
+      return { success: false, data: null, source: 'serp', degraded: true }
     }
 
-    const organic = settled.map((r) =>
-      r.status === "fulfilled" ? r.value.organic_results : [],
-    );
-    const [q1, q2, q3, q4, q5] = organic;
+    const organicResults = raw.organic_results ?? []
+    const brandUrl = new URL(profile.brand_url).hostname.replace(/^www\./, '')
 
-    // official_site_position — q1 first, q5 fallback
-    const official_site_position =
-      findDomainPosition(q1, brandDomain) ?? findDomainPosition(q5, brandDomain);
+    // Find official site position
+    const officialEntry = organicResults.find((r) =>
+      r.link?.toLowerCase().includes(brandUrl),
+    )
+    const officialSitePosition = officialEntry?.position ?? null
 
-    // negative_snippets — across all queries
-    const allResults = ([] as SerpOrganicResult[]).concat(...organic);
-    const negative_snippets = collectNegativeSnippets(allResults);
+    // Negative snippets
+    const negativeKeywords = ['arnaque', 'scam', 'fake', 'problème', 'avis négatif', 'bad']
+    const negativeSnippets = organicResults
+      .filter((r) =>
+        negativeKeywords.some((kw) =>
+          (r.snippet ?? '').toLowerCase().includes(kw),
+        ),
+      )
+      .map((r) => r.snippet ?? '')
+      .slice(0, 3)
 
-    // competitor_positions — reuse q1 + q5 results, 0 extra calls
-    const competitor_positions: Record<string, number | null> = {};
-    for (const c of competitors) {
-      const compDomain = extractDomain(c.url);
-      competitor_positions[c.name] =
-        findDomainPosition(q1, compDomain) ??
-        findDomainPosition(q5, compDomain);
+    // Competitor positions from their respective queries
+    const competitorPositions: Record<string, number | null> = {}
+    for (let i = 0; i < profile.competitors.length && i < 2; i++) {
+      const comp = profile.competitors[i]
+      if (!comp) continue
+      const compResult = results[3 + i]
+      const compRaw = compResult?.status === 'fulfilled' ? (compResult.value as SerpResult | null) : null
+      const compOrganics = compRaw?.organic_results ?? []
+      const compDomain = new URL(comp.url).hostname.replace(/^www\./, '')
+      const compEntry = compOrganics.find((r) => r.link?.toLowerCase().includes(compDomain))
+      competitorPositions[comp.name] = compEntry?.position ?? null
     }
 
-    // visibility_score (1→100, 2→92, ..., 10→28, null→0)
-    const visibility_score = calcVisibility(official_site_position);
-
-    // reputation_score
-    let reputation_score = 100;
-    if (hasNegativeContent(q4)) reputation_score -= 25;
-    if (hasNegativeContent(q3)) reputation_score -= 15;
-    if (hasNegativeContent(q2)) reputation_score -= 10;
-    reputation_score = Math.max(0, reputation_score);
+    const visibilityScore = extractVisibilityScore(officialSitePosition)
+    const reputationScore = Math.max(0, visibilityScore - negativeSnippets.length * 10)
 
     return {
       success: true,
       data: {
-        official_site_position,
-        negative_snippets,
-        competitor_positions,
-        visibility_score,
-        reputation_score,
+        official_site_position: officialSitePosition,
+        negative_snippets: negativeSnippets,
+        competitor_positions: competitorPositions,
+        visibility_score: visibilityScore,
+        reputation_score: reputationScore,
       },
-      source: "serp:serpapi",
-    };
+      source: 'serp',
+    }
   } catch (err) {
     return {
       success: false,
       data: null,
-      source: "serp:serpapi",
-      error: {
-        code: "SERP_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Unknown error",
-      },
-      degraded: true,
-    };
+      source: 'serp',
+      error: { code: 'FETCH_FAILED', message: String(err) },
+    }
   }
 }

@@ -32,6 +32,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@assistant-ui/react": "^0.12.14",
+    "@assistant-ui/react-markdown": "^0.12.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"

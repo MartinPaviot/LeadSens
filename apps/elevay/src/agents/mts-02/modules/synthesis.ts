@@ -1,262 +1,186 @@
-import type { ModuleResult } from "../../_shared/types";
+import type { AgentProfile } from '@/agents/_shared/types'
 import type {
-  ContentGap,
-  ContentPerformanceData,
-  CompetitiveContentData,
-  FormatEntry,
-  SocialListeningData,
-  SocialSignal,
-  TrendingTopic,
   TrendsData,
-} from "../types";
+  ContentData,
+  CompetitiveContentData,
+  SocialSignalsData,
+  SynthesisData,
+  TrendingTopic,
+  SaturatedTopic,
+  ContentGap,
+  FormatEntry,
+  SocialSignal,
+} from '../types'
 
-// ── Inputs / Outputs ──────────────────────────────────────────────────────────
+// Pure calculation — zero API calls
+export function runSynthesis(inputs: {
+  trends: TrendsData | null
+  content: ContentData | null
+  competitive: CompetitiveContentData | null
+  social: SocialSignalsData | null
+  profile: AgentProfile
+}): SynthesisData {
+  const { trends, content, competitive, social, profile } = inputs
 
-export interface SynthesisInput {
-  trends: ModuleResult<TrendsData> | null
-  content: ModuleResult<ContentPerformanceData> | null
-  competitive: ModuleResult<CompetitiveContentData> | null
-  socialListening: ModuleResult<SocialListeningData> | null
-}
+  // ── Trending topics ────────────────────────────────────────────────────────
+  const trendingTopics: TrendingTopic[] = []
+  const saturatedTopics: SaturatedTopic[] = []
 
-export interface SynthesisResult {
-  trending_topics: TrendingTopic[]
-  saturated_topics: Array<{ topic: string; reason: string }>
-  content_gap_map: ContentGap[]
-  format_matrix: FormatEntry[]
-  social_signals: SocialSignal[]
-  opportunity_scores: Record<string, number>
-  differentiating_angles: string[]
-}
+  if (trends) {
+    for (const kw of trends.keywords) {
+      const sourceConfirmation: string[] = ['google_trends']
 
-// ── Scoring spec §4.1 ─────────────────────────────────────────────────────────
+      // Check if also present in YouTube
+      const inYoutube = content?.youtube_videos.some((v) => v.keyword === kw.term)
+      if (inYoutube) sourceConfirmation.push('youtube')
 
-interface TopicScoreInput {
-  keyword: string
-  volume: number
-  difficulty: number
-  growth_30d: number
-  competitorCoverage: "none" | "low" | "medium" | "high"
-  socialPostCount: number
-}
+      // Check if in social signals
+      const inSocial = social?.signals.some((s) =>
+        s.signal.toLowerCase().includes(kw.term.toLowerCase()),
+      )
+      if (inSocial) sourceConfirmation.push('social')
 
-function computeOpportunityScore(input: TopicScoreInput): number {
-  // Dimension 1 — Croissance Google Trends (max 25)
-  let d1 = 0;
-  if (input.growth_30d >= 30) d1 = 25;
-  else if (input.growth_30d >= 0) d1 = 10;
-  else d1 = 0;
+      // Check if in competitive content themes
+      const inCompetitive = competitive?.competitors.some((c) =>
+        c.content_themes.some((t) =>
+          t.toLowerCase().includes(kw.term.toLowerCase()),
+        ),
+      )
+      if (inCompetitive) sourceConfirmation.push('competitive')
 
-  // Dimension 2 — Volume search vs difficulté (max 25)
-  let d2 = 0;
-  if (input.volume >= 1000 && input.difficulty < 40) d2 = 25;
-  else if (input.volume >= 500 || input.difficulty < 60) d2 = 15;
-  else d2 = 10;
+      // Classify based on rules from design.md
+      let classification: TrendingTopic['classification']
+      const multiSource = sourceConfirmation.length >= 2
 
-  // Dimension 3 — Couverture concurrentielle (max 25)
-  let d3 = 0;
-  switch (input.competitorCoverage) {
-    case "none": d3 = 25; break;
-    case "low":  d3 = 20; break;
-    case "medium": d3 = 15; break;
-    case "high": d3 = 5;  break;
-  }
+      if (kw.trend_direction === 'up' && multiSource) {
+        classification = 'strong_trend'
+      } else if (kw.trend_direction === 'up' && !multiSource) {
+        // Check if SERP dominated (high competition → saturation)
+        const serpEntry = content?.top_serp_results.find((r) => r.keyword === kw.term)
+        const dominated = serpEntry && serpEntry.domains.length >= 3
+        classification = dominated ? 'buzz' : 'weak_signal'
+      } else if (kw.trend_direction === 'down') {
+        saturatedTopics.push({
+          topic: kw.term,
+          reason: 'Volume en déclin — sujet saturé ou en perte d\'intérêt',
+        })
+        continue
+      } else {
+        classification = 'weak_signal'
+      }
 
-  // Dimension 4 — Traction sociale (max 25)
-  let d4 = 0;
-  if (input.socialPostCount >= 10) d4 = 25;
-  else if (input.socialPostCount >= 5) d4 = 15;
-  else d4 = 5;
+      // Opportunity score = (growth_4w * 0.4) + (competition_inverse * 0.3) + (multi_source_bonus * 0.3)
+      const growth4w = kw.trend_direction === 'up' ? 60 : kw.trend_direction === 'stable' ? 20 : 0
+      const serpEntry = content?.top_serp_results.find((r) => r.keyword === kw.term)
+      const competitionInverse = serpEntry && serpEntry.domains.length >= 3 ? 20 : 70
+      const multiSourceBonus = multiSource ? 80 : 20
+      const opportunityScore = Math.round(
+        growth4w * 0.4 + competitionInverse * 0.3 + multiSourceBonus * 0.3,
+      )
 
-  return d1 + d2 + d3 + d4;
-}
+      const bestChannel =
+        (profile.priority_channels?.[0] as string | undefined) ??
+        (inYoutube ? 'YouTube' : 'SEO')
 
-// ── Classification spec §4.3 ──────────────────────────────────────────────────
-
-function classifyTopic(
-  score: number,
-  growth_30d: number,
-  competitorCoverage: string,
-): TrendingTopic["classification"] {
-  if (competitorCoverage === "high" && score < 50) return "saturation";
-  if (growth_30d > 50 && score >= 70) return "buzz";  // pic soudain
-  if (score >= 70) return "strong_trend";
-  if (score >= 40) return "weak_signal";
-  return "saturation";
-}
-
-function estimateHorizon(classification: TrendingTopic["classification"]): string {
-  switch (classification) {
-    case "weak_signal":   return "4-8 semaines";
-    case "strong_trend":  return "3-6 mois";
-    case "buzz":          return "< 2 semaines";
-    case "saturation":    return "déjà saturé";
-  }
-}
-
-// ── Format matrix ─────────────────────────────────────────────────────────────
-
-function buildFormatMatrix(
-  content: ContentPerformanceData | null,
-  socialListening: SocialListeningData | null,
-): FormatEntry[] {
-  const matrix: FormatEntry[] = [];
-
-  const canals = ["SEO", "YouTube", "LinkedIn", "TikTok", "X"] as const;
-  for (const canal of canals) {
-    const format = content?.dominant_formats[canal] ?? "article";
-    const tone = content?.dominant_tones[canal] ?? "informatif";
-
-    let example = "";
-    if (canal === "SEO") {
-      example = `Guide complet : ${content?.serp_top_content[0]?.title ?? "..."}`;
-    } else if (canal === "YouTube") {
-      example = content?.youtube_trending[0]?.title ?? "Vidéo éducative secteur";
-    } else {
-      // Chercher un exemple dans social listening
-      const signals =
-        canal === "LinkedIn" ? socialListening?.linkedin_signals :
-        canal === "TikTok"   ? socialListening?.tiktok_signals :
-        socialListening?.x_signals;
-      const hook = signals?.[0]?.trending_hooks[0];
-      example = hook ?? `Post ${format} — ${canal}`;
+      trendingTopics.push({
+        topic: kw.term,
+        opportunity_score: Math.min(100, opportunityScore),
+        growth_4w: growth4w,
+        best_channel: bestChannel,
+        classification,
+        source_confirmation: sourceConfirmation,
+        estimated_horizon:
+          classification === 'strong_trend'
+            ? '1-3 months'
+            : classification === 'buzz'
+              ? '< 2 weeks'
+              : '3-6 months',
+        suggested_angle: `${profile.brand_name} approach on "${kw.term}"`,
+      })
     }
-
-    matrix.push({ canal, dominant_format: format, dominant_tone: tone, example });
   }
 
-  return matrix;
-}
-
-// ── Best channel helper ──────────────────────────────────────────────────────
-
-function determineBestChannel(socialSignals: SocialSignal[]): string {
-  const available = socialSignals.filter((s) => s.available);
-  if (available.length > 0) {
-    return available.reduce((a, b) =>
-      b.engagement_benchmark > a.engagement_benchmark ? b : a,
-    ).platform;
-  }
-  return "SEO";
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-export function runSynthesis(input: SynthesisInput): SynthesisResult {
-  const trendsData = input.trends?.data;
-  const contentData = input.content?.data;
-  const competitiveData = input.competitive?.data;
-  const socialData = input.socialListening?.data;
-
-  const allKeywords = [
-    ...(trendsData?.rising_keywords ?? []),
-    ...(trendsData?.stable_keywords ?? []),
-  ];
-
-  // Construire coverage map pour chaque keyword
-  const coverageMap = new Map<string, ContentGap["competitor_coverage"]>();
-  for (const gap of competitiveData?.content_gaps ?? []) {
-    coverageMap.set(gap.topic, gap.competitor_coverage);
-  }
-  for (const angle of competitiveData?.saturated_angles ?? []) {
-    coverageMap.set(angle, "high");
-  }
-
-  // Nombre de posts sociaux par sujet (approximation)
-  const allSocialSignals = [
-    ...(socialData?.linkedin_signals ?? []),
-    ...(socialData?.tiktok_signals ?? []),
-    ...(socialData?.x_signals ?? []),
-  ].filter((s) => s.available);
-
-  // Pour chaque keyword, calculer le score
-  const opportunity_scores: Record<string, number> = {};
-  const trending_topics: TrendingTopic[] = [];
-  const saturated_topics: Array<{ topic: string; reason: string }> = [];
-
-  for (const kw of allKeywords) {
-    const coverage = coverageMap.get(kw.keyword) ?? "medium";
-    // Estimer la traction sociale par le nombre de plateformes disponibles × 5
-    const socialPostCount = allSocialSignals.length * 5;
-
-    const score = computeOpportunityScore({
-      keyword: kw.keyword,
-      volume: kw.volume,
-      difficulty: kw.difficulty,
-      growth_30d: kw.growth_30d,
-      competitorCoverage: coverage,
-      socialPostCount,
-    });
-
-    opportunity_scores[kw.keyword] = score;
-
-    const classification = classifyTopic(score, kw.growth_30d, coverage);
-
-    if (classification === "saturation") {
-      saturated_topics.push({
-        topic: kw.keyword,
-        reason: `Couverture concurrentielle ${coverage} — score ${score}/100`,
-      });
-      continue;
+  // Also flag rising queries with no SERP coverage as saturation signals
+  if (trends?.rising_queries) {
+    for (const q of trends.rising_queries.slice(0, 3)) {
+      const alreadyAdded = trendingTopics.some((t) => t.topic === q)
+      if (!alreadyAdded) {
+        trendingTopics.push({
+          topic: q,
+          opportunity_score: 50,
+          growth_4w: 30,
+          best_channel: 'SEO',
+          classification: 'weak_signal',
+          source_confirmation: ['rising_query'],
+          estimated_horizon: '1-3 mois',
+          suggested_angle: `Contenu autour de "${q}"`,
+        })
+      }
     }
-
-    // Ne pas inclure les topics < 40 dans la roadmap
-    if (score < 40) {
-      saturated_topics.push({
-        topic: kw.keyword,
-        reason: `Score d'opportunité trop faible (${score}/100)`,
-      });
-      continue;
-    }
-
-    const sources: string[] = [];
-    if (kw.growth_30d > 10) sources.push("Google Trends");
-    if (kw.volume > 0) sources.push("DataForSEO");
-    if (coverage === "none" || coverage === "low") sources.push("Competitive gap");
-
-    trending_topics.push({
-      topic: kw.keyword,
-      opportunity_score: score,
-      growth_4w: kw.growth_30d,
-      best_channel: determineBestChannel(allSocialSignals),
-      classification,
-      source_confirmation: sources,
-      estimated_horizon: estimateHorizon(classification),
-      suggested_angle: competitiveData?.missing_angles?.[0] ?? `${kw.keyword} — angle différenciant`,
-    });
   }
 
-  // Trier par score desc
-  trending_topics.sort((a, b) => b.opportunity_score - a.opportunity_score);
+  // ── Content gaps ───────────────────────────────────────────────────────────
+  const contentGapMap: ContentGap[] = (content?.content_gaps ?? []).map((kw) => {
+    const kwData = trends?.keywords.find((k) => k.term === kw)
+    return {
+      keyword: kw,
+      search_volume: kwData?.volume ?? 0,
+      competition: 'medium' as const,
+      opportunity: `Gap identifié — ${profile.brand_name} absent du top SERP pour "${kw}"`,
+    }
+  })
 
-  // Top 3 angles différenciants (missing_angles à fort score)
-  const differentiating_angles = (competitiveData?.missing_angles ?? [])
-    .filter((angle) => {
-      const score = opportunity_scores[angle] ?? 50;
-      return score >= 40;
+  // ── Format matrix ─────────────────────────────────────────────────────────
+  const formatMatrix: FormatEntry[] = []
+  const channels = profile.priority_channels?.length
+    ? profile.priority_channels
+    : ['SEO', 'LinkedIn']
+
+  for (const channel of channels.slice(0, 4)) {
+    const formats =
+      channel === 'SEO'
+        ? ['Article long-form', 'Guide', 'FAQ']
+        : channel === 'LinkedIn'
+          ? ['Carousel', 'Article', 'Post texte']
+          : channel === 'YouTube'
+            ? ['Tutoriel', 'Vidéo courte', 'Interview']
+            : channel === 'TikTok' || channel === 'Instagram'
+              ? ['Short', 'Reel', 'Story']
+              : ['Post', 'Article', 'Infographie']
+
+    // Estimate engagement from competitive data
+    const avgEngagement = competitive
+      ? competitive.competitors.filter((c) => c.has_youtube).length >= 2
+        ? 'Élevé'
+        : 'Moyen'
+      : 'Non mesuré'
+
+    formatMatrix.push({
+      channel,
+      dominant_formats: formats,
+      avg_engagement: avgEngagement,
     })
-    .slice(0, 3);
+  }
 
-  // Content gap map — depuis competitive module
-  const content_gap_map: ContentGap[] = competitiveData?.content_gaps ?? [];
+  // ── Social signals ─────────────────────────────────────────────────────────
+  const socialSignals: SocialSignal[] = (social?.signals ?? []).map((s) => ({
+    platform: s.platform,
+    signal: s.signal,
+    engagement_indicator: s.engagement_indicator,
+  }))
 
-  // Format matrix
-  const format_matrix = buildFormatMatrix(contentData ?? null, socialData ?? null);
-
-  // All social signals flatten
-  const social_signals: SocialSignal[] = [
-    ...(socialData?.linkedin_signals ?? []),
-    ...(socialData?.tiktok_signals ?? []),
-    ...(socialData?.x_signals ?? []),
-  ];
+  // ── Opportunity scores map ─────────────────────────────────────────────────
+  const opportunityScores: Record<string, number> = {}
+  for (const t of trendingTopics) {
+    opportunityScores[t.topic] = t.opportunity_score
+  }
 
   return {
-    trending_topics,
-    saturated_topics,
-    content_gap_map,
-    format_matrix,
-    social_signals,
-    opportunity_scores,
-    differentiating_angles,
-  };
+    trending_topics: trendingTopics,
+    saturated_topics: saturatedTopics,
+    content_gap_map: contentGapMap,
+    format_matrix: formatMatrix,
+    social_signals: socialSignals,
+    opportunity_scores: opportunityScores,
+  }
 }

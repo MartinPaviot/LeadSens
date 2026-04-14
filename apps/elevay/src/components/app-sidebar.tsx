@@ -12,8 +12,11 @@ import {
   MagnifyingGlass,
   Gear,
   SignOut,
-  Globe,
   House,
+  Clock,
+  Bell,
+  Moon,
+  Envelope,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -252,7 +255,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2 scrollbar-thin gap-0">
-        {/* Mode nav — Accueil / Marketing / SEO & GEO */}
+        {/* Navigation */}
         <SidebarGroup className="pt-2 pb-0">
           <SidebarMenu className="gap-1">
             <SidebarMenuItem>
@@ -268,24 +271,24 @@ export function AppSidebar() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={pathname.startsWith("/brand-intel")}
-                onClick={() => { router.push("/brand-intel"); if (isMobile) setOpenMobile(false); }}
+                isActive={pathname.startsWith("/up-next")}
+                onClick={() => { router.push("/up-next"); if (isMobile) setOpenMobile(false); }}
                 size="sm"
                 className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
               >
-                <ChatCircle className="size-3.5 shrink-0" />
-                <span>Marketing</span>
+                <Clock className="size-3.5 shrink-0" />
+                <span>Up next</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={pathname.startsWith("/dashboard")}
-                onClick={() => { router.push("/dashboard"); if (isMobile) setOpenMobile(false); }}
+                isActive={pathname.startsWith("/notifications")}
+                onClick={() => { router.push("/notifications"); if (isMobile) setOpenMobile(false); }}
                 size="sm"
                 className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
               >
-                <Globe className="size-3.5 shrink-0" />
-                <span>SEO & GEO</span>
+                <Bell className="size-3.5 shrink-0" />
+                <span>Notifications</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -377,7 +380,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      {/* Footer — user info + settings */}
+      {/* Footer — user info + menu */}
       <SidebarFooter
         className="px-3 py-3 border-t"
         style={{ borderColor: "rgba(23,195,178,0.15)" }}
@@ -398,39 +401,49 @@ export function AppSidebar() {
             <p className="text-xs font-semibold truncate text-foreground">{userName}</p>
             <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
           </div>
-          <div className="flex items-center gap-0.5 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-muted-foreground hover:text-foreground"
-              onClick={() => setSettingsOpen(true)}
-              title="Settings"
-            >
-              <Gear className="size-3.5" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-foreground"
-                  title="More"
-                >
-                  <DotsThree className="size-4" weight="bold" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="end" className="min-w-[160px]">
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal truncate">
-                  {userEmail}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <SignOut className="size-3.5 mr-2" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-foreground shrink-0"
+                title="More"
+              >
+                <DotsThree className="size-4" weight="bold" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="end" className="min-w-[180px]">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal truncate">
+                {userEmail}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                router.push("/settings");
+                if (isMobile) setOpenMobile(false);
+              }}>
+                <Gear className="size-3.5 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                document.documentElement.classList.toggle("dark");
+              }}>
+                <Moon className="size-3.5 mr-2" />
+                Dark mode
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                router.push("/contact");
+                if (isMobile) setOpenMobile(false);
+              }}>
+                <Envelope className="size-3.5 mr-2" />
+                Contact the team
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <SignOut className="size-3.5 mr-2" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </SidebarFooter>
 

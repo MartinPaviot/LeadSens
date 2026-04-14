@@ -1,552 +1,173 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { SSEEncoder, SSE_HEADERS, generateStreamId } from "@/lib/sse";
-import { callLLM } from "@/agents/_shared/llm";
-import {
-  SYSTEM_PROMPT,
-  buildConsolidatedPrompt,
-  type ModuleResults,
-} from "@/agents/mts-02/prompt";
-import { calculateMtsScores } from "@/agents/mts-02/scoring";
-import { runSynthesis } from "@/agents/mts-02/modules/synthesis";
-import { fetchTrends } from "@/agents/mts-02/modules/trends";
-import { fetchContent } from "@/agents/mts-02/modules/content";
-import { fetchCompetitive } from "@/agents/mts-02/modules/competitive";
-import { fetchSocialListening } from "@/agents/mts-02/modules/social-listening";
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { createSSEStream } from "@/lib/sse-brand-intel"
+import { runMts02 } from "@/agents/mts-02/index"
+import type { AgentProfile, AgentOutput } from "@/agents/_shared/types"
 import type {
   MtsOutput,
-  MtsMode,
-  MtsPreviousComparison,
   MtsSessionContext,
-  RoadmapEntry,
-  TrendingTopic,
-  SaturatedTopic,
-  FormatEntry,
-  ContentPerformanceData,
-} from "@/agents/mts-02/types";
-import type { AgentOutput, ModuleResult } from "@/agents/_shared/types";
-import type { ElevayAgentProfile } from "@/agents/_shared/types";
-import { Prisma } from "@leadsens/db";
-import { z } from "zod";
+  MtsPreviousComparison,
+} from "@/agents/mts-02/types"
+import { Prisma } from "@prisma/client"
 
-export const maxDuration = 300; // 5 min — modules parallèles + appel LLM
+export const maxDuration = 300
+export const dynamic = "force-dynamic"
 
-// ── Input validation ──────────────────────────────────────────────────────────
+const VALID_CHANNELS = [
+  "SEO",
+  "LinkedIn",
+  "YouTube",
+  "TikTok",
+  "Instagram",
+  "Facebook",
+  "X",
+  "Press",
+] as const
+type ValidChannel = (typeof VALID_CHANNELS)[number]
 
-const MtsRequestSchema = z.object({
-  sector:            z.string().min(2).max(200),
-  priority_channels: z.array(z.enum(["SEO", "LinkedIn", "YouTube", "TikTok", "Instagram", "Facebook", "X", "Press"])).min(1),
-});
-
-// ── LLM response parsing ──────────────────────────────────────────────────────
-
-interface LlmAnalysis {
-  trending_topics: TrendingTopic[]
-  saturated_topics: SaturatedTopic[]
-  differentiating_angles: string[]
-  roadmap_30d: RoadmapEntry[]
-  format_matrix: FormatEntry[]
+function toValidChannel(s: string): ValidChannel | null {
+  return (VALID_CHANNELS as readonly string[]).includes(s)
+    ? (s as ValidChannel)
+    : null
 }
-
-function parseLLMAnalysis(raw: string): LlmAnalysis {
-  const empty: LlmAnalysis = {
-    trending_topics: [],
-    saturated_topics: [],
-    differentiating_angles: [],
-    roadmap_30d: [],
-    format_matrix: [],
-  };
-
-  function parse(text: string): LlmAnalysis | null {
-    try {
-      const parsed = JSON.parse(text.trim()) as Partial<LlmAnalysis>;
-      return {
-        trending_topics:      Array.isArray(parsed.trending_topics)      ? parsed.trending_topics      : [],
-        saturated_topics:     Array.isArray(parsed.saturated_topics)     ? parsed.saturated_topics     : [],
-        differentiating_angles: Array.isArray(parsed.differentiating_angles) ? parsed.differentiating_angles : [],
-        roadmap_30d:          Array.isArray(parsed.roadmap_30d)          ? parsed.roadmap_30d          : [],
-        format_matrix:        Array.isArray(parsed.format_matrix)        ? parsed.format_matrix        : [],
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  return (
-    parse(raw) ??
-    ((): LlmAnalysis => {
-      const match = raw.match(/\{[\s\S]*\}/);
-      return match ? (parse(match[0]) ?? empty) : empty;
-    })()
-  );
-}
-
-// ── SSE status wrapper ────────────────────────────────────────────────────────
-
-function withStatus<T>(
-  promise: Promise<ModuleResult<T>>,
-  step: number,
-  label: string,
-  encoder: SSEEncoder,
-  controller: ReadableStreamDefaultController<Uint8Array>,
-): Promise<ModuleResult<T>> {
-  controller.enqueue(
-    encoder.encode("status", { step, total: 5, label: `[${step}/5] ${label} in progress…` }),
-  );
-  return promise
-    .then((result) => {
-      controller.enqueue(
-        encoder.encode("status", { step, total: 5, label: `[${step}/5] ${label} ✓` }),
-      );
-      return result;
-    })
-    .catch((err: unknown) => {
-      controller.enqueue(
-        encoder.encode("status", { step, total: 5, label: `[${step}/5] ${label} ✗` }),
-      );
-      throw err;
-    });
-}
-
-// ── Markdown formatter — 6 blocs ─────────────────────────────────────────────
-
-function formatMtsAsMarkdown(brandName: string, payload: MtsOutput): string {
-  const modeLabel = payload.mode === "récurrent" ? "Récurrent" : "Ponctuel";
-  const prevDelta = payload.previous
-    ? ` *(${payload.global_score >= payload.previous.global_score ? "+" : ""}${payload.global_score - payload.previous.global_score} pts vs ${payload.previous.date.slice(0, 10)})*`
-    : "";
-
-  // ── En-tête ───────────────────────────────────────────────────────────────
-  const header = [
-    `## Analyse tendances — ${brandName}`,
-    ``,
-    `**Score opportunité : ${payload.global_score}/100**${prevDelta}`,
-    `Secteur : ${payload.sector} · Période : ${payload.analysis_period} · Mode : ${modeLabel}`,
-  ].join("\n");
-
-  // ── Bloc 1 — Tendances macro ──────────────────────────────────────────────
-  const trendRows = payload.trending_topics
-    .slice(0, 5)
-    .map((t) =>
-      `| ${t.topic} | **${t.opportunity_score}/100** | +${Math.round(t.growth_4w)}% | ${t.classification} | ${t.best_channel} |`,
-    )
-    .join("\n");
-
-  const satRows = payload.saturated_topics
-    .slice(0, 5)
-    .map((s) => `- ~~${s.topic}~~ — ${s.reason}`)
-    .join("\n");
-
-  const bloc1 = [
-    `### Tendances macro`,
-    ``,
-    `**Top 5 sujets en montée :**`,
-    `| Sujet | Score | Croissance 4 sem. | Classification | Meilleur canal |`,
-    `|-------|-------|--------------------|----------------|----------------|`,
-    trendRows || "| *Aucun topic identifié* | | | | |",
-    ``,
-    `**Sujets saturés à éviter :**`,
-    satRows || "*Aucun sujet saturé*",
-  ].join("\n");
-
-  // ── Bloc 2 — Formats & angles ─────────────────────────────────────────────
-  const fmtRows = payload.format_matrix
-    .map((f) => `| ${f.canal} | ${f.dominant_format} | ${f.dominant_tone} | ${f.example} |`)
-    .join("\n");
-
-  const anglesList = payload.differentiating_angles
-    .map((a, i) => `${i + 1}. ${a}`)
-    .join("\n");
-
-  const bloc2 = [
-    `### Formats & angles qui performent`,
-    ``,
-    `| Canal | Format dominant | Ton dominant | Exemple |`,
-    `|-------|----------------|-------------|---------|`,
-    fmtRows || "| *Pas de données* | | | |",
-    ``,
-    `**Angles différenciants :**`,
-    anglesList || "*Aucun angle identifié*",
-  ].join("\n");
-
-  // ── Bloc 3 — Gap map concurrentiel ────────────────────────────────────────
-  const gapRows = payload.content_gap_map
-    .sort((a, b) => b.opportunity_score - a.opportunity_score)
-    .slice(0, 8)
-    .map((g) => `| ${g.topic} | ${g.estimated_volume.toLocaleString()} | ${g.competitor_coverage} | ${g.opportunity_score}/100 |`)
-    .join("\n");
-
-  const bloc3 = [
-    `### Gap map concurrentiel contenu`,
-    ``,
-    `| Sujet | Volume estimé | Couverture concurrents | Score opportunité |`,
-    `|-------|---------------|------------------------|-------------------|`,
-    gapRows || "| *Pas de données* | | | |",
-  ].join("\n");
-
-  // ── Bloc 4 — Signaux sociaux ──────────────────────────────────────────────
-  const signalBlocs = payload.social_signals
-    .filter((s) => s.available)
-    .map((s) => {
-      const hooks = s.trending_hooks.slice(0, 3).map((h) => `*"${h}"*`).join(", ");
-      return `**${s.platform}** — Format : ${s.dominant_format} · Ton : ${s.dominant_tone} · Engagement moyen : ${s.engagement_benchmark}\n  Hooks récurrents : ${hooks || "—"}`;
-    })
-    .join("\n\n");
-
-  const weakSignals = payload.trending_topics
-    .filter((t) => t.classification === "weak_signal")
-    .slice(0, 3)
-    .map((t) => `- ${t.topic} (${t.opportunity_score}/100, horizon ${t.estimated_horizon})`)
-    .join("\n");
-
-  const bloc4 = [
-    `### Signaux sociaux émergents`,
-    ``,
-    signalBlocs || "*Pas de signaux sociaux disponibles*",
-    ``,
-    `**Signaux faibles à surveiller :**`,
-    weakSignals || "*Aucun signal faible détecté*",
-  ].join("\n");
-
-  // ── Bloc 5 — Roadmap 30 jours ────────────────────────────────────────────
-  const roadmap = [1, 2, 3, 4]
-    .map((week) => {
-      const entries = payload.roadmap_30d.filter((e) => e.week === week);
-      if (entries.length === 0) return null;
-      const lines = entries
-        .map((e) => `  - **[${e.priority}]** ${e.canal} · ${e.format} — *${e.suggested_title}* (${e.objective})`)
-        .join("\n");
-      return `**Semaine ${week}**\n${lines}`;
-    })
-    .filter(Boolean)
-    .join("\n\n");
-
-  const bloc5 = [
-    `### Roadmap contenu 30 jours`,
-    ``,
-    roadmap || "*Roadmap non disponible*",
-  ].join("\n");
-
-  // ── Bloc 6 — Évolution vs précédent ───────────────────────────────────────
-  let bloc6 = "";
-  if (payload.previous && payload.mode === "récurrent") {
-    const prevTopics = new Set(payload.previous.trending_topics);
-    const prevSaturated = new Set(payload.previous.saturated_topics);
-    const currentTopics = new Set(payload.trending_topics.map((t) => t.topic));
-    const currentSaturated = new Set(payload.saturated_topics.map((s) => s.topic));
-
-    const newTrending = payload.trending_topics
-      .filter((t) => !prevTopics.has(t.topic))
-      .map((t) => `- **${t.topic}** (${t.opportunity_score}/100)`)
-      .join("\n");
-
-    const becameSaturated = payload.saturated_topics
-      .filter((s) => prevTopics.has(s.topic) && !prevSaturated.has(s.topic))
-      .map((s) => `- ~~${s.topic}~~ — ${s.reason}`)
-      .join("\n");
-
-    const disappeared = [...prevTopics]
-      .filter((t) => !currentTopics.has(t) && !currentSaturated.has(t))
-      .map((t) => `- ${t}`)
-      .join("\n");
-
-    bloc6 = [
-      `### Évolution vs rapport précédent`,
-      ``,
-      `**Nouveaux sujets en tendance :**`,
-      newTrending || "*Aucun nouveau sujet*",
-      ``,
-      `**Sujets devenus saturés :**`,
-      becameSaturated || "*Aucun sujet passé en saturation*",
-      ``,
-      `**Sujets disparus :**`,
-      disappeared || "*Aucun sujet disparu*",
-    ].join("\n");
-  }
-
-  const blocs = [header, bloc1, bloc2, bloc3, bloc4, bloc5];
-  if (bloc6) blocs.push(bloc6);
-  return blocs.join("\n\n");
-}
-
-// ── Route POST ────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user?.workspaceId) {
+    return Response.json({ error: "UNAUTHORIZED" }, { status: 401 })
+  }
+  const workspaceId = session.user.workspaceId
+
+  let body: { priority_channels?: string[]; sector?: string } = {}
   try {
-    return await handleMtsRequest(req);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected internal error";
-    const encoder = new SSEEncoder();
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode("error", { message }));
-        controller.enqueue(encoder.encode("stream-end", {}));
-        controller.close();
-      },
-    });
-    return new Response(stream, { headers: SSE_HEADERS });
-  }
-}
-
-async function handleMtsRequest(req: Request) {
-  // ── Auth ───────────────────────────────────────────────────────────────────
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session?.user) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user?.workspaceId) {
-    return new Response("No workspace", { status: 400 });
-  }
-
-  const workspaceId = user.workspaceId;
-
-  // ── Input validation ───────────────────────────────────────────────────────
-  let body: unknown;
-  try {
-    body = await req.json();
+    body = (await req.json()) as typeof body
   } catch {
-    return new Response("Invalid JSON body", { status: 400 });
+    // empty body is fine
   }
 
-  const parsed = MtsRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
+  const profileRow = await prisma.elevayBrandProfile.findUnique({
+    where: { workspaceId },
+  })
+  if (!profileRow) {
+    return Response.json(
+      { error: "NO_PROFILE", message: "Configure your brand profile first" },
+      { status: 400 },
+    )
   }
+
+  const previousRun = await prisma.elevayAgentRun.findFirst({
+    where: { workspaceId, agentCode: "MTS-02" },
+    orderBy: { createdAt: "desc" },
+  })
+
+  const previousComparison: MtsPreviousComparison | undefined = previousRun
+    ? (() => {
+        const prev = previousRun.output as unknown as AgentOutput<MtsOutput>
+        return {
+          date: previousRun.createdAt.toISOString(),
+          global_score: prev.payload?.global_score ?? 0,
+          trending_topics:
+            prev.payload?.trending_topics.map((t) => t.topic) ?? [],
+          saturated_topics:
+            prev.payload?.saturated_topics.map((t) => t.topic) ?? [],
+        }
+      })()
+    : undefined
+
+  const competitors = profileRow.competitors as unknown as Array<{
+    name: string
+    url: string
+  }>
+  const profile: AgentProfile = {
+    workspaceId: profileRow.workspaceId,
+    brand_name: profileRow.brand_name,
+    brand_url: profileRow.brand_url,
+    country: profileRow.country,
+    language: profileRow.language,
+    competitors,
+    primary_keyword: profileRow.primary_keyword,
+    secondary_keyword: profileRow.secondary_keyword,
+    sector: profileRow.sector ?? undefined,
+    priority_channels: profileRow.priority_channels,
+    objective: profileRow.objective ?? undefined,
+    facebookConnected: profileRow.facebookConnected,
+    facebookComposioAccountId:
+      profileRow.facebookComposioAccountId ?? undefined,
+    instagramConnected: profileRow.instagramConnected,
+    instagramComposioAccountId:
+      profileRow.instagramComposioAccountId ?? undefined,
+  }
+
+  const rawChannels = body.priority_channels ?? profileRow.priority_channels
+  const priorityChannels = rawChannels
+    .map(toValidChannel)
+    .filter((c): c is ValidChannel => c !== null)
 
   const context: MtsSessionContext = {
-    sector:            parsed.data.sector,
-    priority_channels: parsed.data.priority_channels,
-  };
-
-  // ── Profil de marque ───────────────────────────────────────────────────────
-  const brandProfileRecord = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId },
-  });
-
-  if (!brandProfileRecord) {
-    const encoder = new SSEEncoder();
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(
-          encoder.encode("error", {
-            message:
-              "Brand profile not configured. Go to settings to set up your brand.",
-          }),
-        );
-        controller.enqueue(encoder.encode("stream-end", {}));
-        controller.close();
-      },
-    });
-    return new Response(stream, { headers: SSE_HEADERS });
+    sector: body.sector ?? profileRow.sector ?? profile.primary_keyword,
+    priority_channels:
+      priorityChannels.length > 0 ? priorityChannels : ["SEO"],
   }
 
-  const profile: ElevayAgentProfile = {
-    organisationId:    brandProfileRecord.workspaceId,
-    brand_name:        brandProfileRecord.brand_name,
-    brand_url:         brandProfileRecord.brand_url,
-    country:           brandProfileRecord.country,
-    language:          brandProfileRecord.language,
-    competitors:       brandProfileRecord.competitors as { name: string; url: string }[],
-    primary_keyword:   brandProfileRecord.primary_keyword,
-    secondary_keyword: brandProfileRecord.secondary_keyword,
-  };
+  const startedAt = Date.now()
 
-  // ── Run précédent pour comparaison historique ──────────────────────────────
-  const previousRunRecord = await prisma.elevayAgentRun.findFirst({
-    where: { workspaceId, agentCode: "MTS-02", status: { in: ["COMPLETED", "PARTIAL"] } },
-    orderBy: { createdAt: "desc" },
-  });
+  return createSSEStream(async (emit) => {
+    emit("status", {
+      message: "[0/5] Starting trend analysis...",
+      index: 0,
+      total: 5,
+    })
 
-  const previousData: MtsPreviousComparison | undefined = previousRunRecord
-    ? (() => {
-        const output = previousRunRecord.output as {
-          payload?: {
-            global_score?: number;
-            opportunity_scores?: Record<string, number>;
-            trending_topics?: Array<{ topic: string }>;
-            saturated_topics?: Array<{ topic: string }>;
-          };
-        } | null;
-        const p = output?.payload;
-        if (!p?.opportunity_scores) return undefined;
-        return {
-          date: previousRunRecord.createdAt.toISOString(),
-          global_score: p.global_score ?? 0,
-          trending_topics: (p.trending_topics ?? []).map((t) => t.topic),
-          saturated_topics: (p.saturated_topics ?? []).map((t) => t.topic),
-        };
-      })()
-    : undefined;
+    const output = await runMts02(profile, context)
 
-  // ── SSE Stream ────────────────────────────────────────────────────────────
-  const encoder = new SSEEncoder();
-  const streamId = generateStreamId();
-  const startTime = Date.now();
+    emit("status", {
+      message: `[2/5] Trends ${output.degraded_sources.includes("trends") ? "⚠" : "✓"}`,
+      module: "trends",
+      index: 2,
+      total: 5,
+    })
+    emit("status", {
+      message: `[3/5] Content ${output.degraded_sources.includes("content") ? "⚠" : "✓"}`,
+      module: "content",
+      index: 3,
+      total: 5,
+    })
+    emit("status", {
+      message: "[4/5] Synthesis ✓",
+      module: "synthesis",
+      index: 4,
+      total: 5,
+    })
+    emit("status", {
+      message: "[5/5] LLM analysis ✓",
+      module: "llm",
+      index: 5,
+      total: 5,
+    })
 
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      try {
-        controller.enqueue(encoder.retryDirective(3000));
-        controller.enqueue(
-          encoder.encode("stream-start", {
-            streamId,
-            conversationId: `mts-${workspaceId}`,
-            ts: Date.now(),
-          }),
-        );
+    if (previousComparison) {
+      output.payload.previous = previousComparison
+    }
 
-        // ── Phase A — modules 1, 3, 4 en parallèle ───────────────────────
-        const degraded_sources: string[] = [];
+    const status =
+      output.degraded_sources.length > 0 ? "PARTIAL" : "COMPLETED"
+    await prisma.elevayAgentRun.create({
+      data: {
+        workspaceId,
+        agentCode: "MTS-02",
+        status,
+        output: output as unknown as Prisma.InputJsonValue,
+        degradedSources: output.degraded_sources,
+        durationMs: Date.now() - startedAt,
+        brandProfileId: profileRow.id,
+      },
+    })
 
-        const [trendsSettled, competitiveSettled, socialListeningSettled] =
-          await Promise.allSettled([
-            withStatus(fetchTrends(profile, context.sector, context.priority_channels),          1, "Tendances macro",         encoder, controller),
-            withStatus(fetchCompetitive(profile, context.sector),                                  3, "Analyse concurrentielle", encoder, controller),
-            withStatus(fetchSocialListening(profile, context.sector, context.priority_channels),  4, "Social listening",        encoder, controller),
-          ]);
-
-        function extract<T>(
-          settled: PromiseSettledResult<ModuleResult<T>>,
-          source: string,
-        ): ModuleResult<T> | null {
-          if (settled.status === "fulfilled") {
-            if (settled.value.degraded) degraded_sources.push(source);
-            return settled.value;
-          }
-          degraded_sources.push(source);
-          return null;
-        }
-
-        const trendsResult          = extract(trendsSettled,          "trends");
-        const competitiveResult     = extract(competitiveSettled,     "competitive");
-        const socialListeningResult = extract(socialListeningSettled, "social-listening");
-
-        // ── Phase B — module 2 après trends (dépend des rising_keywords) ──
-        const risingKeywords = trendsResult?.data?.rising_keywords ?? [];
-        const contentSettledRaw = await withStatus(
-          fetchContent(profile, risingKeywords),
-          2, "Contenus performants",
-          encoder, controller,
-        )
-          .then((r) => ({ status: "fulfilled" as const, value: r }))
-          .catch((err: unknown) => ({ status: "rejected" as const, reason: err }));
-
-        const contentResult = extract(
-          contentSettledRaw as PromiseSettledResult<ModuleResult<ContentPerformanceData>>,
-          "content",
-        );
-
-        // ── Phase C — synthèse + LLM ──────────────────────────────────────
-        controller.enqueue(
-          encoder.encode("status", { step: 5, total: 5, label: "[5/5] Synthesis and scoring in progress…" }),
-        );
-
-        // ── Synthèse ──────────────────────────────────────────────────────
-        const synthesis = runSynthesis({
-          trends: trendsResult,
-          content: contentResult,
-          competitive: competitiveResult,
-          socialListening: socialListeningResult,
-        });
-
-        const scores = calculateMtsScores(synthesis);
-
-        const results: ModuleResults = {
-          trends: trendsResult,
-          content: contentResult,
-          competitive: competitiveResult,
-          socialListening: socialListeningResult,
-        };
-
-        // ── Appel LLM consolidé ───────────────────────────────────────────
-
-        const prompt = buildConsolidatedPrompt(profile, context, results, synthesis, scores, previousData);
-        const llmResponse = await callLLM({
-          system: SYSTEM_PROMPT,
-          prompt,
-          maxTokens: 4096,
-        });
-
-        const analysis = parseLLMAnalysis(llmResponse.content);
-
-        // ── Assembler le payload final ─────────────────────────────────────
-        const mode: MtsMode = previousData ? "récurrent" : "ponctuel";
-        const payload: MtsOutput = {
-          global_score: scores.global_score,
-          sector: context.sector,
-          analysis_period: new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
-          mode,
-          session_context: context,
-          trending_topics: analysis.trending_topics.length > 0
-            ? analysis.trending_topics
-            : synthesis.trending_topics,
-          saturated_topics: analysis.saturated_topics.length > 0
-            ? analysis.saturated_topics
-            : synthesis.saturated_topics,
-          content_gap_map: synthesis.content_gap_map,
-          format_matrix: analysis.format_matrix.length > 0
-            ? analysis.format_matrix
-            : synthesis.format_matrix,
-          social_signals: synthesis.social_signals,
-          differentiating_angles: analysis.differentiating_angles.length > 0
-            ? analysis.differentiating_angles
-            : synthesis.differentiating_angles,
-          roadmap_30d: analysis.roadmap_30d,
-          opportunity_scores: scores.opportunity_scores,
-          ...(previousData ? { previous: previousData } : {}),
-        };
-
-        const agentOutput: AgentOutput<MtsOutput> = {
-          agent_code:    "MTS-02",
-          analysis_date: new Date().toISOString(),
-          brand_profile: profile,
-          payload,
-          degraded_sources,
-          version:       "1.0",
-        };
-
-        // ── Emit result + markdown ────────────────────────────────────────
-        controller.enqueue(
-          encoder.encode("result", { mtsOutput: payload, brandName: profile.brand_name }),
-        );
-
-        const markdown = formatMtsAsMarkdown(profile.brand_name, payload);
-        controller.enqueue(encoder.encode("text-delta", { delta: markdown }));
-
-        // ── Persistance ───────────────────────────────────────────────────
-        const status = degraded_sources.length > 0 ? "PARTIAL" : "COMPLETED";
-        await prisma.elevayAgentRun.create({
-          data: {
-            workspaceId,
-            agentCode:      "MTS-02",
-            status,
-            output:         agentOutput as unknown as Prisma.InputJsonValue,
-            degradedSources: degraded_sources,
-            durationMs:     Date.now() - startTime,
-            brandProfileId: brandProfileRecord.id,
-          },
-        });
-
-        // ── Fin du stream ─────────────────────────────────────────────────
-        controller.enqueue(
-          encoder.encode("finish", {
-            tokensIn:    llmResponse.inputTokens,
-            tokensOut:   llmResponse.outputTokens,
-            totalSteps:  5,
-            finishReason: llmResponse.stopReason,
-          }),
-        );
-        controller.enqueue(encoder.encode("stream-end", {}));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unexpected error";
-        controller.enqueue(encoder.encode("error", { message }));
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, { headers: SSE_HEADERS });
+    emit("result", { output: output.payload })
+    emit("finish", {
+      durationMs: Date.now() - startedAt,
+      degraded_sources: output.degraded_sources,
+    })
+  })
 }

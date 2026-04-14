@@ -4,7 +4,7 @@ import { inngest } from './client';
 import { computeNextDate } from '@/lib/schedule-utils';
 import { getLatestOutputByAgent } from '@/lib/agent-history';
 import type { AgentId } from './events';
-import type { ElevayAgentProfile } from '@/agents/_shared/types';
+import type { AgentProfile } from '@/agents/_shared/types';
 
 // ─── Agent code mapping ──────────────────────────────────
 
@@ -172,8 +172,8 @@ export const agentRunScheduled = inngest.createFunction(
     // Route to the correct agent
     const result = await step.run(`run-${agentId}`, async () => {
       const startTime = Date.now();
-      const bmiProfile: ElevayAgentProfile = {
-        organisationId: workspaceId,
+      const bmiProfile: AgentProfile = {
+        workspaceId: workspaceId,
         brand_name: profile.brand_name,
         brand_url: profile.brand_url,
         country: profile.country,
@@ -256,7 +256,7 @@ async function runAgent(
   context: AgentRunContext,
   siteUrl: string,
   keywords: string[],
-  profile: ElevayAgentProfile,
+  profile: AgentProfile,
   workspaceId: string,
 ): Promise<{ output: unknown }> {
   switch (agentId) {
@@ -371,25 +371,25 @@ async function runAgent(
     }
     // ─── Task 2: Brand-intel agents ──────────────────────────────────────────
     case 'bpi01': {
-      const { run } = await import('../agents/bpi-01/index');
-      const result = await run(profile);
+      const { runBpi01 } = await import('../agents/bpi-01/index');
+      const result = await runBpi01(profile);
       return { output: result };
     }
     case 'cia03': {
-      const { run } = await import('../agents/cia-03/index');
-      const result = await run(profile, {
-        priority_channels: ['SEO', 'social', 'product', 'global'],
+      const { runCia03 } = await import('../agents/cia-03/index');
+      const result = await runCia03(profile, {
+        priority_channels: ['SEO'],
         objective: 'acquisition',
-      }, workspaceId);
-      return { output: result.agentOutput };
+      });
+      return { output: result };
     }
     case 'mts02': {
-      const { run } = await import('../agents/mts-02/index');
-      const result = await run(profile, {
+      const { runMts02 } = await import('../agents/mts-02/index');
+      const result = await runMts02(profile, {
         sector: profile.primary_keyword,
         priority_channels: ['SEO', 'LinkedIn', 'YouTube'],
       });
-      return { output: result.agentOutput };
+      return { output: result };
     }
     default: {
       const _exhaustive: never = agentId;

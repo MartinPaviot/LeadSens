@@ -71,7 +71,7 @@ export async function detectBrandContext(
     try {
       const res = await callLLM({
         system: "You are a business analyst. Answer with only the requested information, no explanation.",
-        prompt: `Based on this website content, identify the business sector/industry in 2-4 words maximum (e.g. "luxury fashion", "B2B SaaS HR", "e-commerce beauty", "digital marketing"). Only return the sector name, nothing else.\n\nWebsite content (first 2000 chars):\n${jinaText.slice(0, 2000)}`,
+        user: `Based on this website content, identify the business sector/industry in 2-4 words maximum (e.g. "luxury fashion", "B2B SaaS HR", "e-commerce beauty", "digital marketing"). Only return the sector name, nothing else.\n\nWebsite content (first 2000 chars):\n${jinaText.slice(0, 2000)}`,
         maxTokens: 50,
       });
       suggested_sector = res.content.trim().slice(0, 100);

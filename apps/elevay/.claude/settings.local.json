@@ -138,7 +138,25 @@
       "Bash(xxd)",
       "Bash(xargs head:*)",
       "Bash(ls src/app/\\\\\\(dashboard\\\\\\)/influence/page.tsx)",
-      "Bash(ls -la src/app/\\\\\\(dashboard\\\\\\)/brand-intel/page.tsx)"
+      "Bash(ls -la src/app/\\\\\\(dashboard\\\\\\)/brand-intel/page.tsx)",
+      "Bash(npx prisma:*)",
+      "Bash(npx prisma@6 generate)",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/mts-02/index.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/mts-02/index.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/mts-02/types.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/mts-02/types.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/mts-02/prompt.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/mts-02/prompt.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/mts-02/scoring.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/mts-02/scoring.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/mts-02/modules/\"*.ts \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/mts-02/modules/\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/cia-03/index.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/cia-03/index.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/cia-03/types.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/cia-03/types.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/cia-03/prompt.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/cia-03/prompt.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/cia-03/scoring.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/cia-03/scoring.ts\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/agents/cia-03/modules/\"*.ts \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/cia-03/modules/\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/BrandIntelDashboard.tsx\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/BrandIntelDashboard.tsx\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/AgentProgress.tsx\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/AgentProgress.tsx\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/BrandProfileForm.tsx\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/BrandProfileForm.tsx\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/TabNav.tsx\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/TabNav.tsx\")",
+      "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/tokens.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/tokens.ts\")",
+      "Bash(xargs sed:*)"
     ]
   }
 }

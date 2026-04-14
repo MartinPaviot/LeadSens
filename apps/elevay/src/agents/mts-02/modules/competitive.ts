@@ -1,210 +1,95 @@
-import type { ElevayAgentProfile, ModuleResult } from "../../_shared/types";
-import { searchSerp, searchNews, getKeywordData } from "../../_shared/composio";
-import type { CompetitiveContentData, CompetitorContent, ContentGap } from "../types";
+import { composio } from '@/agents/_shared/composio'
+import type { ModuleResult, AgentProfile } from '@/agents/_shared/types'
+import type { CompetitiveContentData } from '../types'
 
-// ── Infer publication frequency ───────────────────────────────────────────────
-
-function inferFrequency(
-  articleCount: number,
-): CompetitorContent["publication_frequency"] {
-  if (articleCount >= 15) return "high";
-  if (articleCount >= 6) return "medium";
-  if (articleCount >= 1) return "low";
-  return "unknown";
+interface ScrapedPage {
+  content?: string
+  markdown?: string
 }
 
-// ── Extract topics from SERP snippets ────────────────────────────────────────
-
-function extractTopics(snippets: string[]): string[] {
-  // Extraire des n-grammes significatifs (simpliste mais efficace sans NLP)
-  const stopWords = new Set([
-    "le", "la", "les", "de", "du", "des", "un", "une", "et", "en", "à",
-    "the", "a", "an", "of", "in", "for", "with", "is", "are", "and", "or",
-    "how", "to", "your", "you", "our", "we", "their", "this", "that", "it",
-  ]);
-
-  const wordCounts: Record<string, number> = {};
-  for (const snippet of snippets) {
-    const words = snippet
-      .toLowerCase()
-      .replace(/[^a-zA-ZÀ-ÿ\s]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length >= 4 && !stopWords.has(w));
-
-    for (const word of words) {
-      wordCounts[word] = (wordCounts[word] ?? 0) + 1;
-    }
-  }
-
-  return Object.entries(wordCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([word]) => word);
+function extractThemes(text: string): string[] {
+  const themePatterns = [
+    /\b(stratégie|strategy)\b/i,
+    /\b(marketing|marketing digital)\b/i,
+    /\b(innovation|tech|technologie)\b/i,
+    /\b(growth|croissance)\b/i,
+    /\b(leadership|management)\b/i,
+    /\b(seo|référencement)\b/i,
+    /\b(data|analytics)\b/i,
+    /\b(produit|product)\b/i,
+  ]
+  return themePatterns
+    .filter((p) => p.test(text))
+    .map((p) => p.source.replace(/\\b|\(|\)|\/i/g, '').split('|')[0] ?? '')
+    .filter(Boolean)
+    .slice(0, 5)
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+function estimateFrequency(content: string): string {
+  const datePatterns = content.match(
+    /\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{2}[\/\-\.]\d{2}/g,
+  )
+  const count = datePatterns?.length ?? 0
+  if (count >= 12) return '3x/week+'
+  if (count >= 4) return '1x/week'
+  if (count >= 2) return '2x/month'
+  if (count >= 1) return '1x/month'
+  return 'Irregular'
+}
 
 export async function fetchCompetitive(
-  profile: ElevayAgentProfile,
-  sector: string,
+  profile: AgentProfile,
 ): Promise<ModuleResult<CompetitiveContentData>> {
   try {
-    const competitors = profile.competitors.slice(0, 3);
-
+    const competitors = profile.competitors.slice(0, 3)
     if (competitors.length === 0) {
-      return {
-        success: true,
-        data: {
-          competitor_content: [],
-          saturated_angles: [],
-          missing_angles: [],
-          content_gaps: [],
-        },
-        source: "competitive",
-        degraded: true,
-      };
+      return { success: false, data: null, source: 'competitive', degraded: true }
     }
 
-    // Pour chaque concurrent : blog scraping via SERP + news
-    const competitorResults = await Promise.allSettled(
-      competitors.map(async (c) => {
-        const [blogSerp, newsResult] = await Promise.allSettled([
-          searchSerp(`site:${c.url}`, profile.country),
-          searchNews(`${c.name} ${sector}`, profile.language),
-        ]);
-
-        const blogItems = blogSerp.status === "fulfilled"
-          ? blogSerp.value.organic_results ?? []
-          : [];
-
-        const newsItems = newsResult.status === "fulfilled"
-          ? (newsResult.value.articles ?? newsResult.value.news_results ?? [])
-          : [];
-
-        const allSnippets = [
-          ...blogItems.map((i) => `${i.title} ${i.snippet}`),
-          ...newsItems.slice(0, 10).map((a) => a.title),
-        ];
-
-        return {
-          name: c.name,
-          url: c.url,
-          topics: extractTopics(allSnippets),
-          formats: inferFormatsFromSnippets(allSnippets),
-          publication_frequency: inferFrequency(blogItems.length + newsItems.length),
-        } satisfies CompetitorContent;
+    const scrapeResults = await Promise.allSettled(
+      competitors.map((c) => {
+        const blogUrl = c.url.replace(/\/$/, '') + '/blog'
+        return composio.scrapeUrl(blogUrl)
       }),
-    );
+    )
 
-    const competitor_content: CompetitorContent[] = [];
-    const degraded_competitors: string[] = [];
+    const competitorData = competitors.map((c, i) => {
+      const result = scrapeResults[i]
+      const raw =
+        result?.status === 'fulfilled'
+          ? (result.value as ScrapedPage | null)
+          : null
+      const text = raw?.markdown ?? raw?.content ?? ''
 
-    for (let i = 0; i < competitors.length; i++) {
-      const result = competitorResults[i];
-      if (result.status === "fulfilled") {
-        competitor_content.push(result.value);
-      } else {
-        degraded_competitors.push(competitors[i].name);
-        competitor_content.push({
-          name: competitors[i].name,
-          url: competitors[i].url,
-          topics: [],
-          formats: [],
-          publication_frequency: "unknown",
-        });
+      return {
+        name: c.name,
+        publishing_frequency: text ? estimateFrequency(text) : 'Unknown',
+        content_themes: text ? extractThemes(text) : [],
+        has_youtube: text.toLowerCase().includes('youtube'),
+        has_lead_magnets:
+          text.toLowerCase().includes('download') ||
+          text.toLowerCase().includes('download') ||
+          text.toLowerCase().includes('ebook') ||
+          text.toLowerCase().includes('guide'),
       }
+    })
+
+    const hasAnyData = competitorData.some((c) => c.publishing_frequency !== 'Unknown')
+    if (!hasAnyData) {
+      return { success: false, data: null, source: 'competitive', degraded: true }
     }
-
-    // Angles saturés = topics présents chez TOUS les concurrents
-    // Angles manquants = topics présents chez AUCUN concurrent
-    const allTopicSets = competitor_content
-      .filter((c) => c.topics.length > 0)
-      .map((c) => new Set(c.topics));
-
-    const saturated_angles = allTopicSets.length > 0
-      ? [...allTopicSets[0]].filter((topic) =>
-          allTopicSets.every((set) => set.has(topic)),
-        )
-      : [];
-
-    // Angles manquants : topics du primary keyword non couverts par concurrents
-    const brandTopicsResult = await searchSerp(
-      profile.primary_keyword,
-      profile.country,
-    ).catch(() => null);
-
-    const brandSnippets = (brandTopicsResult?.organic_results ?? []).map(
-      (i) => `${i.title} ${i.snippet}`,
-    );
-    const brandTopics = extractTopics(brandSnippets);
-    const allCompetitorTopics = new Set(
-      competitor_content.flatMap((c) => c.topics),
-    );
-    const missing_angles = brandTopics.filter((t) => !allCompetitorTopics.has(t));
-
-    // Content gaps — volumes DataForSEO pour les missing angles
-    const gapResults = await Promise.allSettled(
-      missing_angles.slice(0, 5).map((topic) =>
-        getKeywordData(topic, profile.country),
-      ),
-    );
-
-    const content_gaps: ContentGap[] = missing_angles.slice(0, 5).map((topic, i) => {
-      const result = gapResults[i];
-      const volume = result.status === "fulfilled" ? result.value.rank ?? 0 : 0;
-
-      // Coverage score basé sur le nombre de concurrents couvrant ce topic
-      const coveringCount = competitor_content.filter((c) =>
-        c.topics.includes(topic),
-      ).length;
-      const coverage: ContentGap["competitor_coverage"] =
-        coveringCount === 0 ? "none" :
-        coveringCount === 1 ? "low" :
-        coveringCount <= 2 ? "medium" : "high";
-
-      // Score opportunité : volume élevé + faible couverture
-      const volScore = Math.min(25, Math.round(volume / 100));
-      const covScore = coverage === "none" ? 25 : coverage === "low" ? 15 : coverage === "medium" ? 10 : 5;
-      const opportunity_score = Math.min(100, volScore + covScore + 25);  // base 25
-
-      return { topic, estimated_volume: volume, competitor_coverage: coverage, opportunity_score };
-    });
-
-    const isDegraded = degraded_competitors.length > 0;
 
     return {
       success: true,
-      data: { competitor_content, saturated_angles, missing_angles, content_gaps },
-      source: "serpapi+gnews",
-      degraded: isDegraded,
-    };
+      data: { competitors: competitorData },
+      source: 'competitive',
+    }
   } catch (err) {
     return {
       success: false,
       data: null,
-      source: "competitive",
-      error: {
-        code: "MODULE_FETCH_FAILED",
-        message: err instanceof Error ? err.message : "Competitive fetch failed",
-      },
-      degraded: true,
-    };
+      source: 'competitive',
+      error: { code: 'FETCH_FAILED', message: String(err) },
+    }
   }
-}
-
-// ── Infer formats from snippets ───────────────────────────────────────────────
-
-function inferFormatsFromSnippets(snippets: string[]): string[] {
-  const formats = new Set<string>();
-  const combined = snippets.join(" ").toLowerCase();
-
-  if (/\b(guide|tutorial|how to|comment)\b/.test(combined)) formats.add("guide");
-  if (/\b(ebook|livre blanc|whitepaper)\b/.test(combined)) formats.add("ebook");
-  if (/\b(webinar|webinaire)\b/.test(combined)) formats.add("webinar");
-  if (/\b(étude de cas|case study)\b/.test(combined)) formats.add("étude de cas");
-  if (/\b(vidéo|video|youtube)\b/.test(combined)) formats.add("vidéo");
-  if (/\b(checklist|template|modèle)\b/.test(combined)) formats.add("checklist");
-  if (/\b(rapport|report|étude|study)\b/.test(combined)) formats.add("rapport");
-
-  return formats.size > 0 ? [...formats] : ["article"];
 }
