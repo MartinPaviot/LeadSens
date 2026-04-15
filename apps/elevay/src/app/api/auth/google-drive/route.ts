@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { requireEnv } from "@/lib/env";
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export async function GET() {
   });
 
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID!);
+  url.searchParams.set("client_id", requireEnv("GOOGLE_CLIENT_ID"));
   url.searchParams.set(
     "redirect_uri",
     `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google-drive/callback`,

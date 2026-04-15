@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireEnv } from "@/lib/env";
+import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from "@/lib/sse";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
@@ -52,6 +53,11 @@ export async function POST(req: Request) {
   });
   if (!user?.workspaceId) {
     return new Response("No workspace", { status: 400 });
+  }
+
+  const rateCheck = await checkLLMRateLimit(session.user.id, user.workspaceId);
+  if (!rateCheck.allowed) {
+    return rateLimitResponse(rateCheck.retryAfter);
   }
 
   const brandProfile = await prisma.elevayBrandProfile

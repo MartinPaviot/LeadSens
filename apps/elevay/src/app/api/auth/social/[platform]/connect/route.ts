@@ -73,7 +73,7 @@ export async function POST(
         }),
       });
       return Response.json({ redirectUrl: connection.redirectUrl }, {
-        headers: { "Cross-Origin-Opener-Policy": "unsafe-none" },
+        headers: { "Cross-Origin-Opener-Policy": "same-origin-allow-popups" },
       });
     } catch (composioErr) {
       // Graceful fallback: store "pending" in DB (merge with existing connections)

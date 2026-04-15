@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { env } from "@/lib/env"
+import { trackAIEvent } from "@/lib/ai-tracker"
 import type { LLMRequest, LLMResponse } from "./types"
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
@@ -28,7 +29,10 @@ function parseRobust(raw: string): unknown {
   return JSON.parse(s)
 }
 
-export async function callLLM(req: LLMRequest): Promise<LLMResponse> {
+export async function callLLM(
+  req: LLMRequest,
+  trackingContext?: { workspaceId: string; agentCode: string },
+): Promise<LLMResponse> {
   const start = Date.now()
 
   const controller = new AbortController()
@@ -65,6 +69,18 @@ export async function callLLM(req: LLMRequest): Promise<LLMResponse> {
       },
       latencyMs: Date.now() - start,
       model: response.model,
+    }
+
+    // Track cost (fire-and-forget, never blocks)
+    if (trackingContext) {
+      void trackAIEvent({
+        workspaceId: trackingContext.workspaceId,
+        agentCode: trackingContext.agentCode,
+        model: response.model,
+        tokensIn: response.usage.input_tokens,
+        tokensOut: response.usage.output_tokens,
+        latencyMs: result.latencyMs,
+      })
     }
 
     return result

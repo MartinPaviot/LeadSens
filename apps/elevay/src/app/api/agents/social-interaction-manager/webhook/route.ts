@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { processMessage, FAQCache } from "@/agents/social-interaction-manager/index"
 import { normalizeMessage } from "@/agents/social-interaction-manager/modules/receiver"
@@ -7,14 +8,42 @@ import { NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
+// ── HMAC Signature Verification ─────────────────────────
+
+function verifySignature(rawBody: string, signature: string | null): boolean {
+  const secret = process.env.SMI_WEBHOOK_SECRET
+  if (!secret) return false
+  if (!signature) return false
+
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex")
+
+  // Ensure equal length before timing-safe comparison
+  if (expected.length !== signature.length) return false
+
+  return timingSafeEqual(
+    Buffer.from(expected, "utf-8"),
+    Buffer.from(signature, "utf-8"),
+  )
+}
+
 /**
  * Webhook endpoint for incoming social media messages.
  * Called by Composio when a new DM/comment/mention arrives.
+ * Protected by HMAC-SHA256 signature verification.
  */
 export async function POST(req: Request) {
+  // Read raw body BEFORE parsing (stream consumed once)
+  const rawBody = await req.text()
+
+  // Verify HMAC signature
+  const signature = req.headers.get("x-webhook-signature")
+  if (!verifySignature(rawBody, signature)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+  }
+
   let body: Record<string, unknown>
   try {
-    body = (await req.json()) as Record<string, unknown>
+    body = JSON.parse(rawBody) as Record<string, unknown>
   } catch {
     return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 })
   }
@@ -29,7 +58,6 @@ export async function POST(req: Request) {
     )
   }
 
-  // Load config from workspace
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: { settings: true },
@@ -45,17 +73,12 @@ export async function POST(req: Request) {
     )
   }
 
-  // Normalize the incoming message
   const message = normalizeMessage(platform, body)
 
-  // Load FAQ cache
   const faqCache = new FAQCache()
-  // TODO: Load FAQs from DB
 
-  // Process the message
   const result = await processMessage(message, config, faqCache)
 
-  // Persist the run
   await prisma.elevayAgentRun.create({
     data: {
       workspaceId,

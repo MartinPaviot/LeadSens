@@ -5,6 +5,7 @@ import { runSMC } from "@/agents/social-campaign-manager/index"
 import { CampaignBriefSchema } from "@/agents/social-campaign-manager/modules/diagnostic"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
+import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 
 export const maxDuration = 300
 export const dynamic = "force-dynamic"
@@ -27,6 +28,11 @@ export async function POST(req: Request) {
   }
   if (!workspaceId) {
     return NextResponse.json({ error: "No workspace" }, { status: 400 })
+  }
+
+  const rateCheck = await checkLLMRateLimit(session.user.id, workspaceId)
+  if (!rateCheck.allowed) {
+    return rateLimitResponse(rateCheck.retryAfter)
   }
 
   let body: unknown

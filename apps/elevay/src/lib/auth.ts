@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { twoFactor } from "better-auth/plugins";
 import { prisma } from "./prisma";
 
 function slugify(text: string): string {
@@ -19,6 +20,25 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
+
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh if > 1 day old
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5, // cache 5 min client-side
+    },
+  },
+
+  plugins: [
+    twoFactor({
+      issuer: "Elevay",
+      totpOptions: {
+        period: 30,
+        digits: 6,
+      },
+    }),
+  ],
 
   socialProviders: {
     google: {

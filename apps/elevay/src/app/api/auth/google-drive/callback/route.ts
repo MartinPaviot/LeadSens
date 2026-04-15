@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireEnv } from "@/lib/env";
+import { encrypt } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic'
 
@@ -69,8 +71,8 @@ export async function GET(req: Request) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      client_id: requireEnv("GOOGLE_CLIENT_ID"),
+      client_secret: requireEnv("GOOGLE_CLIENT_SECRET"),
       redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google-drive/callback`,
       code,
       grant_type: "authorization_code",
@@ -103,8 +105,8 @@ export async function GET(req: Request) {
     create: {
       workspaceId: user.workspaceId,
       type: "google-docs",
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token ?? null,
+      accessToken: encrypt(tokens.access_token),
+      refreshToken: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
       expiresAt: tokens.expires_in
         ? new Date(Date.now() + tokens.expires_in * 1000)
         : null,
@@ -112,8 +114,8 @@ export async function GET(req: Request) {
       status: "ACTIVE",
     },
     update: {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token ?? undefined,
+      accessToken: encrypt(tokens.access_token),
+      refreshToken: tokens.refresh_token ? encrypt(tokens.refresh_token) : undefined,
       expiresAt: tokens.expires_in
         ? new Date(Date.now() + tokens.expires_in * 1000)
         : undefined,

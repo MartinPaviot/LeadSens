@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireEnv } from "@/lib/env";
+import { decrypt, encrypt } from "@/lib/encryption";
 import { z } from "zod";
 import type { BpiOutput, Priority90d } from "@/agents/bpi-01/types";
 import type { MtsOutput, TrendingTopic, SaturatedTopic, RoadmapEntry } from "@/agents/mts-02/types";
@@ -508,13 +510,15 @@ async function refreshGoogleToken(integration: {
 }): Promise<string> {
   if (!integration.refreshToken) throw new Error("No refresh token");
 
+  const decryptedRefreshToken = decrypt(integration.refreshToken);
+
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      refresh_token: integration.refreshToken,
+      client_id: requireEnv("GOOGLE_CLIENT_ID"),
+      client_secret: requireEnv("GOOGLE_CLIENT_SECRET"),
+      refresh_token: decryptedRefreshToken,
       grant_type: "refresh_token",
     }),
   });
@@ -534,7 +538,7 @@ async function refreshGoogleToken(integration: {
       workspaceId_type: { workspaceId: integration.workspaceId, type: "google-docs" },
     },
     data: {
-      accessToken: data.access_token,
+      accessToken: encrypt(data.access_token),
       expiresAt: new Date(Date.now() + (data.expires_in ?? 3600) * 1000),
     },
   });
@@ -723,7 +727,7 @@ export async function POST(req: Request) {
     if (!integration || integration.status !== "ACTIVE") {
       return NextResponse.json({ type: "error", message: "Google Drive not connected. Please reconnect it in your settings." });
     }
-    let accessToken = integration.accessToken!;
+    let accessToken = decrypt(integration.accessToken!);
     if (integration.expiresAt && integration.expiresAt < new Date(Date.now() + 60_000)) {
       accessToken = await refreshGoogleToken({ refreshToken: integration.refreshToken, workspaceId: user.workspaceId });
     }
@@ -756,7 +760,7 @@ export async function POST(req: Request) {
     if (!integration || integration.status !== "ACTIVE") {
       return NextResponse.json({ type: "error", message: "Google Drive not connected. Please reconnect it in your settings." });
     }
-    let accessToken = integration.accessToken!;
+    let accessToken = decrypt(integration.accessToken!);
     if (integration.expiresAt && integration.expiresAt < new Date(Date.now() + 60_000)) {
       accessToken = await refreshGoogleToken({ refreshToken: integration.refreshToken, workspaceId: user.workspaceId });
     }
@@ -838,7 +842,7 @@ export async function POST(req: Request) {
     }
 
     // Refresh token if expired (60s margin)
-    let accessToken = integration.accessToken!;
+    let accessToken = decrypt(integration.accessToken!);
     if (integration.expiresAt && integration.expiresAt < new Date(Date.now() + 60_000)) {
       accessToken = await refreshGoogleToken({
         refreshToken: integration.refreshToken,

@@ -160,7 +160,11 @@
       "Bash(mkdir -p \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/social-content-writer/core\")",
       "Bash(mkdir -p \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/social-content-writer/modules\")",
       "Bash(mkdir -p \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/social-content-writer/utils\")",
-      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/agents -name \"index.ts\" -exec grep -l \"export.*run\\\\|export.*activate\" {} \\\\;)"
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/agents -name \"index.ts\" -exec grep -l \"export.*run\\\\|export.*activate\" {} \\\\;)",
+      "Bash(npm list:*)",
+      "Bash(find:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm view:*)"
     ]
   }
 }

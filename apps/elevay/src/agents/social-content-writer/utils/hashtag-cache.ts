@@ -5,21 +5,33 @@ interface CacheEntry {
   expiresAt: number
 }
 
-/** In-memory hashtag cache with 7-day TTL. */
+/** In-memory hashtag cache with 7-day TTL, isolated per workspace. */
 const cache = new Map<string, CacheEntry>()
 
-export function getCachedHashtags(topic: string): string[] | null {
-  const entry = cache.get(topic.toLowerCase())
+function cacheKey(workspaceId: string, topic: string): string {
+  return `${workspaceId}:${topic.toLowerCase()}`
+}
+
+export function getCachedHashtags(
+  workspaceId: string,
+  topic: string,
+): string[] | null {
+  const key = cacheKey(workspaceId, topic)
+  const entry = cache.get(key)
   if (!entry) return null
   if (Date.now() > entry.expiresAt) {
-    cache.delete(topic.toLowerCase())
+    cache.delete(key)
     return null
   }
   return entry.hashtags
 }
 
-export function setCachedHashtags(topic: string, hashtags: string[]): void {
-  cache.set(topic.toLowerCase(), {
+export function setCachedHashtags(
+  workspaceId: string,
+  topic: string,
+  hashtags: string[],
+): void {
+  cache.set(cacheKey(workspaceId, topic), {
     hashtags,
     expiresAt: Date.now() + CACHE_TTL.HASHTAGS * 1000,
   })

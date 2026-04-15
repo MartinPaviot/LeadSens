@@ -1,4 +1,5 @@
 import { callLLM } from "@/agents/_shared/llm";
+import { validateUrl } from "@/lib/url-validator";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,9 @@ async function brandNameFromPage(
   fallback: string,
 ): Promise<{ name: string; pageText: string }> {
   try {
+    const urlCheck = validateUrl(brand_url);
+    if (!urlCheck.valid) return { name: fallback, pageText: "" };
+
     const res = await fetch(`https://r.jina.ai/${brand_url}`, {
       headers: { Accept: "text/plain" },
       signal: AbortSignal.timeout(5000),

@@ -81,6 +81,16 @@ export async function POST(req: Request) {
 
       // Handle attachment if present
       if (attachment && attachment.size > 0) {
+        const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "text/csv", "application/pdf"]
+        const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
+
+        if (!ALLOWED_TYPES.includes(attachment.type)) {
+          return Response.json({ error: "File type not allowed" }, { status: 400 })
+        }
+        if (attachment.size > MAX_SIZE) {
+          return Response.json({ error: "File too large (max 5MB)" }, { status: 400 })
+        }
+
         const buffer = await attachment.arrayBuffer()
         const base64 = Buffer.from(buffer).toString("base64")
         resendPayload.attachments = [

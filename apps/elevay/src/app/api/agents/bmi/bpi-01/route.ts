@@ -6,6 +6,7 @@ import { runBpi01 } from "@/agents/bpi-01/index"
 import type { AgentProfile } from "@/agents/_shared/types"
 import type { BpiOutput, BpiScores } from "@/agents/bpi-01/types"
 import { safeAgentOutput } from "@/lib/type-guards"
+import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import { Prisma } from "@prisma/client"
 
 export const maxDuration = 300
@@ -17,6 +18,11 @@ export async function POST() {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 })
   }
   const workspaceId = session.user.workspaceId
+
+  const rateCheck = await checkLLMRateLimit(session.user.id, workspaceId)
+  if (!rateCheck.allowed) {
+    return rateLimitResponse(rateCheck.retryAfter)
+  }
 
   const profileRow = await prisma.elevayBrandProfile.findUnique({
     where: { workspaceId },

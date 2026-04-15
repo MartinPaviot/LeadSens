@@ -5,6 +5,7 @@ import { createSSEStream } from "@/lib/sse-brand-intel"
 import { runMts02 } from "@/agents/mts-02/index"
 import type { AgentProfile } from "@/agents/_shared/types"
 import { safeAgentOutput } from "@/lib/type-guards"
+import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import type {
   MtsOutput,
   MtsSessionContext,
@@ -40,6 +41,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 })
   }
   const workspaceId = session.user.workspaceId
+
+  const rateCheck = await checkLLMRateLimit(session.user.id, workspaceId)
+  if (!rateCheck.allowed) {
+    return rateLimitResponse(rateCheck.retryAfter)
+  }
 
   const MtsBodySchema = z.object({
     priority_channels: z.array(z.string()).optional(),
