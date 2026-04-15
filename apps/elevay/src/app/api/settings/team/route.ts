@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 async function getWorkspaceId(): Promise<string | null> {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
@@ -50,7 +52,6 @@ export async function POST(req: Request) {
 
     return Response.json(member)
   } catch (err) {
-    console.error("[settings/team] POST error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
@@ -72,7 +73,7 @@ export async function DELETE(req: Request) {
     await prisma.workspaceMember.delete({ where: { id: memberId } })
     return Response.json({ success: true })
   } catch (err) {
-    console.error("[settings/team] DELETE error:", err)
+    void err;
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

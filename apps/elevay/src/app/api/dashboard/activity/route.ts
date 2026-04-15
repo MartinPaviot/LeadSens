@@ -1,6 +1,8 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic'
+
 const AGENT_NAMES: Record<string, string> = {
   'BSW-10': 'Blog writer',
   'MDG-11': 'Meta description generator',
@@ -13,6 +15,11 @@ const AGENT_NAMES: Record<string, string> = {
   'BPI-01': 'Brand audit',
   'CIA-03': 'Competitive intelligence',
   'MTS-02': 'Market trends',
+  'SCW-16': 'Content writer',
+  'SMC-19': 'Social campaigns',
+  'SMI-20': 'Social inbox',
+  'CRM-27': 'CRM campaigns',
+  'BDG-32': 'Budget controller',
 };
 
 function buildSummary(

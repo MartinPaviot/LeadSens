@@ -11,13 +11,22 @@ interface SerpResult {
   }>
 }
 
+/** SERP position → visibility score mapping */
+const VISIBILITY_SCORES = [
+  { maxPosition: 1, score: 100 },
+  { maxPosition: 3, score: 85 },
+  { maxPosition: 5, score: 70 },
+  { maxPosition: 10, score: 50 },
+] as const
+const VISIBILITY_FALLBACK = 20
+const NEGATIVE_PENALTY_PER_SNIPPET = 10
+
 function extractVisibilityScore(position: number | null): number {
   if (position === null) return 0
-  if (position === 1) return 100
-  if (position <= 3) return 85
-  if (position <= 5) return 70
-  if (position <= 10) return 50
-  return 20
+  for (const tier of VISIBILITY_SCORES) {
+    if (position <= tier.maxPosition) return tier.score
+  }
+  return VISIBILITY_FALLBACK
 }
 
 export async function fetchSerp(profile: AgentProfile): Promise<ModuleResult<SerpData>> {
@@ -50,8 +59,18 @@ export async function fetchSerp(profile: AgentProfile): Promise<ModuleResult<Ser
     )
     const officialSitePosition = officialEntry?.position ?? null
 
-    // Negative snippets
-    const negativeKeywords = ['arnaque', 'scam', 'fake', 'problème', 'avis négatif', 'bad']
+    // Negative snippets — multilingual detection
+    const NEGATIVE_KEYWORDS_BY_LANG: Record<string, string[]> = {
+      fr: ['arnaque', 'scam', 'fake', 'problème', 'avis négatif', 'fraude', 'mauvais'],
+      en: ['scam', 'fake', 'fraud', 'problem', 'bad review', 'terrible', 'avoid', 'worst'],
+      es: ['estafa', 'fraude', 'problema', 'malo', 'evitar'],
+      de: ['betrug', 'fake', 'problem', 'schlecht', 'vermeiden'],
+    }
+    const lang = (profile.language ?? 'en').slice(0, 2).toLowerCase()
+    const negativeKeywords = [
+      ...(NEGATIVE_KEYWORDS_BY_LANG[lang] ?? []),
+      ...(lang !== 'en' ? (NEGATIVE_KEYWORDS_BY_LANG['en'] ?? []) : []),
+    ]
     const negativeSnippets = organicResults
       .filter((r) =>
         negativeKeywords.some((kw) =>
@@ -75,7 +94,7 @@ export async function fetchSerp(profile: AgentProfile): Promise<ModuleResult<Ser
     }
 
     const visibilityScore = extractVisibilityScore(officialSitePosition)
-    const reputationScore = Math.max(0, visibilityScore - negativeSnippets.length * 10)
+    const reputationScore = Math.max(0, visibilityScore - negativeSnippets.length * NEGATIVE_PENALTY_PER_SNIPPET)
 
     return {
       success: true,

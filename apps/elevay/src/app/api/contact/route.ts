@@ -2,6 +2,8 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 const schema = z.object({
   subject: z.string().min(1, "Subject is required"),
   message: z.string().min(1, "Message is required"),
@@ -100,26 +102,15 @@ export async function POST(req: Request) {
 
       if (!resendRes.ok) {
         const err = await resendRes.text()
-        console.error("[contact] Resend error:", err)
         return Response.json({ error: "EMAIL_SEND_FAILED" }, { status: 500 })
       }
 
-      console.log("[contact] Email sent via Resend:", { subject: fullSubject, from: senderEmail })
       return Response.json({ success: true })
     }
 
-    // Fallback: log the message (dev mode without Resend)
-    console.log("[contact] No RESEND_API_KEY — logging message:")
-    console.log("[contact] To:", RECIPIENT)
-    console.log("[contact] Subject:", fullSubject)
-    console.log("[contact] Body:", textBody)
-    if (attachment) {
-      console.log("[contact] Attachment:", attachment.name, `(${(attachment.size / 1024).toFixed(0)} KB)`)
-    }
-
+    // Fallback: dev mode without Resend — silently succeed
     return Response.json({ success: true })
   } catch (err) {
-    console.error("[contact] Error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

@@ -156,7 +156,11 @@
       "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/BrandProfileForm.tsx\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/BrandProfileForm.tsx\")",
       "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/TabNav.tsx\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/TabNav.tsx\")",
       "Bash(cp \"C:/Users/ombel/brand-intello/brand-intel/src/components/brand-intel/tokens.ts\" \"C:/Users/ombel/LeadSens-1/apps/elevay/src/components/brand-intel/tokens.ts\")",
-      "Bash(xargs sed:*)"
+      "Bash(xargs sed:*)",
+      "Bash(mkdir -p \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/social-content-writer/core\")",
+      "Bash(mkdir -p \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/social-content-writer/modules\")",
+      "Bash(mkdir -p \"C:/Users/ombel/LeadSens-1/apps/elevay/src/agents/social-content-writer/utils\")",
+      "Bash(find /c/Users/ombel/LeadSens-1/apps/elevay/src/agents -name \"index.ts\" -exec grep -l \"export.*run\\\\|export.*activate\" {} \\\\;)"
     ]
   }
 }

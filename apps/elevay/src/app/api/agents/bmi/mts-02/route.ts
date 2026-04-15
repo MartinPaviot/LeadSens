@@ -3,13 +3,15 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createSSEStream } from "@/lib/sse-brand-intel"
 import { runMts02 } from "@/agents/mts-02/index"
-import type { AgentProfile, AgentOutput } from "@/agents/_shared/types"
+import type { AgentProfile } from "@/agents/_shared/types"
+import { safeAgentOutput } from "@/lib/type-guards"
 import type {
   MtsOutput,
   MtsSessionContext,
   MtsPreviousComparison,
 } from "@/agents/mts-02/types"
 import { Prisma } from "@prisma/client"
+import { z } from "zod"
 
 export const maxDuration = 300
 export const dynamic = "force-dynamic"
@@ -39,9 +41,16 @@ export async function POST(req: Request) {
   }
   const workspaceId = session.user.workspaceId
 
+  const MtsBodySchema = z.object({
+    priority_channels: z.array(z.string()).optional(),
+    sector: z.string().optional(),
+  }).optional()
+
   let body: { priority_channels?: string[]; sector?: string } = {}
   try {
-    body = (await req.json()) as typeof body
+    const raw = await req.json()
+    const parsed = MtsBodySchema.safeParse(raw)
+    if (parsed.success && parsed.data) body = parsed.data
   } catch {
     // empty body is fine
   }
@@ -63,14 +72,15 @@ export async function POST(req: Request) {
 
   const previousComparison: MtsPreviousComparison | undefined = previousRun
     ? (() => {
-        const prev = previousRun.output as unknown as AgentOutput<MtsOutput>
+        const prev = safeAgentOutput<MtsOutput>(previousRun.output)
+        if (!prev) return undefined
         return {
           date: previousRun.createdAt.toISOString(),
           global_score: prev.payload?.global_score ?? 0,
           trending_topics:
-            prev.payload?.trending_topics.map((t) => t.topic) ?? [],
+            prev.payload?.trending_topics?.map((t) => t.topic) ?? [],
           saturated_topics:
-            prev.payload?.saturated_topics.map((t) => t.topic) ?? [],
+            prev.payload?.saturated_topics?.map((t) => t.topic) ?? [],
         }
       })()
     : undefined

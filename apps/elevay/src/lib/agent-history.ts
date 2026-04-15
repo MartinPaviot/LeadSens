@@ -10,7 +10,8 @@ export async function getLatestOutputByAgent(
   agentCode:
     | "BPI-01" | "MTS-02" | "CIA-03"
     | "TSI-07" | "KGA-08" | "WPW-09" | "BSW-10"
-    | "PIO-05" | "OPT-06" | "MDG-11" | "ALT-12",
+    | "PIO-05" | "OPT-06" | "MDG-11" | "ALT-12"
+    | "SCW-16" | "SMC-19" | "SMI-20" | "CRM-27" | "BDG-32",
 ): Promise<AgentOutput<unknown> | null> {
   const run = await prisma.elevayAgentRun.findFirst({
     where: {

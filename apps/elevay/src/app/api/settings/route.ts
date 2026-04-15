@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 // Helper: get workspaceId from session
 async function getWorkspaceId(req?: Request): Promise<string | null> {
   const h = req ? req.headers : await headers()
@@ -88,7 +90,6 @@ export async function GET() {
       },
     })
   } catch (err) {
-    console.error("[settings] GET error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
@@ -186,7 +187,6 @@ export async function PATCH(req: Request) {
 
     return Response.json({ success: true })
   } catch (err) {
-    console.error("[settings] PATCH error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

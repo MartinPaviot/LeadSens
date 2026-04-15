@@ -8,6 +8,8 @@ import type { MtsOutput, TrendingTopic, SaturatedTopic, RoadmapEntry } from "@/a
 import type { CiaOutput, CompetitorScore, StrategicZone, Threat, ActionPhase } from "@/agents/cia-03/types";
 import type { AgentOutput } from "@/agents/_shared/types";
 
+export const dynamic = 'force-dynamic'
+
 // ── Input validation ──────────────────────────────────────────────────────────
 
 const ExportSchema = z.object({
@@ -669,7 +671,6 @@ export async function POST(req: Request) {
     try {
       pdfBuffer = await buildMtsPdf(sector, agentOutput.payload);
     } catch (err) {
-      console.error("[mts-pdf-export] error:", err);
       return NextResponse.json({ type: "error", message: "PDF generation failed." }, { status: 500 });
     }
     const slug = sector.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -696,7 +697,6 @@ export async function POST(req: Request) {
     try {
       pdfBuffer = await buildCiaPdf(brandName, agentOutput.payload);
     } catch (err) {
-      console.error("[cia-pdf-export] error:", err);
       return NextResponse.json({ type: "error", message: "PDF generation failed." }, { status: 500 });
     }
     const slug = brandName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -733,7 +733,7 @@ export async function POST(req: Request) {
       const docUrl = await createGoogleDocMts(accessToken, sector, agentOutput.payload);
       return NextResponse.json({ type: "gdoc", url: docUrl });
     } catch (err) {
-      console.error("[gdoc-export] MTS-02 error:", err);
+      void err;
       return NextResponse.json(
         { type: "error", message: err instanceof Error ? err.message : "Google Docs export failed." },
         { status: 500 },
@@ -766,7 +766,7 @@ export async function POST(req: Request) {
       const docUrl = await createGoogleDocCia(accessToken, brandName, agentOutput.payload);
       return NextResponse.json({ type: "gdoc", url: docUrl });
     } catch (err) {
-      console.error("[gdoc-export] CIA-03 error:", err);
+      void err;
       return NextResponse.json(
         { type: "error", message: err instanceof Error ? err.message : "Google Docs export failed." },
         { status: 500 },
@@ -808,8 +808,7 @@ export async function POST(req: Request) {
     try {
       pdfBuffer = await buildPdf(brandName, payload);
     } catch (err) {
-      console.error("[pdf-export] error:", err);
-      console.error("[pdf-export] error stack:", err instanceof Error ? err.stack : String(err));
+      void err;
       return NextResponse.json(
         { type: "error", message: "PDF generation failed." },
         { status: 500 },
@@ -851,7 +850,7 @@ export async function POST(req: Request) {
       const docUrl = await createGoogleDoc(accessToken, brandName, payload);
       return NextResponse.json({ type: "gdoc", url: docUrl });
     } catch (err) {
-      console.error("[gdoc-export] BPI-01 error:", err);
+      void err;
       return NextResponse.json(
         { type: "error", message: err instanceof Error ? err.message : "Google Docs export failed." },
         { status: 500 },

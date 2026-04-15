@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
 
+export const dynamic = 'force-dynamic'
+
 const feedbackSchema = z.object({
   messageId: z.string(),
   conversationId: z.string(),

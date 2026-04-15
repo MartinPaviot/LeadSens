@@ -7,6 +7,8 @@ import {
 } from '@/agents/seo-geo/onboarding';
 import type { OnboardingState } from '@/agents/seo-geo/onboarding';
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return new Response('Unauthorized', { status: 401 });

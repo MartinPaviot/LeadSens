@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic'
+
 const bodySchema = z.object({
   influencer: z.object({
     name: z.string(),
@@ -57,7 +59,6 @@ export async function POST(req: Request) {
 
     return Response.json({ brief: text });
   } catch (err) {
-    console.error("[influence-brief] Claude API error:", err instanceof Error ? err.message : err);
     return Response.json({ brief: null, error: "Failed to generate brief" }, { status: 500 });
   }
 }

@@ -17,6 +17,10 @@ import {
   Bell,
   Moon,
   Envelope,
+  CurrencyCircleDollar,
+  Megaphone,
+  ChatsCircle,
+  ChartBar,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -289,6 +293,72 @@ export function AppSidebar() {
               >
                 <Bell className="size-3.5 shrink-0" />
                 <span>Notifications</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/brand-intel")}
+                onClick={() => { router.push("/brand-intel"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <ChartBar className="size-3.5 shrink-0" />
+                <span>Brand Intelligence</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/content-writer")}
+                onClick={() => { router.push("/content-writer"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <PencilSimple className="size-3.5 shrink-0" />
+                <span>Content Writer</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/crm-campaigns")}
+                onClick={() => { router.push("/crm-campaigns"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <Envelope className="size-3.5 shrink-0" />
+                <span>CRM Campaigns</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/budget")}
+                onClick={() => { router.push("/budget"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <CurrencyCircleDollar className="size-3.5 shrink-0" />
+                <span>Budget</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/social-campaigns")}
+                onClick={() => { router.push("/social-campaigns"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <Megaphone className="size-3.5 shrink-0" />
+                <span>Social Campaigns</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/social-inbox")}
+                onClick={() => { router.push("/social-inbox"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <ChatsCircle className="size-3.5 shrink-0" />
+                <span>Social Inbox</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

@@ -6,6 +6,8 @@ import { schedulePostSchema, schedulePatchSchema } from '@/lib/schemas/seo-route
 import { checkRateLimit } from '@/lib/rate-limit';
 import { computeNextDate } from '@/lib/schedule-utils';
 
+export const dynamic = 'force-dynamic'
+
 // POST — Create or update schedule for any agent
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -72,7 +74,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    console.error('[schedule] Inngest dispatch failed:', err);
     return Response.json(
       { error: 'Failed to dispatch scheduling event' },
       { status: 500 },
@@ -154,7 +155,6 @@ export async function PATCH(req: Request) {
         },
       });
     } catch (err) {
-      console.error('[schedule] Inngest dispatch failed:', err);
       return Response.json(
         { error: 'Failed to dispatch scheduling event' },
         { status: 500 },

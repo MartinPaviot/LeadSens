@@ -20,6 +20,11 @@ const AGENT_CODE_MAP: Record<AgentId, string> = {
   bpi01: 'BPI-01',
   cia03: 'CIA-03',
   mts02: 'MTS-02',
+  scw16: 'SCW-16',
+  smc19: 'SMC-19',
+  smi20: 'SMI-20',
+  crm27: 'CRM-27',
+  bdg32: 'BDG-32',
 };
 
 // ─── 1. Generic schedule function ────────────────────────
@@ -35,11 +40,9 @@ export const agentScheduleNextRun = inngest.createFunction(
     // Validate nextRunAt
     const targetTime = new Date(nextRunAt).getTime();
     if (isNaN(targetTime)) {
-      console.warn('[inngest] Invalid nextRunAt date:', nextRunAt);
       return { skipped: true, reason: 'invalid_date' };
     }
     if (targetTime < Date.now() - 60_000) {
-      console.warn('[inngest] Rejected past-date event:', nextRunAt);
       return { skipped: true, reason: 'past_date' };
     }
 
@@ -85,7 +88,6 @@ export const agentScheduleNextRun = inngest.createFunction(
         },
       });
     } catch (err) {
-      console.error('[inngest] Reschedule event failed — marking schedule as broken:', err);
       // Mark the schedule as broken so the UI can surface it
       await step.run('mark-schedule-broken', async () => {
         await prisma.elevayBrandProfile.updateMany({
@@ -111,7 +113,6 @@ export const agentRunScheduled = inngest.createFunction(
     idempotency: 'event.data.agentId + "-" + event.data.workspaceId + "-" + event.data.scheduledFor',
     onFailure: async ({ event: failureEvent, error }) => {
       const { agentId, workspaceId } = failureEvent.data.event.data;
-      console.error(`[inngest] Agent ${agentId} exhausted all retries:`, error.message);
       try {
         await prisma.elevayAgentRun.create({
           data: {
@@ -124,7 +125,7 @@ export const agentRunScheduled = inngest.createFunction(
           },
         });
       } catch (dbErr) {
-        console.error('[inngest] Failed to record failure:', dbErr);
+        void dbErr;
       }
     },
   },
@@ -390,6 +391,43 @@ async function runAgent(
         priority_channels: ['SEO', 'LinkedIn', 'YouTube'],
       });
       return { output: result };
+    }
+    case 'scw16': {
+      const { runSCW } = await import('../agents/social-content-writer/index');
+      const result = await runSCW(
+        { format: 'caption', platforms: ['linkedin'], objective: 'engagement', sourceContent: '', crossPlatform: false, variationsCount: 2 },
+        { style: 'professional', register: 'accessible', forbiddenWords: [], keyPhrases: [], positioning: 'brand-expert' },
+      );
+      return { output: result };
+    }
+    case 'crm27': {
+      const { runCRM } = await import('../agents/crm-campaign-manager/index');
+      const result = await runCRM(
+        { objective: 'retention', segment: 'all', channel: 'email', platform: 'hubspot', tone: 'informational' },
+        { platform: 'hubspot', maxSendsPerContactPerWeek: 3, defaultResend: true, segments: [], historicalOpenRate: 0.20, bestTimings: [] },
+      );
+      return { output: result };
+    }
+    case 'bdg32': {
+      const { runBDG } = await import('../agents/budget-controller/index');
+      const result = await runBDG(
+        { annualBudget: 0, channels: [], objectives: { annualRevenue: 0, quarterlyRevenue: [], monthlyLeads: 0 }, kpiTargets: { cplTarget: 0, cacTarget: 0, roiMinimum: 1 }, alertThresholds: { overSpendPercent: 15, cacDeviationWeeks: 3 }, reportFrequency: 'weekly', fiscalYearStart: 1, escalationChannel: 'email' },
+        [],
+      );
+      return { output: result };
+    }
+    case 'smc19': {
+      const { runSMC } = await import('../agents/social-campaign-manager/index');
+      const result = await runSMC({
+        objective: 'leads', monthlyBudget: 0, platforms: ['meta'], vertical: 'saas',
+        audience: '', product: '', kpis: [], autonomyLevel: 'supervised',
+        budgetConstraints: { minDailySpend: 0, maxDailySpend: 0, testBudgetCap: 10 },
+      });
+      return { output: result };
+    }
+    case 'smi20': {
+      // SMI-20 is event-driven (webhooks), not scheduled. Stub for type completeness.
+      return { output: { agentCode: 'SMI-20', message: 'SMI-20 is event-driven, not scheduled' } };
     }
     default: {
       const _exhaustive: never = agentId;

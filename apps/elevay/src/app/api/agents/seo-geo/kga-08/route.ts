@@ -6,6 +6,8 @@ import type { AgentContext } from '../../../../../../core/types';
 import { activate } from '../../../../../../agents/seo-geo/kga08';
 import type { Kga08Inputs, Kga08Output } from '../../../../../../agents/seo-geo/kga08/types';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
@@ -93,7 +95,7 @@ export async function POST(req: Request) {
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        console.error('[kga-08]', err);
+        void err;
         controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();

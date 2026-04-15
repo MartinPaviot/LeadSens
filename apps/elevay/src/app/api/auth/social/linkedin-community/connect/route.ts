@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@leadsens/db";
 import { initiateLinkedInCommunityConnection } from "@/lib/composio-linkedin";
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
@@ -23,10 +25,6 @@ export async function POST(req: Request) {
       const redirectUrl = await initiateLinkedInCommunityConnection(user.workspaceId);
       return Response.json({ redirectUrl });
     } catch (composioErr) {
-      console.error("[linkedin-community-connect] Composio error:", composioErr instanceof Error
-        ? { message: composioErr.message, name: composioErr.name, stack: composioErr.stack?.split("\n")[0] }
-        : composioErr);
-
       // Graceful fallback: store "pending" in DB
       try {
         const profile = await prisma.elevayBrandProfile.findUnique({
@@ -41,13 +39,12 @@ export async function POST(req: Request) {
           },
         });
       } catch (dbErr) {
-        console.error("[linkedin-community-connect] DB update error:", dbErr);
+        void dbErr;
       }
 
       return Response.json({ redirectUrl: null, status: "error" });
     }
   } catch (err) {
-    console.error("[linkedin-community-connect] fatal error:", err);
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

@@ -6,6 +6,8 @@ import { MOCK_INFLUENCERS } from "../../../../../../agents/influence/core/mockDa
 import { sortByScore } from "../../../../../../agents/influence/core/scoring";
 import { MAX_PROFILES_PER_CAMPAIGN } from "../../../../../../agents/influence/config";
 
+export const dynamic = 'force-dynamic'
+
 const bodySchema = z.object({
   brief: z.object({
     objective: z.string().optional(),
@@ -83,7 +85,6 @@ export async function POST(req: Request) {
   }
 
   // 3. Mock data fallback
-  console.warn('[influence-search] No API available — returning mock data');
   const results = filterMockData(partialBrief);
   return Response.json({ results, source: 'mock' });
 }

@@ -52,7 +52,7 @@ export async function fetchFacebookData(
         }
       }
     } catch (err) {
-      console.warn('[Facebook] Composio failed, falling back to Apify:', String(err))
+      void err
     }
   }
 

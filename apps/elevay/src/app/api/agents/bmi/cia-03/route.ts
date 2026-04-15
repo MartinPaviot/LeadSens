@@ -3,10 +3,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createSSEStream } from "@/lib/sse-brand-intel"
 import { runCia03 } from "@/agents/cia-03/index"
-import type { AgentProfile, AgentOutput } from "@/agents/_shared/types"
+import type { AgentProfile } from "@/agents/_shared/types"
 import type { CiaOutput, CiaSessionContext } from "@/agents/cia-03/types"
 import type { BpiOutput } from "@/agents/bpi-01/types"
+import { safeAgentOutput } from "@/lib/type-guards"
 import { Prisma } from "@prisma/client"
+import { z } from "zod"
 
 export const maxDuration = 300
 export const dynamic = "force-dynamic"
@@ -32,9 +34,16 @@ export async function POST(req: Request) {
   }
   const workspaceId = session.user.workspaceId
 
+  const CiaBodySchema = z.object({
+    priority_channels: z.array(z.string()).optional(),
+    objective: z.string().optional(),
+  }).optional()
+
   let body: { priority_channels?: string[]; objective?: string } = {}
   try {
-    body = (await req.json()) as typeof body
+    const raw = await req.json()
+    const parsed = CiaBodySchema.safeParse(raw)
+    if (parsed.success && parsed.data) body = parsed.data
   } catch {
     // empty body is fine
   }
@@ -56,12 +65,13 @@ export async function POST(req: Request) {
 
   const previousData = previousRun
     ? (() => {
-        const prev = previousRun.output as unknown as AgentOutput<CiaOutput>
+        const prev = safeAgentOutput<CiaOutput>(previousRun.output)
+        if (!prev) return undefined
         return {
           date: previousRun.createdAt.toISOString(),
           brand_score: prev.payload?.brand_score ?? 0,
           competitor_scores:
-            prev.payload?.competitor_scores.map((c) => ({
+            prev.payload?.competitor_scores?.map((c) => ({
               entity: c.entity,
               global_score: c.global_score,
             })) ?? [],
@@ -77,8 +87,8 @@ export async function POST(req: Request) {
 
   const brandSocialScore = lastBpiRun
     ? (() => {
-        const bpi = lastBpiRun.output as unknown as AgentOutput<BpiOutput>
-        return bpi.payload?.scores?.social ?? undefined
+        const bpi = safeAgentOutput<BpiOutput>(lastBpiRun.output)
+        return bpi?.payload?.scores?.social ?? undefined
       })()
     : undefined
 

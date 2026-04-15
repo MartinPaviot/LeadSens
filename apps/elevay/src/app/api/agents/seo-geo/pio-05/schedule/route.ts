@@ -5,6 +5,8 @@ import { pio05SchedulePostSchema, pio05SchedulePatchSchema } from '@/lib/schemas
 import { checkRateLimit } from '@/lib/rate-limit';
 import { computeNextDate } from '@/lib/schedule-utils';
 
+export const dynamic = 'force-dynamic'
+
 // POST — Schedule PIO-05 reports (backward-compatible alias)
 // Delegates to the generic schedule event with agentId: 'pio05'
 export async function POST(req: Request) {
@@ -69,7 +71,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    console.error('[pio05-schedule] Inngest dispatch failed:', err);
     return Response.json(
       { error: 'Failed to dispatch scheduling event' },
       { status: 500 },
@@ -155,7 +156,6 @@ export async function PATCH(req: Request) {
         },
       });
     } catch (err) {
-      console.error('[pio05-schedule] Inngest dispatch failed:', err);
       return Response.json(
         { error: 'Failed to dispatch scheduling event' },
         { status: 500 },

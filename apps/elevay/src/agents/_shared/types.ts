@@ -42,6 +42,11 @@ export interface AgentOutput<T> {
     | "BSW-10"
     | "MDG-11"
     | "ALT-12"
+    | "SCW-16"
+    | "SMC-19"
+    | "SMI-20"
+    | "CRM-27"
+    | "BDG-32"
   analysis_date: string // ISO 8601
   brand_profile: AgentProfile
   payload: T

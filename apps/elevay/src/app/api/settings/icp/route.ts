@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 async function getWorkspaceId(): Promise<string | null> {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
@@ -40,7 +42,6 @@ export async function POST(req: Request) {
     })
     return Response.json(icp)
   } catch (err) {
-    console.error("[settings/icp] POST error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
@@ -65,7 +66,6 @@ export async function PUT(req: Request) {
     const icp = await prisma.workspaceIcp.update({ where: { id }, data: parsed.data })
     return Response.json(icp)
   } catch (err) {
-    console.error("[settings/icp] PUT error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }
@@ -86,7 +86,6 @@ export async function DELETE(req: Request) {
     await prisma.workspaceIcp.delete({ where: { id } })
     return Response.json({ success: true })
   } catch (err) {
-    console.error("[settings/icp] DELETE error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

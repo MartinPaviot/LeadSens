@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@leadsens/db';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic'
+
 const completeSchema = z.object({
   brandName: z.string().optional(),
   siteUrl: z.string().url(),

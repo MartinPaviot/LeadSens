@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@leadsens/db";
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ platform: string }> },

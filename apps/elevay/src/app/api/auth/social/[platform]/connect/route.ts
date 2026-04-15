@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@leadsens/db";
 import { ComposioToolSet } from "composio-core";
 
+export const dynamic = 'force-dynamic'
+
 const COMPOSIO_APP_NAME: Record<string, string> = {
   linkedin:    "linkedin",
   instagram:   "instagram",
@@ -53,7 +55,6 @@ export async function POST(
     }
 
     if (!process.env.COMPOSIO_API_KEY) {
-      console.error("[social-connect] COMPOSIO_API_KEY missing");
       return Response.json({ redirectUrl: null, status: "pending", message: "Connection will be available soon" });
     }
 
@@ -61,8 +62,6 @@ export async function POST(
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/social/${platform}/callback`;
 
     const authConfigId = COMPOSIO_AUTH_CONFIG_ID[platform];
-    console.log("[social-connect]", { platform, appName, authConfigId: authConfigId ?? "none", redirectUri });
-
     try {
       const toolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY, entityId: user.workspaceId });
       const connection = await toolset.connectedAccounts.initiate({
@@ -73,15 +72,10 @@ export async function POST(
           authConfig: { authConfigId: COMPOSIO_AUTH_CONFIG_ID[platform] },
         }),
       });
-      console.log("[social-connect] redirectUrl:", connection?.redirectUrl);
       return Response.json({ redirectUrl: connection.redirectUrl }, {
         headers: { "Cross-Origin-Opener-Policy": "unsafe-none" },
       });
     } catch (composioErr) {
-      console.error(`[social-connect] Composio error for ${platform}:`, composioErr instanceof Error
-        ? { message: composioErr.message, name: composioErr.name }
-        : composioErr);
-
       // Graceful fallback: store "pending" in DB (merge with existing connections)
       try {
         const profile = await prisma.elevayBrandProfile.findUnique({
@@ -96,13 +90,12 @@ export async function POST(
           },
         });
       } catch (dbErr) {
-        console.error("[social-connect] DB update error:", dbErr);
+        void dbErr;
       }
 
       return Response.json({ redirectUrl: null, status: "error" });
     }
   } catch (err) {
-    console.error("[social-connect] fatal error:", err);
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

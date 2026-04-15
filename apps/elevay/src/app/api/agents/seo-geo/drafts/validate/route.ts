@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { wpPublishPage, wpPublishPost } from '../../../../../../../core/tools/cms/wordpress';
 
+export const dynamic = 'force-dynamic'
+
 const validateSchema = z.object({
   runId: z.string().min(1),
   action: z.enum(['approve', 'reject']),
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
           : await wpPublishPost(wpCredentials, postId);
         publishedUrl = result.url;
       } catch (err) {
-        console.error('[drafts/validate] WordPress publish failed:', err);
+        void err;
         return Response.json(
           { error: 'Failed to publish WordPress draft' },
           { status: 500 },

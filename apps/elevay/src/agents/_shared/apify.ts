@@ -15,7 +15,6 @@ export async function runTask<T>(
   timeoutSecs = 45,
 ): Promise<T[]> {
   if (!client) {
-    console.warn("[Apify] APIFY_TOKEN not set, skipping task", taskId)
     return []
   }
   try {
@@ -23,7 +22,6 @@ export async function runTask<T>(
     const { items } = await client.dataset(run.defaultDatasetId).listItems()
     return items as T[]
   } catch (err) {
-    console.warn("[Apify] Task failed:", taskId, String(err))
     return []
   }
 }

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   if (process.env.NODE_ENV !== "development") {
     return new Response("Not Found", { status: 404 });

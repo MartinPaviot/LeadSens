@@ -50,7 +50,7 @@ export async function fetchInstagramData(
         }
       }
     } catch (err) {
-      console.warn('[Instagram] Composio failed, falling back to Apify:', String(err))
+      void err
     }
   }
 

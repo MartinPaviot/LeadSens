@@ -85,11 +85,14 @@ export async function runMts02(
   let saturatedTopics = synthesis.saturated_topics
   let differentiatingAngles: string[] = []
   let roadmap30d: RoadmapEntry[] = []
+  let warning: string | undefined
   if (isLlmMtsResponse(llmResponse.parsed)) {
     trendingTopics = llmResponse.parsed.trending_topics
     saturatedTopics = llmResponse.parsed.saturated_topics
     differentiatingAngles = llmResponse.parsed.differentiating_angles
     roadmap30d = llmResponse.parsed.roadmap_30d
+  } else {
+    warning = 'AI analysis returned partial results — some trends may be from pre-computed data only'
   }
 
   // Build opportunity scores map (O(1) access in UI)
@@ -112,6 +115,7 @@ export async function runMts02(
     differentiating_angles: differentiatingAngles,
     roadmap_30d: roadmap30d,
     opportunity_scores: opportunityScores,
+    warning,
   }
 
   return {

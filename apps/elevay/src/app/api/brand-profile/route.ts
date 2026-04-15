@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+export const dynamic = 'force-dynamic'
+
 const schema = z.object({
   brand_name: z.string().min(1),
   brand_url: z.string().url(),
@@ -87,7 +89,6 @@ export async function POST(req: Request) {
 
     return Response.json(profile)
   } catch (err) {
-    console.error("[brand-profile] Error:", err)
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

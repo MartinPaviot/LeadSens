@@ -19,17 +19,18 @@ const WEIGHTS = {
 
 type WeightKey = keyof typeof WEIGHTS
 
+const PRESS_SCORE_PER_ARTICLE = 5
+const PRESS_SENTIMENT_BONUS: Record<string, number> = {
+  positive: 20,
+  neutral: 10,
+  mixed: 5,
+  negative: 0,
+}
+
 function derivePressScore(press: PressData | null): number {
   if (!press) return 0
-  const base = Math.min(100, press.article_count * 5)
-  const sentimentBonus =
-    press.sentiment === "positive"
-      ? 20
-      : press.sentiment === "neutral"
-        ? 10
-        : press.sentiment === "mixed"
-          ? 5
-          : 0
+  const base = Math.min(100, press.article_count * PRESS_SCORE_PER_ARTICLE)
+  const sentimentBonus = PRESS_SENTIMENT_BONUS[press.sentiment] ?? 0
   return Math.min(100, base + sentimentBonus)
 }
 

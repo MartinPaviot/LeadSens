@@ -1,6 +1,8 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic'
+
 const AGENT_NAMES: Record<string, string> = {
   'BSW-10': 'Blog writer',
   'MDG-11': 'Meta description generator',

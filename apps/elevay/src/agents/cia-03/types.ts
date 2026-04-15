@@ -115,4 +115,5 @@ export interface CiaOutput {
     brand_score: number
     competitor_scores: Array<{ entity: string; global_score: number }>
   }
+  warning?: string
 }

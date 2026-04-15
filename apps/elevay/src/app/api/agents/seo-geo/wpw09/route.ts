@@ -6,6 +6,8 @@ import type { AgentContext } from '../../../../../../core/types';
 import { activate } from '../../../../../../agents/seo-geo/wpw09';
 import type { Wpw09Inputs, Wpw09PageOutput } from '../../../../../../agents/seo-geo/wpw09/types';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        console.error('[wpw09]', err);
+        void err;
         controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();

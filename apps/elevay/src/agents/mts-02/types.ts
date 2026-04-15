@@ -74,6 +74,7 @@ export interface MtsOutput {
   roadmap_30d: RoadmapEntry[] // ≥1 entry/week/channel
   opportunity_scores: Record<string, number> // topic → score (O(1) access)
   previous?: MtsPreviousComparison
+  warning?: string
 }
 
 // ─── Internal module types ───────────────────────────────────────────────────

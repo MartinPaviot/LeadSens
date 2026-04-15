@@ -12,6 +12,8 @@ import {
 } from '../../../../../../agents/seo-geo/opt06/workflow';
 import type { Opt06Inputs, Opt06Output } from '../../../../../../agents/seo-geo/opt06/types';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
@@ -121,7 +123,7 @@ export async function POST(req: Request) {
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        console.error('[opt-06]', err);
+        void err;
         controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();

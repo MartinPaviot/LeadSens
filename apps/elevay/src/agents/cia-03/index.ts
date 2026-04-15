@@ -100,6 +100,7 @@ export async function runCia03(
   let finalThreats = threats
   let finalOpportunities = opportunities
 
+  let warning: string | undefined
   if (isLlmCiaResponse(llmResponse.parsed)) {
     const refined = llmResponse.parsed
     // Merge LLM zones — keep axis/zone, update description/directive
@@ -118,6 +119,8 @@ export async function runCia03(
     }
     if (refined.threats.length > 0) finalThreats = refined.threats
     if (refined.opportunities.length > 0) finalOpportunities = refined.opportunities
+  } else {
+    warning = 'AI analysis returned partial results — recommendations are based on pre-computed data only'
   }
 
   const brandScore = scores.find((s) => s.is_client)
@@ -144,6 +147,7 @@ export async function runCia03(
     threats: finalThreats,
     opportunities: finalOpportunities,
     action_plan_60d,
+    warning,
   }
 
   return {

@@ -29,7 +29,6 @@ export async function checkRateLimit(
     return { allowed: true };
   } catch (err) {
     // Redis unavailable — allow the request (fail open) but log
-    console.error('[rate-limit] Redis error — failing open:', err instanceof Error ? err.message : err);
     return { allowed: true };
   }
 }

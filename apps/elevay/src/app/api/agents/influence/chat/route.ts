@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { getSystemPrompt } from "../../../../../../agents/influence/prompts/briefCollection";
 
+export const dynamic = 'force-dynamic'
+
 const messageSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
@@ -73,7 +75,6 @@ export async function POST(req: Request) {
       briefComplete,
     });
   } catch (err) {
-    console.error("[influence-chat] Claude API error:", err instanceof Error ? err.message : err);
     return Response.json({ response: null, error: "Failed to get response" }, { status: 500 });
   }
 }

@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic'
+
 const CLOSE_POPUP_HTML = (email: string, origin: string) => `<!DOCTYPE html>
 <html><body><script>
   window.opener?.postMessage(

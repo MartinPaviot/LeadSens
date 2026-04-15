@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic'
+
 const VALID_PLATFORMS = ["linkedin", "linkedin-community", "instagram", "tiktok", "facebook", "x", "googledrive", "googledocs", "gsc", "ga", "slack", "ahrefs", "semrush"] as const;
 type Platform = (typeof VALID_PLATFORMS)[number];
 
@@ -36,7 +38,6 @@ export async function GET(
     const connections = profile?.social_connections as Record<string, boolean> | null;
     return Response.json({ connected: connections?.[platform] === true });
   } catch (err) {
-    console.error("[social-status] error:", err);
     return Response.json({ connected: false });
   }
 }

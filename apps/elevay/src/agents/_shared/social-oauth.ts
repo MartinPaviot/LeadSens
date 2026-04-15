@@ -9,7 +9,6 @@ async function composioAction<T>(
 ): Promise<T | null> {
   const apiKey = env.COMPOSIO_API_KEY
   if (!apiKey) {
-    console.warn("[Social OAuth] COMPOSIO_API_KEY not set")
     return null
   }
   try {
@@ -27,14 +26,12 @@ async function composioAction<T>(
     })
 
     if (!res.ok) {
-      console.warn(`[Social OAuth] Action ${action} failed:`, res.status)
       return null
     }
 
     const data = (await res.json()) as { data?: T }
     return data.data ?? (data as unknown as T)
   } catch (err) {
-    console.warn(`[Social OAuth] Action ${action} error:`, String(err))
     return null
   }
 }

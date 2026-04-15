@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic'
+
 // Keys are validated but never persisted server-side
 
 const bodySchema = z.object({

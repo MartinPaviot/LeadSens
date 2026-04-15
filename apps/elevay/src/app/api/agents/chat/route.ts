@@ -5,6 +5,8 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from "@/lib/sse";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 120;
 
 function buildSystemPrompt(profileLanguage: string | null): string {

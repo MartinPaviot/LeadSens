@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { detectBrandContext } from "@/lib/brand-detection";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 30; // 3 appels Composio en parallèle
 
 const BodySchema = z.object({

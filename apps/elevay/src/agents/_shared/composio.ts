@@ -1,3 +1,11 @@
+/**
+ * External data API wrappers (SerpAPI, GNews, YouTube, DataForSEO, Firecrawl).
+ *
+ * NOTE: Despite the filename, this module does NOT use the Composio SDK.
+ * It wraps direct REST API calls. The actual Composio SDK integration
+ * is in social-oauth.ts (for Facebook/Instagram OAuth actions).
+ * The filename is kept for backward compatibility with agent module imports.
+ */
 import { env } from "@/lib/env"
 
 // ── Generic fetch helper with retry ─────────────────────────────────────────
@@ -14,13 +22,11 @@ async function fetchWithRetry<T>(
         signal: AbortSignal.timeout(15_000),
       })
       if (!res.ok) {
-        console.warn(`[API] ${res.status} ${res.statusText} — ${url}`)
         if (attempt === retries) return null
       } else {
         return (await res.json()) as T
       }
     } catch (err) {
-      console.warn("[API] fetch failed:", url, String(err))
       if (attempt === retries) return null
     }
     await new Promise<void>((r) => setTimeout(r, 1000 * (attempt + 1)))

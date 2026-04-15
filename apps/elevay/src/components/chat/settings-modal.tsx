@@ -352,10 +352,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
         if (data.suggested_competitors.length > 0) {
           setCompetitors(data.suggested_competitors.slice(0, 3));
         }
-        // eslint-disable-next-line no-console
-        console.log("[detect] sector applied:", data.suggested_sector);
-        // eslint-disable-next-line no-console
-        console.log("[detect] competitors applied:", data.suggested_competitors);
         toast.success("Brand info re-detected");
       }
     } catch {

@@ -208,7 +208,7 @@ export default function AgentChat() {
             setHasUserSentMessage(true);
           }
         } catch (err) {
-          console.error("Failed to load conversation:", err);
+          void err;
         } finally {
           setIsLoadingHistory(false);
         }
@@ -340,7 +340,7 @@ export default function AgentChat() {
 
               case "error": {
                 const payload = data as SSEEventPayload["error"];
-                console.error("Stream error:", payload.message);
+                void payload.message;
                 setActivityLabel(null);
                 break;
               }
@@ -398,7 +398,7 @@ export default function AgentChat() {
             await attemptStream();
           } catch (retryErr) {
             if ((retryErr as Error).name !== "AbortError") {
-              console.error("Chat retry failed:", retryErr);
+              void retryErr;
             }
           }
         }
@@ -527,7 +527,7 @@ export default function AgentChat() {
         parser.feed(decoder.decode(value, { stream: true }));
       }
     } catch (err) {
-      if ((err as Error).name !== "AbortError") console.error("BPI-01 stream error:", err);
+      void err;
     } finally {
       setIsStreaming(false);
       setActivityLabel(null);
@@ -547,7 +547,7 @@ export default function AgentChat() {
       };
       lastSuggestionRef.current = bpiSuggestion;
       setLastSuggestion(bpiSuggestion);
-      console.log("[suggestion] lastSuggestion set:", bpiSuggestion);
+      void bpiSuggestion;
       setTimeout(() => {
         const scrollable = document.querySelector("[data-thread-viewport]")
           ?? document.querySelector("[class*=\"overflow-y-auto\"]");
@@ -590,7 +590,7 @@ export default function AgentChat() {
           }
           toast.error(result.message ?? "Google Docs export failed. The report is available as PDF.");
         } catch (err) {
-          console.error("[gdoc-export] BPI:", err);
+          void err;
           toast.error("Google Docs export failed. The report is available as PDF.");
         }
       }
@@ -643,7 +643,7 @@ export default function AgentChat() {
               );
             }
           } catch (err) {
-            console.error("[BPI PDF export]", err);
+            void err;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -740,7 +740,7 @@ export default function AgentChat() {
         parser.feed(decoder.decode(value, { stream: true }));
       }
     } catch (err) {
-      if ((err as Error).name !== "AbortError") console.error("MTS-02 stream error:", err);
+      void err;
     } finally {
       setIsStreaming(false);
       setActivityLabel(null);
@@ -790,7 +790,7 @@ export default function AgentChat() {
           }
           toast.error(gdocResult.message ?? "Google Docs export failed. The report is available as PDF.");
         } catch (err) {
-          console.error("[gdoc-export] MTS:", err);
+          void err;
           toast.error("Google Docs export failed. The report is available as PDF.");
         }
       }
@@ -844,7 +844,7 @@ export default function AgentChat() {
                 );
               }
             } catch (err) {
-              console.error("[MTS PDF export]", err);
+              void err;
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
@@ -949,7 +949,7 @@ export default function AgentChat() {
         parser.feed(decoder.decode(value, { stream: true }));
       }
     } catch (err) {
-      if ((err as Error).name !== "AbortError") console.error("CIA-03 stream error:", err);
+      void err;
     } finally {
       setIsStreaming(false);
       setActivityLabel(null);
@@ -999,7 +999,7 @@ export default function AgentChat() {
           }
           toast.error(gdocResult.message ?? "Google Docs export failed. The report is available as PDF.");
         } catch (err) {
-          console.error("[gdoc-export] CIA:", err);
+          void err;
           toast.error("Google Docs export failed. The report is available as PDF.");
         }
       }
@@ -1054,7 +1054,7 @@ export default function AgentChat() {
                 );
               }
             } catch (err) {
-              console.error("[CIA PDF export]", err);
+              void err;
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
@@ -1354,7 +1354,6 @@ export default function AgentChat() {
                 <GreetingScreen isStreaming={isStreaming} onQuickReply={handleQuickReply} />
               ) : (
                 <>
-                  {console.log("[suggestion] rendering thread, lastSuggestion:", lastSuggestion ?? lastSuggestionRef.current, "isStreaming:", isStreaming)}
                   <ElevayThread
                     isStreaming={isStreaming}
                     lastSuggestion={lastSuggestion ?? lastSuggestionRef.current}

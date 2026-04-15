@@ -8,6 +8,8 @@ import type { Mdg11Inputs, Mdg11Output } from '../../../../../../agents/seo-geo/
 import { crawlSite } from '../../../../../../core/tools/dataForSeo';
 import type { CrawlResult } from '../../../../../../core/tools/dataForSeo';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
@@ -121,7 +123,7 @@ export async function POST(req: Request) {
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        console.error('[mdg-11]', err);
+        void err;
         controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();

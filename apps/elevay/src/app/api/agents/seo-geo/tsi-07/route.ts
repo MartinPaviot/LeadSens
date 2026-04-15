@@ -13,6 +13,8 @@ import {
 } from '../../../../../../agents/seo-geo/tsi07/workflow';
 import type { Tsi07Inputs, TechnicalAuditReport, ActionPlan, Tsi07CorrectionResult } from '../../../../../../agents/seo-geo/tsi07/types';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
@@ -114,7 +116,7 @@ export async function POST(req: Request) {
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        console.error('[tsi-07]', err);
+        void err;
         controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();

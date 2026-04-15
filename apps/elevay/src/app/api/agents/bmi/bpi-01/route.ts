@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createSSEStream } from "@/lib/sse-brand-intel"
 import { runBpi01 } from "@/agents/bpi-01/index"
-import type { AgentProfile, AgentOutput } from "@/agents/_shared/types"
+import type { AgentProfile } from "@/agents/_shared/types"
 import type { BpiOutput, BpiScores } from "@/agents/bpi-01/types"
+import { safeAgentOutput } from "@/lib/type-guards"
 import { Prisma } from "@prisma/client"
 
 export const maxDuration = 300
@@ -34,8 +35,8 @@ export async function POST() {
 
   const previousScores = previousRun
     ? (() => {
-        const prev = previousRun.output as unknown as AgentOutput<BpiOutput>
-        return prev.payload?.scores
+        const prev = safeAgentOutput<BpiOutput>(previousRun.output)
+        return prev?.payload?.scores
       })()
     : undefined
 

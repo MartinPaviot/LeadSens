@@ -53,12 +53,7 @@ export async function callLLM(req: LLMRequest): Promise<LLMResponse> {
     try {
       parsed = parseRobust(content)
     } catch (parseErr) {
-      console.warn(
-        "[LLM] JSON parse failed:",
-        String(parseErr),
-        "— raw start:",
-        content.substring(0, 200),
-      )
+      void parseErr
     }
 
     const result: LLMResponse = {
@@ -72,16 +67,8 @@ export async function callLLM(req: LLMRequest): Promise<LLMResponse> {
       model: response.model,
     }
 
-    console.info("[LLM]", {
-      model: result.model,
-      tokens: result.tokens,
-      latencyMs: result.latencyMs,
-      parsedOk: parsed !== null,
-    })
-
     return result
   } catch (err) {
-    console.error("[LLM] API call failed:", String(err))
     return {
       content: "",
       parsed: null,

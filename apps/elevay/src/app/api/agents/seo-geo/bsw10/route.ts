@@ -6,6 +6,8 @@ import type { AgentContext } from '../../../../../../core/types';
 import { activate } from '../../../../../../agents/seo-geo/bsw10';
 import type { Bsw10Inputs, Bsw10Output } from '../../../../../../agents/seo-geo/bsw10/types';
 
+export const dynamic = 'force-dynamic'
+
 export const maxDuration = 120;
 
 export async function POST(req: Request) {
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
-        console.error('[bsw10]', err);
+        void err;
         controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
       } finally {
         controller.close();
