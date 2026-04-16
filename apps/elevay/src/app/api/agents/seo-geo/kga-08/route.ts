@@ -89,7 +89,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -104,9 +104,9 @@ function formatKga08Report(
   output: Kga08Output | { error: string } | null,
 ): string {
   if (!output || 'error' in output) {
-    const reason = output && 'error' in output ? output.error : 'Aucune donnée disponible';
+    const reason = output && 'error' in output ? output.error : 'No data available';
     return [
-      `## Stratégie Mots-Clés KGA-08 — ${siteUrl}`,
+      `## Keyword Strategy KGA-08 — ${siteUrl}`,
       '',
       `Analysis returned an error: ${reason}`,
       '',

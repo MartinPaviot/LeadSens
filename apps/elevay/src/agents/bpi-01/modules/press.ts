@@ -59,9 +59,9 @@ export async function fetchPress(profile: AgentProfile): Promise<ModuleResult<Pr
             : 'Neutral to mixed coverage'
 
     const prOpportunities: string[] = []
-    if (articles.length < 3) prOpportunities.push('Augmenter la présence presse via communiqués')
-    if (sentiment === 'negative') prOpportunities.push('Stratégie de relations presse corrective')
-    if (topDomains.length < 2) prOpportunities.push('Diversifier les sources médias')
+    if (articles.length < 3) prOpportunities.push('Increase press coverage through press releases')
+    if (sentiment === 'negative') prOpportunities.push('Corrective press relations strategy')
+    if (topDomains.length < 2) prOpportunities.push('Diversify media sources')
 
     return {
       success: true,

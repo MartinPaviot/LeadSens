@@ -97,7 +97,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -113,11 +113,11 @@ function formatWpw09Output(output: Wpw09PageOutput | null): string {
   }
 
   const lines: string[] = [
-    `## Page générée : ${output.h1}`,
+    `## Generated Page: ${output.h1}`,
     '',
-    `**Meta title** : ${output.metaTitle}`,
-    `**Meta description** : ${output.metaDescription}`,
-    `**Longueur** : ${output.wordCount} mots · ${output.internalLinks.length} lien(s) interne(s)`,
+    `**Meta title**: ${output.metaTitle}`,
+    `**Meta description**: ${output.metaDescription}`,
+    `**Length**: ${output.wordCount} words · ${output.internalLinks.length} internal link(s)`,
     '',
     '---',
     '',
@@ -129,7 +129,7 @@ function formatWpw09Output(output: Wpw09PageOutput | null): string {
   }
 
   if (output.imageRecommendations.length > 0) {
-    lines.push('', '### Recommandations images');
+    lines.push('', '### Image recommendations');
     for (const img of output.imageRecommendations) {
       lines.push(`- ${img.description} — \`alt="${img.altText}"\``);
     }

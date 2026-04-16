@@ -64,7 +64,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
         // Step 1 — Audit rankings (async — fetches from GSC/DataForSEO)
-        controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Audit des positions actuelles…' }));
+        controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Auditing current rankings…' }));
         const rankings = await auditRankings(inputs, context.clientProfile.id);
 
         // Step 2 — Score opportunities
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
         const opportunities = scoreOpportunities(rankings, inputs);
 
         // Step 3 — Build + push corrections
-        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Application des corrections CMS…' }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Applying CMS corrections…' }));
         const correctionsApplied = applyAutoCorrections(opportunities, inputs.automationLevel);
         const correctionsPush = await pushCorrections(
           correctionsApplied,
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
         );
 
         // Step 4 — Alerts
-        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Détection des alertes…' }));
+        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Detecting alerts…' }));
         const alerts = detectAlerts(rankings, []);
 
         const output: Opt06Output = {
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -131,14 +131,14 @@ export async function POST(req: Request) {
 function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
   if (output.rankings.length === 0) {
     return [
-      `## Optimisation SEO & GEO OPT-06 — ${siteUrl}`,
+      `## SEO & GEO Optimization OPT-06 — ${siteUrl}`,
       '',
-      'Aucune donnée de ranking disponible. Connectez **Google Search Console** pour activer le suivi des positions.',
+      'No ranking data available. Connect **Google Search Console** to enable position tracking.',
     ].join('\n');
   }
 
   const lines: string[] = [
-    `## Optimisation SEO & GEO — ${siteUrl}`,
+    `## SEO & GEO Optimization — ${siteUrl}`,
     '',
     `**${output.rankings.length} pages tracked** · ${output.opportunities.length} opportunities found · ${output.alerts.length} alerts`,
     '',
@@ -149,16 +149,16 @@ function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
     .slice(0, 8);
 
   if (topOpps.length > 0) {
-    lines.push('### Opportunités prioritaires (Impact/Effort)');
+    lines.push('### Priority opportunities (Impact/Effort)');
     for (const opp of topOpps) {
-      const flag = opp.requiresHumanValidation ? ' — validation humaine requise' : '';
+      const flag = opp.requiresHumanValidation ? ' — human validation required' : '';
       lines.push(`- **${opp.keyword}** pos. ${opp.currentPosition} · ${opp.optimizationTargets.join(', ')} · score ${opp.priorityScore}${flag}`);
     }
     lines.push('');
   }
 
   if (output.alerts.length > 0) {
-    lines.push(`### Alertes (${output.alerts.length})`);
+    lines.push(`### Alerts (${output.alerts.length})`);
     for (const alert of output.alerts.slice(0, 5)) {
       lines.push(`- **${alert.severity.toUpperCase()}** ${alert.message}`);
     }
@@ -168,16 +168,16 @@ function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
   if (output.correctionsPush) {
     const push = output.correctionsPush;
     if (push.applied.length > 0) {
-      lines.push(`### Corrections appliquées au CMS (${push.applied.length})`);
+      lines.push(`### Applied corrections to CMS (${push.applied.length})`);
       for (const log of push.applied.slice(0, 5)) {
         lines.push(`- ${log.url} — ${log.target}`);
       }
       lines.push('');
     }
     if (push.pending.length > 0) {
-      lines.push(`### Corrections en attente de validation (${push.pending.length})`);
+      lines.push(`### Corrections pending validation (${push.pending.length})`);
       for (const log of push.pending.slice(0, 5)) {
-        lines.push(`- ${log.url} — ${log.target} — validation humaine requise`);
+        lines.push(`- ${log.url} — ${log.target} — human validation required`);
       }
       lines.push('');
     }
@@ -189,11 +189,11 @@ function formatOpt06Report(siteUrl: string, output: Opt06Output): string {
       lines.push('');
     }
     if (push.csvExport) {
-      lines.push('> Un export CSV des corrections est disponible pour application manuelle.');
+      lines.push('> A CSV export of corrections is available for manual application.');
       lines.push('');
     }
   } else if (output.correctionsApplied.length > 0) {
-    lines.push(`### Corrections identifiées (${output.correctionsApplied.length})`);
+    lines.push(`### Identified corrections (${output.correctionsApplied.length})`);
     for (const log of output.correctionsApplied.slice(0, 5)) {
       lines.push(`- ${log.url} — ${log.target}`);
     }

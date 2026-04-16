@@ -65,8 +65,8 @@ export async function fetchYoutube(profile: AgentProfile): Promise<ModuleResult<
     )
 
     const influencerOpportunities: string[] = []
-    if (items.length < 5) influencerOpportunities.push('Partenariats YouTubeurs de niche')
-    if (sentiment !== 'positive') influencerOpportunities.push('Campagne de contenu authentique')
+    if (items.length < 5) influencerOpportunities.push('Niche YouTuber partnerships')
+    if (sentiment !== 'positive') influencerOpportunities.push('Authentic content campaign')
 
     return {
       success: true,

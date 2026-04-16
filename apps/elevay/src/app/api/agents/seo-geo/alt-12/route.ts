@@ -127,7 +127,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -147,20 +147,20 @@ function formatAlt12Report(
   // Graceful degradation: WordPress credentials not yet configured
   if (!output || 'error' in output) {
     return [
-      `## Générateur ALT Texts ALT-12 — ${siteUrl}`,
+      `## ALT Text Generator ALT-12 — ${siteUrl}`,
       '',
-      'Pour générer les ALT texts de vos images, connectez votre CMS dans les paramètres.',
+      'To generate ALT texts for your images, connect your CMS in settings.',
       '',
-      '**Ce que cet agent génère :**',
-      '- ALT texts SEO + accessibilité (WCAG 2.1 AA)',
-      '- Classification automatique : produit · héros · infographie · décorative',
-      '- Lot de 30 images en parallèle',
-      '- 80-120 caractères, mot-clé contextuel intégré',
+      '**What this agent generates:**',
+      '- SEO + accessibility ALT texts (WCAG 2.1 AA)',
+      '- Auto-classification: product · hero · infographic · decorative',
+      '- Batch of 30 images in parallel',
+      '- 80-120 characters, contextual keyword included',
       '',
-      `**CMS détecté : ${cmsType}**`,
+      `**Detected CMS: ${cmsType}**`,
       cmsType === 'wordpress'
-        ? 'Configurez vos identifiants WordPress (Application Password) dans les paramètres pour activer l\'injection directe.'
-        : `Configurez votre connexion ${cmsType} via les paramètres OAuth pour activer l'injection directe.`,
+        ? 'Configure your WordPress credentials (Application Password) in settings to enable direct injection.'
+        : `Configure your ${cmsType} connection via OAuth settings to enable direct injection.`,
     ].join('\n');
   }
 
@@ -169,12 +169,12 @@ function formatAlt12Report(
   const lines: string[] = [
     `## ALT Texts — ${siteUrl}`,
     '',
-    `**${results.length} images traitées** · ${qualityReport.valid} valides · ${qualityReport.invalid} à revoir`,
+    `**${results.length} images processed** · ${qualityReport.valid} valid · ${qualityReport.invalid} to review`,
     '',
   ];
 
   if (results.length > 0) {
-    lines.push('### Exemples générés');
+    lines.push('### Generated examples');
     for (const result of results.slice(0, 5)) {
       const best = result.variations[0];
       if (best) {
@@ -185,7 +185,7 @@ function formatAlt12Report(
     }
   }
 
-  lines.push('Pour injecter ces ALT texts directement dans votre CMS, configurez la connexion dans les paramètres.');
+  lines.push('To inject these ALT texts directly into your CMS, configure the connection in settings.');
 
   return lines.join('\n');
 }

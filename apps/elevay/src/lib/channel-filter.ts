@@ -1,7 +1,7 @@
 /**
- * Helpers pour filtrer les modules selon les canaux prioritaires sélectionnés.
- * Les `priority_channels` utilisent la forme canonique ('X', 'TikTok', 'Instagram', etc.)
- * alors que les modules sociaux utilisent des clés minuscules en interne.
+ * Helpers to filter modules by selected priority channels.
+ * `priority_channels` use canonical form ('X', 'TikTok', 'Instagram', etc.)
+ * while social modules use lowercase keys internally.
  */
 
 export type SocialPlatformKey = "LinkedIn" | "TikTok" | "Instagram" | "Facebook" | "X" | "YouTube";

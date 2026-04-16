@@ -85,7 +85,13 @@ export default function SettingsPage() {
 
   return (
     <SettingsProvider>
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      style={{
+        background:
+          "radial-gradient(ellipse at top left, rgba(23,195,178,0.06) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(44,107,237,0.05) 0%, transparent 50%), radial-gradient(ellipse at top right, rgba(255,122,61,0.04) 0%, transparent 40%), #FFF7ED",
+      }}
+    >
       {/* Header */}
       <div className="border-b px-4 sm:px-6 flex items-center gap-3 shrink-0" style={{ height: '48px', minHeight: '48px' }}>
         <button

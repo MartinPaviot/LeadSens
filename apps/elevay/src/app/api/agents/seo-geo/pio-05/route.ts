@@ -59,9 +59,9 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-start', { streamId, conversationId, ts: Date.now() }));
 
         controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Dashboard dual SEO + GEO…' }));
-        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] Score de citabilité LLM…' }));
+        controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] LLM Citability Score…' }));
         const agentSession = await activate(context, inputs);
-        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Intelligence concurrentielle…' }));
+        controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Competitive intelligence…' }));
         controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Exports (PDF + Sheets)…' }));
 
         controller.enqueue(encoder.encode('result', {
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -99,21 +99,21 @@ export async function POST(req: Request) {
 function formatPio05Report(siteUrl: string, output: Pio05Output | null): string {
   if (!output) {
     return [
-      `## Intelligence SEO & GEO PIO-05 — ${siteUrl}`,
+      `## SEO & GEO Intelligence PIO-05 — ${siteUrl}`,
       '',
       'Analysis not available. Connect **Google Search Console** to enable the full dashboard.',
     ].join('\n');
   }
 
   const lines: string[] = [
-    `## Intelligence SEO & GEO — ${siteUrl}`,
+    `## SEO & GEO Intelligence — ${siteUrl}`,
     '',
-    `**Score global : ${output.dualDashboard.overallScore}/100** (SEO: ${output.dualDashboard.seoScore} · GEO: ${output.dualDashboard.geoScore})`,
-    `**LLM Citabilité : ${output.llmCitabilityScore.total}/100**`,
+    `**Overall score: ${output.dualDashboard.overallScore}/100** (SEO: ${output.dualDashboard.seoScore} · GEO: ${output.dualDashboard.geoScore})`,
+    `**LLM Citability Score: ${output.llmCitabilityScore.total}/100**`,
     '',
   ];
 
-  lines.push('### Visibilité par canal');
+  lines.push('### Visibility by channel');
   for (const channel of output.dualDashboard.channels) {
     lines.push(`- **${channel.channel}** — Score ${channel.score} (${channel.trend})`);
     if (channel.notes) lines.push(`  ${channel.notes}`);
@@ -121,7 +121,7 @@ function formatPio05Report(siteUrl: string, output: Pio05Output | null): string 
   lines.push('');
 
   if (output.llmCitabilityScore.axes.length > 0) {
-    lines.push('### Score LLM Citabilité (4 axes)');
+    lines.push('### LLM Citability Score (4 axes)');
     for (const axis of output.llmCitabilityScore.axes) {
       lines.push(`- **${axis.axis}** — ${axis.score}/${Math.round(axis.weight * 100)} pts`);
       if (axis.recommendations.length > 0) {
@@ -132,7 +132,7 @@ function formatPio05Report(siteUrl: string, output: Pio05Output | null): string 
   }
 
   if (output.llmStructureAudit.issues.length > 0) {
-    lines.push(`### Pages à optimiser pour les LLM (${output.llmStructureAudit.issues.length})`);
+    lines.push(`### Pages to optimize for LLMs (${output.llmStructureAudit.issues.length})`);
     for (const issue of output.llmStructureAudit.issues.slice(0, 5)) {
       lines.push(`- **${issue.priority.toUpperCase()}** ${issue.url} — ${issue.issue}`);
     }
@@ -140,7 +140,7 @@ function formatPio05Report(siteUrl: string, output: Pio05Output | null): string 
   }
 
   if (output.recommendationsForOpt06.length > 0) {
-    lines.push('### Recommandations pour OPT-06');
+    lines.push('### Recommendations for OPT-06');
     for (const rec of output.recommendationsForOpt06.slice(0, 4)) {
       lines.push(`- ${rec}`);
     }
@@ -150,13 +150,13 @@ function formatPio05Report(siteUrl: string, output: Pio05Output | null): string 
   // Export links
   lines.push('### Exports');
   if (output.sheetsUrl) {
-    lines.push(`- [Ouvrir le Google Sheets](${output.sheetsUrl})`);
+    lines.push(`- [Open Google Sheets](${output.sheetsUrl})`);
   }
   if (output.pdfHtml) {
-    lines.push('- Rapport PDF disponible (HTML prêt pour export)');
+    lines.push('- PDF report available (HTML ready for export)');
   }
   if (output.nextRunAt) {
-    lines.push(`- Prochain rapport planifié : ${output.nextRunAt.toLocaleDateString?.('fr-FR') ?? String(output.nextRunAt)}`);
+    lines.push(`- Next scheduled report: ${output.nextRunAt.toLocaleDateString?.('en-US') ?? String(output.nextRunAt)}`);
   }
 
   return lines.join('\n');

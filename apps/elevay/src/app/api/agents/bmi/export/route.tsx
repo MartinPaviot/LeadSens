@@ -272,7 +272,7 @@ function scoreColor(score: number): string {
 
 const tagColors: Record<string, string> = {
   "Urgent": "#ef4444",
-  "Moyen terme": "#f59e0b",
+  "Medium term": "#f59e0b",
   "Quick win": "#22c55e",
 };
 

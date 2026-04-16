@@ -62,7 +62,7 @@ export function runSynthesis(inputs: {
       } else if (kw.trend_direction === 'down') {
         saturatedTopics.push({
           topic: kw.term,
-          reason: 'Volume en déclin — sujet saturé ou en perte d\'intérêt',
+          reason: 'Declining volume — saturated or losing interest',
         })
         continue
       } else {
@@ -112,8 +112,8 @@ export function runSynthesis(inputs: {
           best_channel: 'SEO',
           classification: 'weak_signal',
           source_confirmation: ['rising_query'],
-          estimated_horizon: '1-3 mois',
-          suggested_angle: `Contenu autour de "${q}"`,
+          estimated_horizon: '1-3 months',
+          suggested_angle: `Content around "${q}"`,
         })
       }
     }
@@ -126,7 +126,7 @@ export function runSynthesis(inputs: {
       keyword: kw,
       search_volume: kwData?.volume ?? 0,
       competition: 'medium' as const,
-      opportunity: `Gap identifié — ${profile.brand_name} absent du top SERP pour "${kw}"`,
+      opportunity: `Gap identified — ${profile.brand_name} absent from top SERP for "${kw}"`,
     }
   })
 
@@ -141,19 +141,19 @@ export function runSynthesis(inputs: {
       channel === 'SEO'
         ? ['Article long-form', 'Guide', 'FAQ']
         : channel === 'LinkedIn'
-          ? ['Carousel', 'Article', 'Post texte']
+          ? ['Carousel', 'Article', 'Text post']
           : channel === 'YouTube'
-            ? ['Tutoriel', 'Vidéo courte', 'Interview']
+            ? ['Tutorial', 'Short video', 'Interview']
             : channel === 'TikTok' || channel === 'Instagram'
               ? ['Short', 'Reel', 'Story']
-              : ['Post', 'Article', 'Infographie']
+              : ['Post', 'Article', 'Infographic']
 
     // Estimate engagement from competitive data
     const avgEngagement = competitive
       ? competitive.competitors.filter((c) => c.has_youtube).length >= 2
-        ? 'Élevé'
-        : 'Moyen'
-      : 'Non mesuré'
+        ? 'High'
+        : 'Medium'
+      : 'Not measured'
 
     formatMatrix.push({
       channel,

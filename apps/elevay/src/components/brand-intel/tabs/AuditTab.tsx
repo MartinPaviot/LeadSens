@@ -35,7 +35,7 @@ function getBarColor(score: number): string {
 const TAG_VARIANT: Record<string, string> = {
   Urgent: 'bg-red-100 text-red-800',
   'Mid-term': 'bg-orange-100 text-orange-800',
-  'Moyen terme': 'bg-orange-100 text-orange-800',
+  'Medium term': 'bg-orange-100 text-orange-800',
   'Quick win': 'bg-green-100 text-green-800',
 }
 

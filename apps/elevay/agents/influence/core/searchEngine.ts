@@ -53,5 +53,10 @@ function filterMockData(brief: Partial<CampaignBrief>): InfluencerProfile[] {
     results = results.filter((p) => p.estimatedBudgetMin <= brief.budgetMax!);
   }
 
+  // Never return empty — show all mock data if filters are too aggressive
+  if (results.length === 0) {
+    results = [...MOCK_INFLUENCERS];
+  }
+
   return sortByScore(results).slice(0, MAX_PROFILES_PER_CAMPAIGN);
 }

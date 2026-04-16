@@ -26,10 +26,10 @@ export interface SeoAcquisitionData {
 }
 
 export interface SocialProfile {
-  entity: string                         // brand ou competitor name
+  entity: string                         // brand or competitor name
   platform: string
   followers: number | null
-  posting_frequency: string             // "3x/semaine"
+  posting_frequency: string             // "3x/week"
   engagement_rate: number | null
   dominant_formats: string[]
 }

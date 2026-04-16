@@ -6,7 +6,7 @@ function testEmail() {
   return `test-${Date.now()}@example.com`;
 }
 
-/** Crée un compte et navigue jusqu'au Step 5 (social connections). */
+/** Create an account and navigate to Step 5 (social connections). */
 export async function navigateToStep5(page: Page) {
   const email = testEmail();
 
@@ -26,7 +26,7 @@ export async function navigateToStep5(page: Page) {
   // brand_url requis (URL valide) + brand_name requis (min 1 char)
   await modal.getByPlaceholder("https://mysite.com").fill("https://www.louispion.fr/");
   await modal.getByPlaceholder("e.g. Acme Corp").fill("Louis Pion");
-  // Laisser l'auto-detect s'exécuter (optionnel, 2s)
+  // Let auto-detect run (optional, 2s)
   await page.waitForTimeout(2000);
   await modal.getByRole("button", { name: "Next", exact: true }).click();
 
@@ -60,7 +60,7 @@ export async function navigateToStep5(page: Page) {
   // ── Step 3 — Analysis Parameters ─────────────────────────────────────────
   await page.waitForTimeout(500);
 
-  // Remplir les champs requis s'ils sont vides
+  // Fill required fields if empty
   const countryInput = modal.getByPlaceholder("France");
   if (!(await countryInput.inputValue())) await countryInput.fill("France");
 
@@ -73,8 +73,7 @@ export async function navigateToStep5(page: Page) {
   const secondaryInput = modal.getByPlaceholder("HRIS SMB");
   if (!(await secondaryInput.inputValue())) await secondaryInput.fill("montre luxe");
 
-  // Sélectionner au moins 1 channel si aucun n'est sélectionné
-  // On clique sur "SEO" (toujours présent dans CHANNEL_OPTIONS)
+  // Select at least 1 channel if none is selected
   const seoBtn = modal.getByRole("button", { name: "SEO" });
   await seoBtn.click();
 

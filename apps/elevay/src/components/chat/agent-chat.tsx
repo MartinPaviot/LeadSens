@@ -54,15 +54,15 @@ const EXPORT_PATTERNS: Record<string, "pdf" | "gdoc" | "slides"> = {
 
 function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
   const { scores, priorities_90d, benchmark_data } = bpiOutput;
-  const scoreBreakdown = `SERP ${scores.serp} · Presse ${scores.press} · YouTube ${scores.youtube} · Social ${scores.social} · SEO ${scores.seo} · Benchmark ${scores.benchmark}`;
+  const scoreBreakdown = `SERP ${scores.serp} · Press ${scores.press} · YouTube ${scores.youtube} · Social ${scores.social} · SEO ${scores.seo} · Benchmark ${scores.benchmark}`;
   const urgentPriority = priorities_90d.find((p) => p.tag === "Urgent");
   const priorityLine = urgentPriority ? `⚠️ ${urgentPriority.action}` : null;
   const topComp = benchmark_data?.competitors?.length
     ? benchmark_data.competitors.reduce((a, b) => a.overall_score > b.overall_score ? a : b)
     : null;
-  const compLine = topComp ? `🏆 Concurrent dominant : **${topComp.name}** (Score ${topComp.overall_score})` : null;
+  const compLine = topComp ? `🏆 Dominant competitor: **${topComp.name}** (Score ${topComp.overall_score})` : null;
   return [
-    `🔍 **Audit de présence — ${brandName}** — Score global **${scores.global}/100**`,
+    `🔍 **Brand Presence Audit — ${brandName}** — Overall score **${scores.global}/100**`,
     scoreBreakdown,
     priorityLine,
     compLine,
@@ -71,7 +71,7 @@ function buildBpiSummary(bpiOutput: BpiOutput, brandName: string): string {
 
 function buildMtsSummary(output: MtsOutput): string {
   const { session_context, trending_topics, saturated_topics, differentiating_angles, global_score, mode } = output;
-  const modeLabel = mode === "récurrent" ? " (recurring)" : "";
+  const modeLabel = mode === "recurring" ? " (recurring)" : "";
   const top3 = [...trending_topics]
     .sort((a, b) => b.opportunity_score - a.opportunity_score)
     .slice(0, 3)
@@ -97,7 +97,7 @@ function buildCiaSummary(output: CiaOutput, brandName: string): string {
   const opp = opportunities[0] ? `${opportunities[0].description} (${opportunities[0].timeframe})` : null;
   return [
     `**Competitive analysis — ${brandName}** — Score **${brand_score}/100**`,
-    othersLine ? `Concurrents : ${othersLine}` : null,
+    othersLine ? `Competitors: ${othersLine}` : null,
     zonesLine ? `Zones: ${zonesLine}` : null,
     opp ? `Opportunity: ${opp}` : null,
   ].filter(Boolean).join("\n");
@@ -457,7 +457,7 @@ export default function AgentChat() {
     ]);
 
     // Initialize module progress UI
-    const MODULE_LABELS = ["SERP", "Presse", "YouTube", "Social", "SEO", "Benchmark", "Google Maps", "Trustpilot"];
+    const MODULE_LABELS = ["SERP", "Press", "YouTube", "Social", "SEO", "Benchmark", "Google Maps", "Trustpilot"];
     setBpiModules(MODULE_LABELS.map((label) => ({ label, status: "idle" as const })));
     setBpiExpanded(false);
 

@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -133,7 +133,7 @@ function formatBsw10Output(
   const lines: string[] = [
     `## ${title}`,
     '',
-    `**Format** : ${articleFormat} · **${output.wordCount} mots** · Mode : ${output.mode}`,
+    `**Format**: ${articleFormat} · **${output.wordCount} words** · Mode: ${output.mode}`,
     '',
     '---',
     '',

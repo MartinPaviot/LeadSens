@@ -6,74 +6,73 @@ import { Button } from '@/components/ui-brand-intel/button'
 import { WarningCircle, ArrowRight } from '@phosphor-icons/react'
 
 const FIELD_LABELS: Record<string, string> = {
-  cmsType: 'Type de CMS',
-  geoLevel: 'Niveau géographique',
-  targetGeos: 'Zones géographiques cibles',
-  priorityPages: 'Pages prioritaires',
+  cmsType: 'CMS type',
+  geoLevel: 'Geographic level',
+  targetGeos: 'Target geographies',
+  priorityPages: 'Priority pages',
   googleBusinessProfileId: 'Google Business Profile ID',
-  primaryKeyword: 'Mot-clé principal',
-  secondaryKeyword: 'Mot-clé secondaire',
-  businessObjective: 'Objectif business',
-  seoMaturity: 'Maturité SEO',
-  monthlyContentCapacity: 'Capacité contenu mensuelle',
-  prioritization: 'Priorisation',
-  alertChannel: "Canal d'alertes",
-  automationLevel: "Niveau d'automatisation",
-  annualBudget: 'Budget annuel',
-  fiscalYearStart: 'Début année fiscale',
-  channelsAllocation: 'Répartition par canal',
-  'kpiTargets.cplTarget': 'Objectif CPL',
-  'kpiTargets.cacTarget': 'Objectif CAC',
-  'kpiTargets.roiMinimum': 'ROI minimum',
-  'kpiTargets.cpaTarget': 'Objectif CPA',
-  'kpiTargets.roasTarget': 'Objectif ROAS',
-  'revenueObjectives.annualRevenue': 'Revenu annuel cible',
-  'revenueObjectives.monthlyLeads': 'Leads mensuels cibles',
-  cplTarget: 'Objectif CPL',
-  cacTarget: 'Objectif CAC',
-  roiMinimum: 'ROI minimum',
-  cpaTarget: 'Objectif CPA',
-  roasTarget: 'Objectif ROAS',
-  annualRevenue: 'Revenu annuel cible',
-  monthlyLeads: 'Leads mensuels cibles',
-  style: 'Style rédactionnel',
-  register: 'Registre de langue',
-  positioning: 'Positionnement',
-  keyPhrases: 'Phrases clés',
+  primaryKeyword: 'Primary keyword',
+  secondaryKeyword: 'Secondary keyword',
+  businessObjective: 'Business objective',
+  seoMaturity: 'SEO maturity',
+  monthlyContentCapacity: 'Monthly content capacity',
+  prioritization: 'Prioritization',
+  alertChannel: 'Alert channel',
+  automationLevel: 'Automation level',
+  annualBudget: 'Annual budget',
+  fiscalYearStart: 'Fiscal year start',
+  channelsAllocation: 'Channel allocation',
+  'kpiTargets.cplTarget': 'CPL target',
+  'kpiTargets.cacTarget': 'CAC target',
+  'kpiTargets.roiMinimum': 'Minimum ROI',
+  'kpiTargets.cpaTarget': 'CPA target',
+  'kpiTargets.roasTarget': 'ROAS target',
+  'revenueObjectives.annualRevenue': 'Annual revenue target',
+  'revenueObjectives.monthlyLeads': 'Monthly leads target',
+  cplTarget: 'CPL target',
+  cacTarget: 'CAC target',
+  roiMinimum: 'Minimum ROI',
+  cpaTarget: 'CPA target',
+  roasTarget: 'ROAS target',
+  annualRevenue: 'Annual revenue target',
+  monthlyLeads: 'Monthly leads target',
+  style: 'Writing style',
+  register: 'Language register',
+  positioning: 'Positioning',
+  keyPhrases: 'Key phrases',
   vertical: 'Vertical',
-  audienceDescription: 'Description audience',
-  productDescription: 'Description produit',
-  priorityChannels: 'Canaux prioritaires',
-  competitors: 'Concurrents',
-  monitorKeywords: 'Mots-clés de veille',
-  companyUrl: 'URL du site',
-  name: "Nom de l'entreprise",
-  industry: "Secteur d'activité",
-  country: 'Pays',
-  automationSeo: 'Automatisation SEO',
-  automationSocial: 'Automatisation Social',
-  automationCrm: 'Automatisation CRM',
-  automationInteraction: 'Automatisation Interactions',
-  escalationChannel: "Canal d'escalade",
-  monthlyAdsBudget: 'Budget pub mensuel',
-  'platform (connect a CRM integration)': 'Plateforme CRM (connecter une intégration)',
+  audienceDescription: 'Audience description',
+  productDescription: 'Product description',
+  priorityChannels: 'Priority channels',
+  competitors: 'Competitors',
+  monitorKeywords: 'Monitor keywords',
+  companyUrl: 'Website URL',
+  name: 'Company name',
+  industry: 'Industry',
+  country: 'Country',
+  automationSeo: 'SEO automation',
+  automationSocial: 'Social automation',
+  automationCrm: 'CRM automation',
+  automationInteraction: 'Interaction automation',
+  escalationChannel: 'Escalation channel',
+  monthlyAdsBudget: 'Monthly ads budget',
+  'platform (connect a CRM integration)': 'CRM platform (connect an integration)',
 }
 
 const TAB_LABELS: Record<string, string> = {
-  company: 'Entreprise',
+  company: 'Company',
   brand: 'Brand Voice',
   seo: 'SEO & Site',
-  budget: 'Budget & Objectifs',
-  icp: 'Veille Concurrentielle',
-  integrations: 'Intégrations',
-  agents: 'Automatisation',
-  team: 'Équipe',
-  billing: 'Utilisation',
-  // Composite tab names from agent adapters
+  budget: 'Budget & Objectives',
+  icp: 'Competitive Intelligence',
+  integrations: 'Integrations',
+  agents: 'Automation',
+  team: 'Team',
+  billing: 'Usage',
   'SEO & Site': 'SEO & Site',
-  'Budget & Objectives': 'Budget & Objectifs',
-  'Company + Brand Voice + Competitive Intelligence': 'Entreprise + Brand Voice + Veille',
-  'Automation & Escalation': 'Automatisation & Escalade',
+  'Budget & Objectives': 'Budget & Objectives',
+  'Company + Brand Voice + Competitive Intelligence': 'Company + Brand Voice + Competitive Intelligence',
+  'Automation & Escalation': 'Automation & Escalation',
   'Brand Voice': 'Brand Voice',
 }
 
@@ -98,12 +97,12 @@ function tabLabelFor(tab: string): string {
 
 function buildMessage(missing: string[], tab: string, agentName: string | undefined, isMobile: boolean): React.JSX.Element {
   const tabLabel = tabLabelFor(tab)
-  const agentSuffix = agentName ? ` pour lancer ${agentName}` : ''
+  const agentSuffix = agentName ? ` to run ${agentName}` : ''
 
   if (isMobile && missing.length > 3) {
     return (
       <span>
-        <strong>{missing.length} champs</strong> de configuration manquent dans l&apos;onglet <strong>{tabLabel}</strong>{agentSuffix}.
+        <strong>{missing.length} fields</strong> are missing in <strong>{tabLabel}</strong>{agentSuffix}.
       </span>
     )
   }
@@ -111,7 +110,7 @@ function buildMessage(missing: string[], tab: string, agentName: string | undefi
   if (missing.length === 1) {
     return (
       <span>
-        Le champ <strong>{labelFor(missing[0]!)}</strong> doit être renseigné dans l&apos;onglet <strong>{tabLabel}</strong>{agentSuffix}.
+        <strong>{labelFor(missing[0]!)}</strong> must be configured in <strong>{tabLabel}</strong>{agentSuffix}.
       </span>
     )
   }
@@ -121,14 +120,14 @@ function buildMessage(missing: string[], tab: string, agentName: string | undefi
     const last = labels.pop()!
     return (
       <span>
-        Les champs <strong>{labels.join(', ')}</strong> et <strong>{last}</strong> doivent être renseignés dans l&apos;onglet <strong>{tabLabel}</strong>{agentSuffix}.
+        <strong>{labels.join(', ')}</strong> and <strong>{last}</strong> must be configured in <strong>{tabLabel}</strong>{agentSuffix}.
       </span>
     )
   }
 
   return (
     <span>
-      <strong>{missing.length} champs</strong> de configuration manquent dans l&apos;onglet <strong>{tabLabel}</strong>{agentSuffix}.
+      <strong>{missing.length} fields</strong> are missing in <strong>{tabLabel}</strong>{agentSuffix}.
     </span>
   )
 }
@@ -155,7 +154,7 @@ export function NoConfigBanner({ missing, tab, agentName }: NoConfigBannerProps)
     >
       <WarningCircle className="size-5 sm:size-6 text-amber-600 dark:text-amber-400 shrink-0" weight="fill" />
       <div className="flex-1 text-sm text-amber-900 dark:text-amber-200">
-        <div className="font-semibold mb-0.5">Configuration requise</div>
+        <div className="font-semibold mb-0.5">Configuration required</div>
         {/* Desktop message */}
         <div className="hidden sm:block">
           {buildMessage(missing, tab, agentName, false)}
@@ -171,7 +170,7 @@ export function NoConfigBanner({ missing, tab, agentName }: NoConfigBannerProps)
         style={{ background: 'var(--elevay-gradient-btn)' }}
         size="sm"
       >
-        Ouvrir les réglages
+        Open settings
         <ArrowRight className="size-4 ml-1" />
       </Button>
     </div>

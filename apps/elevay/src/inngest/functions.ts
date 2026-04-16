@@ -470,11 +470,11 @@ async function buildScheduledContentContext(
 
   return {
     topic: kgaTopic || primaryKeyword || fallbackKeywords[0] || '',
-    targetAudience: objective === 'lead-gen' ? 'décideurs B2B' : 'marketeurs',
-    toneOfVoice: 'professionnel',
+    targetAudience: objective === 'lead-gen' ? 'B2B decision-makers' : 'marketers',
+    toneOfVoice: 'professional',
     primaryCta: sector
-      ? `Découvrir nos solutions ${sector}`
-      : 'Découvrir notre solution',
+      ? `Discover our ${sector} solutions`
+      : 'Discover our solution',
     relatedKeywords: kgaRelated,
   };
 }

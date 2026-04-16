@@ -25,14 +25,14 @@ export const COLORS = {
 
 export const URGENCY = {
   urgent: { bg: "#FFECE8", color: "#C0390E", label: "Urgent" },
-  moyen: { bg: "#FFF3DC", color: "#A05C00", label: "Moyen terme" },
+  moyen: { bg: "#FFF3DC", color: "#A05C00", label: "Medium term" },
   quickwin: { bg: "#E6F9F5", color: "#0A7A68", label: "Quick win" },
 } as const
 
 export const AGENT_NAMES: Record<string, string> = {
-  bpi01: "Audit de présence",
-  mts02: "Tendances marché",
-  cia03: "Veille concurrentielle",
+  bpi01: "Brand Presence Audit",
+  mts02: "Market Trends",
+  cia03: "Competitive Intelligence",
 }
 
 export const AGENT_COLORS: Record<string, string> = {

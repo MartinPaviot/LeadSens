@@ -27,6 +27,7 @@ export function InfluencerAgent() {
           influencers={agent.influencers}
           allInfluencers={agent.allInfluencers}
           isSearching={agent.isSearching}
+          searchError={agent.searchError}
           selected={agent.selected}
           selectedId={agent.selectedId}
           filter={agent.filter}

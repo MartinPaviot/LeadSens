@@ -12,6 +12,7 @@ interface InfluencerListProps {
   influencers: InfluencerProfile[];
   allInfluencers: InfluencerProfile[];
   isSearching: boolean;
+  searchError?: string | null;
   selected: InfluencerProfile | null;
   selectedId: string | null;
   filter: 'all' | 'micro' | 'macro';
@@ -29,7 +30,7 @@ const FILTERS: { value: 'all' | 'micro' | 'macro'; label: string }[] = [
 ];
 
 export function InfluencerList({
-  influencers, allInfluencers, isSearching, selected, selectedId, filter, brief, isGeneratingBrief, onSelect, onFilterChange, onGenerateBrief,
+  influencers, allInfluencers, isSearching, searchError, selected, selectedId, filter, brief, isGeneratingBrief, onSelect, onFilterChange, onGenerateBrief,
 }: InfluencerListProps) {
   const [exported, setExported] = useState(false);
   if (isSearching) {
@@ -67,6 +68,13 @@ export function InfluencerList({
     <div className="relative flex flex-1 flex-col overflow-hidden">
       {/* Brief recap top bar */}
       <BriefChips brief={brief} />
+
+      {/* Search error/fallback notice */}
+      {searchError && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+          {searchError}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">

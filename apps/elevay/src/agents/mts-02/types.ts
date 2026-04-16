@@ -7,7 +7,7 @@ export interface TrendingTopic {
   best_channel: string // "SEO" | "LinkedIn" | ...
   classification: 'weak_signal' | 'strong_trend' | 'saturation' | 'buzz'
   source_confirmation: string[] // ["google_trends", "youtube", ...]
-  estimated_horizon: string // "< 2 semaines" | "1-3 mois" | ...
+  estimated_horizon: string // "< 2 weeks" | "1-3 months" | ...
   suggested_angle: string
 }
 
@@ -62,8 +62,8 @@ export interface MtsPreviousComparison {
 export interface MtsOutput {
   global_score: number // 0-100 — global sector opportunity
   sector: string
-  analysis_period: string // "30 jours"
-  mode: 'ponctuel' | 'récurrent'
+  analysis_period: string // "30 days"
+  mode: 'one-off' | 'recurring'
   session_context: MtsSessionContext
   trending_topics: TrendingTopic[]
   saturated_topics: SaturatedTopic[]
@@ -94,7 +94,7 @@ export interface ContentData {
 export interface CompetitiveContentData {
   competitors: Array<{
     name: string
-    publishing_frequency: string // "3x/semaine" | "1x/mois" | ...
+    publishing_frequency: string // "3x/week" | "1x/month" | ...
     content_themes: string[]
     has_youtube: boolean
     has_lead_magnets: boolean

@@ -104,8 +104,8 @@ export async function runMts02(
   const payload: MtsOutput = {
     global_score: globalScore,
     sector: context.sector,
-    analysis_period: '30 jours',
-    mode: 'ponctuel',
+    analysis_period: '30 days',
+    mode: 'one-off',
     session_context: context,
     trending_topics: trendingTopics,
     saturated_topics: saturatedTopics,

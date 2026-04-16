@@ -13,6 +13,23 @@ function isBriefReady(brief: Partial<CampaignBrief>): boolean {
   return Boolean(brief.objective && brief.sector && brief.geography && brief.platforms?.length && brief.budgetMax && brief.priority);
 }
 
+function normalizeProfileType(value: unknown): 'micro' | 'macro' | 'mix' | undefined {
+  if (typeof value !== 'string') return undefined;
+  const lower = value.toLowerCase();
+  if (lower.includes('micro')) return 'micro';
+  if (lower.includes('macro')) return 'macro';
+  if (lower.includes('mix') || lower.includes('both')) return 'mix';
+  return 'micro';
+}
+
+function normalizeBriefUpdate(update: Partial<CampaignBrief>): Partial<CampaignBrief> {
+  const normalized = { ...update };
+  if ('profileType' in normalized) {
+    normalized.profileType = normalizeProfileType(normalized.profileType);
+  }
+  return normalized;
+}
+
 function cleanResponse(text: string): string {
   return text
     .split('\n')
@@ -82,7 +99,7 @@ export function useBriefCollection(_restored?: BriefCollectionState | null) {
         setMessages([agentMsg("Hi! I'm your Influencer Discovery assistant. Let's build your campaign brief.\n\nWhat's the main objective for this campaign?\n**Branding** : increase brand visibility\n**Conversion** : drive sales or sign-ups\n**Engagement** : build community interaction\n**Awareness** : reach new audiences")]);
       } else {
         setMessages([agentMsg(data.response)]);
-        if (data.briefUpdate) setBrief((prev) => ({ ...prev, ...data.briefUpdate }));
+        if (data.briefUpdate) setBrief((prev) => ({ ...prev, ...normalizeBriefUpdate(data.briefUpdate as Partial<CampaignBrief>) }));
       }
     } catch {
       useFallbackRef.current = true;
@@ -144,7 +161,7 @@ export function useBriefCollection(_restored?: BriefCollectionState | null) {
       const cleaned = cleanResponse(data.response);
 
       if (data.briefUpdate) {
-        const updated = { ...brief, ...data.briefUpdate };
+        const updated = { ...brief, ...normalizeBriefUpdate(data.briefUpdate as Partial<CampaignBrief>) };
         setBrief(updated);
 
         if (data.briefComplete) {

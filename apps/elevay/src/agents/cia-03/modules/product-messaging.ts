@@ -53,13 +53,13 @@ function detectPricingPosture(markdown: string): MessagingAnalysis['pricing_post
 
 function extractDominantAngle(hero: string, valueProp: string): string {
   const combined = `${hero} ${valueProp}`.toLowerCase()
-  if (/rapidité|fast|speed|rapide|instant/.test(combined)) return 'Rapidité / performance'
-  if (/simple|facile|easy|intuiti/.test(combined)) return 'Simplicité / facilité'
-  if (/tout[\s-]en[\s-]un|all[\s-]in[\s-]one|complet/.test(combined)) return 'Solution complète'
-  if (/prix|price|abordable|affordable|économi/.test(combined)) return 'Prix compétitif'
-  if (/sécur|secur|confiance|trust/.test(combined)) return 'Sécurité / confiance'
-  if (/innov|intelligence|ai|ia/.test(combined)) return 'Innovation / technologie'
-  return 'Non identifié'
+  if (/rapidité|fast|speed|rapide|instant/.test(combined)) return 'Speed / performance'
+  if (/simple|facile|easy|intuiti/.test(combined)) return 'Simplicity / ease of use'
+  if (/tout[\s-]en[\s-]un|all[\s-]in[\s-]one|complet/.test(combined)) return 'Complete solution'
+  if (/prix|price|abordable|affordable|économi/.test(combined)) return 'Competitive pricing'
+  if (/sécur|secur|confiance|trust/.test(combined)) return 'Security / trust'
+  if (/innov|intelligence|ai|ia/.test(combined)) return 'Innovation / technology'
+  return 'Unidentified'
 }
 
 function calculateClarityScore(hero: string, cta: string, valueProp: string): number {
@@ -73,7 +73,7 @@ function calculateClarityScore(hero: string, cta: string, valueProp: string): nu
 function calculateDifferentiationScore(brandAngle: string, competitorAngle: string): number {
   if (!brandAngle || !competitorAngle) return 50
   if (brandAngle === competitorAngle) return 20
-  if (brandAngle === 'Non identifié' || competitorAngle === 'Non identifié') return 50
+  if (brandAngle === 'Unidentified' || competitorAngle === 'Unidentified') return 50
   return 75 // different angles
 }
 

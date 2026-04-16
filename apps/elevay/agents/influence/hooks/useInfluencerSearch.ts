@@ -5,6 +5,7 @@ import { searchInfluencers } from '../core/searchEngine';
 export function useInfluencerSearch() {
   const [influencers, setInfluencers] = useState<InfluencerProfile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'micro' | 'macro'>('all');
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
@@ -14,11 +15,17 @@ export function useInfluencerSearch() {
 
   const search = useCallback(async (brief: Partial<CampaignBrief>, config?: OnboardingConfig) => {
     setIsSearching(true);
+    setSearchError(null);
     briefRef.current = brief;
     if (config) configRef.current = config;
     try {
       const results = await searchInfluencers(brief, configRef.current);
       setInfluencers(results);
+      if (results.length === 0) {
+        setSearchError('No influencers found — showing demo profiles');
+      }
+    } catch {
+      setSearchError('Search failed — showing demo profiles');
     } finally {
       setIsSearching(false);
     }
@@ -60,6 +67,7 @@ export function useInfluencerSearch() {
     influencers: filtered,
     allInfluencers: influencers,
     isSearching,
+    searchError,
     selected,
     selectedId,
     filter,

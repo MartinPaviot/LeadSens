@@ -6,10 +6,10 @@ import { GRADIENTS } from '../tokens';
 export type TabId = 'overview' | 'audit' | 'trends' | 'competitive';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'overview', label: 'Vue d\'ensemble' },
-  { id: 'audit', label: 'Audit de marque' },
-  { id: 'trends', label: 'Tendances marché' },
-  { id: 'competitive', label: 'Veille concurrentielle' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'audit', label: 'Brand Audit' },
+  { id: 'trends', label: 'Market Trends' },
+  { id: 'competitive', label: 'Competitive Intelligence' },
 ];
 
 export function TabNav({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {

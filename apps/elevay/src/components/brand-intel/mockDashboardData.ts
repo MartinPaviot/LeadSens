@@ -76,7 +76,7 @@ export const mockDashboardData: DashboardData = {
       global_score: 71,
       sector: 'Marketing SaaS',
       analysis_period: '30 days',
-      mode: 'ponctuel',
+      mode: 'one-off',
       session_context: {
         sector: 'Marketing SaaS',
         priority_channels: ['SEO', 'LinkedIn'],

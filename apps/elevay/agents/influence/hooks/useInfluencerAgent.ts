@@ -70,9 +70,9 @@ export function useInfluencerAgent(onboardingConfig?: OnboardingConfig) {
     searchState.setLang(briefCollection.lang);
   }, [briefCollection.lang, searchState]);
 
-  // Auto-trigger search when brief completes (not from restore)
+  // Auto-trigger search when brief completes
   useEffect(() => {
-    if (briefCollection.briefComplete && !searchState.isSearching && searchState.allInfluencers.length === 0 && !restoredRef.current) {
+    if (briefCollection.briefComplete && !searchState.isSearching && searchState.allInfluencers.length === 0) {
       void searchState.search(briefCollection.brief, onboardingConfig);
     }
   }, [briefCollection.briefComplete, briefCollection.brief, searchState, onboardingConfig]);
@@ -119,6 +119,7 @@ export function useInfluencerAgent(onboardingConfig?: OnboardingConfig) {
     selected: searchState.selected,
     selectedId: searchState.selectedId,
     isSearching: searchState.isSearching,
+    searchError: searchState.searchError,
     isGeneratingBrief: searchState.isGeneratingBrief,
     filter: searchState.filter,
     setFilter: searchState.setFilter,

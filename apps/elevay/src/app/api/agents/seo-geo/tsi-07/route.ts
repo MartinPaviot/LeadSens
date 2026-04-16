@@ -77,7 +77,7 @@ export async function POST(req: Request) {
         const actionPlan = buildActionPlan(issues);
 
         // Step 4 — CMS corrections push
-        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Application des corrections CMS…' }));
+        controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Applying CMS corrections…' }));
         const correctionsPush = await pushTsi07Corrections(
           issues,
           inputs.automationLevel,
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -128,73 +128,73 @@ function formatTsi07Report(
 ): string {
   if (crawlStatus === 'error') {
     return [
-      `## Audit Technique TSI-07 — ${siteUrl}`,
+      `## Technical Audit TSI-07 — ${siteUrl}`,
       '',
       'Crawl failed — DataForSEO unavailable. Check your `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` environment variables.',
     ].join('\n');
   }
 
   const lines: string[] = [
-    `## Audit Technique — ${siteUrl}`,
+    `## Technical Audit — ${siteUrl}`,
     '',
-    `**${report.crawlSummary.totalUrls} pages analysées** — ${report.crawlSummary.indexable} indexables · ${report.crawlSummary.blocked} bloquées · ${report.crawlSummary.errors} erreurs`,
-    `Score automatisable : **${report.autoFixableCount} corrections** applicables sans validation humaine`,
+    `**${report.crawlSummary.totalUrls} pages analyzed** — ${report.crawlSummary.indexable} indexable · ${report.crawlSummary.blocked} blocked · ${report.crawlSummary.errors} errors`,
+    `Automatable score: **${report.autoFixableCount} corrections** applicable without human validation`,
     '',
   ];
 
   if (plan.immediate.length > 0) {
-    lines.push(`### Problèmes critiques (${plan.immediate.length})`);
+    lines.push(`### Critical issues (${plan.immediate.length})`);
     for (const issue of plan.immediate.slice(0, 10)) {
       lines.push(`- **${issue.type}** — ${issue.description}`);
       lines.push(`  → ${issue.recommendedAction}`);
     }
     if (plan.immediate.length > 10) {
-      lines.push(`  _+ ${plan.immediate.length - 10} autres problèmes critiques_`);
+      lines.push(`  _+ ${plan.immediate.length - 10} other critical issues_`);
     }
     lines.push('');
   }
 
   if (plan.thisWeek.length > 0) {
-    lines.push(`### Actions cette semaine (${plan.thisWeek.length})`);
+    lines.push(`### Actions this week (${plan.thisWeek.length})`);
     for (const issue of plan.thisWeek.slice(0, 8)) {
       lines.push(`- ${issue.description}`);
     }
     if (plan.thisWeek.length > 8) {
-      lines.push(`  _+ ${plan.thisWeek.length - 8} autres_`);
+      lines.push(`  _+ ${plan.thisWeek.length - 8} others_`);
     }
     lines.push('');
   }
 
   if (plan.thisMonth.length > 0) {
-    lines.push(`### Ce mois (${plan.thisMonth.length} pages sans meta description)`);
-    lines.push(`Utilisez **MDG-11** pour générer les meta descriptions manquantes en lot.`);
+    lines.push(`### This month (${plan.thisMonth.length} pages without meta description)`);
+    lines.push(`Use **MDG-11** to generate the missing meta descriptions in batch.`);
     lines.push('');
   }
 
   if (plan.immediate.length === 0 && plan.thisWeek.length === 0 && plan.thisMonth.length === 0) {
-    lines.push('### Aucun problème détecté');
-    lines.push('Votre site ne présente pas d\'erreurs techniques majeures. Continuez à surveiller régulièrement.');
+    lines.push('### No issues detected');
+    lines.push('Your site has no major technical errors. Continue monitoring regularly.');
   }
 
   // Show correction results
   if (correctionsPush) {
     if (correctionsPush.applied.length > 0) {
-      lines.push(`### Corrections appliquées (${correctionsPush.applied.length})`);
+      lines.push(`### Applied corrections (${correctionsPush.applied.length})`);
       for (const c of correctionsPush.applied.slice(0, 5)) {
         lines.push(`- ${c.url} — ${c.field}`);
       }
       if (correctionsPush.applied.length > 5) {
-        lines.push(`  _+ ${correctionsPush.applied.length - 5} autres corrections_`);
+        lines.push(`  _+ ${correctionsPush.applied.length - 5} other corrections_`);
       }
       lines.push('');
     }
     if (correctionsPush.pending.length > 0) {
-      lines.push(`### En attente de validation (${correctionsPush.pending.length})`);
+      lines.push(`### Pending validation (${correctionsPush.pending.length})`);
       for (const p of correctionsPush.pending.slice(0, 5)) {
         lines.push(`- ${p.url} — ${p.type}`);
       }
       if (correctionsPush.pending.length > 5) {
-        lines.push(`  _+ ${correctionsPush.pending.length - 5} autres en attente_`);
+        lines.push(`  _+ ${correctionsPush.pending.length - 5} others pending_`);
       }
       lines.push('');
     }
@@ -206,7 +206,7 @@ function formatTsi07Report(
       lines.push('');
     }
     if (correctionsPush.csvExport) {
-      lines.push('> Export CSV disponible pour les corrections non appliquées automatiquement.');
+      lines.push('> CSV export available for corrections not applied automatically.');
       lines.push('');
     }
   }

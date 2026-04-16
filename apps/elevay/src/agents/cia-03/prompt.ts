@@ -73,7 +73,7 @@ export function buildConsolidatedPrompt(
 ### Brand Profile
 - Name: ${sanitize(profile.brand_name)}
 - URL: ${sanitize(profile.brand_url)}
-- Sector: ${sanitize(profile.sector ?? 'Non spécifié')}
+- Sector: ${sanitize(profile.sector ?? 'Not specified')}
 - Primary keyword: ${sanitize(profile.primary_keyword)}
 - Competitors: ${profile.competitors.map((c) => sanitize(c.name)).join(', ')}
 

@@ -67,8 +67,8 @@ export const wpw09RouteSchema = z.object({
   pageType: z.enum(['about', 'service', 'landing', 'pillar', 'contact', 'category']),
   brief: z.string().min(1),
   targetKeywords: z.array(z.string()).optional(),
-  brandTone: z.string().default('professionnel'),
-  targetAudience: z.string().default('décideurs B2B'),
+  brandTone: z.string().default('professional'),
+  targetAudience: z.string().default('B2B decision-makers'),
   internalLinksAvailable: z.array(z.string()).optional(),
   exportFormat: z.enum(['html', 'markdown', 'wordpress', 'hubspot', 'shopify', 'sheets']).default('html'),
 });
@@ -81,13 +81,13 @@ export const bsw10RouteSchema = z.object({
   topic: z.string().min(1),
   mode: z.enum(['single', 'cluster', 'calendar']).default('single'),
   articleFormat: z.enum(['guide', 'list', 'case-study', 'comparison', 'opinion', 'tutorial', 'glossary']).default('guide'),
-  targetAudience: z.string().default('marketeurs'),
+  targetAudience: z.string().default('marketers'),
   expertiseLevel: z.enum(['beginner', 'intermediate', 'expert']).default('intermediate'),
   objective: z.enum(['traffic', 'lead-gen', 'conversion', 'brand-authority']).default('traffic'),
-  brandTone: z.string().default('professionnel'),
+  brandTone: z.string().default('professional'),
   targetKeywords: z.array(z.string()).optional(),
   internalLinksAvailable: z.array(z.string()).optional(),
-  cta: z.string().default('Découvrir notre solution'),
+  cta: z.string().default('Discover our solution'),
   calendarDuration: z.union([z.literal(30), z.literal(60), z.literal(90)]).optional(),
 });
 

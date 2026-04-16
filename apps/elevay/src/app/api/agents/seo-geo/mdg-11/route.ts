@@ -62,7 +62,7 @@ export async function POST(req: Request) {
         let pageList: { url: string; title: string; currentMeta: string }[] = [];
 
         if (wpCreds && profile.cmsType === 'wordpress') {
-          controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Récupération pages WordPress…' }));
+          controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Fetching WordPress pages…' }));
           const { wpGetPages, wpGetPosts } = await import('../../../../../../core/tools/cms/wordpress');
           const [pages, posts] = await Promise.allSettled([
             wpGetPages(wpCreds),
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
         void err;
-        controller.enqueue(encoder.encode('error', { message: 'Une erreur est survenue.' }));
+        controller.enqueue(encoder.encode('error', { message: 'An error occurred.' }));
       } finally {
         controller.close();
       }
@@ -140,9 +140,9 @@ function formatMdg11Report(
   totalPages: number,
 ): string {
   if (!output || 'error' in output) {
-    const reason = output && 'error' in output ? output.error : 'Aucune donnée disponible';
+    const reason = output && 'error' in output ? output.error : 'No data available';
     return [
-      `## Générateur Meta Descriptions MDG-11 — ${siteUrl}`,
+      `## Meta Description Generator MDG-11 — ${siteUrl}`,
       '',
       reason,
     ].join('\n');
@@ -153,31 +153,31 @@ function formatMdg11Report(
   const lines: string[] = [
     `## Meta Descriptions — ${siteUrl}`,
     '',
-    `**${totalPages} pages analysées** · ${results.length} metas générées · ${qualityReport.valid} valides · ${qualityReport.invalid} à corriger`,
+    `**${totalPages} pages analyzed** · ${results.length} metas generated · ${qualityReport.valid} valid · ${qualityReport.invalid} to fix`,
     '',
   ];
 
   if (results.length > 0) {
-    lines.push('### Exemples générés');
+    lines.push('### Generated examples');
     for (const result of results.slice(0, 5)) {
       const best = result.variations.find((v) => v.valid) ?? result.variations[0];
       if (best) {
         lines.push(`**${result.url}**`);
-        lines.push(`> ${best.text} _(${best.charCount} car.)_`);
+        lines.push(`> ${best.text} _(${best.charCount} chars)_`);
         lines.push('');
       }
     }
   }
 
   if (qualityReport.invalid > 0) {
-    lines.push('### Problèmes détectés');
+    lines.push('### Issues detected');
     for (const [issue, count] of Object.entries(qualityReport.issues) as [string, number][]) {
-      if (count > 0) lines.push(`- **${issue}** : ${count} pages`);
+      if (count > 0) lines.push(`- **${issue}**: ${count} pages`);
     }
     lines.push('');
   }
 
-  lines.push('Pour injecter ces metas directement dans votre CMS, configurez WordPress / HubSpot / Shopify / Webflow dans les paramètres.');
+  lines.push('To inject these metas directly into your CMS, configure WordPress / HubSpot / Shopify / Webflow in settings.');
 
   return lines.join('\n');
 }
