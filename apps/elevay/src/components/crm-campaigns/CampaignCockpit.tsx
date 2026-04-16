@@ -4,6 +4,8 @@ import { useState, useCallback } from "react"
 import { sanitizeHtml } from "@/lib/sanitize-html"
 import type { EmailDraft, SMSDraft } from "@/agents/crm-campaign-manager/core/types"
 import type { TimingProposal } from "@/agents/crm-campaign-manager/modules/timing-optimizer"
+import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
+import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
 import { toast } from "sonner"
 
 type CockpitState = "idle" | "loading" | "draft-ready" | "scheduled" | "error"
@@ -18,6 +20,7 @@ export function CampaignCockpit() {
   const [state, setState] = useState<CockpitState>("idle")
   const [result, setResult] = useState<CampaignResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   // Brief form state
   const [objective, setObjective] = useState("sale")
@@ -29,6 +32,7 @@ export function CampaignCockpit() {
   const handleGenerate = useCallback(async () => {
     setState("loading")
     setError(null)
+    setNoConfig(null)
 
     try {
       const response = await fetch("/api/agents/crm-campaign-manager/chat", {
@@ -44,6 +48,9 @@ export function CampaignCockpit() {
           abConfig: { enabled: true, variable: "subject", sampleSize: 20, winCriteria: "open_rate", decisionDelay: 4 },
         }),
       })
+
+      const nc = await checkNoConfig(response)
+      if (nc) { setNoConfig(nc); setState("error"); return }
 
       if (!response.ok) {
         const err = await response.json()
@@ -99,6 +106,12 @@ export function CampaignCockpit() {
       <div className="border-b px-4 sm:px-6 flex items-center gap-3 shrink-0" style={{ height: "48px", minHeight: "48px" }}>
         <h1 className="text-lg font-semibold">CRM Campaigns</h1>
       </div>
+
+      {noConfig && (
+        <div className="px-4 pt-4 sm:px-6">
+          <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="CRM Campaigns" />
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
         {/* Brief Form */}

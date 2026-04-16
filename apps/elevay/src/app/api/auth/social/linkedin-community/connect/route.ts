@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@leadsens/db";
 import { initiateLinkedInCommunityConnection } from "@/lib/composio-linkedin";
 
 export const dynamic = 'force-dynamic'
@@ -24,27 +23,33 @@ export async function POST(req: Request) {
     try {
       const redirectUrl = await initiateLinkedInCommunityConnection(user.workspaceId);
       return Response.json({ redirectUrl });
-    } catch (composioErr) {
-      // Graceful fallback: store "pending" in DB
+    } catch {
+      // Graceful fallback: mark integration as pending
       try {
-        const profile = await prisma.elevayBrandProfile.findUnique({
-          where: { workspaceId: user.workspaceId },
-          select: { social_connections: true },
+        const existing = await prisma.integration.findFirst({
+          where: { workspaceId: user.workspaceId, type: 'linkedin-community' },
         });
-        const existing = (profile?.social_connections as Record<string, unknown>) ?? {};
-        await prisma.elevayBrandProfile.updateMany({
-          where: { workspaceId: user.workspaceId },
-          data: {
-            social_connections: { ...existing, "linkedin-community": "pending" } as unknown as Prisma.InputJsonValue,
-          },
-        });
-      } catch (dbErr) {
-        void dbErr;
+        if (existing) {
+          await prisma.integration.update({
+            where: { id: existing.id },
+            data: { status: 'ERROR' },
+          });
+        } else {
+          await prisma.integration.create({
+            data: {
+              workspaceId: user.workspaceId,
+              type: 'linkedin-community',
+              status: 'ERROR',
+            },
+          });
+        }
+      } catch {
+        // best-effort
       }
 
       return Response.json({ redirectUrl: null, status: "error" });
     }
-  } catch (err) {
+  } catch {
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

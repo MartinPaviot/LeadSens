@@ -27,5 +27,8 @@
       "unrs-resolver",
       "msgpackr-extract"
     ]
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }

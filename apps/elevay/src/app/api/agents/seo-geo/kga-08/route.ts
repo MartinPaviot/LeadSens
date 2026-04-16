@@ -1,49 +1,45 @@
-import { auth } from '@/lib/auth';
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { kga08RouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { NoConfigError, noConfigResponse, requireFields } from '@/lib/agent-context';
+import { toKga08Settings } from '@/lib/agent-adapters';
+import { resolveSeoContext } from '@/lib/seo-route-helpers';
 import type { AgentContext } from '../../../../../../core/types';
 import { activate } from '../../../../../../agents/seo-geo/kga08';
 import type { Kga08Inputs, Kga08Output } from '../../../../../../agents/seo-geo/kga08/types';
 
 export const dynamic = 'force-dynamic'
-
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session?.user) return new Response('Unauthorized', { status: 401 });
-
-  // Rate limit
-  const rl = await checkRateLimit(session.user.id, 'kga-08');
-  if (!rl.allowed) {
-    return Response.json(
-      { error: 'Rate limit exceeded', retryAfter: rl.retryAfter },
-      { status: 429 },
-    );
-  }
-
   const parsed = kga08RouteSchema.safeParse(await req.json());
   if (!parsed.success) {
     return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
   }
-  const { conversationId, siteUrl, profile, seedKeywords } = parsed.data;
+  const { conversationId, siteUrl: siteUrlOverride, profile: profileOverride, seedKeywords } = parsed.data;
 
+  const resolved = await resolveSeoContext(profileOverride, siteUrlOverride);
+  if (resolved instanceof Response) return resolved;
+
+  const rl = await checkRateLimit(resolved.session.user.id, 'kga-08');
+  if (!rl.allowed) {
+    return Response.json({ error: 'Rate limit exceeded', retryAfter: rl.retryAfter }, { status: 429 });
+  }
+
+  let kgaSettings: ReturnType<typeof toKga08Settings>['data'];
+  try {
+    kgaSettings = requireFields(toKga08Settings(resolved.ctx), 'SEO & Site');
+  } catch (err) {
+    if (err instanceof NoConfigError) return noConfigResponse(err);
+    throw err;
+  }
+
+  const { profile, siteUrl } = resolved;
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
 
   const context: AgentContext = {
-    clientProfile: {
-      id: session.user.id,
-      siteUrl: profile.siteUrl,
-      cmsType: profile.cmsType,
-      automationLevel: profile.automationLevel,
-      geoLevel: profile.geoLevel,
-      targetGeos: profile.targetGeos,
-      priorityPages: profile.priorityPages,
-      alertChannels: profile.alertChannels,
-      connectedTools: profile.connectedTools,
-    },
+    clientProfile: profile,
     sessionId: streamId,
     triggeredBy: 'user',
   };
@@ -51,13 +47,13 @@ export async function POST(req: Request) {
   const inputs: Kga08Inputs = {
     siteUrl,
     targetPages: profile.priorityPages,
-    businessObjective: 'traffic',
+    businessObjective: kgaSettings.businessObjective,
     geoLevel: profile.geoLevel,
     targetGeos: profile.targetGeos,
-    competitors: [],
-    monthlyContentCapacity: 4,
-    seoMaturity: 'beginner',
-    prioritization: 'volume',
+    competitors: kgaSettings.competitors,
+    monthlyContentCapacity: kgaSettings.monthlyContentCapacity,
+    seoMaturity: kgaSettings.seoMaturity,
+    prioritization: kgaSettings.prioritization,
     gscConnected: profile.connectedTools.gsc,
     multiCountry: profile.targetGeos.length > 1,
   };
@@ -88,10 +84,7 @@ export async function POST(req: Request) {
         }
 
         controller.enqueue(encoder.encode('finish', {
-          tokensIn: 0,
-          tokensOut: 0,
-          totalSteps: 3,
-          finishReason: 'stop',
+          tokensIn: 0, tokensOut: 0, totalSteps: 3, finishReason: 'stop',
         }));
         controller.enqueue(encoder.encode('stream-end', {}));
       } catch (err) {
@@ -105,8 +98,6 @@ export async function POST(req: Request) {
 
   return new Response(stream, { headers: SSE_HEADERS });
 }
-
-// ─── Output formatter ─────────────────────────────────────
 
 function formatKga08Report(
   siteUrl: string,

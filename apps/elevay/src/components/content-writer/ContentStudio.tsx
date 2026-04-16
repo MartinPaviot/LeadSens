@@ -6,6 +6,8 @@ import type {
   GeneratedVariation,
 } from "@/agents/social-content-writer/core/types"
 import { PlatformPreviewCard } from "./PlatformPreviewCard"
+import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
+import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
 import { toast } from "sonner"
 
 type StudioState = "idle" | "loading" | "done" | "error"
@@ -15,6 +17,7 @@ export function ContentStudio() {
   const [output, setOutput] = useState<GenerationOutput | null>(null)
   const [briefText, setBriefText] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   const handleGenerate = useCallback(async () => {
     if (!briefText.trim()) {
@@ -24,6 +27,7 @@ export function ContentStudio() {
 
     setState("loading")
     setError(null)
+    setNoConfig(null)
 
     try {
       const response = await fetch("/api/agents/social-content-writer/chat", {
@@ -38,6 +42,9 @@ export function ContentStudio() {
           variationsCount: 2,
         }),
       })
+
+      const nc = await checkNoConfig(response)
+      if (nc) { setNoConfig(nc); setState("error"); return }
 
       if (!response.ok) {
         const err = await response.json()
@@ -127,6 +134,12 @@ export function ContentStudio() {
           </button>
         )}
       </div>
+
+      {noConfig && (
+        <div className="px-4 pt-4 sm:px-6">
+          <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="Content Writer" />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">

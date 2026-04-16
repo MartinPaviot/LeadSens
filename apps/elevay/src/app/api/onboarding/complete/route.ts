@@ -47,46 +47,35 @@ export async function POST(req: Request) {
   }
 
   const d = parsed.data;
-
-  // Map onboarding fields to ElevayBrandProfile schema
   const brandName = d.brandName?.trim() || (user.name ?? new URL(d.siteUrl).hostname);
-  const alertChannels: string[] = [];
-  if (d.alertChannel === 'email') alertChannels.push('email');
-  if (d.alertChannel === 'slack') alertChannels.push('slack');
-  if (d.alertChannel === 'digest') alertChannels.push('report');
+  const alertChannelMap: Record<string, string> = { email: 'email', slack: 'slack', digest: 'report' };
 
-  // Build social_connections with API keys
-  const socialConnections: Record<string, string> = {};
-  if (d.ahrefsApiKey) socialConnections.ahrefsApiKey = d.ahrefsApiKey;
-  if (d.semrushApiKey) socialConnections.semrushApiKey = d.semrushApiKey;
-  const socialConnectionsJson = Object.keys(socialConnections).length > 0
-    ? (socialConnections as unknown as Prisma.InputJsonValue)
-    : undefined;
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: user.workspaceId },
+    select: { settings: true },
+  });
+  const existingSettings = (workspace?.settings as Record<string, unknown> | null) ?? {};
 
-  await prisma.elevayBrandProfile.upsert({
-    where: { workspaceId: user.workspaceId },
-    create: {
-      workspaceId: user.workspaceId,
-      brand_name: brandName,
-      brand_url: d.siteUrl,
+  const newSettings = {
+    ...existingSettings,
+    language: d.language,
+    cmsType: d.cmsType === 'none' ? 'other' : d.cmsType,
+    automationSeo: d.automationLevel,
+    alertChannel: alertChannelMap[d.alertChannel] ?? 'email',
+    tone: d.toneOfVoice,
+    ...(d.ahrefsApiKey && { ahrefsApiKey: d.ahrefsApiKey }),
+    ...(d.semrushApiKey && { semrushApiKey: d.semrushApiKey }),
+  };
+
+  await prisma.workspace.update({
+    where: { id: user.workspaceId },
+    data: {
+      name: brandName,
+      companyUrl: d.siteUrl,
       country: d.language === 'en' ? 'US' : d.language === 'fr' ? 'FR' : d.language.toUpperCase(),
-      language: d.language,
-      competitors: [],
-      primary_keyword: d.sector ?? '',
-      secondary_keyword: '',
-      sector: d.sector,
-      priority_channels: ['SEO'],
-      objective: 'acquisition',
-      report_recurrence: 'on_demand',
-      ...(socialConnectionsJson && { social_connections: socialConnectionsJson }),
-    },
-    update: {
-      brand_name: brandName,
-      brand_url: d.siteUrl,
-      country: d.language === 'en' ? 'US' : d.language === 'fr' ? 'FR' : d.language.toUpperCase(),
-      language: d.language,
-      sector: d.sector,
-      ...(socialConnectionsJson && { social_connections: socialConnectionsJson }),
+      industry: d.sector,
+      onboardingCompletedAt: new Date(),
+      settings: newSettings as unknown as Prisma.InputJsonValue,
     },
   });
 

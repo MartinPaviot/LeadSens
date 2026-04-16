@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createSSEStream } from "@/lib/sse-brand-intel"
 import { runMts02 } from "@/agents/mts-02/index"
-import type { AgentProfile } from "@/agents/_shared/types"
 import { safeAgentOutput } from "@/lib/type-guards"
 import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 import type {
@@ -11,6 +10,8 @@ import type {
   MtsSessionContext,
   MtsPreviousComparison,
 } from "@/agents/mts-02/types"
+import { loadWorkspaceContext, NoConfigError, noConfigResponse, requireFields } from "@/lib/agent-context"
+import { toAgentProfile } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { z } from "zod"
 
@@ -61,15 +62,15 @@ export async function POST(req: Request) {
     // empty body is fine
   }
 
-  const profileRow = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId },
-  })
-  if (!profileRow) {
-    return Response.json(
-      { error: "NO_PROFILE", message: "Configure your brand profile first" },
-      { status: 400 },
-    )
+  let profile
+  try {
+    const ctx = await loadWorkspaceContext(workspaceId)
+    profile = requireFields(toAgentProfile(ctx), "Company + Brand Voice + Competitive Intelligence")
+  } catch (err) {
+    if (err instanceof NoConfigError) return noConfigResponse(err)
+    throw err
   }
+
 
   const previousRun = await prisma.elevayAgentRun.findFirst({
     where: { workspaceId, agentCode: "MTS-02" },
@@ -91,37 +92,13 @@ export async function POST(req: Request) {
       })()
     : undefined
 
-  const competitors = profileRow.competitors as unknown as Array<{
-    name: string
-    url: string
-  }>
-  const profile: AgentProfile = {
-    workspaceId: profileRow.workspaceId,
-    brand_name: profileRow.brand_name,
-    brand_url: profileRow.brand_url,
-    country: profileRow.country,
-    language: profileRow.language,
-    competitors,
-    primary_keyword: profileRow.primary_keyword,
-    secondary_keyword: profileRow.secondary_keyword,
-    sector: profileRow.sector ?? undefined,
-    priority_channels: profileRow.priority_channels,
-    objective: profileRow.objective ?? undefined,
-    facebookConnected: profileRow.facebookConnected,
-    facebookComposioAccountId:
-      profileRow.facebookComposioAccountId ?? undefined,
-    instagramConnected: profileRow.instagramConnected,
-    instagramComposioAccountId:
-      profileRow.instagramComposioAccountId ?? undefined,
-  }
-
-  const rawChannels = body.priority_channels ?? profileRow.priority_channels
+  const rawChannels = body.priority_channels ?? profile.priority_channels ?? []
   const priorityChannels = rawChannels
     .map(toValidChannel)
     .filter((c): c is ValidChannel => c !== null)
 
   const context: MtsSessionContext = {
-    sector: body.sector ?? profileRow.sector ?? profile.primary_keyword,
+    sector: body.sector ?? profile.sector ?? profile.primary_keyword,
     priority_channels:
       priorityChannels.length > 0 ? priorityChannels : ["SEO"],
   }
@@ -176,7 +153,6 @@ export async function POST(req: Request) {
         output: output as unknown as Prisma.InputJsonValue,
         degradedSources: output.degraded_sources,
         durationMs: Date.now() - startedAt,
-        brandProfileId: profileRow.id,
       },
     })
 

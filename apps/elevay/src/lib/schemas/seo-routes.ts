@@ -23,20 +23,22 @@ const webflowCredsSchema = z.object({
   siteId: z.string().optional(),
 }).optional();
 
+// Every field is optional — routes fill in missing fields from workspace.settings.
+// Callers may still provide a full profile (backward compat with pre-Settings push architecture).
 export const seoProfileSchema = z.object({
-  siteUrl: z.string().url(),
-  cmsType: z.enum(['wordpress', 'hubspot', 'shopify', 'webflow', 'other']),
-  automationLevel: z.enum(['audit', 'semi-auto', 'full-auto']),
-  geoLevel: z.enum(['national', 'regional', 'city', 'multi-geo']),
-  targetGeos: z.array(z.string()),
-  priorityPages: z.array(z.string()),
-  alertChannels: z.array(z.enum(['slack', 'email', 'report'])),
+  siteUrl: z.string().url().optional(),
+  cmsType: z.enum(['wordpress', 'hubspot', 'shopify', 'webflow', 'other']).optional(),
+  automationLevel: z.enum(['audit', 'semi-auto', 'full-auto']).optional(),
+  geoLevel: z.enum(['national', 'regional', 'city', 'multi-geo']).optional(),
+  targetGeos: z.array(z.string()).optional(),
+  priorityPages: z.array(z.string()).optional(),
+  alertChannels: z.array(z.enum(['slack', 'email', 'report'])).optional(),
   connectedTools: z.object({
     gsc: z.boolean(),
     ga: z.boolean(),
     ahrefs: z.boolean(),
     semrush: z.boolean(),
-  }),
+  }).optional(),
   wordpressCredentials: wpCredsSchema,
   hubspotCredentials: hubCredsSchema,
   shopifyCredentials: shopifyCredsSchema,
@@ -47,8 +49,8 @@ export const seoProfileSchema = z.object({
 
 export const agentRouteSchema = z.object({
   conversationId: z.string().min(1),
-  siteUrl: z.string().url(),
-  profile: seoProfileSchema,
+  siteUrl: z.string().url().optional(),
+  profile: seoProfileSchema.optional(),
 });
 
 // ─── KGA-08 extends with seedKeywords ───────────────────
@@ -61,7 +63,7 @@ export const kga08RouteSchema = agentRouteSchema.extend({
 
 export const wpw09RouteSchema = z.object({
   conversationId: z.string().min(1),
-  profile: seoProfileSchema,
+  profile: seoProfileSchema.optional(),
   pageType: z.enum(['about', 'service', 'landing', 'pillar', 'contact', 'category']),
   brief: z.string().min(1),
   targetKeywords: z.array(z.string()).optional(),
@@ -75,7 +77,7 @@ export const wpw09RouteSchema = z.object({
 
 export const bsw10RouteSchema = z.object({
   conversationId: z.string().min(1),
-  profile: seoProfileSchema,
+  profile: seoProfileSchema.optional(),
   topic: z.string().min(1),
   mode: z.enum(['single', 'cluster', 'calendar']).default('single'),
   articleFormat: z.enum(['guide', 'list', 'case-study', 'comparison', 'opinion', 'tutorial', 'glossary']).default('guide'),

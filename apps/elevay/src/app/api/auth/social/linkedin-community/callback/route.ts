@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@leadsens/db";
 
 export const dynamic = 'force-dynamic'
 
@@ -9,24 +8,24 @@ const PLATFORM = "linkedin-community";
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
 
-  // Update social_connections in DB (best-effort — don't block the response)
   if (session?.user) {
     try {
       const user = await prisma.user.findUnique({ where: { id: session.user.id } });
       if (user?.workspaceId) {
-        const profile = await prisma.elevayBrandProfile.findUnique({
-          where: { workspaceId: user.workspaceId },
-          select: { id: true, social_connections: true },
+        const existing = await prisma.integration.findFirst({
+          where: { workspaceId: user.workspaceId, type: PLATFORM },
         });
-        if (profile) {
-          const existing = profile.social_connections as Record<string, boolean> | null;
-          await prisma.elevayBrandProfile.update({
-            where: { id: profile.id },
+        if (existing) {
+          await prisma.integration.update({
+            where: { id: existing.id },
+            data: { status: 'ACTIVE' },
+          });
+        } else {
+          await prisma.integration.create({
             data: {
-              social_connections: {
-                ...(existing ?? {}),
-                [PLATFORM]: true,
-              } as unknown as Prisma.InputJsonValue,
+              workspaceId: user.workspaceId,
+              type: PLATFORM,
+              status: 'ACTIVE',
             },
           });
         }

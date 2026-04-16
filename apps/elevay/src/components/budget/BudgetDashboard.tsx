@@ -8,6 +8,8 @@ import type {
   Alert,
 } from "@/agents/budget-controller/core/types"
 import { ALERT_LEVELS } from "@/agents/budget-controller/core/constants"
+import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
+import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
 import { toast } from "sonner"
 
 type DashboardState = "idle" | "loading" | "ready" | "error"
@@ -89,15 +91,20 @@ function AlertBanner({ alerts }: { alerts: Alert[] }) {
 export function BudgetDashboard() {
   const [state, setState] = useState<DashboardState>("idle")
   const [data, setData] = useState<BudgetDashboardData | null>(null)
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   const handleRefresh = useCallback(async () => {
     setState("loading")
+    setNoConfig(null)
     try {
       const response = await fetch("/api/agents/budget-controller/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       })
+
+      const nc = await checkNoConfig(response)
+      if (nc) { setNoConfig(nc); setState("error"); return }
 
       if (!response.ok) {
         const err = await response.json()
@@ -141,6 +148,12 @@ export function BudgetDashboard() {
           {state === "loading" ? "Syncing..." : "Refresh Data"}
         </button>
       </div>
+
+      {noConfig && (
+        <div className="px-4 pt-4 sm:px-6">
+          <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="Budget Controller" />
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
         {state === "idle" && (

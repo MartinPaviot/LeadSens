@@ -3,7 +3,7 @@ import type { BrandVoiceProfile } from "../core/types"
 /**
  * Calibrate brand voice from user conversation.
  * In V1, the voice profile is constructed from the chat message
- * and persisted in ElevayBrandProfile.voiceConfig (JSON).
+ * and persisted in workspace.settings.voiceConfig (JSON).
  */
 export async function calibrateBrandVoice(
   userMessage: string,

@@ -33,14 +33,41 @@ When presenting the campaign summary, NEVER use dashes or bullet points. Present
 
 Start by greeting the user and asking about their campaign objective.`;
 
-export function getSystemPrompt(lang: 'fr' | 'en'): string {
+/**
+ * Optional pre-known fields from Settings. When provided, the agent should
+ * NOT re-ask these parameters — instead acknowledge them and move to the
+ * next missing one.
+ */
+export interface BriefDefaults {
+  sector?: string
+  geography?: string
+  platforms?: string[]
+  budgetMin?: number
+  budgetMax?: number
+  language?: string
+}
+
+function renderDefaults(defaults?: BriefDefaults): string {
+  if (!defaults) return ''
+  const filled: string[] = []
+  if (defaults.sector) filled.push(`sector: ${defaults.sector}`)
+  if (defaults.geography) filled.push(`geography: ${defaults.geography}`)
+  if (defaults.platforms?.length) filled.push(`platforms: ${defaults.platforms.join(', ')}`)
+  if (defaults.budgetMin) filled.push(`budgetMin: ${defaults.budgetMin}`)
+  if (defaults.budgetMax) filled.push(`budgetMax: ${defaults.budgetMax}`)
+  if (filled.length === 0) return ''
+  return `\nPre-known from Settings (do NOT re-ask, just acknowledge briefly then ask the next missing field):\n${filled.map((f) => `- ${f}`).join('\n')}\n`
+}
+
+export function getSystemPrompt(lang: 'fr' | 'en', defaults?: BriefDefaults): string {
+  const preKnown = renderDefaults(defaults)
   if (lang === 'fr') {
     return `You are the Chief Influencer Officer AI for Elevay. You help marketing teams find the best influencers for their campaigns.
 
 You MUST respond exclusively in French (vous form for B2B). Never switch to English mid-conversation.
 
 ${BASE_RULES}
-
+${preKnown}
 Use French examples: secteurs (mode, beauté, tech, food, B2B), géographie (France, Europe, Mondial), plateformes, style de contenu (éducatif, lifestyle, humour, avis, UGC).`;
   }
 
@@ -49,7 +76,7 @@ Use French examples: secteurs (mode, beauté, tech, food, B2B), géographie (Fra
 You MUST respond exclusively in English. Never switch to French mid-conversation. If the user switches to English, continue in English.
 
 ${BASE_RULES}
-
+${preKnown}
 Use English examples: sectors (fashion, beauty, tech, food, B2B), geography (France, Europe, US, global), platforms, content style (educational, lifestyle, humor, review, UGC).`;
 }
 

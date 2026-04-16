@@ -1,7 +1,7 @@
-// SEO-GEO agent streaming client
-// Mirrors the BMI pattern — one streaming function per agent
-
 import type { SeoAgentProfile } from './types';
+import { checkNoConfig, type NoConfigInfo } from '@/lib/no-config-check';
+
+export type { NoConfigInfo } from '@/lib/no-config-check';
 
 export async function streamTsi07Audit(
   conversationId: string,
@@ -140,11 +140,25 @@ export async function streamBsw10Article(
 // Reads raw bytes from the response body and feeds them to the onChunk callback.
 // The caller is responsible for parsing SSE events (e.g. via eventsource-parser).
 
+export class NoConfigError extends Error {
+  readonly info: NoConfigInfo;
+  constructor(info: NoConfigInfo) {
+    super('NO_CONFIG')
+    this.name = 'NoConfigError'
+    this.info = info
+  }
+}
+
 async function consumeSse(
   res: Response,
   onChunk: (chunk: string) => void,
 ): Promise<void> {
-  if (!res.ok || !res.body) return;
+  if (!res.ok) {
+    const noConfig = await checkNoConfig(res);
+    if (noConfig) throw new NoConfigError(noConfig);
+    return;
+  }
+  if (!res.body) return;
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   while (true) {

@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { loadWorkspaceContext } from "@/lib/agent-context";
+import { toInfluenceBriefDefaults } from "@/lib/agent-adapters";
 import { z } from "zod";
 import { getSystemPrompt } from "../../../../../../agents/influence/prompts/briefCollection";
 
@@ -30,7 +33,18 @@ export async function POST(req: Request) {
   }
 
   const { messages, lang } = parsed.data;
-  const systemPrompt = getSystemPrompt(lang ?? 'en');
+
+  // Pre-fill brief defaults from Settings so the LLM doesn't re-ask known fields
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
+  const defaults = user?.workspaceId
+    ? toInfluenceBriefDefaults(await loadWorkspaceContext(user.workspaceId)).data
+    : {};
+
+  const effectiveLang = lang ?? (defaults.language === 'fr' ? 'fr' : 'en');
+  const systemPrompt = getSystemPrompt(effectiveLang, defaults);
 
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

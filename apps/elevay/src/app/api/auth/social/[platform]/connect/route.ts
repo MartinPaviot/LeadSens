@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@leadsens/db";
 import { ComposioToolSet } from "composio-core";
 
 export const dynamic = 'force-dynamic'
@@ -61,7 +60,6 @@ export async function POST(
     const appName = COMPOSIO_APP_NAME[platform]!;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/social/${platform}/callback`;
 
-    const authConfigId = COMPOSIO_AUTH_CONFIG_ID[platform];
     try {
       const toolset = new ComposioToolSet({ apiKey: process.env.COMPOSIO_API_KEY, entityId: user.workspaceId });
       const connection = await toolset.connectedAccounts.initiate({
@@ -75,27 +73,33 @@ export async function POST(
       return Response.json({ redirectUrl: connection.redirectUrl }, {
         headers: { "Cross-Origin-Opener-Policy": "same-origin-allow-popups" },
       });
-    } catch (composioErr) {
-      // Graceful fallback: store "pending" in DB (merge with existing connections)
+    } catch {
+      // Graceful fallback: mark integration as pending
       try {
-        const profile = await prisma.elevayBrandProfile.findUnique({
-          where: { workspaceId: user.workspaceId },
-          select: { social_connections: true },
+        const existing = await prisma.integration.findFirst({
+          where: { workspaceId: user.workspaceId, type: platform },
         });
-        const existing = (profile?.social_connections as Record<string, unknown>) ?? {};
-        await prisma.elevayBrandProfile.updateMany({
-          where: { workspaceId: user.workspaceId },
-          data: {
-            social_connections: { ...existing, [platform]: "pending" } as unknown as Prisma.InputJsonValue,
-          },
-        });
-      } catch (dbErr) {
-        void dbErr;
+        if (existing) {
+          await prisma.integration.update({
+            where: { id: existing.id },
+            data: { status: 'ERROR' },
+          });
+        } else {
+          await prisma.integration.create({
+            data: {
+              workspaceId: user.workspaceId,
+              type: platform,
+              status: 'ERROR',
+            },
+          });
+        }
+      } catch {
+        // best-effort
       }
 
       return Response.json({ redirectUrl: null, status: "error" });
     }
-  } catch (err) {
+  } catch {
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

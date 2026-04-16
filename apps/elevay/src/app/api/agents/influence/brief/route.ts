@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { loadWorkspaceContext } from "@/lib/agent-context";
+import { toInfluenceBriefDefaults } from "@/lib/agent-adapters";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic'
@@ -37,8 +40,34 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { influencer, brief, lang } = parsed.data;
-  const isFrench = lang === 'fr' || brief.geography?.toLowerCase().includes('france');
+  const { influencer, brief: briefOverride, lang } = parsed.data;
+
+  // Merge brief with Settings defaults (body takes precedence)
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
+  const defaults = user?.workspaceId
+    ? toInfluenceBriefDefaults(await loadWorkspaceContext(user.workspaceId)).data
+    : {};
+  const brief: {
+    objective?: string
+    sector?: string
+    geography?: string
+    budgetMin?: number
+    budgetMax?: number
+    platforms?: string[]
+  } = {
+    sector: defaults.sector,
+    geography: defaults.geography,
+    budgetMin: defaults.budgetMin,
+    budgetMax: defaults.budgetMax,
+    platforms: defaults.platforms,
+    ...Object.fromEntries(Object.entries(briefOverride).filter(([, v]) => v !== undefined)),
+  };
+
+  const effectiveLang = lang ?? defaults.language;
+  const isFrench = effectiveLang === 'fr' || brief.geography?.toLowerCase().includes('france');
 
   const userPrompt = `Generate a collaboration brief for ${influencer.name} (${influencer.handle}, ${influencer.followers.toLocaleString()} followers, ${influencer.engagementRate}% engagement, niche: ${influencer.niche}) for a ${brief.objective ?? 'branding'} campaign in ${brief.sector ?? 'general'}, targeting ${brief.geography ?? 'global'}, budget ${brief.budgetMin ?? '?'}–${brief.budgetMax ?? '?'}€. Platforms: ${(brief.platforms ?? influencer.platforms).join(', ')}. Write in ${isFrench ? 'French' : 'English'}. Max 120 words. Direct, no fluff.`;
 

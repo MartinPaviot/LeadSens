@@ -108,15 +108,6 @@ const companySchema = z.object({
   targetMarkets: z.array(z.string()).optional(),
 })
 
-const brandSchema = z.object({
-  tab: z.literal("brand"),
-  language: z.string().optional(),
-  tone: z.string().optional(),
-  emailSignature: z.string().optional(),
-  neverMention: z.string().optional(),
-  approvedExamples: z.string().optional(),
-})
-
 const competitiveSchema = z.object({
   tab: z.literal("competitive"),
   competitors: z.array(z.object({ name: z.string(), url: z.string() })).optional(),
@@ -131,9 +122,106 @@ const agentsSchema = z.object({
   timezone: z.string().optional(),
   reportSchedule: z.string().optional(),
   contentApprovalRequired: z.boolean().optional(),
+  // Granular automation levels per agent family
+  automationSeo: z.enum(["audit", "semi-auto", "full-auto"]).optional(),
+  automationSocial: z.enum(["full-auto", "supervised", "manual"]).optional(),
+  automationCrm: z.enum(["full-auto", "supervised", "manual"]).optional(),
+  automationInteraction: z.enum(["full-auto", "validation", "off-hours"]).optional(),
+  // Off-hours schedule (social interaction manager)
+  offHoursEnabled: z.boolean().optional(),
+  workStart: z.string().optional(), // "09:00"
+  workEnd: z.string().optional(),   // "18:00"
+  workDays: z.array(z.number().min(0).max(6)).optional(),
+  spamDeletion: z.boolean().optional(),
+  // Escalation
+  escalationChannel: z.enum(["email", "slack", "sms"]).optional(),
+  alertChannels: z.array(z.enum(["email", "slack", "report"])).optional(),
+  escalationThresholds: z.object({
+    sentimentMin: z.number().min(-1).max(1).optional(),
+    influencerAudienceMin: z.number().min(0).optional(),
+    leadScoreMin: z.number().min(0).max(100).optional(),
+  }).optional(),
 })
 
-const patchSchema = z.discriminatedUnion("tab", [companySchema, brandSchema, competitiveSchema, agentsSchema])
+const seoSchema = z.object({
+  tab: z.literal("seo"),
+  cmsType: z.enum(["wordpress", "hubspot", "shopify", "webflow", "other", ""]).optional(),
+  geoLevel: z.enum(["national", "regional", "city", "multi-geo", ""]).optional(),
+  targetGeos: z.array(z.string()).optional(),
+  priorityPages: z.array(z.string()).optional(),
+  googleBusinessProfileId: z.string().optional(),
+  seoMaturity: z.enum(["beginner", "intermediate", "advanced", ""]).optional(),
+  monthlyContentCapacity: z.number().min(0).max(500).optional(),
+  prioritization: z.enum(["volume", "conversion", ""]).optional(),
+  primaryKeyword: z.string().optional(),
+  secondaryKeyword: z.string().optional(),
+  businessObjective: z.enum(["traffic", "lead-gen", "sales", "local-awareness", ""]).optional(),
+  alertChannel: z.enum(["slack", "email", "report", ""]).optional(),
+})
+
+const budgetSchema = z.object({
+  tab: z.literal("budget"),
+  annualBudget: z.number().min(0).optional(),
+  monthlyAdsBudget: z.number().min(0).optional(),
+  smsBudget: z.number().min(0).optional(),
+  fiscalYearStart: z.string().optional(), // "01-01"
+  channelsAllocation: z.array(z.object({
+    channel: z.string(),
+    annualBudget: z.number().min(0),
+    monthlyBudget: z.number().min(0),
+  })).optional(),
+  kpiTargets: z.object({
+    cplTarget: z.number().min(0).optional(),
+    cacTarget: z.number().min(0).optional(),
+    roiMinimum: z.number().min(0).optional(),
+    cpaTarget: z.number().min(0).optional(),
+    roasTarget: z.number().min(0).optional(),
+  }).optional(),
+  revenueObjectives: z.object({
+    annualRevenue: z.number().min(0).optional(),
+    quarterlyRevenue: z.array(z.number().min(0)).optional(),
+    monthlyLeads: z.number().min(0).optional(),
+  }).optional(),
+  alertThresholds: z.object({
+    overSpendPercent: z.number().min(0).max(100).optional(),
+    cacDeviationWeeks: z.number().min(1).max(52).optional(),
+  }).optional(),
+})
+
+// Brand voice — extended
+const brandSchemaExtended = z.object({
+  tab: z.literal("brand"),
+  language: z.string().optional(),
+  tone: z.string().optional(),
+  emailSignature: z.string().optional(),
+  neverMention: z.string().optional(),
+  approvedExamples: z.string().optional(),
+  // Extended fields
+  style: z.string().optional(),
+  register: z.string().optional(),
+  positioning: z.enum(["thought-leader", "brand-expert", "personal-brand", "corporate", ""]).optional(),
+  keyPhrases: z.array(z.string()).optional(),
+  examplePosts: z.array(z.string()).optional(),
+  platformOverrides: z.record(z.string(), z.object({
+    length: z.string().optional(),
+    tone: z.string().optional(),
+    hashtags: z.boolean().optional(),
+    ctaType: z.string().optional(),
+  })).optional(),
+  vertical: z.enum(["ecommerce", "b2b", "saas", "personal-branding", ""]).optional(),
+  audienceDescription: z.string().optional(),
+  productDescription: z.string().optional(),
+  priorityChannels: z.array(z.string()).optional(),
+})
+
+const patchSchema = z.discriminatedUnion("tab", [
+  companySchema,
+  brandSchemaExtended,
+  competitiveSchema,
+  agentsSchema,
+  seoSchema,
+  budgetSchema,
+])
 
 export async function PATCH(req: Request) {
   try {
@@ -172,7 +260,7 @@ export async function PATCH(req: Request) {
         data: { settings: { ...current, ...fields } },
       })
     } else if (data.tab === "agents") {
-      const { tab: _, dryRunMode, timezone, reportSchedule, contentApprovalRequired } = data
+      const { tab: _tab, dryRunMode, timezone, ...rest } = data
       const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { settings: true } })
       const current = (ws?.settings as Record<string, unknown>) ?? {}
       await prisma.workspace.update({
@@ -180,8 +268,16 @@ export async function PATCH(req: Request) {
         data: {
           ...(dryRunMode !== undefined && { dryRunMode }),
           ...(timezone !== undefined && { timezone }),
-          settings: { ...current, reportSchedule, contentApprovalRequired },
+          settings: { ...current, ...rest },
         },
+      })
+    } else if (data.tab === "seo" || data.tab === "budget") {
+      const { tab: _tab, ...fields } = data
+      const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { settings: true } })
+      const current = (ws?.settings as Record<string, unknown>) ?? {}
+      await prisma.workspace.update({
+        where: { id: workspaceId },
+        data: { settings: { ...current, ...fields } },
       })
     }
 

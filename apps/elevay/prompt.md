@@ -213,7 +213,7 @@ src/app/api/
 ├── settings/route.ts           ← GET/PATCH — Settings workspace
 ├── settings/icp/route.ts       ← POST/PUT/DELETE — CRUD ICPs
 ├── settings/team/route.ts      ← POST/DELETE — Membres equipe
-├── contact/route.ts            ← POST — Formulaire contact (Resend)
+├── contact/route.ts            ← POST — Formulaire contact (Resend, file upload whitelist)
 ├── trpc/[trpc]/route.ts        ← Handler tRPC
 └── inngest/route.ts            ← Background jobs
 ```
@@ -238,6 +238,48 @@ if (!workspaceId) return 400
 
 // Toutes les queries filtrent par workspaceId
 const data = await prisma.xxx.findMany({ where: { workspaceId } })
+```
+
+### Pattern RBAC (Role-Based Access Control)
+
+Pour les actions sensibles (gestion equipe, billing), utiliser un context auth avec role :
+
+```typescript
+async function getAuthContext(): Promise<{ workspaceId: string; userId: string; role: string } | null> {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) return null
+  // ... resolve workspaceId ...
+  const membership = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: wid, userId } },
+  })
+  const role = membership?.role ?? "owner"  // creator du workspace = owner par defaut
+  return { workspaceId: wid, userId, role }
+}
+
+function isAdmin(role: string): boolean {
+  return role === "admin" || role === "owner"
+}
+
+// Dans le handler :
+if (!isAdmin(ctx.role)) {
+  return Response.json({ error: "FORBIDDEN", message: "Admin role required" }, { status: 403 })
+}
+```
+
+### Audit logging
+
+Les actions sensibles (invite/remove member, etc.) sont loggees via `@/lib/logger` :
+
+```typescript
+import { logger } from "@/lib/logger"
+
+logger.info({
+  action: "team.invite",
+  actorId: ctx.userId,
+  targetEmail: parsed.data.email,
+  workspaceId: ctx.workspaceId,
+  role: parsed.data.role,
+}, "Team member invited")
 ```
 
 ### tRPC
@@ -444,7 +486,49 @@ pnpm db:studio                      # Interface visuelle
 
 ---
 
-## 10. Conventions
+## 10. Securite & Compliance
+
+### Patterns appliques
+
+| Pattern | Implementation | Fichiers concernes |
+|---------|----------------|---------------------|
+| **Force dynamic** | `export const dynamic = 'force-dynamic'` sur toutes les routes auth | `/api/settings/*`, `/api/contact`, `/api/brand-profile`, `/api/auth/social/*` |
+| **RBAC** | Role check (owner/admin/viewer) avant actions sensibles | `/api/settings/team` (POST/DELETE) |
+| **Audit logging** | `logger.info({ action, actorId, targetX, workspaceId })` | `/api/settings/team` |
+| **Tenant isolation** | Toutes les queries filtrent par `workspaceId` | Toutes les routes |
+| **File upload whitelist** | MIME types limites + max size 5 MB | `/api/contact` |
+| **Input validation** | Zod sur tous les inputs | Toutes les routes |
+| **Pas de fuite d'erreur** | `catch (err) { void err; return INTERNAL_ERROR }` (pas de stack trace au client) | Toutes les routes |
+| **Owner protection** | `CANNOT_REMOVE_OWNER` 403 si tentative de suppression de l'owner | `/api/settings/team` DELETE |
+
+### File upload (pieces jointes contact)
+
+```typescript
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "text/csv", "application/pdf"]
+const MAX_SIZE = 5 * 1024 * 1024  // 5 MB
+
+if (!ALLOWED_TYPES.includes(attachment.type)) {
+  return Response.json({ error: "File type not allowed" }, { status: 400 })
+}
+if (attachment.size > MAX_SIZE) {
+  return Response.json({ error: "File too large (max 5MB)" }, { status: 400 })
+}
+```
+
+### OAuth & secrets
+
+- **Better Auth secret** : `BETTER_AUTH_SECRET` env var (jamais commit)
+- **Composio OAuth** : token stocke en DB chiffre via `Integration.accessToken`
+- **API keys tiers** (Influence agent : Upfluence, Klear, etc.) : **client-side only**, jamais persistes serveur
+- **Resend API key** : `RESEND_API_KEY` env var (fallback log si absent en dev)
+
+### Email domain
+
+Toutes les communications sortantes utilisent `noreply@elevay.app` ou `contact@elevay.app` (jamais d'email perso).
+
+---
+
+## 11. Conventions
 
 1. **TypeScript strict** — zero `any`, zero `as any`
 2. **Zod** sur tous les inputs (routes API, tRPC, formulaires)

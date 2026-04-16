@@ -11,6 +11,8 @@ import type {
   AutonomyLevel,
 } from "@/agents/social-campaign-manager/core/types"
 import { PLATFORM_META, VERTICAL_CONFIGS } from "@/agents/social-campaign-manager/core/constants"
+import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
+import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
 import { toast } from "sonner"
 
 // ── Constants for pill selectors ───────────────────────
@@ -250,6 +252,7 @@ export function MissionControl() {
   const [state, setState] = useState<ViewState>("idle")
   const [output, setOutput] = useState<StrategyOutput | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   // Brief form state
   const [objective, setObjective] = useState<CampaignObjective>("leads")
@@ -300,6 +303,7 @@ export function MissionControl() {
 
     setState("loading")
     setError(null)
+    setNoConfig(null)
 
     try {
       const response = await fetch("/api/agents/social-campaign-manager/chat", {
@@ -321,6 +325,9 @@ export function MissionControl() {
           },
         }),
       })
+
+      const nc = await checkNoConfig(response)
+      if (nc) { setNoConfig(nc); setState("error"); return }
 
       if (!response.ok) {
         const err = await response.json()
@@ -384,6 +391,12 @@ export function MissionControl() {
           </span>
         )}
       </div>
+
+      {noConfig && (
+        <div className="px-4 pt-4 sm:px-6">
+          <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="Social Campaigns" />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">

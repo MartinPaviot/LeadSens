@@ -63,10 +63,6 @@ test.describe('Draft validation', () => {
 
   test.beforeEach(async () => {
     // Seed an agent run with PENDING_VALIDATION status
-    const profile = await prisma.elevayBrandProfile.findUnique({
-      where: { workspaceId },
-    });
-
     const run = await prisma.elevayAgentRun.create({
       data: {
         workspaceId,
@@ -83,7 +79,6 @@ test.describe('Draft validation', () => {
         },
         degradedSources: [],
         durationMs: 5000,
-        brandProfileId: profile?.id ?? null,
       },
     });
     seededRunId = run.id;
@@ -189,12 +184,13 @@ test.describe('Schedule lifecycle', () => {
       const diffDays = Math.abs(nextRunAt.getTime() - expectedDate.getTime()) / (1000 * 60 * 60 * 24);
       expect(diffDays).toBeLessThan(2);
 
-      // Verify DB state
-      const profile = await prisma.elevayBrandProfile.findUnique({
-        where: { workspaceId },
-        select: { report_recurrence: true },
+      // Verify DB state (workspace.settings.reportRecurrence)
+      const ws = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { settings: true },
       });
-      expect(profile?.report_recurrence).toBe('monthly');
+      const wsSettings = (ws?.settings as Record<string, unknown> | null) ?? {};
+      expect(wsSettings.reportRecurrence).toBe('monthly');
 
       // ── Pause (PATCH) ───────────────────────────────────────
       const pauseRes = await apiContext.patch('/api/agents/seo-geo/schedule', {
@@ -204,11 +200,12 @@ test.describe('Schedule lifecycle', () => {
       const pauseJson = await pauseRes.json();
       expect(pauseJson.status).toBe('paused');
 
-      const afterPause = await prisma.elevayBrandProfile.findUnique({
-        where: { workspaceId },
-        select: { report_recurrence: true },
+      const afterPauseWs = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { settings: true },
       });
-      expect(afterPause?.report_recurrence).toBe('on_demand');
+      const afterPauseSettings = (afterPauseWs?.settings as Record<string, unknown> | null) ?? {};
+      expect(afterPauseSettings.reportRecurrence).toBe('on_demand');
 
       // ── Resume (PATCH) ──────────────────────────────────────
       const resumeRes = await apiContext.patch('/api/agents/seo-geo/schedule', {
@@ -219,11 +216,12 @@ test.describe('Schedule lifecycle', () => {
         const resumeJson = await resumeRes.json();
         expect(resumeJson.status).toBe('resumed');
 
-        const afterResume = await prisma.elevayBrandProfile.findUnique({
-          where: { workspaceId },
-          select: { report_recurrence: true },
+        const afterResumeWs = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+          select: { settings: true },
         });
-        expect(afterResume?.report_recurrence).toBe('monthly');
+        const afterResumeSettings = (afterResumeWs?.settings as Record<string, unknown> | null) ?? {};
+        expect(afterResumeSettings.reportRecurrence).toBe('monthly');
       } else {
         // Inngest dispatch may fail in test env — that's OK, we tested the flow
         expect(resumeRes.status()).toBe(500);

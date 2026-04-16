@@ -107,7 +107,6 @@ model Workspace {
   users              User[]
   icps               WorkspaceIcp[]
   members            WorkspaceMember[]
-  elevayBrandProfile ElevayBrandProfile?
   elevayAgentRuns    ElevayAgentRun[]   @relation("WorkspaceAgentRuns")
 
   @@map("workspace")
@@ -453,35 +452,6 @@ model Reply {
   @@map("reply")
 }
 
-model ElevayBrandProfile {
-  id                String         @id @default(cuid())
-  workspaceId       String         @unique
-  brand_name        String
-  brand_url         String
-  country           String
-  language          String
-  competitors        Json
-  primary_keyword    String
-  secondary_keyword  String
-  sector             String?
-  priority_channels  String[]
-  objective          String?
-  exportFormat       String         @default("pdf")
-  report_recurrence  String?        // 'on_demand'|'weekly'|'monthly'|'quarterly'
-  social_connections Json?          // { linkedin: bool, instagram: bool, ... }
-  // Social OAuth via Composio (brand-intel agents)
-  facebookConnected          Boolean  @default(false)
-  facebookComposioAccountId  String?
-  instagramConnected         Boolean  @default(false)
-  instagramComposioAccountId String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  agentRuns         ElevayAgentRun[]
-
-  @@map("elevay_brand_profile")
-}
-
 model ElevayAgentRun {
   id              String              @id @default(cuid())
   workspaceId     String
@@ -491,8 +461,6 @@ model ElevayAgentRun {
   degradedSources String[]
   durationMs      Int
   createdAt       DateTime            @default(now())
-  brandProfileId  String?
-  brandProfile    ElevayBrandProfile? @relation(fields: [brandProfileId], references: [id], onDelete: SetNull)
   workspace       Workspace           @relation("WorkspaceAgentRuns", fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, agentCode, createdAt])

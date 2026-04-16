@@ -1,8 +1,8 @@
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@leadsens/db"
 import { NextResponse } from "next/server"
-import { Prisma } from "@prisma/client"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -56,15 +56,14 @@ export async function GET() {
     return NextResponse.json({ error: "No workspace" }, { status: 400 })
   }
 
-  const profile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId },
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { settings: true },
   })
+  const settings = (workspace?.settings as Record<string, unknown> | null) ?? {}
+  const voiceConfig = settings.voiceConfig ?? null
 
-  const voiceConfig = (
-    profile?.social_connections as Record<string, unknown> | null
-  )?.voiceConfig
-
-  return NextResponse.json({ voiceConfig: voiceConfig ?? null })
+  return NextResponse.json({ voiceConfig })
 }
 
 export async function POST(req: Request) {
@@ -95,30 +94,29 @@ export async function POST(req: Request) {
     )
   }
 
-  const profile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId },
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { settings: true },
   })
-  if (!profile) {
+  if (!workspace) {
     return NextResponse.json(
-      { error: "NO_PROFILE", message: "Create a brand profile first" },
+      { error: "NO_WORKSPACE" },
       { status: 400 },
     )
   }
 
-  // Store voice config in social_connections JSON field
-  const existingConnections =
-    (profile.social_connections as Record<string, unknown> | null) ?? {}
-  const updatedConnections = {
-    ...existingConnections,
+  const existingSettings = (workspace.settings as Record<string, unknown> | null) ?? {}
+  const updatedSettings = {
+    ...existingSettings,
     voiceConfig: {
       ...parsed.data,
       calibratedAt: new Date().toISOString(),
     },
   }
-  await prisma.elevayBrandProfile.update({
-    where: { workspaceId },
+  await prisma.workspace.update({
+    where: { id: workspaceId },
     data: {
-      social_connections: updatedConnections as unknown as Prisma.InputJsonValue,
+      settings: updatedSettings as unknown as Prisma.InputJsonValue,
     },
   })
 

@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { runSMC } from "@/agents/social-campaign-manager/index"
 import { CampaignBriefSchema } from "@/agents/social-campaign-manager/modules/diagnostic"
+import { loadWorkspaceContext } from "@/lib/agent-context"
+import { toSocialCampaignDefaults } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
@@ -35,14 +37,19 @@ export async function POST(req: Request) {
     return rateLimitResponse(rateCheck.retryAfter)
   }
 
-  let body: unknown
+  let body: Record<string, unknown>
   try {
-    body = await req.json()
+    body = (await req.json()) as Record<string, unknown>
   } catch {
     return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 })
   }
 
-  const parsed = CampaignBriefSchema.safeParse(body)
+  // Pre-fill from Settings before validating — body fields override defaults.
+  const ctx = await loadWorkspaceContext(workspaceId)
+  const defaults = toSocialCampaignDefaults(ctx).data
+  const merged = { ...defaults, ...body }
+
+  const parsed = CampaignBriefSchema.safeParse(merged)
   if (!parsed.success) {
     return NextResponse.json(
       { error: "VALIDATION_ERROR", details: parsed.error.flatten() },

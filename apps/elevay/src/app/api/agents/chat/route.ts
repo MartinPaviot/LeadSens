@@ -60,12 +60,12 @@ export async function POST(req: Request) {
     return rateLimitResponse(rateCheck.retryAfter);
   }
 
-  const brandProfile = await prisma.elevayBrandProfile
-    .findUnique({
-      where: { workspaceId: user.workspaceId },
-      select: { language: true },
-    })
-    .catch(() => null);
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: user.workspaceId },
+    select: { settings: true },
+  });
+  const wsSettings = (workspace?.settings as Record<string, unknown>) ?? {};
+  const brandProfile = { language: (wsSettings.language as string) ?? null };
 
   const body = await req.json();
   const parsed = requestSchema.safeParse(body);

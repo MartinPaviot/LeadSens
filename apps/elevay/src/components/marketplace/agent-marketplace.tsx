@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import {
   Search,
   TrendingUp,
@@ -13,8 +12,6 @@ import {
   Lock,
   ArrowRight,
   Sparkles,
-  Sun,
-  Moon,
   Users,
 } from "lucide-react";
 
@@ -160,12 +157,8 @@ const CATEGORIES: { id: AgentCategory; label: string }[] = [
 
 export function AgentMarketplace() {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [activeCategory, setActiveCategory] = useState<AgentCategory>("all");
   const [search, setSearch] = useState("");
-
-  useEffect(() => { setMounted(true); }, []);
 
   const filtered = AGENT_FAMILIES.filter((f) => {
     const matchCat = activeCategory === "all" || f.category === activeCategory;
@@ -177,35 +170,25 @@ export function AgentMarketplace() {
   });
 
   return (
-    <div className="min-h-screen px-6 py-10 max-w-6xl mx-auto">
-      {/* Theme toggle — top right */}
-      {mounted && (
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-        </div>
-      )}
+    <div className="h-full overflow-y-auto">
+      <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-10 text-center">
+      <div className="mb-6 sm:mb-8 text-center">
         <div
-          className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full text-xs font-medium"
+          className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full text-xs font-medium"
           style={{ background: "rgba(23,195,178,0.12)", color: "#17c3b2" }}
         >
           <Sparkles size={12} />
           Your AI marketing agents
         </div>
         <h1
-          className="text-3xl font-semibold tracking-tight mb-3"
+          className="text-2xl sm:text-3xl font-semibold tracking-tight mb-2"
           style={{ color: "var(--foreground)" }}
         >
           What do you want to accomplish today?
         </h1>
         <p
-          className="text-base max-w-xl mx-auto"
+          className="text-sm sm:text-base max-w-xl mx-auto"
           style={{ color: "var(--muted-foreground)" }}
         >
           Choose an agent family. Each family includes specialised agents
@@ -277,6 +260,7 @@ export function AgentMarketplace() {
           No agent families match your search.
         </div>
       )}
+      </div>
     </div>
   );
 }

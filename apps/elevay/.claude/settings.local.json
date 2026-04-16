@@ -164,7 +164,10 @@
       "Bash(npm list:*)",
       "Bash(find:*)",
       "Bash(npm audit:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(find src/app -type d -name \"settings\" -o -name \"parametres\")",
+      "Bash(find src/components -type d -name \"settings*\")",
+      "Bash(head -30 /c/Users/ombel/LeadSens-1/apps/elevay/agents/seo-geo/*/index.ts)"
     ]
   }
 }

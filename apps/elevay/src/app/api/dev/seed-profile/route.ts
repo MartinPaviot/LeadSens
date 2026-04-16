@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@leadsens/db";
 
 export const dynamic = 'force-dynamic'
 
@@ -15,25 +16,25 @@ export async function GET() {
     return Response.json({ ok: false, error: "No user with workspace found" }, { status: 404 });
   }
 
-  const workspaceId = user.workspaceId;
+  const settings: Record<string, unknown> = {
+    language: "fr",
+    primaryKeyword: "logiciel CRM PME",
+    secondaryKeyword: "gestion relation client",
+    competitors: [
+      { name: "DataSphere", url: "datasphere.fr" },
+      { name: "InnovateTech", url: "innovatetech.io" },
+    ],
+  };
 
-  const profile = await prisma.elevayBrandProfile.upsert({
-    where: { workspaceId },
-    create: {
-      workspaceId,
-      brand_name: "TechVision",
-      brand_url: "techvision.io",
+  const workspace = await prisma.workspace.update({
+    where: { id: user.workspaceId },
+    data: {
+      name: "TechVision",
+      companyUrl: "techvision.io",
       country: "France",
-      language: "fr",
-      competitors: [
-        { name: "DataSphere", url: "datasphere.fr" },
-        { name: "InnovateTech", url: "innovatetech.io" },
-      ],
-      primary_keyword: "logiciel CRM PME",
-      secondary_keyword: "gestion relation client",
+      settings: settings as unknown as Prisma.InputJsonValue,
     },
-    update: {},
   });
 
-  return Response.json({ ok: true, profile });
+  return Response.json({ ok: true, workspace });
 }

@@ -101,7 +101,7 @@ export function IcpTargetingTab() {
   return (
     <div className="space-y-6">
       {/* Competitors */}
-      <Card>
+      <Card id="competitors" className="scroll-mt-16">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Competitors to Monitor</CardTitle>
@@ -145,7 +145,7 @@ export function IcpTargetingTab() {
       </Card>
 
       {/* Keywords to Monitor */}
-      <Card>
+      <Card id="monitorKeywords" className="scroll-mt-16">
         <CardHeader><CardTitle>Keywords to Monitor</CardTitle></CardHeader>
         <CardContent>
           <p className="text-xs text-muted-foreground mb-3">Keywords for trend tracking, content opportunities, and competitive alerts.</p>

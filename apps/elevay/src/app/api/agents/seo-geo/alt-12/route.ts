@@ -1,7 +1,7 @@
-import { auth } from '@/lib/auth';
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveSeoContext } from '@/lib/seo-route-helpers';
 import type { AgentContext } from '../../../../../../core/types';
 import { activate } from '../../../../../../agents/seo-geo/alt12';
 import type { Alt12Inputs, Alt12Output } from '../../../../../../agents/seo-geo/alt12/types';
@@ -11,11 +11,16 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session?.user) return new Response('Unauthorized', { status: 401 });
+  const parsed = agentRouteSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
+  }
+  const { conversationId, siteUrl: siteUrlOverride, profile: profileOverride } = parsed.data;
 
-  // Rate limit
-  const rl = await checkRateLimit(session.user.id, 'alt-12');
+  const resolved = await resolveSeoContext(profileOverride, siteUrlOverride);
+  if (resolved instanceof Response) return resolved;
+
+  const rl = await checkRateLimit(resolved.session.user.id, 'alt-12');
   if (!rl.allowed) {
     return Response.json(
       { error: 'Rate limit exceeded', retryAfter: rl.retryAfter },
@@ -23,27 +28,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const parsed = agentRouteSchema.safeParse(await req.json());
-  if (!parsed.success) {
-    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
-  }
-  const { conversationId, siteUrl, profile } = parsed.data;
-
+  const { profile, siteUrl, ctx } = resolved;
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
 
   const context: AgentContext = {
-    clientProfile: {
-      id: session.user.id,
-      siteUrl: profile.siteUrl,
-      cmsType: profile.cmsType,
-      automationLevel: profile.automationLevel,
-      geoLevel: profile.geoLevel,
-      targetGeos: profile.targetGeos,
-      priorityPages: profile.priorityPages,
-      alertChannels: profile.alertChannels,
-      connectedTools: profile.connectedTools,
-    },
+    clientProfile: profile,
     sessionId: streamId,
     triggeredBy: 'user',
   };
@@ -53,12 +43,12 @@ export async function POST(req: Request) {
     scope: 'all',
     cmsType: profile.cmsType,
     brandTone: 'descriptive',
-    language: 'fr',
+    language: ctx.settings.language ?? 'fr',
     variationsCount: 2,
     inject: false,
   };
 
-  const wpCreds = profile.wordpressCredentials;
+  const wpCreds = profileOverride?.wordpressCredentials;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -84,7 +74,15 @@ export async function POST(req: Request) {
 
           controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classifying product / hero / decorative…' }));
           controller.enqueue(encoder.encode('status', { step: 4, total: 4, label: '[4/4] Generating WCAG 2.1 ALT texts…' }));
-          const agentSession = await activate(context, inputs, imageList, wpCreds ?? undefined, profile.hubspotCredentials ?? undefined, profile.shopifyCredentials ?? undefined, profile.webflowCredentials ?? undefined);
+          const agentSession = await activate(
+            context,
+            inputs,
+            imageList,
+            wpCreds ?? undefined,
+            profileOverride?.hubspotCredentials ?? undefined,
+            profileOverride?.shopifyCredentials ?? undefined,
+            profileOverride?.webflowCredentials ?? undefined,
+          );
 
           controller.enqueue(encoder.encode('result', {
             bpiOutput: { agent: 'ALT-12', siteUrl },

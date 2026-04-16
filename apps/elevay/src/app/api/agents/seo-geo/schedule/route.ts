@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@leadsens/db';
 import { inngest } from '@/inngest/client';
 import type { ScheduleFrequency } from '@/inngest/events';
 import { schedulePostSchema, schedulePatchSchema } from '@/lib/schemas/seo-routes';
@@ -8,12 +9,34 @@ import { computeNextDate } from '@/lib/schedule-utils';
 
 export const dynamic = 'force-dynamic'
 
-// POST — Create or update schedule for any agent
+async function getWorkspaceSchedule(workspaceId: string) {
+  const ws = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { id: true, settings: true },
+  });
+  if (!ws) return null;
+  const settings = (ws.settings as Record<string, unknown> | null) ?? {};
+  return { id: ws.id, workspaceId, reportRecurrence: (settings.reportRecurrence as string) ?? 'on_demand', settings };
+}
+
+async function setReportRecurrence(workspaceId: string, recurrence: string) {
+  const ws = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { settings: true },
+  });
+  const existing = (ws?.settings as Record<string, unknown> | null) ?? {};
+  await prisma.workspace.update({
+    where: { id: workspaceId },
+    data: {
+      settings: { ...existing, reportRecurrence: recurrence } as unknown as Prisma.InputJsonValue,
+    },
+  });
+}
+
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return new Response('Unauthorized', { status: 401 });
 
-  // Rate limit
   const rl = await checkRateLimit(session.user.id, 'schedule');
   if (!rl.allowed) {
     return Response.json(
@@ -29,7 +52,6 @@ export async function POST(req: Request) {
   const { agentId, frequency: rawFrequency } = parsed.data;
   const isCancel = rawFrequency === 'on_demand';
 
-  // Find user's workspace + brand profile
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { workspaceId: true },
@@ -38,19 +60,13 @@ export async function POST(req: Request) {
     return Response.json({ error: 'No workspace found' }, { status: 404 });
   }
 
-  const profile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId: user.workspaceId },
-    select: { id: true, workspaceId: true },
-  });
-  if (!profile) {
-    return Response.json({ error: 'No brand profile found' }, { status: 404 });
+  const schedule = await getWorkspaceSchedule(user.workspaceId);
+  if (!schedule) {
+    return Response.json({ error: 'No workspace found' }, { status: 404 });
   }
 
   if (isCancel) {
-    await prisma.elevayBrandProfile.update({
-      where: { id: profile.id },
-      data: { report_recurrence: 'on_demand' },
-    });
+    await setReportRecurrence(user.workspaceId, 'on_demand');
     return Response.json({ status: 'cancelled', agentId });
   }
 
@@ -61,30 +77,25 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Failed to compute next run date' }, { status: 500 });
   }
 
-  // Send Inngest event FIRST — only update DB on success
   try {
     await inngest.send({
       name: 'elevay/agent.report.schedule',
       data: {
         clientId: session.user.id,
-        workspaceId: profile.workspaceId,
+        workspaceId: user.workspaceId,
         agentId,
         frequency,
         nextRunAt: nextRunAt.toISOString(),
       },
     });
-  } catch (err) {
+  } catch {
     return Response.json(
       { error: 'Failed to dispatch scheduling event' },
       { status: 500 },
     );
   }
 
-  // Inngest event sent — now persist recurrence
-  await prisma.elevayBrandProfile.update({
-    where: { id: profile.id },
-    data: { report_recurrence: rawFrequency },
-  });
+  await setReportRecurrence(user.workspaceId, rawFrequency);
 
   return Response.json({
     status: 'scheduled',
@@ -94,12 +105,10 @@ export async function POST(req: Request) {
   });
 }
 
-// PATCH — Pause / resume / cancel scheduling for any agent
 export async function PATCH(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) return new Response('Unauthorized', { status: 401 });
 
-  // Rate limit
   const rlPatch = await checkRateLimit(session.user.id, 'schedule');
   if (!rlPatch.allowed) {
     return Response.json(
@@ -122,50 +131,39 @@ export async function PATCH(req: Request) {
     return Response.json({ error: 'No workspace found' }, { status: 404 });
   }
 
-  const profile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId: user.workspaceId },
-    select: { id: true, workspaceId: true, report_recurrence: true },
-  });
-  if (!profile) {
-    return Response.json({ error: 'No brand profile found' }, { status: 404 });
+  const schedule = await getWorkspaceSchedule(user.workspaceId);
+  if (!schedule) {
+    return Response.json({ error: 'No workspace found' }, { status: 404 });
   }
 
   if (action === 'pause' || action === 'cancel') {
-    await prisma.elevayBrandProfile.update({
-      where: { id: profile.id },
-      data: { report_recurrence: 'on_demand' },
-    });
+    await setReportRecurrence(user.workspaceId, 'on_demand');
     return Response.json({ status: action === 'pause' ? 'paused' : 'cancelled', agentId });
   }
 
   if (action === 'resume') {
-    const frequency = (patchFrequency ?? profile.report_recurrence ?? 'monthly') as ScheduleFrequency;
+    const frequency = (patchFrequency ?? schedule.reportRecurrence ?? 'monthly') as ScheduleFrequency;
     const nextRunAt = computeNextDate(new Date(), frequency);
 
-    // Send Inngest event FIRST
     try {
       await inngest.send({
         name: 'elevay/agent.report.schedule',
         data: {
           clientId: session.user.id,
-          workspaceId: profile.workspaceId,
+          workspaceId: user.workspaceId,
           agentId,
           frequency,
           nextRunAt: nextRunAt.toISOString(),
         },
       });
-    } catch (err) {
+    } catch {
       return Response.json(
         { error: 'Failed to dispatch scheduling event' },
         { status: 500 },
       );
     }
 
-    // Inngest event sent — now persist recurrence
-    await prisma.elevayBrandProfile.update({
-      where: { id: profile.id },
-      data: { report_recurrence: frequency },
-    });
+    await setReportRecurrence(user.workspaceId, frequency);
 
     return Response.json({ status: 'resumed', agentId, frequency, nextRunAt: nextRunAt.toISOString() });
   }

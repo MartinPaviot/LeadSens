@@ -15,17 +15,25 @@ export async function GET(req: Request) {
     return Response.json({ profile: null });
   }
 
-  const profile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId: user.workspaceId },
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: user.workspaceId },
     select: {
-      brand_url: true,
-      language: true,
-      sector: true,
-      social_connections: true,
+      companyUrl: true,
+      industry: true,
+      settings: true,
     },
   });
 
-  return Response.json({ profile });
+  const settings = (workspace?.settings as Record<string, unknown> | null) ?? {};
+
+  return Response.json({
+    profile: {
+      brand_url: workspace?.companyUrl ?? null,
+      language: settings.language ?? null,
+      sector: workspace?.industry ?? null,
+      social_connections: settings.socialConnections ?? null,
+    },
+  });
 }
 
 export async function DELETE(req: Request) {
@@ -44,8 +52,9 @@ export async function DELETE(req: Request) {
     return Response.json({ deleted: false });
   }
 
-  await prisma.elevayBrandProfile.deleteMany({
-    where: { workspaceId: user.workspaceId },
+  await prisma.workspace.update({
+    where: { id: user.workspaceId },
+    data: { settings: {}, onboardingCompletedAt: null },
   });
 
   return Response.json({ deleted: true });

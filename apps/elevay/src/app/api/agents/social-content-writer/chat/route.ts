@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { runSCW } from "@/agents/social-content-writer/index"
 import { ContentBriefSchema } from "@/agents/social-content-writer/modules/brief-parser"
-import type { BrandVoiceProfile } from "@/agents/social-content-writer/core/types"
+import { loadWorkspaceContext, NoConfigError, noConfigResponse } from "@/lib/agent-context"
+import { toBrandVoiceProfile } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
@@ -51,21 +52,16 @@ export async function POST(req: Request) {
     )
   }
 
-  // Load brand voice from profile
-  const profile = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId },
-  })
 
-  const voiceConfig = (
-    profile?.social_connections as Record<string, unknown> | null
-  )?.voiceConfig as BrandVoiceProfile | undefined
-
-  const voice: BrandVoiceProfile = voiceConfig ?? {
-    style: "professional",
-    register: "accessible",
-    forbiddenWords: [],
-    keyPhrases: [],
-    positioning: "brand-expert",
+  let voice
+  try {
+    const ctx = await loadWorkspaceContext(workspaceId)
+    // BrandVoice tab: missing style/positioning is non-blocking — we have
+    // sensible defaults. We do NOT throw, but expose missing fields for UI.
+    voice = toBrandVoiceProfile(ctx).data
+  } catch (err) {
+    if (err instanceof NoConfigError) return noConfigResponse(err)
+    throw err
   }
 
   const brief = parsed.data
@@ -97,7 +93,6 @@ export async function POST(req: Request) {
             output: result.output as unknown as Prisma.InputJsonValue,
             degradedSources: [],
             durationMs: result.durationMs,
-            brandProfileId: profile?.id,
           },
         })
 

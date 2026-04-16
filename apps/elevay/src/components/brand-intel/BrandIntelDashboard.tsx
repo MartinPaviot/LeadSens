@@ -17,6 +17,8 @@ import { BrandProfileForm, type BrandProfileFormData, type SocialConnectionStatu
 import { ThemeToggle } from '@/components/chat/theme-toggle'
 import { GearSix } from '@phosphor-icons/react'
 import { Button } from '@/components/ui-brand-intel/button'
+import { NoConfigBanner } from '@/components/ui-brand-intel/no-config-banner'
+import { checkNoConfig, type NoConfigInfo } from '@/lib/no-config-check'
 import { toast } from 'sonner'
 
 type AgentKey = 'bpi' | 'mts' | 'cia'
@@ -61,6 +63,7 @@ export function BrandIntelDashboard() {
   })
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [loaded, setLoaded] = useState(false)
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   // Load dashboard data on mount
   useEffect(() => {
@@ -171,6 +174,7 @@ export function BrandIntelDashboard() {
   const launchAgent = useCallback(async (agentKey: AgentKey) => {
     setAgentState(agentKey, 'running')
     setAgentProgress(agentKey, '')
+    setNoConfig(null)
 
     try {
       const response = await fetch(AGENT_ROUTES[agentKey], {
@@ -180,6 +184,9 @@ export function BrandIntelDashboard() {
           priority_channels: profile?.priority_channels,
         }),
       })
+
+      const nc = await checkNoConfig(response)
+      if (nc) { setNoConfig(nc); setAgentState(agentKey, 'error'); return }
 
       if (response.status === 400) {
         const body = (await response.json()) as { error?: string }
@@ -345,6 +352,13 @@ export function BrandIntelDashboard() {
           </button>
         </div>
       </div>
+
+      {/* NoConfig Banner */}
+      {noConfig && (
+        <div className="px-4 pt-4 sm:px-6">
+          <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="Brand Intelligence" />
+        </div>
+      )}
 
       {/* Agent Progress */}
       <AgentProgress

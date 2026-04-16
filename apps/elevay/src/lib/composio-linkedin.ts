@@ -3,19 +3,19 @@ import { ComposioToolSet } from "composio-core";
 
 /**
  * Retourne le type de connexion LinkedIn disponible pour ce workspace.
- * Vérifie social_connections en DB.
+ * Checks Integration table for active linkedin connections.
  */
 export async function getLinkedInConnection(
   workspaceId: string,
 ): Promise<"community" | "user" | "apify"> {
   try {
-    const profile = await prisma.elevayBrandProfile.findUnique({
-      where: { workspaceId },
-      select: { social_connections: true },
+    const integrations = await prisma.integration.findMany({
+      where: { workspaceId, status: 'ACTIVE', type: { in: ['linkedin-community', 'linkedin'] } },
+      select: { type: true },
     });
-    const conn = profile?.social_connections as Record<string, boolean | string> | null;
-    if (conn?.["linkedin-community"] === true) return "community";
-    if (conn?.["linkedin"] === true) return "user";
+    const types = new Set(integrations.map((i) => i.type));
+    if (types.has('linkedin-community')) return "community";
+    if (types.has('linkedin')) return "user";
   } catch {
     // best-effort
   }

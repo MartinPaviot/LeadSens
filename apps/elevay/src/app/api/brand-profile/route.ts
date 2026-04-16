@@ -1,6 +1,7 @@
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@leadsens/db"
 import { z } from "zod"
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,6 @@ export async function POST(req: Request) {
       return Response.json({ error: "UNAUTHORIZED" }, { status: 401 })
     }
 
-    // workspaceId may not be on session object — fallback to DB lookup
     let workspaceId = (session.user as Record<string, unknown>).workspaceId as string | undefined
     if (!workspaceId) {
       const user = await prisma.user.findUnique({
@@ -58,37 +58,35 @@ export async function POST(req: Request) {
 
     const data = parsed.data
 
-    const profile = await prisma.elevayBrandProfile.upsert({
-      where: { workspaceId },
-      create: {
-        workspaceId,
-        brand_name: data.brand_name,
-        brand_url: data.brand_url,
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { settings: true },
+    })
+    const existingSettings = (workspace?.settings as Record<string, unknown> | null) ?? {}
+
+    const newSettings = {
+      ...existingSettings,
+      language: data.language,
+      primaryKeyword: data.primary_keyword,
+      secondaryKeyword: data.secondary_keyword,
+      competitors: data.competitors,
+      priorityChannels: data.priority_channels,
+      businessObjective: data.objective,
+    }
+
+    const updated = await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        name: data.brand_name,
+        companyUrl: data.brand_url,
         country: data.country,
-        language: data.language,
-        competitors: data.competitors,
-        primary_keyword: data.primary_keyword,
-        secondary_keyword: data.secondary_keyword,
-        sector: data.sector,
-        priority_channels: data.priority_channels,
-        objective: data.objective,
-      },
-      update: {
-        brand_name: data.brand_name,
-        brand_url: data.brand_url,
-        country: data.country,
-        language: data.language,
-        competitors: data.competitors,
-        primary_keyword: data.primary_keyword,
-        secondary_keyword: data.secondary_keyword,
-        sector: data.sector,
-        priority_channels: data.priority_channels,
-        objective: data.objective,
+        industry: data.sector,
+        settings: newSettings as unknown as Prisma.InputJsonValue,
       },
     })
 
-    return Response.json(profile)
-  } catch (err) {
+    return Response.json(updated)
+  } catch {
     return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 })
   }
 }

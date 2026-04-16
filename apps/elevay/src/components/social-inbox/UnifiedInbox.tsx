@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react"
 import type { ProcessingResult } from "@/agents/social-interaction-manager/core/types"
+import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
+import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
 
 type FilterPlatform = "all" | "instagram" | "facebook" | "linkedin" | "x" | "tiktok" | "reddit"
 
@@ -35,11 +37,14 @@ export function UnifiedInbox() {
   const [filter, setFilter] = useState<FilterPlatform>("all")
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<ProcessingResult | null>(null)
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch("/api/agents/social-interaction-manager/chat")
+        const nc = await checkNoConfig(res)
+        if (nc) { setNoConfig(nc); return }
         if (res.ok) {
           const data = (await res.json()) as { interactions: ProcessingResult[] }
           setInteractions(data.interactions ?? [])
@@ -77,6 +82,12 @@ export function UnifiedInbox() {
           {stats.escalations > 0 && <span className="text-red-600 font-semibold">{stats.escalations} escalations</span>}
         </div>
       </div>
+
+      {noConfig && (
+        <div className="px-4 pt-4 sm:px-6">
+          <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="Social Inbox" />
+        </div>
+      )}
 
       <div className="flex-1 overflow-hidden flex">
         {/* Message list */}

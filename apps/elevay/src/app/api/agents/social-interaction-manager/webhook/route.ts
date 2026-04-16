@@ -2,7 +2,9 @@ import { createHmac, timingSafeEqual } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { processMessage, FAQCache } from "@/agents/social-interaction-manager/index"
 import { normalizeMessage } from "@/agents/social-interaction-manager/modules/receiver"
-import type { InteractionConfig, SMIPlatform } from "@/agents/social-interaction-manager/core/types"
+import type { SMIPlatform } from "@/agents/social-interaction-manager/core/types"
+import { loadWorkspaceContext } from "@/lib/agent-context"
+import { toInteractionConfig } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 
@@ -58,19 +60,24 @@ export async function POST(req: Request) {
     )
   }
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { settings: true },
-  })
-
-  const settings = (workspace?.settings as Record<string, unknown> | null) ?? {}
-  const config = settings.interactionConfig as InteractionConfig | undefined
-
-  if (!config) {
-    return NextResponse.json(
-      { error: "Agent not configured for this workspace" },
-      { status: 400 },
-    )
+  let config
+  try {
+    const ctx = await loadWorkspaceContext(workspaceId)
+    const adapter = toInteractionConfig(ctx)
+    if (adapter.missing.length > 0) {
+      return NextResponse.json(
+        { error: "NO_CONFIG", missing: adapter.missing, tab: "Automation & Escalation" },
+        { status: 400 },
+      )
+    }
+    config = adapter.data
+    // Platform in the event overrides Settings priorityChannels if the event's platform
+    // isn't in the configured list — otherwise we'd drop legitimate events.
+    if (!config.platforms.includes(platform)) {
+      config = { ...config, platforms: [...config.platforms, platform] }
+    }
+  } catch {
+    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 400 })
   }
 
   const message = normalizeMessage(platform, body)

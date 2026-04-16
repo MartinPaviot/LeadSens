@@ -95,12 +95,12 @@ export function CompanyProfileTab() {
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="company-name">Company name *</Label>
-              <Input id="company-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Inc." required />
+              <Label htmlFor="name">Company name *</Label>
+              <Input id="name" className="scroll-mt-16" value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Inc." required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="company-url">Website</Label>
-              <Input id="company-url" type="url" value={companyUrl} onChange={(e) => setCompanyUrl(e.target.value)} placeholder="https://acme.com" />
+              <Label htmlFor="companyUrl">Website</Label>
+              <Input id="companyUrl" className="scroll-mt-16" type="url" value={companyUrl} onChange={(e) => setCompanyUrl(e.target.value)} placeholder="https://acme.com" />
             </div>
           </div>
 
@@ -108,7 +108,7 @@ export function CompanyProfileTab() {
             <div className="space-y-2">
               <Label htmlFor="industry">Industry</Label>
               <select id="industry" value={industry} onChange={(e) => setIndustry(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                className="scroll-mt-16 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 <option value="">Select...</option>
                 {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
               </select>
@@ -127,14 +127,14 @@ export function CompanyProfileTab() {
             <div className="space-y-2">
               <Label htmlFor="country">Country</Label>
               <select id="country" value={country} onChange={(e) => setCountry(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                className="scroll-mt-16 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                 <option value="">Select...</option>
                 {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="valueprop">Value proposition</Label>
-              <Input id="valueprop" value={valueProp} onChange={(e) => setValueProp(e.target.value)} placeholder="One-liner about your product" />
+              <Label htmlFor="valueProp">Value proposition</Label>
+              <Input id="valueProp" className="scroll-mt-16" value={valueProp} onChange={(e) => setValueProp(e.target.value)} placeholder="One-liner about your product" />
             </div>
           </div>
 

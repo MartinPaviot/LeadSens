@@ -2,8 +2,9 @@ import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { runBDG } from "@/agents/budget-controller/index"
-import type { BudgetConfig } from "@/agents/budget-controller/core/types"
 import { collectChannelMetrics } from "@/agents/budget-controller/modules/data-collector"
+import { loadWorkspaceContext, NoConfigError, noConfigResponse, requireFields } from "@/lib/agent-context"
+import { toBudgetConfig } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
@@ -11,7 +12,7 @@ import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
 export const maxDuration = 300
 export const dynamic = "force-dynamic"
 
-export async function POST(req: Request) {
+export async function POST(_req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -36,24 +37,13 @@ export async function POST(req: Request) {
     return rateLimitResponse(rateCheck.retryAfter)
   }
 
-  // Load config from workspace settings
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { settings: true },
-  })
-
-  const settings =
-    (workspace?.settings as Record<string, unknown> | null) ?? {}
-  const budgetConfig = settings.budgetConfig as BudgetConfig | undefined
-
-  if (!budgetConfig) {
-    return NextResponse.json(
-      {
-        error: "NO_CONFIG",
-        message: "Configure your budget first via onboarding",
-      },
-      { status: 400 },
-    )
+  let budgetConfig
+  try {
+    const ctx = await loadWorkspaceContext(workspaceId)
+    budgetConfig = requireFields(toBudgetConfig(ctx), "Budget & Objectives")
+  } catch (err) {
+    if (err instanceof NoConfigError) return noConfigResponse(err)
+    throw err
   }
 
   const period = `week-${new Date().toISOString().slice(0, 10)}`

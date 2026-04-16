@@ -1,6 +1,8 @@
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { loadWorkspaceContext } from "@/lib/agent-context"
+import { toAgentProfile } from "@/lib/agent-adapters"
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +13,7 @@ export async function GET() {
   }
   const workspaceId = session.user.workspaceId
 
-  const [bpiRun, mtsRun, ciaRun, profile] = await Promise.all([
+  const [bpiRun, mtsRun, ciaRun, ctx] = await Promise.all([
     prisma.elevayAgentRun.findFirst({
       where: { workspaceId, agentCode: "BPI-01" },
       orderBy: { createdAt: "desc" },
@@ -24,8 +26,10 @@ export async function GET() {
       where: { workspaceId, agentCode: "CIA-03" },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.elevayBrandProfile.findUnique({ where: { workspaceId } }),
+    loadWorkspaceContext(workspaceId),
   ])
+
+  const profile = toAgentProfile(ctx).data
 
   return Response.json({
     bpi: bpiRun?.output ?? null,

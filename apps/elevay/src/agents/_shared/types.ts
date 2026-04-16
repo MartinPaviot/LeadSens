@@ -1,4 +1,4 @@
-// Agent profile (built from ElevayBrandProfile DB row)
+// Agent profile (built from workspace.settings)
 export interface AgentProfile {
   workspaceId: string
   brand_name: string

@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { inngest } from './client';
 import { computeNextDate } from '@/lib/schedule-utils';
 import { getLatestOutputByAgent } from '@/lib/agent-history';
+import { loadWorkspaceContext } from '@/lib/agent-context';
+import { toAgentProfile, toClientProfile } from '@/lib/agent-adapters';
 import type { AgentId } from './events';
 import type { AgentProfile } from '@/agents/_shared/types';
 
@@ -55,16 +57,17 @@ export const agentScheduleNextRun = inngest.createFunction(
       await step.sleep('wait-until-next-run', sleepMs);
     }
 
-    // Check if schedule is still active
-    const profile = await step.run('check-schedule-status', async () => {
-      const bp = await prisma.elevayBrandProfile.findFirst({
-        where: { workspaceId },
-        select: { id: true, report_recurrence: true },
+    // Check if schedule is still active (read from workspace.settings)
+    const recurrence = await step.run('check-schedule-status', async () => {
+      const ws = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { settings: true },
       });
-      return bp;
+      const settings = (ws?.settings as Record<string, unknown> | null) ?? {};
+      return (settings.reportRecurrence as string) ?? null;
     });
 
-    if (!profile || profile.report_recurrence === 'on_demand' || !profile.report_recurrence) {
+    if (!recurrence || recurrence === 'on_demand') {
       return { skipped: true, reason: 'Schedule cancelled or set to on-demand' };
     }
 
@@ -90,9 +93,16 @@ export const agentScheduleNextRun = inngest.createFunction(
     } catch (err) {
       // Mark the schedule as broken so the UI can surface it
       await step.run('mark-schedule-broken', async () => {
-        await prisma.elevayBrandProfile.updateMany({
-          where: { workspaceId },
-          data: { report_recurrence: 'broken' },
+        const ws = await prisma.workspace.findUnique({
+          where: { id: workspaceId },
+          select: { settings: true },
+        });
+        const existing = (ws?.settings as Record<string, unknown> | null) ?? {};
+        await prisma.workspace.update({
+          where: { id: workspaceId },
+          data: {
+            settings: { ...existing, reportRecurrence: 'broken' } as unknown as Prisma.InputJsonValue,
+          },
         });
       });
       // Re-throw so Inngest retries the function (including reschedule)
@@ -133,57 +143,43 @@ export const agentRunScheduled = inngest.createFunction(
   async ({ event, step }) => {
     const { clientId, workspaceId, agentId } = event.data;
 
-    // Load brand profile with full context for agent execution
-    const profile = await step.run('load-profile', async () => {
-      const bp = await prisma.elevayBrandProfile.findFirst({
-        where: { workspaceId },
-      });
-      return bp;
+    // Load workspace context for agent execution
+    const wsCtx = await step.run('load-profile', async () => {
+      return loadWorkspaceContext(workspaceId);
     });
 
-    if (!profile) {
-      return { error: 'Brand profile not found', clientId, agentId };
-    }
-
-    if (profile.report_recurrence === 'on_demand' || profile.report_recurrence === 'broken' || !profile.report_recurrence) {
+    const recurrenceCheck = (wsCtx.settings.reportRecurrence as string | undefined) ?? 'on_demand';
+    if (recurrenceCheck === 'on_demand' || recurrenceCheck === 'broken') {
       return { skipped: true, reason: 'Report recurrence set to on-demand or broken', agentId };
     }
 
-    // Build shared context — ElevayBrandProfile doesn't store CMS/automation settings yet,
-    // so we use safe defaults. These fields should be added to the schema when the
-    // onboarding flow collects them.
+    // Build shared context from workspace settings
+    const clientProfile = toClientProfile(wsCtx).data;
     const context: AgentRunContext = {
       clientProfile: {
         id: clientId,
-        siteUrl: profile.brand_url,
-        cmsType: 'other',
-        automationLevel: 'audit',
-        geoLevel: 'national',
-        targetGeos: profile.country ? [profile.country.slice(0, 2).toUpperCase()] : ['FR'],
-        priorityPages: [],
-        alertChannels: [],
-        connectedTools: { gsc: false, ga: false, ahrefs: false, semrush: false },
+        siteUrl: clientProfile.siteUrl,
+        cmsType: clientProfile.cmsType,
+        automationLevel: clientProfile.automationLevel,
+        geoLevel: clientProfile.geoLevel,
+        targetGeos: clientProfile.targetGeos.length > 0
+          ? clientProfile.targetGeos
+          : wsCtx.country ? [wsCtx.country.slice(0, 2).toUpperCase()] : ['FR'],
+        priorityPages: clientProfile.priorityPages,
+        alertChannels: clientProfile.alertChannels,
+        connectedTools: clientProfile.connectedTools,
       },
       sessionId: `inngest-${agentId}-${Date.now()}`,
       triggeredBy: 'inngest-schedule',
     };
 
-    const keywords = [profile.primary_keyword, profile.secondary_keyword].filter(Boolean);
+    const bmiProfile = toAgentProfile(wsCtx).data;
+    const keywords = [bmiProfile.primary_keyword, bmiProfile.secondary_keyword].filter(Boolean);
 
     // Route to the correct agent
     const result = await step.run(`run-${agentId}`, async () => {
       const startTime = Date.now();
-      const bmiProfile: AgentProfile = {
-        workspaceId: workspaceId,
-        brand_name: profile.brand_name,
-        brand_url: profile.brand_url,
-        country: profile.country,
-        language: profile.language ?? 'fr',
-        competitors: (profile.competitors ?? []) as { name: string; url: string }[],
-        primary_keyword: profile.primary_keyword,
-        secondary_keyword: profile.secondary_keyword ?? '',
-      };
-      const session = await runAgent(agentId, context, profile.brand_url, keywords, bmiProfile, workspaceId);
+      const session = await runAgent(agentId, context, bmiProfile.brand_url, keywords, bmiProfile, workspaceId);
       const durationMs = Date.now() - startTime;
       return { output: session.output, durationMs };
     });
@@ -202,7 +198,6 @@ export const agentRunScheduled = inngest.createFunction(
           output: result.output as unknown as Prisma.InputJsonValue,
           degradedSources: [],
           durationMs: result.durationMs,
-          brandProfileId: profile.id,
         },
       });
       return { id: run.id };
@@ -450,17 +445,15 @@ async function buildScheduledContentContext(
   workspaceId: string,
   fallbackKeywords: string[],
 ): Promise<ScheduledContentContext> {
-  // Load brand profile for enrichment
-  const bp = await prisma.elevayBrandProfile.findFirst({
-    where: { workspaceId },
-    select: {
-      brand_name: true,
-      sector: true,
-      primary_keyword: true,
-      secondary_keyword: true,
-      objective: true,
-    },
+  // Load workspace settings for enrichment
+  const ws = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { industry: true, settings: true },
   });
+  const settings = (ws?.settings as Record<string, unknown> | null) ?? {};
+  const primaryKeyword = settings.primaryKeyword as string | undefined;
+  const objective = settings.businessObjective as string | undefined;
+  const sector = ws?.industry;
 
   // Load KGA-08 last session for topic + keyword context
   const kga08History = await getLatestOutputByAgent(workspaceId, 'KGA-08');
@@ -476,11 +469,11 @@ async function buildScheduledContentContext(
     .slice(0, 5);
 
   return {
-    topic: kgaTopic || bp?.primary_keyword || fallbackKeywords[0] || '',
-    targetAudience: bp?.objective === 'lead-gen' ? 'décideurs B2B' : 'marketeurs',
+    topic: kgaTopic || primaryKeyword || fallbackKeywords[0] || '',
+    targetAudience: objective === 'lead-gen' ? 'décideurs B2B' : 'marketeurs',
     toneOfVoice: 'professionnel',
-    primaryCta: bp?.sector
-      ? `Découvrir nos solutions ${bp.sector}`
+    primaryCta: sector
+      ? `Découvrir nos solutions ${sector}`
       : 'Découvrir notre solution',
     relatedKeywords: kgaRelated,
   };

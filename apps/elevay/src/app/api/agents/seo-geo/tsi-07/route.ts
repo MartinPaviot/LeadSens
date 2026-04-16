@@ -1,7 +1,7 @@
-import { auth } from '@/lib/auth';
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveSeoContext } from '@/lib/seo-route-helpers';
 import type { AgentContext } from '../../../../../../core/types';
 import {
   runCrawl,
@@ -18,11 +18,16 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session?.user) return new Response('Unauthorized', { status: 401 });
+  const parsed = agentRouteSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
+  }
+  const { conversationId, siteUrl: siteUrlOverride, profile: profileOverride } = parsed.data;
 
-  // Rate limit
-  const rl = await checkRateLimit(session.user.id, 'tsi-07');
+  const resolved = await resolveSeoContext(profileOverride, siteUrlOverride);
+  if (resolved instanceof Response) return resolved;
+
+  const rl = await checkRateLimit(resolved.session.user.id, 'tsi-07');
   if (!rl.allowed) {
     return Response.json(
       { error: 'Rate limit exceeded', retryAfter: rl.retryAfter },
@@ -30,27 +35,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const parsed = agentRouteSchema.safeParse(await req.json());
-  if (!parsed.success) {
-    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
-  }
-  const { conversationId, siteUrl, profile } = parsed.data;
-
+  const { profile, siteUrl } = resolved;
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
 
   const context: AgentContext = {
-    clientProfile: {
-      id: session.user.id,
-      siteUrl: profile.siteUrl,
-      cmsType: profile.cmsType,
-      automationLevel: profile.automationLevel,
-      geoLevel: profile.geoLevel,
-      targetGeos: profile.targetGeos,
-      priorityPages: profile.priorityPages,
-      alertChannels: profile.alertChannels,
-      connectedTools: profile.connectedTools,
-    },
+    clientProfile: profile,
     sessionId: streamId,
     triggeredBy: 'user',
   };
@@ -77,7 +67,7 @@ export async function POST(req: Request) {
 
         // Step 2 — GSC (optional)
         controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: '[2/4] Google Search Console analysis…' }));
-        await fetchGscData(inputs, session.user.id);
+        await fetchGscData(inputs, resolved.session.user.id);
 
         // Step 3 — Classify + report
         controller.enqueue(encoder.encode('status', { step: 3, total: 4, label: '[3/4] Classification and report…' }));
@@ -92,10 +82,10 @@ export async function POST(req: Request) {
           issues,
           inputs.automationLevel,
           profile.cmsType,
-          profile.wordpressCredentials ?? undefined,
-          profile.hubspotCredentials ?? undefined,
-          profile.shopifyCredentials ?? undefined,
-          profile.webflowCredentials ?? undefined,
+          profileOverride?.wordpressCredentials ?? undefined,
+          profileOverride?.hubspotCredentials ?? undefined,
+          profileOverride?.shopifyCredentials ?? undefined,
+          profileOverride?.webflowCredentials ?? undefined,
         );
 
         controller.enqueue(encoder.encode('result', {

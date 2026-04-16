@@ -30,14 +30,12 @@ export async function GET(
       return Response.json({ connected: false });
     }
 
-    const profile = await prisma.elevayBrandProfile.findUnique({
-      where: { workspaceId: user.workspaceId },
-      select: { social_connections: true },
+    const integration = await prisma.integration.findFirst({
+      where: { workspaceId: user.workspaceId, type: platform, status: 'ACTIVE' },
     });
 
-    const connections = profile?.social_connections as Record<string, boolean> | null;
-    return Response.json({ connected: connections?.[platform] === true });
-  } catch (err) {
+    return Response.json({ connected: !!integration });
+  } catch {
     return Response.json({ connected: false });
   }
 }

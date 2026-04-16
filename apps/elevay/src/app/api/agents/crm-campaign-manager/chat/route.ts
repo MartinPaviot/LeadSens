@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { runCRM } from "@/agents/crm-campaign-manager/index"
 import { CRMCampaignBriefSchema } from "@/agents/crm-campaign-manager/modules/brief-parser"
-import type { CRMConfig } from "@/agents/crm-campaign-manager/core/types"
+import { loadWorkspaceContext, NoConfigError, noConfigResponse } from "@/lib/agent-context"
+import { toCRMConfig } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { NextResponse } from "next/server"
 import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
@@ -51,20 +52,16 @@ export async function POST(req: Request) {
     )
   }
 
-  // Load CRM config from workspace settings
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { settings: true },
-  })
-
-  const settings = (workspace?.settings as Record<string, unknown> | null) ?? {}
-  const crmConfig: CRMConfig = (settings.crmConfig as CRMConfig) ?? {
-    platform: parsed.data.platform,
-    maxSendsPerContactPerWeek: 3,
-    defaultResend: true,
-    segments: [],
-    historicalOpenRate: 0.20,
-    bestTimings: [],
+  // Load CRM config — Settings priority, platform override from brief
+  let crmConfig
+  try {
+    const ctx = await loadWorkspaceContext(workspaceId)
+    const adapter = toCRMConfig(ctx)
+    // Brief's platform wins: user is explicitly targeting one in this run
+    crmConfig = { ...adapter.data, platform: parsed.data.platform }
+  } catch (err) {
+    if (err instanceof NoConfigError) return noConfigResponse(err)
+    throw err
   }
 
   const brief = parsed.data

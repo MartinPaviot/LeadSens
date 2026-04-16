@@ -8,7 +8,7 @@ const TEST_PASSWORD = 'PlaywrightTest123!';
  * Creates a fresh test user via the Better Auth signup API,
  * captures the session cookie, and returns an authenticated API context.
  *
- * Also seeds an ElevayBrandProfile for the workspace so agent routes work.
+ * Also seeds workspace.settings for the workspace so agent routes work.
  */
 export async function createAuthenticatedContext(): Promise<{
   apiContext: APIRequestContext;
@@ -55,21 +55,21 @@ export async function createAuthenticatedContext(): Promise<{
   const wkspId = user.workspaceId;
   const uId = user.id;
 
-  // Seed brand profile (required by most agent routes)
-  await prisma.elevayBrandProfile.upsert({
-    where: { workspaceId: wkspId },
-    create: {
-      workspaceId: wkspId,
-      brand_name: 'E2E Test Brand',
-      brand_url: 'https://e2e-test.example.com',
+  // Seed workspace settings (required by most agent routes)
+  await prisma.workspace.update({
+    where: { id: wkspId },
+    data: {
+      name: 'E2E Test Brand',
+      companyUrl: 'https://e2e-test.example.com',
       country: 'FR',
-      language: 'fr',
-      competitors: [{ name: 'Competitor A', url: 'https://competitor-a.com' }],
-      primary_keyword: 'test keyword',
-      secondary_keyword: 'secondary test',
-      priority_channels: ['SEO'],
+      settings: {
+        language: 'fr',
+        competitors: [{ name: 'Competitor A', url: 'https://competitor-a.com' }],
+        primaryKeyword: 'test keyword',
+        secondaryKeyword: 'secondary test',
+        priorityChannels: ['SEO'],
+      },
     },
-    update: {},
   });
 
   return {
@@ -80,7 +80,6 @@ export async function createAuthenticatedContext(): Promise<{
     cleanup: async () => {
       // Delete in dependency order
       await prisma.elevayAgentRun.deleteMany({ where: { workspaceId: wkspId } });
-      await prisma.elevayBrandProfile.deleteMany({ where: { workspaceId: wkspId } });
       await prisma.session.deleteMany({ where: { userId: uId } });
       await prisma.user.deleteMany({ where: { id: uId } });
       await prisma.workspace.deleteMany({ where: { id: wkspId } });

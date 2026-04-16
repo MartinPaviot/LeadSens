@@ -1,7 +1,7 @@
-import { auth } from '@/lib/auth';
 import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveSeoContext } from '@/lib/seo-route-helpers';
 import type { AgentContext } from '../../../../../../core/types';
 import { activate } from '../../../../../../agents/seo-geo/pio05';
 import type { Pio05Inputs, Pio05Output } from '../../../../../../agents/seo-geo/pio05/types';
@@ -11,11 +11,16 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers });
-  if (!session?.user) return new Response('Unauthorized', { status: 401 });
+  const parsed = agentRouteSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
+  }
+  const { conversationId, siteUrl: siteUrlOverride, profile: profileOverride } = parsed.data;
 
-  // Rate limit
-  const rl = await checkRateLimit(session.user.id, 'pio-05');
+  const resolved = await resolveSeoContext(profileOverride, siteUrlOverride);
+  if (resolved instanceof Response) return resolved;
+
+  const rl = await checkRateLimit(resolved.session.user.id, 'pio-05');
   if (!rl.allowed) {
     return Response.json(
       { error: 'Rate limit exceeded', retryAfter: rl.retryAfter },
@@ -23,36 +28,25 @@ export async function POST(req: Request) {
     );
   }
 
-  const parsed = agentRouteSchema.safeParse(await req.json());
-  if (!parsed.success) {
-    return Response.json({ error: 'Invalid request body', details: parsed.error.format() }, { status: 400 });
-  }
-  const { conversationId, siteUrl, profile } = parsed.data;
-
+  const { profile, siteUrl, ctx } = resolved;
   const encoder = new SSEEncoder();
   const streamId = generateStreamId();
 
   const context: AgentContext = {
-    clientProfile: {
-      id: session.user.id,
-      siteUrl: profile.siteUrl,
-      cmsType: profile.cmsType,
-      automationLevel: profile.automationLevel,
-      geoLevel: profile.geoLevel,
-      targetGeos: profile.targetGeos,
-      priorityPages: profile.priorityPages,
-      alertChannels: profile.alertChannels,
-      connectedTools: profile.connectedTools,
-    },
+    clientProfile: profile,
     sessionId: streamId,
     triggeredBy: 'user',
   };
 
+  const competitorUrls = (ctx.settings.competitors ?? []).map((c) => c.url).filter(Boolean);
+  const seedKeywords = [ctx.settings.primaryKeyword, ctx.settings.secondaryKeyword]
+    .filter((k): k is string => !!k)
+
   const inputs: Pio05Inputs = {
     siteUrl,
-    targetKeywords: [],
+    targetKeywords: seedKeywords,
     geoTargets: profile.targetGeos,
-    competitorUrls: [],
+    competitorUrls,
     reportFrequency: 'on-demand',
     gscConnected: profile.connectedTools.gsc,
     gaConnected: profile.connectedTools.ga,

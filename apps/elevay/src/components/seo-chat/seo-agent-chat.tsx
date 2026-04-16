@@ -22,7 +22,10 @@ import {
   streamAlt12Audit,
   streamWpw09Page,
   streamBsw10Article,
+  NoConfigError,
+  type NoConfigInfo,
 } from "@/agents/seo-geo/client";
+import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner";
 import type { SeoAgentProfile } from "@/agents/seo-geo/types";
 import { SeoGreetingScreen, type SeoAction } from "./seo-greeting-screen";
 import { SeoOnboardingModal } from "./seo-onboarding-modal";
@@ -87,6 +90,7 @@ export function SeoAgentChat({ embedded = false }: SeoAgentChatProps) {
   const [seoProfile, setSeoProfile] = useState<SeoAgentProfile | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activityLabel, setActivityLabel] = useState<string | null>(null);
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
@@ -203,7 +207,10 @@ export function SeoAgentChat({ embedded = false }: SeoAgentChatProps) {
           );
         }
       } catch (err) {
-        if ((err as Error).name !== "AbortError") {
+        if (err instanceof NoConfigError) {
+          setNoConfig(err.info);
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+        } else if ((err as Error).name !== "AbortError") {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -504,6 +511,12 @@ export function SeoAgentChat({ embedded = false }: SeoAgentChatProps) {
               </Button>
             </div>
           </header>
+
+          {noConfig && (
+            <div className="px-4 pt-4 sm:px-6 md:px-8">
+              <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="SEO & GEO" />
+            </div>
+          )}
 
           {showGreetingScreen ? (
             <SeoGreetingScreen

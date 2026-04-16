@@ -3,11 +3,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createSSEStream } from "@/lib/sse-brand-intel"
 import { runCia03 } from "@/agents/cia-03/index"
-import type { AgentProfile } from "@/agents/_shared/types"
 import type { CiaOutput, CiaSessionContext } from "@/agents/cia-03/types"
 import type { BpiOutput } from "@/agents/bpi-01/types"
 import { safeAgentOutput } from "@/lib/type-guards"
 import { checkLLMRateLimit, rateLimitResponse } from "@/lib/rate-limit"
+import { loadWorkspaceContext, NoConfigError, noConfigResponse, requireFields } from "@/lib/agent-context"
+import { toAgentProfile } from "@/lib/agent-adapters"
 import { Prisma } from "@prisma/client"
 import { z } from "zod"
 
@@ -54,15 +55,15 @@ export async function POST(req: Request) {
     // empty body is fine
   }
 
-  const profileRow = await prisma.elevayBrandProfile.findUnique({
-    where: { workspaceId },
-  })
-  if (!profileRow) {
-    return Response.json(
-      { error: "NO_PROFILE", message: "Configure your brand profile first" },
-      { status: 400 },
-    )
+  let profile
+  try {
+    const ctx = await loadWorkspaceContext(workspaceId)
+    profile = requireFields(toAgentProfile(ctx), "Company + Brand Voice + Competitive Intelligence")
+  } catch (err) {
+    if (err instanceof NoConfigError) return noConfigResponse(err)
+    throw err
   }
+
 
   const previousRun = await prisma.elevayAgentRun.findFirst({
     where: { workspaceId, agentCode: "CIA-03" },
@@ -98,34 +99,10 @@ export async function POST(req: Request) {
       })()
     : undefined
 
-  const competitors = profileRow.competitors as unknown as Array<{
-    name: string
-    url: string
-  }>
-  const profile: AgentProfile = {
-    workspaceId: profileRow.workspaceId,
-    brand_name: profileRow.brand_name,
-    brand_url: profileRow.brand_url,
-    country: profileRow.country,
-    language: profileRow.language,
-    competitors,
-    primary_keyword: profileRow.primary_keyword,
-    secondary_keyword: profileRow.secondary_keyword,
-    sector: profileRow.sector ?? undefined,
-    priority_channels: profileRow.priority_channels,
-    objective: profileRow.objective ?? undefined,
-    facebookConnected: profileRow.facebookConnected,
-    facebookComposioAccountId:
-      profileRow.facebookComposioAccountId ?? undefined,
-    instagramConnected: profileRow.instagramConnected,
-    instagramComposioAccountId:
-      profileRow.instagramComposioAccountId ?? undefined,
-  }
-
   const priorityChannels =
-    body.priority_channels ?? profileRow.priority_channels
+    body.priority_channels ?? profile.priority_channels ?? []
   const objective =
-    toValidObjective(body.objective ?? profileRow.objective ?? "") ?? "lead_gen"
+    toValidObjective(body.objective ?? profile.objective ?? "") ?? "lead_gen"
 
   const context: CiaSessionContext = {
     priority_channels:
@@ -176,7 +153,6 @@ export async function POST(req: Request) {
         output: output as unknown as Prisma.InputJsonValue,
         degradedSources: output.degraded_sources,
         durationMs: Date.now() - startedAt,
-        brandProfileId: profileRow.id,
       },
     })
 
