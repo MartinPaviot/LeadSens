@@ -57,6 +57,7 @@ export interface IntegrationData {
   status: string
   accountEmail: string | null
   accountName: string | null
+  apiKey?: boolean // true if API key is set (never exposes the actual key)
   updatedAt: string
 }
 

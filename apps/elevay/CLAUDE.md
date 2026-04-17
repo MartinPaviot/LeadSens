@@ -7,7 +7,7 @@
 
 ## 1. Projet
 
-**Elevay** — Assistant IA marketing conversationnel. Aide les marketeurs avec : content strategy, copywriting, campaign planning, social media, email marketing, brand positioning.
+**Elevay** — Assistant IA marketing conversationnel avec agents spécialisés. Aide les marketeurs avec : brand intelligence, content writing, campaign planning, social media, influencer discovery, SEO.
 
 Elevay est une app **indépendante** dans le monorepo LeadSens. Elle partage la base de données (via `@leadsens/db`) mais a son propre code, ses propres routes, et ses propres agents.
 
@@ -20,13 +20,14 @@ Elevay est une app **indépendante** dans le monorepo LeadSens. Elle partage la 
 | Framework | Next.js 15 App Router (Turbopack) |
 | Language | TypeScript strict |
 | CSS | Tailwind CSS 4 |
-| UI | shadcn/ui + Radix |
+| UI | shadcn/ui + Radix + `@leadsens/ui` |
 | Chat UI | assistant-ui |
 | Auth | Better Auth (shared config) |
 | DB | Prisma 6 + PostgreSQL (Neon) via `@leadsens/db` |
 | API | tRPC + TanStack Query |
-| LLM | Mistral Large (pour l'instant) |
+| LLM | Claude Sonnet 4 (chat, influence brief), Mistral (agents) |
 | Validation | Zod |
+| Icons | Phosphor (`@phosphor-icons/react`) + Lucide |
 | Port | 3001 |
 
 ---
@@ -34,41 +35,85 @@ Elevay est une app **indépendante** dans le monorepo LeadSens. Elle partage la 
 ## 3. Structure
 
 ```
-apps/elevay/src/
-├── app/
-│   ├── (auth)/              # Login + Signup
-│   ├── (dashboard)/chat/    # Chat principal
-│   ├── api/
-│   │   ├── agents/chat/     # SSE streaming (Mistral Large)
-│   │   ├── auth/            # Better Auth
-│   │   └── trpc/            # tRPC handler
-│   ├── layout.tsx
-│   └── globals.css
-├── components/
-│   ├── chat/                # Chat UI (assistant-ui based)
-│   └── ui/                  # shadcn/ui components
-├── hooks/
-├── lib/                     # Auth, Prisma, SSE, tRPC client, utils
-├── server/trpc/             # tRPC (conversation router)
-└── middleware.ts             # Auth middleware
+apps/elevay/
+├── agents/                          # Agents hors-src (influence, seo-geo specs)
+│   ├── influence/                   # Agent influencer discovery (UI + core + hooks)
+│   └── seo-geo/                     # Agents SEO & GEO
+├── core/                            # Tools partagés (CMS, DataForSEO, Composio)
+│   ├── tools/                       # CMS adapters, DataForSEO, etc.
+│   └── types/                       # AgentContext, ClientProfile
+├── src/
+│   ├── app/
+│   │   ├── (auth)/                  # Login + Signup
+│   │   ├── (dashboard)/             # Pages dashboard (auth required)
+│   │   │   ├── page.tsx             # Home (AgentMarketplace)
+│   │   │   ├── brand-intel/
+│   │   │   ├── budget/
+│   │   │   ├── content-writer/
+│   │   │   ├── crm-campaigns/
+│   │   │   ├── influence/
+│   │   │   ├── notifications/
+│   │   │   ├── seo-chat/
+│   │   │   ├── settings/
+│   │   │   ├── social-campaigns/
+│   │   │   ├── social-inbox/
+│   │   │   └── up-next/
+│   │   ├── api/agents/              # API routes par agent
+│   │   │   ├── bmi/                 # Brand Intel (bpi-01, cia-03, mts-02)
+│   │   │   ├── budget-controller/
+│   │   │   ├── chat/               # Chat général SSE
+│   │   │   ├── crm-campaign-manager/
+│   │   │   ├── influence/          # Influence (chat, search, brief)
+│   │   │   ├── seo-geo/            # SEO agents (8 routes)
+│   │   │   ├── social-campaign-manager/
+│   │   │   ├── social-content-writer/
+│   │   │   └── social-interaction-manager/
+│   │   └── onboarding/
+│   ├── agents/                      # Agent logic (dans src/)
+│   │   ├── _shared/                 # Types partagés, LLM client, Composio wrapper
+│   │   ├── bpi-01/                  # Brand Performance Audit
+│   │   ├── cia-03/                  # Competitive Intelligence
+│   │   ├── mts-02/                  # Market Trends
+│   │   ├── budget-controller/
+│   │   ├── crm-campaign-manager/
+│   │   ├── social-campaign-manager/
+│   │   ├── social-content-writer/
+│   │   └── social-interaction-manager/
+│   ├── components/
+│   │   ├── shared/                  # Spinner, EmptyState, PageHeader
+│   │   ├── brand-intel/
+│   │   ├── budget/
+│   │   ├── chat/
+│   │   ├── content-writer/
+│   │   ├── crm-campaigns/
+│   │   ├── marketplace/             # Home page agent cards
+│   │   ├── notifications/
+│   │   ├── onboarding/
+│   │   ├── seo-chat/
+│   │   ├── settings/
+│   │   ├── social-campaigns/
+│   │   ├── social-inbox/
+│   │   └── up-next/
+│   ├── lib/                         # Auth, Prisma, SSE, tRPC, utils
+│   └── middleware.ts
 ```
 
 ---
 
-## 4. État actuel
+## 4. État actuel des agents
 
-### Ce qui existe
-- Auth complète (login/signup + Google OAuth)
-- Chat streaming SSE avec Mistral Large
-- Gestion des conversations (create, list, switch, rename)
-- UI chat complète (assistant-ui, sidebar, theme toggle)
-- System prompt basique (marketing assistant personality)
-
-### Ce qui est à construire
-- **Agents spécialisés** : chaque domaine marketing = un agent avec son propre prompt + tools
-- **Tool calling** : Mistral supporte le tool calling, pas encore implémenté côté Elevay
-- **Multi-agent routing** : router vers le bon agent selon la demande
-- Intégrations marketing (analytics, social media APIs, etc.)
+| Agent | Code | Status | Ce qui fonctionne | Ce qui manque |
+|-------|------|--------|-------------------|---------------|
+| Brand Audit | BPI-01 | ✅ 90% | Appels API reels, LLM, persistence DB | — |
+| Competitive Intel | CIA-03 | ✅ 85% | 4 modules, scoring, LLM strategique | — |
+| Market Trends | MTS-02 | ✅ 85% | 3 modules + synthese | — |
+| Content Writer | SCW-16 | 🟡 80% | Generation de contenu multi-plateforme | Enrichment BuzzSumo, export |
+| Social Campaigns | SMC-19 | 🟡 70% | Strategy generation | Publishing stubbed |
+| CRM Campaigns | CRM-27 | 🟡 70% | Email/SMS drafts | Platform adapters (HubSpot...) |
+| Social Inbox | SMI-20 | 🟡 70% | Classification, auto-reply | Webhook entrants |
+| Budget Controller | BDG-32 | ❌ 20% | Health score calculation | Data collection retourne des zeros |
+| Influencer Discovery | CIO | ✅ 85% | Brief LLM, mock data fallback, scoring | Apify env vars, real tools |
+| SEO & GEO | 8 agents | 🟡 varies | Routes + workflows | Implementations varies |
 
 ---
 
@@ -76,11 +121,14 @@ apps/elevay/src/
 
 1. **TypeScript strict** — zéro `any`, zéro `as any`
 2. **Zod** sur tous les inputs (routes API, tRPC, LLM outputs)
-3. **SSE streaming** pour le chat (pattern dans `src/app/api/agents/chat/route.ts`)
+3. **SSE streaming** — `createSSEStream()` pour agents, `SSEEncoder` pour chat. Tout dans `src/lib/sse.ts`
 4. **Conventional Commits** : `feat(elevay):`, `fix(elevay):`, `refactor(elevay):`
-5. **Imports** : `@/` = `apps/elevay/src/`, `@leadsens/db` = shared Prisma
+5. **Imports** : `@/` = `apps/elevay/src/`, `@agents/` = `apps/elevay/agents/`, `@core/` = `apps/elevay/core/`, `@leadsens/db` = shared Prisma
 6. **Pas de `console.log`** en production
 7. **Typecheck avant commit** : `pnpm --filter @leadsens/elevay typecheck`
+8. **Composants partagés** : `<Spinner />`, `<EmptyState />`, `<PageHeader />` dans `src/components/shared/`
+9. **Background gradient** : utiliser la classe CSS `.bg-elevay-page` (supporte dark mode)
+10. **Brand colors** : `#17c3b2` (teal), `#FF7A3D` (orange), `#2c6bed` (blue), `#FFF7ED` (cream)
 
 ---
 
@@ -111,11 +159,12 @@ cd apps/elevay && npx shadcn@latest add <component>
 
 ### Partagé (via packages/)
 - **`@leadsens/db`** : Prisma schema + client. Même base PostgreSQL.
+- **`@leadsens/ui`** : Sidebar, Avatar, Button, Dialog, etc.
 - Tables communes : `User`, `Workspace`, `Conversation`, `Message`, `Session`, `Account`
 
 ### Indépendant (apps/elevay/ only)
 - Routes API, server logic, agents, tools
-- Components chat (copiés, pas partagés — trop couplés)
+- Components dashboard
 - System prompts, LLM config
 - Toute logique marketing-specific
 
@@ -143,12 +192,6 @@ LIBRE (ton terrain de jeu) :
 - apps/elevay/         ← Tout le code Elevay
 ```
 
-### Prisma : comment ajouter une table pour Elevay
-1. **Parles-en d'abord à Martin** — le schema est partagé, une erreur casse les 2 apps
-2. Préfixe tes tables Elevay : `ElevayAgent`, `ElevayTemplate`, etc.
-3. Crée une branche `feat/elevay-*`, push, et ouvre une PR
-4. Martin review le changement schema → merge
-
 ### Workflow git obligatoire
 1. **Jamais push sur main** — toujours une branche `feat/elevay-*`
 2. Ouvre une PR → si ça touche UNIQUEMENT `apps/elevay/`, merge libre
@@ -161,99 +204,53 @@ LIBRE (ton terrain de jeu) :
 | Quoi | Où |
 |------|-----|
 | Chat API (SSE + LLM) | `src/app/api/agents/chat/route.ts` |
-| Chat UI | `src/components/chat/` |
-| tRPC router | `src/server/trpc/router.ts` |
-| Conversation CRUD | `src/server/trpc/routers/conversation.ts` |
+| SSE utilities | `src/lib/sse.ts` (SSEEncoder + createSSEStream) |
+| Agent shared types | `src/agents/_shared/types.ts` |
+| Agent shared LLM | `src/agents/_shared/llm.ts` |
+| Composio wrapper | `src/agents/_shared/composio.ts` |
+| Workspace context | `src/lib/agent-context.ts` |
 | Auth config | `src/lib/auth.ts` |
+| Auth guards | `src/lib/auth-utils.ts` |
 | Prisma wrapper | `src/lib/prisma.ts` |
-| SSE utilities | `src/lib/sse.ts` |
 | Middleware | `src/middleware.ts` |
-| Shared DB schema | `../../packages/db/prisma/schema.prisma` |
+| Shared components | `src/components/shared/` |
+| Settings page | `src/app/(dashboard)/settings/page.tsx` |
+| Onboarding | `src/app/onboarding/page.tsx` + `src/components/onboarding/` |
+| Dashboard layout | `src/app/(dashboard)/layout.tsx` (auth + onboarding redirect) |
 
 ---
 
-## 10. Agents spécialisés — Architecture
+## 10. Architecture des agents
 
 ### Principe directeur
 **Zero blocking at activation — graceful degradation at every step.**
 Un outil manquant ne bloque jamais l'agent : il dégrade proprement l'output.
 
-### Structure agents/
-```
-agents/
-├── seo-geo/          # Famille SEO & GEO (8 agents)
-│   ├── tsi07/        # Technical SEO & Indexing Manager — FONDATION
-│   ├── kga08/        # Keyword & GEO Action Planner — ORCHESTRATEUR
-│   ├── wpw09/        # Web Page SEO Writer
-│   ├── bsw10/        # Blog SEO Writer
-│   ├── mdg11/        # Meta Description Generator
-│   ├── alt12/        # Image ALT Text Generator
-│   ├── opt06/        # SEO & GEO Performance Optimizer
-│   └── pio05/        # Performance & Insights Optimizer
-└── brand-intel/      # Famille Brand & Market Intelligence
-    ├── bpi-01/
-    ├── cia-03/
-    └── mts-02/
-core/
-├── onboarding/       # Flux onboarding commun à toutes les familles
-├── tools/            # Wrappers : Composio, DataForSEO, GSC, CMS
-│   └── cms/          # WordPress, HubSpot, Shopify, Webflow
-└── types/            # Types TypeScript partagés (AgentContext, ClientProfile…)
-```
-
-### Contenu de chaque dossier agent
-- `AGENT.md` — spec complète (identité, modules, workflow, inputs/outputs)
-- `index.ts` — export `activate(context: AgentContext)`
-- `prompt.ts` — system prompt
-- `workflow.ts` — étapes isolées, chaque step a un fallback
-- `types.ts` — types spécifiques à l'agent
-
-### Types communs (core/types/)
+### Types partagés (`src/agents/_shared/types.ts`)
 ```typescript
-type AutomationLevel = 'audit' | 'semi-auto' | 'full-auto';
-type CmsType = 'wordpress' | 'hubspot' | 'shopify' | 'webflow' | 'other';
-type GeoLevel = 'national' | 'regional' | 'city' | 'multi-geo';
-type IssueLevel = 'critical' | 'high' | 'medium' | 'watch';
+interface AgentProfile { ... }  // Workspace context pour les agents
+interface ModuleResult<T> { ... }  // Résultat d'un module avec degraded_sources
+interface AgentOutput<T> { ... }  // Output complet d'un agent run
+```
 
-interface ClientProfile {
-  id: string;
-  siteUrl: string;
-  cmsType: CmsType;
-  automationLevel: AutomationLevel;
-  geoLevel: GeoLevel;
-  targetGeos: string[];
-  priorityPages: string[];
-  alertChannels: ('slack' | 'email' | 'report')[];
-  connectedTools: { gsc: boolean; ga: boolean; ahrefs: boolean; semrush: boolean; };
-}
+### Pattern SSE pour les agents
+```typescript
+// Route API agent — utiliser createSSEStream
+import { createSSEStream } from "@/lib/sse";
 
-interface AgentContext {
-  clientProfile: ClientProfile;
-  sessionId: string;
-  triggeredBy: string;            // agent source ou 'user'
-  inheritedData?: Record<string, unknown>;  // contexte inter-agents
+export async function POST(req: Request) {
+  // ... auth, validation ...
+  return createSSEStream(async (emit) => {
+    emit("status", { label: "Running analysis..." });
+    const result = await runAgent(profile);
+    emit("result", { output: result });
+    emit("finish", { durationMs: Date.now() - start });
+  });
 }
 ```
 
-### Intégration avec le chat existant
-Le routing vers un agent se fait depuis `src/app/api/agents/chat/route.ts`.
-Chaque agent expose `activate(context: AgentContext)` — le router SSE existant appelle cette fonction et streame la réponse via le pattern SSE déjà en place.
-
-### Ordre d'implémentation
-1. `core/types/` → `core/tools/` → `core/onboarding/`
-2. `agents/seo-geo/tsi07/` (fondation technique)
-3. `agents/seo-geo/kga08/` (orchestrateur — nourrit wpw09, bsw10, mdg11, alt12)
-4. Agents de production : `wpw09/` · `bsw10/` · `mdg11/` · `alt12/`
-5. `agents/seo-geo/opt06/` · `pio05/`
-6. `agents/brand-intel/`
-
-### Outils — 3 tiers
-- **Tier 1 Elevay** : DataForSEO, SerpAPI, Google PageSpeed API, Composio MCP
-- **Tier 2 OAuth client** : GSC, GA, WordPress / HubSpot / Shopify / Webflow, Google Sheets
-- **Tier 3 Premium optionnel** : Ahrefs, SEMrush, Vision API
-
-### Validation humaine obligatoire (tous niveaux d'automatisation)
-- Corrections de canonical tags
-- Merge ou redirection de pages (cannibalisation)
-- Modification de pages > 1000 visites/mois
-- Rewriting de pages piliers
+### Onboarding
+- Wizard 5 étapes : Business → CMS → Tools → Automation → Notifications
+- Écrit dans `Workspace` via `POST /api/onboarding/complete`
+- Set `onboardingCompletedAt` — vérifié par le dashboard layout
+- Les mêmes données sont éditables ensuite dans Settings (9 onglets)

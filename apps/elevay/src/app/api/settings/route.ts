@@ -69,11 +69,15 @@ export async function GET() {
       }),
     ])
 
-    // Integrations
-    const integrations = await prisma.integration.findMany({
+    // Integrations — never expose actual API keys, only indicate if one is set
+    const rawIntegrations = await prisma.integration.findMany({
       where: { workspaceId },
-      select: { id: true, type: true, status: true, accountEmail: true, accountName: true, updatedAt: true },
+      select: { id: true, type: true, status: true, accountEmail: true, accountName: true, apiKey: true, updatedAt: true },
     })
+    const integrations = rawIntegrations.map(({ apiKey, ...rest }) => ({
+      ...rest,
+      apiKey: Boolean(apiKey),
+    }))
 
     return Response.json({
       workspace,

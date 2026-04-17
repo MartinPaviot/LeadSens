@@ -180,6 +180,23 @@
 .scrollbar-thin::-webkit-scrollbar-thumb { background-color: oklch(0.8 0.005 286); border-radius: 3px; }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { background-color: oklch(0.65 0.01 286); }
 
+/* Elevay page background — subtle dashboard gradient */
+.bg-elevay-page {
+  background:
+    radial-gradient(ellipse at top left, rgba(23, 195, 178, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(44, 107, 237, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at top right, rgba(255, 122, 61, 0.04) 0%, transparent 40%),
+    #FFF7ED;
+}
+
+.dark .bg-elevay-page {
+  background:
+    radial-gradient(ellipse at top left, rgba(59, 232, 215, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(18, 83, 211, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at top right, rgba(194, 61, 0, 0.03) 0%, transparent 40%),
+    var(--background);
+}
+
 /* Elevay mesh background — teal/orange/blue brand tones */
 .bg-elevay-mesh {
   background:

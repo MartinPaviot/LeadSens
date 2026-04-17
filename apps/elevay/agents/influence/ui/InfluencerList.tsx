@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { Download, Loader2, Check } from 'lucide-react';
+import { Download, Check } from 'lucide-react';
+import { Spinner } from '@/components/shared/Spinner';
 import type { InfluencerProfile, CampaignBrief } from '../types';
 import { InfluencerCard } from './InfluencerCard';
 import { DetailPanel } from './DetailPanel';
@@ -37,7 +38,7 @@ export function InfluencerList({
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 size={28} className="animate-spin" style={{ color: '#17C3B2' }} />
+          <Spinner size="lg" />
           <p className="text-sm">Searching for influencers...</p>
         </div>
       </div>

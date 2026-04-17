@@ -2,9 +2,9 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { bsw10RouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
-import { activate } from '../../../../../../agents/seo-geo/bsw10';
-import type { Bsw10Inputs, Bsw10Output } from '../../../../../../agents/seo-geo/bsw10/types';
+import type { AgentContext } from '@core/types';
+import { activate } from '@agents/seo-geo/bsw10';
+import type { Bsw10Inputs, Bsw10Output } from '@agents/seo-geo/bsw10/types';
 
 export const dynamic = 'force-dynamic'
 

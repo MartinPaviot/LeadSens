@@ -13,6 +13,7 @@ import type {
 import { PLATFORM_META, VERTICAL_CONFIGS } from "@/agents/social-campaign-manager/core/constants"
 import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
 import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
+import { PageHeader } from "@/components/shared/PageHeader"
 import { toast } from "sonner"
 
 // ── Constants for pill selectors ───────────────────────
@@ -379,18 +380,14 @@ export function MissionControl() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div
-        className="border-b px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0"
-        style={{ height: "48px", minHeight: "48px" }}
-      >
-        <h1 className="text-lg font-semibold">Social Campaigns</h1>
-        {output && (
+      <PageHeader
+        title="Social Campaigns"
+        actions={output ? (
           <span className="text-xs text-muted-foreground">
             {output.campaigns.length} campaign{output.campaigns.length !== 1 ? "s" : ""} generated
           </span>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {noConfig && (
         <div className="px-4 pt-4 sm:px-6">

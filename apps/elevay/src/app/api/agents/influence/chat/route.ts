@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { loadWorkspaceContext } from "@/lib/agent-context";
 import { toInfluenceBriefDefaults } from "@/lib/agent-adapters";
 import { z } from "zod";
-import { getSystemPrompt } from "../../../../../../agents/influence/prompts/briefCollection";
+import { getSystemPrompt } from "@agents/influence/prompts/briefCollection";
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: systemPrompt,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),

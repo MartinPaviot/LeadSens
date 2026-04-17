@@ -20,8 +20,9 @@ export async function scheduleCampaign(params: {
   scheduledAt: string
   platform: CRMPlatform
   abConfig?: ABConfig
+  workspaceId: string
 }): Promise<ScheduleResult> {
-  const adapter = getCRMAdapter(params.platform)
+  const adapter = getCRMAdapter(params.platform, params.workspaceId)
   const result = await adapter.scheduleCampaign({
     draft: params.draft,
     segment: params.segment,
@@ -41,8 +42,9 @@ export async function scheduleSMS(params: {
   segment: string
   scheduledAt: string
   platform: SMSPlatform
+  workspaceId: string
 }): Promise<ScheduleResult> {
-  const adapter = getSMSAdapter(params.platform)
+  const adapter = getSMSAdapter(params.platform, params.workspaceId)
   const result = await adapter.scheduleCampaign({
     draft: params.draft,
     segment: params.segment,
@@ -59,11 +61,12 @@ export async function scheduleSMS(params: {
 export async function cancelScheduledCampaign(
   campaignId: string,
   platform: CRMPlatform | SMSPlatform,
+  workspaceId: string,
 ): Promise<boolean> {
   const adapter =
     platform === "twilio"
-      ? getSMSAdapter(platform)
-      : getCRMAdapter(platform)
+      ? getSMSAdapter(platform, workspaceId)
+      : getCRMAdapter(platform, workspaceId)
   const result = await adapter.cancelCampaign(campaignId)
   return result.success
 }

@@ -5,6 +5,7 @@ import type {
 } from "../../core/types"
 
 export class KlaviyoAdapter implements PlatformAdapter {
+  constructor(private _workspaceId: string) {}
   async scheduleCampaign(params: Parameters<PlatformAdapter["scheduleCampaign"]>[0]) {
     // TODO: Implement via Composio Klaviyo actions
     return {

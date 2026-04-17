@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { env } from "@/lib/env"
 import { trackAIEvent } from "@/lib/ai-tracker"
 import type { LLMRequest, LLMResponse } from "./types"
+import { agentWarn, agentError } from "./agent-logger"
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 
@@ -57,7 +58,12 @@ export async function callLLM(
     try {
       parsed = parseRobust(content)
     } catch (parseErr) {
-      void parseErr
+      agentWarn(
+        trackingContext?.agentCode ?? "unknown",
+        "llm",
+        "JSON parse failed — LLM returned non-parseable content",
+        { error: String(parseErr), contentPreview: content.slice(0, 200) },
+      )
     }
 
     const result: LLMResponse = {
@@ -85,6 +91,12 @@ export async function callLLM(
 
     return result
   } catch (err) {
+    agentError(
+      trackingContext?.agentCode ?? "unknown",
+      "llm",
+      "LLM call failed",
+      { error: err instanceof Error ? err.message : String(err) },
+    )
     return {
       content: "",
       parsed: null,

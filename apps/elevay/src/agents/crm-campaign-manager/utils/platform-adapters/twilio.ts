@@ -5,6 +5,7 @@ import type {
 } from "../../core/types"
 
 export class TwilioAdapter implements PlatformAdapter {
+  constructor(private _workspaceId: string) {}
   async scheduleCampaign(params: Parameters<PlatformAdapter["scheduleCampaign"]>[0]) {
     // TODO: Implement via Twilio API
     return {

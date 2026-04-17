@@ -1,6 +1,7 @@
 'use client'
 
 import { AGENT_TOKENS } from './tokens'
+import { Spinner } from '@/components/shared/Spinner'
 
 type AgentKey = 'bpi' | 'mts' | 'cia'
 type AgentState = 'idle' | 'running' | 'done' | 'error'
@@ -23,7 +24,7 @@ function StateIcon({ state }: { state: AgentState }) {
     case 'idle':
       return <span className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 inline-block" />
     case 'running':
-      return <span className="w-4 h-4 rounded-full border-2 border-teal border-t-transparent animate-spin inline-block" />
+      return <Spinner size="sm" />
     case 'done':
       return <span className="w-4 h-4 rounded-full bg-teal inline-flex items-center justify-center text-white text-[10px] font-bold">&#10003;</span>
     case 'error':

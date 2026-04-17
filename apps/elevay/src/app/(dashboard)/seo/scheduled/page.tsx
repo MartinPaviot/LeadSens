@@ -33,14 +33,12 @@ export default function ScheduledPage() {
   const schedules = useQuery<ScheduleEntry[]>({
     queryKey: ['dashboard', 'schedules'],
     queryFn: async () => {
-      // The schedule data is stored on the brand profile — fetch it
       const res = await fetch('/api/onboarding/profile');
       if (!res.ok) return [];
       const data = await res.json() as { profile: { report_recurrence?: string } | null };
       if (!data.profile?.report_recurrence || data.profile.report_recurrence === 'on_demand') {
         return [];
       }
-      // Show a single entry for the global recurrence setting
       return [{
         agentId: 'pio05',
         frequency: data.profile.report_recurrence,

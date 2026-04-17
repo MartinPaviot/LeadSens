@@ -7,7 +7,8 @@ import { getCRMAdapter } from "../utils/platform-adapters"
 export async function getCampaignMetrics(
   campaignId: string,
   platform: CRMPlatform,
+  workspaceId: string,
 ): Promise<CampaignMetrics> {
-  const adapter = getCRMAdapter(platform)
+  const adapter = getCRMAdapter(platform, workspaceId)
   return adapter.getCampaignMetrics(campaignId)
 }

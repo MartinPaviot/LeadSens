@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import type { ProcessingResult } from "@/agents/social-interaction-manager/core/types"
+import { PageHeader } from "@/components/shared/PageHeader"
 import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
 import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
 
@@ -16,11 +17,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   lead: "bg-green-100 text-green-700",
   negative: "bg-red-100 text-red-700",
   toxic: "bg-red-200 text-red-800",
-  support: "bg-blue-100 text-blue-700",
+  support: "bg-[#2c6bed]/10 text-[#2c6bed]",
   "product-question": "bg-purple-100 text-purple-700",
   partnership: "bg-indigo-100 text-indigo-700",
-  influencer: "bg-yellow-100 text-yellow-700",
-  positive: "bg-teal-100 text-teal-700",
+  influencer: "bg-[#FF7A3D]/10 text-[#FF7A3D]",
+  positive: "bg-[#17c3b2]/10 text-[#17c3b2]",
   neutral: "bg-gray-100 text-gray-600",
   spam: "bg-gray-200 text-gray-500",
 }
@@ -68,20 +69,21 @@ export function UnifiedInbox() {
   }
 
   const pillClass = (active: boolean) =>
-    `rounded-full px-2.5 py-1 text-xs font-medium border cursor-pointer transition-all ${active ? "bg-foreground text-background" : "bg-background text-foreground/70 border-border hover:border-foreground/30"}`
+    `rounded-full px-2.5 py-1 text-xs font-medium border cursor-pointer transition-all ${active ? "bg-[#17c3b2] text-white border-[#17c3b2]" : "bg-background text-foreground/70 border-border hover:border-foreground/30"}`
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0" style={{ height: "48px", minHeight: "48px" }}>
-        <h1 className="text-lg font-semibold">Social Inbox</h1>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{stats.total} messages</span>
-          <span className="text-teal-600">{stats.autoResponded} auto</span>
-          <span className="text-green-600">{stats.leads} leads</span>
-          {stats.escalations > 0 && <span className="text-red-600 font-semibold">{stats.escalations} escalations</span>}
-        </div>
-      </div>
+      <PageHeader
+        title="Social Inbox"
+        actions={
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>{stats.total} messages</span>
+            <span className="text-[#17c3b2]">{stats.autoResponded} auto</span>
+            <span className="text-green-600">{stats.leads} leads</span>
+            {stats.escalations > 0 && <span className="text-red-600 font-semibold">{stats.escalations} escalations</span>}
+          </div>
+        }
+      />
 
       {noConfig && (
         <div className="px-4 pt-4 sm:px-6">

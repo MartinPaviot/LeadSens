@@ -4,9 +4,9 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { NoConfigError, noConfigResponse, requireFields } from '@/lib/agent-context';
 import { toKga08Settings } from '@/lib/agent-adapters';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
-import { activate } from '../../../../../../agents/seo-geo/kga08';
-import type { Kga08Inputs, Kga08Output } from '../../../../../../agents/seo-geo/kga08/types';
+import type { AgentContext } from '@core/types';
+import { activate } from '@agents/seo-geo/kga08';
+import type { Kga08Inputs, Kga08Output } from '@agents/seo-geo/kga08/types';
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60;

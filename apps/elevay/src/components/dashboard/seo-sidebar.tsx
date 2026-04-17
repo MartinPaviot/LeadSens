@@ -43,15 +43,15 @@ export function SeoSidebar({ pendingCount }: SeoSidebarProps) {
   const user = sessionData?.user;
 
   const navItems: NavItem[] = [
-    { label: 'Dashboard', mobileLabel: 'Home', href: '/dashboard', icon: ChartBar },
-    { label: 'Chat', mobileLabel: 'Chat', href: '/dashboard/chat', icon: ChatCircle },
-    { label: 'Pending review', mobileLabel: 'Review', href: '/dashboard/pending', icon: CheckSquare, badge: pendingCount },
-    { label: 'History', mobileLabel: 'History', href: '/dashboard/history', icon: ClockCounterClockwise },
-    { label: 'Scheduled reports', mobileLabel: 'Schedule', href: '/dashboard/scheduled', icon: CalendarCheck },
+    { label: 'Dashboard', mobileLabel: 'Home', href: '/seo', icon: ChartBar },
+    { label: 'Chat', mobileLabel: 'Chat', href: '/seo/chat', icon: ChatCircle },
+    { label: 'Pending review', mobileLabel: 'Review', href: '/seo/pending', icon: CheckSquare, badge: pendingCount },
+    { label: 'History', mobileLabel: 'History', href: '/seo/history', icon: ClockCounterClockwise },
+    { label: 'Scheduled reports', mobileLabel: 'Schedule', href: '/seo/scheduled', icon: CalendarCheck },
   ];
 
   function isActive(href: string) {
-    if (href === '/dashboard') return pathname === '/dashboard';
+    if (href === '/seo') return pathname === '/seo';
     return pathname === href || pathname.startsWith(href);
   }
 

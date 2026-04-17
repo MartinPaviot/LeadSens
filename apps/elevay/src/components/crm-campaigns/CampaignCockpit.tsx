@@ -6,6 +6,8 @@ import type { EmailDraft, SMSDraft } from "@/agents/crm-campaign-manager/core/ty
 import type { TimingProposal } from "@/agents/crm-campaign-manager/modules/timing-optimizer"
 import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
 import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
+import { Spinner } from "@/components/shared/Spinner"
+import { PageHeader } from "@/components/shared/PageHeader"
 import { toast } from "sonner"
 
 type CockpitState = "idle" | "loading" | "draft-ready" | "scheduled" | "error"
@@ -96,16 +98,13 @@ export function CampaignCockpit() {
   const pillClass = (active: boolean) =>
     `rounded-full px-3 py-1.5 text-sm font-medium border transition-all cursor-pointer ${
       active
-        ? "bg-foreground text-background border-foreground"
+        ? "bg-[#17c3b2] text-white border-[#17c3b2]"
         : "bg-background text-foreground/70 border-border hover:border-foreground/30"
     }`
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b px-4 sm:px-6 flex items-center gap-3 shrink-0" style={{ height: "48px", minHeight: "48px" }}>
-        <h1 className="text-lg font-semibold">CRM Campaigns</h1>
-      </div>
+      <PageHeader title="CRM Campaigns" />
 
       {noConfig && (
         <div className="px-4 pt-4 sm:px-6">
@@ -189,7 +188,7 @@ export function CampaignCockpit() {
         {/* Loading */}
         {state === "loading" && (
           <div className="max-w-2xl mx-auto text-center py-8">
-            <div className="inline-block h-6 w-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            <Spinner />
             <p className="mt-2 text-sm text-muted-foreground">Generating your campaign draft...</p>
           </div>
         )}

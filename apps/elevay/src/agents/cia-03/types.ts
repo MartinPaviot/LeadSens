@@ -96,6 +96,18 @@ export interface CiaSessionContext {
   objective: 'lead_gen' | 'acquisition' | 'retention' | 'branding'
 }
 
+export interface CompetitorReviewEntry {
+  competitor: string
+  google_maps: { rating: number; review_count: number; sentiment: 'positive' | 'neutral' | 'negative' } | null
+  trustpilot: { trust_score: number; rating: number; review_count: number } | null
+}
+
+export interface BpiCrossData {
+  social_score?: number
+  google_maps?: { rating: number | null; review_count: number; recent_sentiment: string }
+  trustpilot?: { trust_score: number; rating: number | null; review_count: number }
+}
+
 export interface CiaOutput {
   brand_score: number
   analysis_date: string
@@ -107,6 +119,8 @@ export interface CiaOutput {
   social_matrix: SocialProfile[]
   content_gap_map: ContentAnalysisData['content_gap_map']
   content_competitors: ContentAnalysisData['competitors_content']
+  competitor_reviews: CompetitorReviewEntry[]
+  brand_reviews?: BpiCrossData
   threats: Threat[]
   opportunities: Opportunity[]
   action_plan_60d: ActionPhase[]

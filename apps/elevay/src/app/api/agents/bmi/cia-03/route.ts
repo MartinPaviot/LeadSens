@@ -86,18 +86,26 @@ export async function POST(req: Request) {
       })()
     : undefined
 
-  // Load last BPI-01 run for social_score cross-signal
+  // Load last BPI-01 run for cross-signal data (social, Google Maps, Trustpilot)
   const lastBpiRun = await prisma.elevayAgentRun.findFirst({
     where: { workspaceId, agentCode: "BPI-01" },
     orderBy: { createdAt: "desc" },
   })
 
-  const brandSocialScore = lastBpiRun
-    ? (() => {
-        const bpi = safeAgentOutput<BpiOutput>(lastBpiRun.output)
-        return bpi?.payload?.scores?.social ?? undefined
-      })()
-    : undefined
+  let brandSocialScore: number | undefined
+  let brandReviews: import("@/agents/cia-03/types").BpiCrossData | undefined
+
+  if (lastBpiRun) {
+    const bpi = safeAgentOutput<BpiOutput>(lastBpiRun.output)
+    if (bpi?.payload) {
+      brandSocialScore = bpi.payload.scores?.social
+      brandReviews = {
+        social_score: bpi.payload.scores?.social,
+        google_maps: bpi.payload.googleMapsReputation ?? undefined,
+        trustpilot: bpi.payload.trustpilot ?? undefined,
+      }
+    }
+  }
 
   const priorityChannels =
     body.priority_channels ?? profile.priority_channels ?? []
@@ -114,28 +122,29 @@ export async function POST(req: Request) {
 
   return createSSEStream(async (emit) => {
     emit("status", {
-      message: "[0/6] Starting competitive analysis...",
+      message: "[0/7] Starting competitive analysis...",
       index: 0,
-      total: 6,
+      total: 7,
     })
 
-    const output = await runCia03(profile, context, brandSocialScore)
+    const output = await runCia03(profile, context, brandSocialScore, brandReviews)
 
     const modules = [
       "product-messaging",
       "seo-acquisition",
       "social-media",
       "content",
+      "competitor-reviews",
       "benchmark",
       "recommendations",
     ]
     modules.forEach((mod, i) => {
       const degraded = output.degraded_sources.includes(mod)
       emit("status", {
-        message: `[${i + 1}/6] ${mod} ${degraded ? "⚠" : "✓"}`,
+        message: `[${i + 1}/7] ${mod} ${degraded ? "⚠" : "✓"}`,
         module: mod,
         index: i + 1,
-        total: 6,
+        total: 7,
       })
     })
 

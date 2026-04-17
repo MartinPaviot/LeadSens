@@ -2,15 +2,15 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
+import type { AgentContext } from '@core/types';
 import {
   auditRankings,
   scoreOpportunities,
   applyAutoCorrections,
   pushCorrections,
   detectAlerts,
-} from '../../../../../../agents/seo-geo/opt06/workflow';
-import type { Opt06Inputs, Opt06Output } from '../../../../../../agents/seo-geo/opt06/types';
+} from '@agents/seo-geo/opt06/workflow';
+import type { Opt06Inputs, Opt06Output } from '@agents/seo-geo/opt06/types';
 
 export const dynamic = 'force-dynamic'
 

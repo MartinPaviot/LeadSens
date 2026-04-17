@@ -216,6 +216,11 @@ export const mockDashboardData: DashboardData = {
         { description: 'YouTube is untouched — launch a channel before competitors invest', effort: 'low', impact: 'high', timeframe: '< 30 days' },
         { description: 'LeadFactory is vulnerable — capture their audience with targeted content', effort: 'medium', impact: 'medium', timeframe: '30-60 days' },
       ],
+      competitor_reviews: [
+        { competitor: 'MarketForge', google_maps: { rating: 4.1, review_count: 87, sentiment: 'positive' }, trustpilot: { trust_score: 78, rating: 3.9, review_count: 234 } },
+        { competitor: 'GrowthStack', google_maps: { rating: 3.6, review_count: 42, sentiment: 'neutral' }, trustpilot: null },
+        { competitor: 'LeadFactory', google_maps: null, trustpilot: { trust_score: 64, rating: 3.2, review_count: 56 } },
+      ],
       action_plan_60d: [
         {
           phase: 1,

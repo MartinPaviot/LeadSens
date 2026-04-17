@@ -2,7 +2,7 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
+import type { AgentContext } from '@core/types';
 import {
   runCrawl,
   fetchGscData,
@@ -10,8 +10,8 @@ import {
   buildReport,
   buildActionPlan,
   pushTsi07Corrections,
-} from '../../../../../../agents/seo-geo/tsi07/workflow';
-import type { Tsi07Inputs, TechnicalAuditReport, ActionPlan, Tsi07CorrectionResult } from '../../../../../../agents/seo-geo/tsi07/types';
+} from '@agents/seo-geo/tsi07/workflow';
+import type { Tsi07Inputs, TechnicalAuditReport, ActionPlan, Tsi07CorrectionResult } from '@agents/seo-geo/tsi07/types';
 
 export const dynamic = 'force-dynamic'
 

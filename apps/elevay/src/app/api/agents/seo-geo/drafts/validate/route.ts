@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { wpPublishPage, wpPublishPost } from '../../../../../../../core/tools/cms/wordpress';
+import { wpPublishPage, wpPublishPost } from '@core/tools/cms/wordpress';
 
 export const dynamic = 'force-dynamic'
 

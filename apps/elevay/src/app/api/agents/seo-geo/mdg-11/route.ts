@@ -2,11 +2,11 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
-import { activate } from '../../../../../../agents/seo-geo/mdg11';
-import type { Mdg11Inputs, Mdg11Output } from '../../../../../../agents/seo-geo/mdg11/types';
-import { crawlSite } from '../../../../../../core/tools/dataForSeo';
-import type { CrawlResult } from '../../../../../../core/tools/dataForSeo';
+import type { AgentContext } from '@core/types';
+import { activate } from '@agents/seo-geo/mdg11';
+import type { Mdg11Inputs, Mdg11Output } from '@agents/seo-geo/mdg11/types';
+import { crawlSite } from '@core/tools/dataForSeo';
+import type { CrawlResult } from '@core/tools/dataForSeo';
 
 export const dynamic = 'force-dynamic'
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
         if (wpCreds && profile.cmsType === 'wordpress') {
           controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Fetching WordPress pages…' }));
-          const { wpGetPages, wpGetPosts } = await import('../../../../../../core/tools/cms/wordpress');
+          const { wpGetPages, wpGetPosts } = await import('@core/tools/cms/wordpress');
           const [pages, posts] = await Promise.allSettled([
             wpGetPages(wpCreds),
             wpGetPosts(wpCreds),

@@ -1,10 +1,10 @@
 import { auth } from "@/lib/auth";
 import { z } from "zod";
-import type { CampaignBrief, InfluencerProfile, OnboardingConfig } from "../../../../../../agents/influence/types";
-import { searchWithApify } from "../../../../../../agents/influence/core/apifySearch";
-import { MOCK_INFLUENCERS } from "../../../../../../agents/influence/core/mockData";
-import { sortByScore } from "../../../../../../agents/influence/core/scoring";
-import { MAX_PROFILES_PER_CAMPAIGN } from "../../../../../../agents/influence/config";
+import type { CampaignBrief, InfluencerProfile, OnboardingConfig } from "@agents/influence/types";
+import { searchWithApify } from "@agents/influence/core/apifySearch";
+import { MOCK_INFLUENCERS } from "@agents/influence/core/mockData";
+import { sortByScore } from "@agents/influence/core/scoring";
+import { MAX_PROFILES_PER_CAMPAIGN } from "@agents/influence/config";
 
 export const dynamic = 'force-dynamic'
 
@@ -84,8 +84,8 @@ export async function POST(req: Request) {
       if (results.length > 0) {
         return Response.json({ results, source: 'apify' });
       }
-    } catch {
-      // silent fail → mock data
+    } catch (err) {
+      console.warn('[influence/search] Apify failed, falling back to mock data:', err instanceof Error ? err.message : err);
     }
   }
 

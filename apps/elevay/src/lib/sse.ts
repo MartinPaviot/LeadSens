@@ -106,3 +106,46 @@ export const SSE_HEADERS: HeadersInit = {
 export function generateStreamId(): string {
   return `stream_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
+
+// ─── Callback-Style SSE Stream ───────────────────────────
+//
+// Simpler API for agent routes that don't need the full SSEEncoder.
+// Wraps an async callback with an emit() function.
+
+type Emit = (event: string, data: Record<string, unknown>) => void;
+
+/**
+ * Create an SSE Response that runs an async callback.
+ * The callback receives an `emit(event, data)` function to send events.
+ */
+export function createSSEStream(
+  callback: (emit: Emit) => Promise<void>,
+): Response {
+  const encoder = new TextEncoder();
+  let id = 0;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const emit: Emit = (event, data) => {
+        const lines = [
+          `id: ${id++}`,
+          `event: ${event}`,
+          `data: ${JSON.stringify(data)}`,
+          "",
+          "",
+        ];
+        controller.enqueue(encoder.encode(lines.join("\n")));
+      };
+
+      try {
+        await callback(emit);
+      } catch (err) {
+        emit("error", { message: String(err) });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, { headers: SSE_HEADERS });
+}

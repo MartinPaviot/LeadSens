@@ -2,9 +2,9 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
-import { activate } from '../../../../../../agents/seo-geo/pio05';
-import type { Pio05Inputs, Pio05Output } from '../../../../../../agents/seo-geo/pio05/types';
+import type { AgentContext } from '@core/types';
+import { activate } from '@agents/seo-geo/pio05';
+import type { Pio05Inputs, Pio05Output } from '@agents/seo-geo/pio05/types';
 
 export const dynamic = 'force-dynamic'
 

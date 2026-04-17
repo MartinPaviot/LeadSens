@@ -2,9 +2,9 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { agentRouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
-import { activate } from '../../../../../../agents/seo-geo/alt12';
-import type { Alt12Inputs, Alt12Output } from '../../../../../../agents/seo-geo/alt12/types';
+import type { AgentContext } from '@core/types';
+import { activate } from '@agents/seo-geo/alt12';
+import type { Alt12Inputs, Alt12Output } from '@agents/seo-geo/alt12/types';
 
 export const dynamic = 'force-dynamic'
 
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
         if (wpCreds && profile.cmsType === 'wordpress') {
           controller.enqueue(encoder.encode('status', { step: 1, total: 4, label: '[1/4] Crawling WordPress images…' }));
-          const { wpGetImages } = await import('../../../../../../core/tools/cms/wordpress');
+          const { wpGetImages } = await import('@core/tools/cms/wordpress');
           const images = await wpGetImages(wpCreds).catch(() => []);
 
           controller.enqueue(encoder.encode('status', { step: 2, total: 4, label: `[2/4] ${images.length} images found…` }));

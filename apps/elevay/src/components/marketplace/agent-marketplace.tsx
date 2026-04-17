@@ -54,7 +54,7 @@ const AGENT_FAMILIES: AgentFamily[] = [
       "Technical audit, keyword strategy, SEO writing, continuous optimization, and AI visibility (SGE, Copilot, Perplexity).",
     agentCount: 8,
     status: "available",
-    route: "/dashboard",
+    route: "/seo",
     gradient: "from-[#17c3b2] to-[#0ea5a0]",
     icon: <TrendingUp size={28} strokeWidth={1.5} />,
     agents: [

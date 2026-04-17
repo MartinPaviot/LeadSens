@@ -16,6 +16,8 @@ import {
   Megaphone,
   ChatsCircle,
   ChartBar,
+  Users,
+  MagnifyingGlass,
 } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -42,7 +44,6 @@ import {
   DropdownMenuTrigger,
 } from "@leadsens/ui";
 import { useSession, signOut } from "@/lib/auth-client";
-import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 
 // ─── Component ──────────────────────────────────────────
 
@@ -60,8 +61,6 @@ export function AppSidebar() {
     await signOut();
     router.push("/login");
   };
-
-  useKeyboardShortcuts({});
 
   return (
     <Sidebar
@@ -137,6 +136,17 @@ export function AppSidebar() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
+                isActive={pathname.startsWith("/seo")}
+                onClick={() => { router.push("/seo"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <MagnifyingGlass className="size-3.5 shrink-0" />
+                <span>SEO & GEO</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
                 isActive={pathname.startsWith("/brand-intel")}
                 onClick={() => { router.push("/brand-intel"); if (isMobile) setOpenMobile(false); }}
                 size="sm"
@@ -144,6 +154,17 @@ export function AppSidebar() {
               >
                 <ChartBar className="size-3.5 shrink-0" />
                 <span>Brand Intelligence</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/influence")}
+                onClick={() => { router.push("/influence"); if (isMobile) setOpenMobile(false); }}
+                size="sm"
+                className="px-2 rounded-lg text-sidebar-foreground/70 hover:bg-[rgba(23,195,178,0.06)] data-[active=true]:bg-[rgba(23,195,178,0.10)] data-[active=true]:text-foreground"
+              >
+                <Users className="size-3.5 shrink-0" />
+                <span>Influence</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>

@@ -31,6 +31,7 @@ export async function fetchSocialListening(
     const queries = [
       `${profile.primary_keyword} site:linkedin.com`,
       `${profile.primary_keyword} site:twitter.com OR site:x.com`,
+      `${profile.primary_keyword} site:reddit.com`,
     ]
 
     const results = await Promise.allSettled(
@@ -39,7 +40,7 @@ export async function fetchSocialListening(
 
     const signals: SocialSignalsData['signals'] = []
 
-    const platforms = ['LinkedIn', 'X/Twitter']
+    const platforms = ['LinkedIn', 'X/Twitter', 'Reddit']
     results.forEach((result, i) => {
       const platform = platforms[i] ?? 'Social'
       if (result.status !== 'fulfilled') return

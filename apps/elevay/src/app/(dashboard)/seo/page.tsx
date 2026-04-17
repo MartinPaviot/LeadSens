@@ -2,13 +2,10 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Lightning, Rocket } from "@phosphor-icons/react";
-import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { ScoreCards } from "@/components/dashboard/score-cards";
 import { ValidationQueue, type QueueItem } from "@/components/dashboard/validation-queue";
 import { ActivityFeed, type ActivityItem } from "@/components/dashboard/activity-feed";
-
-// ─── Data fetching hooks ─────────────────────────────────
 
 function useScores() {
   return useQuery({
@@ -46,18 +43,13 @@ function useActivity() {
   });
 }
 
-// ─── Page component ──────────────────────────────────────
-
-export default function DashboardPage() {
-  const { data: sessionData } = useSession();
+export default function SeoDashboardPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
   const scores = useScores();
   const queue = useQueue();
   const activity = useActivity();
-
-  const firstName = sessionData?.user?.name?.split(' ')[0] ?? '';
 
   const validateMutation = useMutation({
     mutationFn: async ({ runId, action }: { runId: string; action: 'approve' | 'reject' }) => {
@@ -100,7 +92,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <button
-              onClick={() => router.push('/dashboard/chat')}
+              onClick={() => router.push('/seo/chat')}
               className="mt-2 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-shadow hover:shadow-md"
               style={{ background: 'var(--elevay-gradient-btn)' }}
             >
@@ -132,7 +124,7 @@ export default function DashboardPage() {
                 </h2>
                 <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border/60">
                   <button
-                    onClick={() => router.push('/dashboard/chat')}
+                    onClick={() => router.push('/seo/chat')}
                     className="text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
                     Open SEO chat

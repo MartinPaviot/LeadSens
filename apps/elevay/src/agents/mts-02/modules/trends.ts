@@ -20,6 +20,40 @@ interface SerpResult {
   related_searches?: Array<{ query?: string }>
 }
 
+interface GoogleTrendsResult {
+  related_queries?: {
+    rising?: Array<{ query: string; value?: number }>
+    top?: Array<{ query: string; value?: number }>
+  }
+}
+
+/**
+ * Fetch Google Trends related queries via SerpAPI google_trends engine.
+ */
+async function fetchGoogleTrends(keyword: string): Promise<string[]> {
+  const key = process.env.SERPAPI_KEY
+  if (!key) return []
+
+  try {
+    const params = new URLSearchParams({
+      api_key: key,
+      q: keyword,
+      engine: 'google_trends',
+      data_type: 'RELATED_QUERIES',
+    })
+    const res = await fetch(`https://serpapi.com/search.json?${params}`, {
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return []
+    const data = (await res.json()) as GoogleTrendsResult
+    const rising = data.related_queries?.rising?.map((r) => r.query) ?? []
+    const top = data.related_queries?.top?.map((r) => r.query) ?? []
+    return [...rising, ...top].slice(0, 10)
+  } catch {
+    return []
+  }
+}
+
 function deriveTrendDirection(
   monthly: Array<{ year: number; month: number; search_volume: number }> | undefined,
 ): 'up' | 'stable' | 'down' {
@@ -52,12 +86,13 @@ export async function fetchTrends(
       ...profile.competitors.slice(0, 2).map((c) => c.name),
     ]
 
-    const [keywordRaw, serpRaw] = await Promise.allSettled([
+    const [keywordRaw, serpRaw, googleTrendsRaw] = await Promise.allSettled([
       composio.getKeywords(keywords, profile.country),
       composio.searchSerp(
         `${profile.primary_keyword} tendances ${currentYear}`,
         10,
       ),
+      fetchGoogleTrends(profile.primary_keyword),
     ])
 
     const kwData =
@@ -88,10 +123,16 @@ export async function fetchTrends(
         ? kwKeywords
         : keywords.map((k) => ({ term: k, volume: 0, trend_direction: 'stable' as const }))
 
-    const risingQueries = (serpData?.related_searches ?? [])
+    // Merge SERP related searches with Google Trends rising queries
+    const serpQueries = (serpData?.related_searches ?? [])
       .map((r) => r.query ?? '')
       .filter(Boolean)
-      .slice(0, 8)
+
+    const trendsQueries =
+      googleTrendsRaw.status === 'fulfilled' ? googleTrendsRaw.value : []
+
+    const risingQueries = [...new Set([...trendsQueries, ...serpQueries])]
+      .slice(0, 12)
 
     const topPages = (serpData?.organic_results ?? [])
       .map((r) => r.link ?? '')

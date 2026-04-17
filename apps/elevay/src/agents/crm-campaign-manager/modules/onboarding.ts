@@ -7,8 +7,9 @@ import { DEFAULT_MAX_SENDS_PER_WEEK, TIMING_DEFAULTS } from "../core/constants"
  */
 export async function initializeCRMConfig(
   platform: CRMPlatform,
+  workspaceId: string,
 ): Promise<CRMConfig> {
-  const adapter = getCRMAdapter(platform)
+  const adapter = getCRMAdapter(platform, workspaceId)
 
   const [segments, historicalOpenRate] = await Promise.all([
     adapter.getSegments(),

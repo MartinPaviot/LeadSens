@@ -9,3 +9,4 @@ export type {
 export { callLLM } from "./llm"
 export { composio } from "./composio"
 export { socialOAuth } from "./social-oauth"
+export { agentWarn, agentError } from "./agent-logger"

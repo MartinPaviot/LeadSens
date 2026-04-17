@@ -15,14 +15,14 @@ interface QueueItem {
 }
 
 const PAGE_TITLES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/dashboard/chat': 'SEO & GEO',
-  '/dashboard/pending': 'Pending review',
-  '/dashboard/history': 'History',
-  '/dashboard/scheduled': 'Scheduled reports',
+  '/seo': 'Dashboard',
+  '/seo/chat': 'SEO & GEO',
+  '/seo/pending': 'Pending review',
+  '/seo/history': 'History',
+  '/seo/scheduled': 'Scheduled reports',
 };
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export default function SeoLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -42,7 +42,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     staleTime: 60_000,
   });
 
-  // Check if brand profile exists
   useEffect(() => {
     if (checkedProfile) return;
     let cancelled = false;
@@ -62,28 +61,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [checkedProfile]);
 
   const pageTitle = PAGE_TITLES[pathname] ?? 'Dashboard';
-  const isChat = pathname === '/dashboard/chat';
+  const isChat = pathname === '/seo/chat';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-full overflow-hidden">
       <SeoSidebar pendingCount={queue.data?.length} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Shared topbar — hidden on chat page (has its own header) */}
         {!isChat && (
-          <header className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3 sm:px-6 md:px-8">
-            <h1 className="text-sm font-semibold text-foreground sm:text-base">{pageTitle}</h1>
+          <header
+            className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 sm:px-6"
+            style={{ height: "48px", minHeight: "48px" }}
+          >
+            <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
             <div className="flex items-center gap-1.5">
-              {process.env.NODE_ENV === 'development' && (
-                <button
-                  onClick={async () => {
-                    await fetch('/api/onboarding/profile', { method: 'DELETE' });
-                    window.location.reload();
-                  }}
-                  className="rounded px-2 py-1 text-[10px] font-medium text-white bg-red-600 hover:bg-red-700"
-                >
-                  Reset profile
-                </button>
-              )}
               {mounted && (
                 <Button
                   variant="ghost"
@@ -105,7 +95,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           </header>
         )}
-        <main className="flex-1 flex flex-col overflow-hidden bg-elevay-mesh">
+        <main className="flex-1 flex flex-col overflow-hidden bg-elevay-page">
           {children}
         </main>
       </div>

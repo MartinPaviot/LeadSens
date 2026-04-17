@@ -8,6 +8,8 @@ import type {
 import { PlatformPreviewCard } from "./PlatformPreviewCard"
 import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
 import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
+import { Spinner } from "@/components/shared/Spinner"
+import { PageHeader } from "@/components/shared/PageHeader"
 import { toast } from "sonner"
 
 type StudioState = "idle" | "loading" | "done" | "error"
@@ -119,21 +121,17 @@ export function ContentStudio() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div
-        className="border-b px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0"
-        style={{ height: "48px", minHeight: "48px" }}
-      >
-        <h1 className="text-lg font-semibold">Content Writer</h1>
-        {output && (
+      <PageHeader
+        title="Content Writer"
+        actions={output ? (
           <button
             onClick={handleExportCSV}
             className="text-xs px-3 py-1.5 rounded-full border hover:bg-muted transition-colors font-medium"
           >
             Export CSV
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {noConfig && (
         <div className="px-4 pt-4 sm:px-6">
@@ -173,7 +171,7 @@ export function ContentStudio() {
         {/* Loading */}
         {state === "loading" && (
           <div className="max-w-3xl mx-auto text-center py-8">
-            <div className="inline-block h-6 w-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            <Spinner />
             <p className="mt-2 text-sm text-muted-foreground">
               Generating variations for your platforms...
             </p>

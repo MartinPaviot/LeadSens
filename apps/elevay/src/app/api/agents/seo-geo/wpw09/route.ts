@@ -2,9 +2,9 @@ import { SSEEncoder, SSE_HEADERS, generateStreamId } from '@/lib/sse';
 import { wpw09RouteSchema } from '@/lib/schemas/seo-routes';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveSeoContext } from '@/lib/seo-route-helpers';
-import type { AgentContext } from '../../../../../../core/types';
-import { activate } from '../../../../../../agents/seo-geo/wpw09';
-import type { Wpw09Inputs, Wpw09PageOutput } from '../../../../../../agents/seo-geo/wpw09/types';
+import type { AgentContext } from '@core/types';
+import { activate } from '@agents/seo-geo/wpw09';
+import type { Wpw09Inputs, Wpw09PageOutput } from '@agents/seo-geo/wpw09/types';
 
 export const dynamic = 'force-dynamic'
 

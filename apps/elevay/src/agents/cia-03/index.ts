@@ -4,12 +4,14 @@ import { fetchProductMessaging } from './modules/product-messaging'
 import { fetchSeoAcquisition } from './modules/seo-acquisition'
 import { fetchSocialMedia } from './modules/social-media'
 import { fetchContentAnalysis } from './modules/content'
+import { fetchCompetitorReviews } from './modules/competitor-reviews'
 import { fetchBenchmark } from './modules/benchmark'
 import { buildRecommendations } from './modules/recommendations'
 import { getSystemPrompt, buildConsolidatedPrompt } from './prompt'
 import type {
   CiaOutput,
   CiaSessionContext,
+  BpiCrossData,
   StrategicZone,
   Threat,
   Opportunity,
@@ -35,14 +37,16 @@ export async function runCia03(
   profile: AgentProfile,
   context: CiaSessionContext,
   brandSocialScore?: number,
+  brandReviews?: BpiCrossData,
 ): Promise<AgentOutput<CiaOutput>> {
-  // Phase 1 — 4 modules in parallel
-  const [messagingResult, seoResult, socialResult, contentResult] =
+  // Phase 1 — 5 modules in parallel
+  const [messagingResult, seoResult, socialResult, contentResult, reviewsResult] =
     await Promise.allSettled([
       fetchProductMessaging(profile),
       fetchSeoAcquisition(profile),
       fetchSocialMedia(profile),
       fetchContentAnalysis(profile),
+      fetchCompetitorReviews(profile),
     ])
 
   const messaging =
@@ -53,6 +57,8 @@ export async function runCia03(
     socialResult.status === 'fulfilled' ? socialResult.value.data : null
   const content =
     contentResult.status === 'fulfilled' ? contentResult.value.data : null
+  const competitorReviews =
+    reviewsResult.status === 'fulfilled' ? reviewsResult.value.data : null
 
   const degradedSources: string[] = []
   if (messagingResult.status === 'fulfilled' && !messagingResult.value.success)
@@ -67,6 +73,9 @@ export async function runCia03(
   if (contentResult.status === 'fulfilled' && !contentResult.value.success)
     degradedSources.push('content')
   if (contentResult.status === 'rejected') degradedSources.push('content')
+  if (reviewsResult.status === 'fulfilled' && !reviewsResult.value.success)
+    degradedSources.push('competitor-reviews')
+  if (reviewsResult.status === 'rejected') degradedSources.push('competitor-reviews')
 
   // Phase 2 — Benchmark (pure calculation)
   const { scores, strategic_zones } = fetchBenchmark({
@@ -144,6 +153,8 @@ export async function runCia03(
     social_matrix: social ?? [],
     content_gap_map: content?.content_gap_map ?? [],
     content_competitors: content?.competitors_content ?? [],
+    competitor_reviews: competitorReviews?.reviews ?? [],
+    brand_reviews: brandReviews,
     threats: finalThreats,
     opportunities: finalOpportunities,
     action_plan_60d,

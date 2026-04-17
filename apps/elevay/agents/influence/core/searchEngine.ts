@@ -32,8 +32,9 @@ export async function searchInfluencers(
     if (!res.ok) throw new Error(`Search API error: ${res.status}`);
     const data = await res.json() as { results: InfluencerProfile[] };
     return data.results;
-  } catch {
+  } catch (err) {
     // Client-side fallback to mock data
+    console.warn('[influence/search] API failed, falling back to mock data:', err instanceof Error ? err.message : err);
     return filterMockData(brief);
   }
 }

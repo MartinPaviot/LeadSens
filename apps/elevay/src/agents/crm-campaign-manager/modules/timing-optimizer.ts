@@ -88,12 +88,21 @@ function getNextOccurrence(dayName: string): string {
 
 /**
  * Check if a proposed timing conflicts with existing campaigns.
+ * Conflict = another campaign within 2 hours of the proposed time.
  */
 export function checkCalendarConflict(
   proposedDate: string,
   proposedTime: string,
-  _existingCampaigns: Array<{ scheduledAt: string }>,
+  existingCampaigns: Array<{ scheduledAt: string }>,
 ): boolean {
-  // TODO: Implement actual conflict detection
-  return false
+  const proposedMs = new Date(`${proposedDate}T${proposedTime}`).getTime()
+  if (isNaN(proposedMs)) return false
+
+  const CONFLICT_WINDOW_MS = 2 * 60 * 60 * 1000 // 2 hours
+
+  return existingCampaigns.some((c) => {
+    const existingMs = new Date(c.scheduledAt).getTime()
+    if (isNaN(existingMs)) return false
+    return Math.abs(proposedMs - existingMs) < CONFLICT_WINDOW_MS
+  })
 }

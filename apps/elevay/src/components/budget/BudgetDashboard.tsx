@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import type {
   BudgetDashboardData,
   HealthScore,
@@ -10,6 +11,10 @@ import type {
 import { ALERT_LEVELS } from "@/agents/budget-controller/core/constants"
 import { NoConfigBanner } from "@/components/ui-brand-intel/no-config-banner"
 import { checkNoConfig, type NoConfigInfo } from "@/lib/no-config-check"
+import { Link as LinkIcon } from "@phosphor-icons/react"
+import { Spinner } from "@/components/shared/Spinner"
+import { EmptyState } from "@/components/shared/EmptyState"
+import { PageHeader } from "@/components/shared/PageHeader"
 import { toast } from "sonner"
 
 type DashboardState = "idle" | "loading" | "ready" | "error"
@@ -47,8 +52,8 @@ function ChannelCard({ metrics }: { metrics: ChannelMetrics }) {
   const statusColors: Record<string, string> = {
     critical: "bg-red-500",
     attention: "bg-orange-400",
-    ok: "bg-teal-500",
-    optimal: "bg-blue-500",
+    ok: "bg-[#17c3b2]",
+    optimal: "bg-[#2c6bed]",
   }
 
   return (
@@ -63,7 +68,7 @@ function ChannelCard({ metrics }: { metrics: ChannelMetrics }) {
           <span>{spendPercent.toFixed(0)}%</span>
         </div>
         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className={`h-full rounded-full ${spendPercent > 100 ? "bg-red-500" : "bg-teal-500"}`} style={{ width: `${Math.min(spendPercent, 100)}%` }} />
+          <div className={`h-full rounded-full ${spendPercent > 100 ? "bg-red-500" : "bg-[#17c3b2]"}`} style={{ width: `${Math.min(spendPercent, 100)}%` }} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -88,7 +93,12 @@ function AlertBanner({ alerts }: { alerts: Alert[] }) {
   )
 }
 
+function isAllZeros(dashboard: BudgetDashboardData): boolean {
+  return dashboard.channelMetrics.every((m) => m.spend === 0 && m.conversions === 0 && m.leads === 0)
+}
+
 export function BudgetDashboard() {
+  const router = useRouter()
   const [state, setState] = useState<DashboardState>("idle")
   const [data, setData] = useState<BudgetDashboardData | null>(null)
   const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
@@ -142,12 +152,14 @@ export function BudgetDashboard() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b px-4 sm:px-6 flex items-center justify-between gap-3 shrink-0" style={{ height: "48px", minHeight: "48px" }}>
-        <h1 className="text-lg font-semibold">Budget Controller</h1>
-        <button onClick={() => void handleRefresh()} disabled={state === "loading"} className="text-xs px-3 py-1.5 rounded-full text-white font-semibold disabled:opacity-50" style={{ background: "var(--elevay-gradient-btn, linear-gradient(90deg, #17c3b2, #FF7A3D))" }}>
-          {state === "loading" ? "Syncing..." : "Refresh Data"}
-        </button>
-      </div>
+      <PageHeader
+        title="Budget Controller"
+        actions={
+          <button onClick={() => void handleRefresh()} disabled={state === "loading"} className="text-xs px-3 py-1.5 rounded-full text-white font-semibold disabled:opacity-50" style={{ background: "var(--elevay-gradient-btn, linear-gradient(90deg, #17c3b2, #FF7A3D))" }}>
+            {state === "loading" ? "Syncing..." : "Refresh Data"}
+          </button>
+        }
+      />
 
       {noConfig && (
         <div className="px-4 pt-4 sm:px-6">
@@ -157,17 +169,36 @@ export function BudgetDashboard() {
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
         {state === "idle" && (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">💰</div>
-            <h2 className="text-lg font-semibold mb-1">Financial Command Center</h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">Monitor your marketing budget health, detect anomalies, simulate reallocations, and get AI-powered recommendations.</p>
-          </div>
+          <EmptyState
+            icon={<LinkIcon size={28} weight="light" style={{ color: "#17c3b2" }} />}
+            title="Connect your ad platforms"
+            description="Connect Google Ads, Meta, or GA4 in Settings to see your real budget data here."
+            action={
+              <button
+                onClick={() => router.push("/settings?tab=integrations")}
+                className="text-xs px-4 py-2 rounded-full text-white font-semibold"
+                style={{ background: "var(--elevay-gradient-btn, linear-gradient(90deg, #17c3b2, #FF7A3D))" }}
+              >
+                Go to Integrations
+              </button>
+            }
+          />
         )}
 
         {state === "loading" && (
           <div className="text-center py-8">
-            <div className="inline-block h-6 w-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+            <Spinner />
             <p className="mt-2 text-sm text-muted-foreground">Syncing data and calculating health score...</p>
+          </div>
+        )}
+
+        {data && isAllZeros(data) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 flex items-center gap-2">
+            <LinkIcon size={14} className="shrink-0" />
+            <span><strong>No data received</strong> — Connect your ad platforms in Settings to see real metrics.</span>
+            <button onClick={() => router.push("/settings?tab=integrations")} className="ml-auto underline font-medium whitespace-nowrap">
+              Go to Integrations
+            </button>
           </div>
         )}
 

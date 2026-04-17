@@ -12,6 +12,7 @@ import { AgentsAutomationTab } from '@/components/settings/agents-automation-tab
 import { TeamTab } from '@/components/settings/team-tab'
 import { BillingUsageTab } from '@/components/settings/billing-usage-tab'
 import { SettingsProvider } from '@/components/settings/settings-context'
+import { PageHeader } from '@/components/shared/PageHeader'
 
 const TABS = [
   { id: 'company', label: 'Company' },
@@ -86,25 +87,9 @@ export default function SettingsPage() {
   return (
     <SettingsProvider>
     <div
-      className="flex flex-col h-full"
-      style={{
-        background:
-          "radial-gradient(ellipse at top left, rgba(23,195,178,0.06) 0%, transparent 50%), radial-gradient(ellipse at bottom right, rgba(44,107,237,0.05) 0%, transparent 50%), radial-gradient(ellipse at top right, rgba(255,122,61,0.04) 0%, transparent 40%), #FFF7ED",
-      }}
+      className="flex flex-col h-full bg-elevay-page"
     >
-      {/* Header */}
-      <div className="border-b px-4 sm:px-6 flex items-center gap-3 shrink-0" style={{ height: '48px', minHeight: '48px' }}>
-        <button
-          onClick={() => router.back()}
-          className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-          aria-label="Go back"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256">
-            <path fill="currentColor" d="M224 128a8 8 0 0 1-8 8H59.31l58.35 58.34a8 8 0 0 1-11.32 11.32l-72-72a8 8 0 0 1 0-11.32l72-72a8 8 0 0 1 11.32 11.32L59.31 120H216a8 8 0 0 1 8 8Z"/>
-          </svg>
-        </button>
-        <h1 className="text-lg font-semibold">Settings</h1>
-      </div>
+      <PageHeader title="Settings" showBack />
 
       {/* Tabs */}
       <div className="border-b px-4 sm:px-6 overflow-x-auto shrink-0">

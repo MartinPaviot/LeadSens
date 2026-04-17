@@ -15,7 +15,8 @@ import { CompetitiveTab } from './tabs/CompetitiveTab'
 import { TabNav } from './TabNav'
 import { BrandProfileForm, type BrandProfileFormData, type SocialConnectionStatus } from './BrandProfileForm'
 import { ThemeToggle } from '@/components/chat/theme-toggle'
-import { GearSix } from '@phosphor-icons/react'
+import { GearSix, Eye } from '@phosphor-icons/react'
+import { Spinner } from '@/components/shared/Spinner'
 import { Button } from '@/components/ui-brand-intel/button'
 import { NoConfigBanner } from '@/components/ui-brand-intel/no-config-banner'
 import { checkNoConfig, type NoConfigInfo } from '@/lib/no-config-check'
@@ -63,6 +64,7 @@ export function BrandIntelDashboard() {
   })
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [loaded, setLoaded] = useState(false)
+  const [isPreview, setIsPreview] = useState(false)
   const [noConfig, setNoConfig] = useState<NoConfigInfo | null>(null)
 
   // Load dashboard data on mount
@@ -98,6 +100,7 @@ export function BrandIntelDashboard() {
             cia: mockDashboardData.cia,
           })
           setProfile(mockDashboardData.profile)
+          setIsPreview(true)
         }
       } catch {
         // Fallback to mock data
@@ -107,6 +110,7 @@ export function BrandIntelDashboard() {
           cia: mockDashboardData.cia,
         })
         setProfile(mockDashboardData.profile)
+        setIsPreview(true)
       } finally {
         setLoaded(true)
       }
@@ -168,6 +172,7 @@ export function BrandIntelDashboard() {
       }
       return { ...prev, [key]: wrapped }
     })
+    setIsPreview(false)
   }, [profile])
 
   // C11: SSE client with correct buffering
@@ -278,7 +283,7 @@ export function BrandIntelDashboard() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto" />
+          <Spinner size="lg" />
           <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -357,6 +362,21 @@ export function BrandIntelDashboard() {
       {noConfig && (
         <div className="px-4 pt-4 sm:px-6">
           <NoConfigBanner missing={noConfig.missing} tab={noConfig.tab} agentName="Brand Intelligence" />
+        </div>
+      )}
+
+      {/* Preview mode banner */}
+      {isPreview && (
+        <div className="mx-4 mt-3 sm:mx-6 px-4 py-2.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs flex items-center gap-2">
+          <Eye size={14} className="shrink-0" />
+          <span><strong>Preview mode</strong> — This is sample data. Run your first audit to see real results.</span>
+          <button
+            onClick={() => void launchAll()}
+            disabled={isAnyRunning}
+            className="ml-auto underline font-medium whitespace-nowrap"
+          >
+            Run audit
+          </button>
         </div>
       )}
 

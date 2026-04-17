@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui-brand-intel/button'
 import { Card, CardContent } from '@/components/ui-brand-intel/card'
 import { toast } from 'sonner'
@@ -9,7 +10,8 @@ interface ProviderConfig {
   key: string
   label: string
   description: string
-  category: 'Social' | 'CMS' | 'Analytics' | 'Ads' | 'CRM & Support' | 'Email / SMS' | 'SEO Intelligence' | 'Productivity'
+  category: 'Social' | 'CMS' | 'Analytics' | 'Ads' | 'CRM & Support' | 'Email / SMS' | 'SEO Intelligence' | 'Productivity' | 'Influencer Tools'
+  supportsApiKey?: boolean
 }
 
 const PROVIDERS: ProviderConfig[] = [
@@ -54,15 +56,22 @@ const PROVIDERS: ProviderConfig[] = [
   { key: 'brevo', label: 'Brevo', description: 'Email + SMS campaigns', category: 'Email / SMS' },
 
   // SEO Intelligence
-  { key: 'ahrefs', label: 'Ahrefs', description: 'Competitive SEO analysis', category: 'SEO Intelligence' },
-  { key: 'semrush', label: 'SEMrush', description: 'Keyword intelligence', category: 'SEO Intelligence' },
+  { key: 'ahrefs', label: 'Ahrefs', description: 'Competitive SEO analysis', category: 'SEO Intelligence', supportsApiKey: true },
+  { key: 'semrush', label: 'SEMrush', description: 'Keyword intelligence', category: 'SEO Intelligence', supportsApiKey: true },
+
+  // Influencer Tools
+  { key: 'upfluence', label: 'Upfluence', description: 'Full influencer database + CRM', category: 'Influencer Tools', supportsApiKey: true },
+  { key: 'klear', label: 'Klear', description: 'Analytics & audience insights', category: 'Influencer Tools', supportsApiKey: true },
+  { key: 'modash', label: 'Modash', description: 'Discovery + filtering', category: 'Influencer Tools', supportsApiKey: true },
+  { key: 'hypeauditor', label: 'HypeAuditor', description: 'Fraud detection + analytics', category: 'Influencer Tools', supportsApiKey: true },
+  { key: 'kolsquare', label: 'Kolsquare', description: 'European influencer platform', category: 'Influencer Tools', supportsApiKey: true },
 
   // Productivity
   { key: 'slack', label: 'Slack', description: 'Notifications & escalation', category: 'Productivity' },
 ]
 
 const CATEGORIES: Array<ProviderConfig['category']> = [
-  'Social', 'CMS', 'Analytics', 'Ads', 'CRM & Support', 'Email / SMS', 'SEO Intelligence', 'Productivity',
+  'Social', 'CMS', 'Analytics', 'Ads', 'CRM & Support', 'Email / SMS', 'SEO Intelligence', 'Influencer Tools', 'Productivity',
 ]
 
 async function handleConnect(platform: string) {
@@ -79,8 +88,76 @@ async function handleConnect(platform: string) {
   }
 }
 
+function ApiKeyInput({ providerKey, hasKey, onSaved }: { providerKey: string; hasKey: boolean; onSaved: () => void }) {
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = useCallback(async () => {
+    if (!value.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/settings/integration-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: providerKey, apiKey: value.trim() }),
+      })
+      if (!res.ok) throw new Error('Save failed')
+      toast.success('API key saved')
+      setValue('')
+      onSaved()
+    } catch {
+      toast.error('Failed to save API key')
+    } finally {
+      setSaving(false)
+    }
+  }, [providerKey, value, onSaved])
+
+  const handleRemove = useCallback(async () => {
+    setSaving(true)
+    try {
+      await fetch('/api/settings/integration-key', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: providerKey }),
+      })
+      toast.success('API key removed')
+      onSaved()
+    } catch {
+      toast.error('Failed to remove API key')
+    } finally {
+      setSaving(false)
+    }
+  }, [providerKey, onSaved])
+
+  if (hasKey) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">••••••••</span>
+        <Button variant="outline" size="sm" className="text-xs text-destructive" onClick={() => void handleRemove()} disabled={saving}>
+          Remove
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="password"
+        placeholder="Paste API key"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="h-8 rounded-md border border-input bg-background px-2 text-xs w-40 focus:outline-none focus:ring-1 focus:ring-[#17c3b2]"
+      />
+      <Button size="sm" className="text-xs" onClick={() => void handleSave()} disabled={saving || !value.trim()}>
+        {saving ? '...' : 'Save'}
+      </Button>
+    </div>
+  )
+}
+
 export function IntegrationsTab() {
-  const { data, loading } = useSettingsContext()
+  const { data, loading, reload } = useSettingsContext()
 
   if (loading) return <div className="text-sm text-muted-foreground py-8 text-center">Loading...</div>
 
@@ -91,6 +168,10 @@ export function IntegrationsTab() {
   const isConnected = (key: string): boolean => {
     if (sc[key] === true) return true
     return integrations.some((i) => i.type.toLowerCase() === key && i.status === 'ACTIVE')
+  }
+
+  const hasApiKey = (key: string): boolean => {
+    return integrations.some((i) => i.type.toLowerCase() === key && i.status === 'ACTIVE' && i.apiKey)
   }
 
   return (
@@ -123,7 +204,9 @@ export function IntegrationsTab() {
                           {connected ? 'Connected' : provider.description}
                         </p>
                       </div>
-                      {connected ? (
+                      {provider.supportsApiKey ? (
+                        <ApiKeyInput providerKey={provider.key} hasKey={hasApiKey(provider.key)} onSaved={() => void reload()} />
+                      ) : connected ? (
                         <Button variant="outline" size="sm" className="text-xs text-destructive">Disconnect</Button>
                       ) : (
                         <Button size="sm" className="text-xs" onClick={() => void handleConnect(provider.key)}>Connect</Button>
